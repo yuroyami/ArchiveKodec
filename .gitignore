@@ -1,0 +1,13 @@
+.gradle/
+build/
+*.iml
+.idea/
+local.properties
+.kotlin/
+.DS_Store
+kotlin-js-store/
+
+# Reference source trees are for porting/study only — never distributed.
+# (Permissive licenses, but they bloat the repo and the published artifact must
+# stay clean-room. See reference/REFERENCES.md for what each maps to.)
+reference/

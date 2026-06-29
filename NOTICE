@@ -1,0 +1,16 @@
+KiteArchive
+Copyright 2026 yuroyami
+
+This product is a from-scratch, clean-room Kotlin Multiplatform reimplementation of
+established compression formats. The DEFLATE inflate path derives from Mark Adler's
+public-domain `puff` reference (via the KiteTorrent / libtorrent lineage); the DEFLATE
+encoder derives from the KitePDF FlateDecode encoder.
+
+Format references consulted for porting (study only, not redistributed; see
+reference/REFERENCES.md) are each under permissive licenses: zlib (zlib), XZ for Java
+(0BSD / public domain), Apache Commons Compress (Apache-2.0), lz4 (BSD-2), zstd
+(BSD-3), brotli (MIT), snappy (BSD-3).
+
+RAR / ACE / StuffIt are deliberately excluded: the UnRAR license forbids using its
+source to build a RAR-compatible compressor, and no clean open reference exists for
+ACE/StuffIt. KiteArchive will never create RAR archives.
