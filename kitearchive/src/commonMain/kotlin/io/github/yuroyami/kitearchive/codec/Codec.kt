@@ -3,11 +3,10 @@ package io.github.yuroyami.kitearchive.codec
 import io.github.yuroyami.kitearchive.security.ArchiveLimits
 
 /**
- * A single compression codec: a reversible byte transform. v0 is buffered
- * (whole-array in / whole-array out); the streaming `Source`/`Sink` form is the
- * planned API for large payloads (see PORTING_STATUS.md). [decompress] takes an
- * [ArchiveLimits] so the decompression-bomb guard is part of the contract, not an
- * afterthought.
+ * A single compression codec: a reversible byte transform. Every codec is buffered,
+ * so it takes a whole array and returns a whole array. [decompress] takes an
+ * [ArchiveLimits], so the decompression-bomb guard is part of the contract rather
+ * than an option a caller can forget.
  */
 interface Codec {
     /** Which codec this is. */

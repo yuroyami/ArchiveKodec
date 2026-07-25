@@ -1,7 +1,7 @@
 package io.github.yuroyami.kitearchive.checksum
 
 /**
- * CRC-32 (IEEE 802.3 / zlib / gzip / PNG) — reflected polynomial `0xEDB88320`,
+ * CRC-32 (IEEE 802.3 / zlib / gzip / PNG): reflected polynomial `0xEDB88320`,
  * init `0xFFFFFFFF`, final XOR `0xFFFFFFFF`. Matches `zlib`'s `crc32()`.
  *
  * Check value: `CRC32("123456789") == 0xCBF43926`.

@@ -56,7 +56,7 @@ object Gzip {
         val headerLen = headerLength(input)
         if (headerLen < 0) throw InflateException(InflateError.INVALID_GZIP_HEADER)
 
-        // The gzip CRC32+ISIZE trailer and zlib Adler-32 trailer are ignored — puff
+        // The gzip CRC32+ISIZE trailer and zlib Adler-32 trailer are ignored. Puff
         // stops at the final DEFLATE block and never reads them.
         val payload = input.copyOfRange(headerLen, input.size)
         val out = Inflate.inflate(payload)

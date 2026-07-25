@@ -80,3 +80,4 @@ extra:
 
 nav:
   - Home: index.md
+  - API reference: https://yuroyami.github.io/KiteArchive/api/

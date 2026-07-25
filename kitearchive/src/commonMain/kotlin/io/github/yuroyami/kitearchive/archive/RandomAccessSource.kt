@@ -1,8 +1,8 @@
 package io.github.yuroyami.kitearchive.archive
 
 /**
- * A seekable, random-access byte source — the read contract every container reader
- * works against. ZIP "browse without extract" (read the central directory at the
+ * A seekable, random-access byte source. Every container reader works against this
+ * read contract. ZIP "browse without extract" (read the central directory at the
  * tail) and single-entry extract (seek to one local header) both need offset reads
  * rather than a forward-only stream.
  *

@@ -1,9 +1,9 @@
 package io.github.yuroyami.kitearchive.checksum
 
 /**
- * CRC-32C (Castagnoli) — reflected polynomial `0x82F63B78`, init `0xFFFFFFFF`,
+ * CRC-32C (Castagnoli): reflected polynomial `0x82F63B78`, init `0xFFFFFFFF`,
  * final XOR `0xFFFFFFFF`. Used by btrfs/ext4/iSCSI/SCTP and as an optional 7z
- * check (NOT by ZIP — ZIP uses [Crc32]).
+ * check (NOT by ZIP, which uses [Crc32]).
  *
  * Check value: `CRC32C("123456789") == 0xE3069283`.
  */

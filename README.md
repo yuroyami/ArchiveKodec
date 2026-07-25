@@ -1,29 +1,39 @@
 # KiteArchive
 
-Compression and archive formats implemented in pure Kotlin, for Kotlin
-Multiplatform projects that need to gunzip a buffer or read a ZIP on iOS and in
-the browser as well as on the JVM.
+Compression and archive formats in pure Kotlin, for Kotlin Multiplatform. Gunzip
+a buffer or read a ZIP on iOS and in the browser, as well as on the JVM, from one
+shared codebase.
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.yuroyami/kitearchive)](https://central.sonatype.com/artifact/io.github.yuroyami/kitearchive)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Targets](https://img.shields.io/badge/targets-Android%20%7C%20iOS%20%7C%20JVM%20%7C%20JS-blue)](#targets)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
+**[Documentation](https://yuroyami.github.io/KiteArchive/)** · an overview with
+examples, plus the generated API reference.
+
 ## What you get
 
-`java.util.zip` exists on the JVM and Android and nowhere else, so a Kotlin
-Multiplatform project that touches archives usually ends up with a zlib cinterop
-on iOS and a JavaScript shim on web — a native build, a native ABI, and a
-different code path per target. KiteArchive implements the formats in
-`commonMain` instead. No JNI, no cinterop, no native binary; the core artifact's
-only dependency is `kotlin-stdlib`.
+`java.util.zip` exists on the JVM and Android and nowhere else. A Kotlin
+Multiplatform project that reads or writes archives usually adds a cinterop
+binding on iOS and a JavaScript shim on web. That means a native build, a native
+ABI, and a different code path per target. KiteArchive implements the formats in
+`commonMain` instead. There is no JNI, no cinterop and no native binary. The core
+artifact depends on `kotlin-stdlib` and nothing else.
 
-What is implemented today: DEFLATE both directions, gzip and zlib framing, ZIP
-read and write including ZIP64, LZ4, a Snappy decoder, readers for TAR, ar and
-cpio, five checksums and a magic sniffer. Everything is whole-array — you hand it
-a `ByteArray` and get a `ByteArray` back, with the whole payload in memory. There
-is no streaming API, and the readers do not sanitize entry names — you call
-`PathGuard` yourself before you touch a path.
+This is what works today:
+
+| Area | What is implemented |
+| --- | --- |
+| Codecs | DEFLATE both directions, gzip and zlib framing, LZ4 both directions, a Snappy decoder |
+| Archives | ZIP read and write including ZIP64, plus readers for TAR, ar and cpio |
+| Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
+| Detection | A sniffer that names a format from its first bytes |
+
+Two things apply to every entry point. First, everything is whole-array. You
+pass a `ByteArray` and get a `ByteArray` back, so the whole payload stays in
+memory, and there is no streaming API. Second, the readers do not sanitize entry
+names. You must call `PathGuard` yourself before you use a name as a path.
 
 ```kotlin
 import io.github.yuroyami.kitearchive.KiteArchive
@@ -41,7 +51,7 @@ val zipBytes = ZipWriter.write(
 
 val reader = KiteArchive.open(ByteArrayRandomAccessSource(zipBytes))
 for (entry in reader.entries()) {
-    // Entry names come back exactly as stored. Sanitize before touching a path.
+    // The reader returns names unchanged. Sanitize one before you use it as a path.
     val safeName = PathGuard.sanitize(entry.name)
     val content = reader.read(entry)
     println("$safeName (${content.size} B)")
@@ -60,15 +70,15 @@ kotlin {
 }
 ```
 
-There is a second artifact, `kitearchive-io`. It is four small adapters and it
-does not build for JS, so read [The `-io` artifact](#the--io-artifact) before you
+There is a second artifact, `kitearchive-io`. It holds four small adapters and it
+does not build for JS. Read [The `-io` artifact](#the--io-artifact) before you
 add it.
 
 ## Compress and decompress
 
 ```kotlin
 KiteArchive.gzip.compress(bytes)      // gzip member
-KiteArchive.zlib.compress(bytes)      // zlib stream — PNG IDAT, PDF FlateDecode
+KiteArchive.zlib.compress(bytes)      // zlib stream: PNG IDAT, PDF FlateDecode
 KiteArchive.deflate.compress(bytes)   // bare RFC 1951
 KiteArchive.store.compress(bytes)     // identity
 
@@ -79,23 +89,24 @@ val out = lz4!!.decompress(frameBytes)
 | Codec | Decode | Encode |
 | --- | --- | --- |
 | store | yes | yes |
-| DEFLATE (RFC 1951) | yes | yes — fixed and dynamic Huffman, whichever is smaller |
+| DEFLATE (RFC 1951) | yes | yes (fixed and dynamic Huffman, whichever is smaller) |
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | first member only | yes |
 | LZ4 (frame and block) | yes | yes |
 | Snappy (raw block) | yes | valid output, but it does not compress |
 
-`gzip`, `zlib`, `deflate` and `store` have named accessors on `KiteArchive`; LZ4
-and Snappy are reached through `KiteArchive.codec(id)`.
+`gzip`, `zlib`, `deflate` and `store` have named accessors on `KiteArchive`. You
+reach LZ4 and Snappy through `KiteArchive.codec(id)`.
 
 `CodecId` also carries entries for bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd.
 None of those have an implementation. `KiteArchive.codec(...)` returns `null` for
-them, and a ZIP entry that uses one lists fine but throws on read.
+them. A ZIP entry that uses one of them appears in the entry list, but reading it
+throws.
 
 Every `Codec.decompress` takes an `ArchiveLimits`, defaulting to
-`ArchiveLimits.DEFAULT`. Read [Limits](#limits) for what it actually enforces — it
-is less than the field list implies. The lower-level `Gzip.decompress` and
-`Zlib.decompress` do not take an `ArchiveLimits` at all; they take a `Long` cap.
+`ArchiveLimits.DEFAULT`. Read [Limits](#limits) to see what it enforces. It
+enforces less than the field list suggests. The lower-level `Gzip.decompress` and
+`Zlib.decompress` do not take an `ArchiveLimits`. They take a `Long` cap instead.
 
 ## Read an archive
 
@@ -106,20 +117,20 @@ reader.read(entry)        // decode one entry
 ```
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
-`CpioReader`; anything else throws `UnsupportedOperationException`. `entries()`
-does not touch payload bytes, so listing a large ZIP is cheap, and `read` seeks
-to one local header for a single-entry extract.
+`CpioReader`. Anything else throws `UnsupportedOperationException`. `entries()`
+does not touch payload bytes, so listing a large ZIP is fast. `read` seeks to one
+local header for a single-entry extract.
 
 | Format | Read | Write |
 | --- | --- | --- |
-| ZIP and ZIP64 | yes — STORE and DEFLATE | yes — STORE and DEFLATE |
+| ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU) | yes | no |
 | ar (GNU) | yes | no |
 | cpio (newc, odc) | yes | no |
 
-`RandomAccessSource` is the seek-and-read contract the readers work against.
-`ByteArrayRandomAccessSource` is the only implementation in the library, so the
-whole archive has to be in memory before you can open it.
+The readers read through the `RandomAccessSource` interface, which supports seek
+and read. `ByteArrayRandomAccessSource` is the only implementation in the
+library. The whole archive must therefore be in memory before you can open it.
 
 ## Write a ZIP
 
@@ -132,19 +143,22 @@ val bytes = ZipWriter.write(
 )
 ```
 
-`ZipWriter` is the only writer in the library and it is not reachable from the
-`KiteArchive` object — import it directly. It emits ZIP64 records only when they
-are needed, meaning more than 65,535 entries or a size or offset past 4 GiB, so
-ordinary archives stay classic.
+`ZipWriter` is the only writer in the library. It is not reachable from the
+`KiteArchive` object, so import it directly. It emits ZIP64 records only when
+they are needed, meaning more than 65,535 entries or a size or offset past 4 GiB.
+Ordinary archives therefore stay in the classic ZIP layout.
 
 ## Sanitize entry names before writing them
 
 `ZipReader`, `TarReader`, `ArReader` and `CpioReader` return `ArchiveEntry.name`
-exactly as it was stored, and none of them validates it. A name of
-`../../etc/passwd` or `/etc/passwd` comes back verbatim. Joining that to an
-output directory is the Zip-Slip vulnerability, and the library will not stop you.
+exactly as the archive stored it, and none of them validates it. A name of
+`../../etc/passwd` or `/etc/passwd` arrives unchanged.
 
-`PathGuard` is the check, and it only runs if you call it:
+Joining such a name to an output directory is the Zip-Slip vulnerability.
+Zip-Slip means an archive entry escapes the folder you meant to extract into, and
+overwrites a file somewhere else on disk. The library will not stop you.
+
+`PathGuard` is the check, and it only runs when you call it:
 
 ```kotlin
 val safe = PathGuard.sanitize(entry.name)     // throws ArchivePathException
@@ -152,10 +166,10 @@ if (PathGuard.isSafe(entry.name)) { /* ... */ }
 ```
 
 `sanitize` rejects empty names, control characters and NUL, absolute paths,
-Windows drive-letter paths and any `..` segment; it normalises backslashes to
-forward slashes and collapses `.` segments, returning a relative path. It has no
-symlink logic. Nothing in the library writes to disk, so link-escape on extract
-is entirely yours to handle.
+Windows drive-letter paths and any `..` segment. It normalizes backslashes to
+forward slashes, collapses `.` segments, and returns a relative path. It has no
+symlink logic. Nothing in the library writes to disk, so you must check symlinks
+yourself when you extract. A symlink entry can point outside your output folder.
 
 ## Checksums
 
@@ -178,10 +192,12 @@ KiteArchive.sniff(header)     // ArchiveFormat.ZIP, TAR, GZIP, ...
 KiteArchive.sniff(source)     // reads the first 512 bytes of a RandomAccessSource
 ```
 
-Recognises ZIP, TAR (ustar magic at offset 257), ar, cpio, gzip, zlib, bzip2, xz,
-zstd, LZ4, 7z and RAR. Snappy and brotli have no magic bytes and are never
-detected. Sniffing is not decoding — xz, zstd, bzip2, 7z and RAR are recognised
-here and have no implementation behind them.
+The sniffer recognizes ZIP, TAR (ustar magic at offset 257), ar, cpio, gzip,
+zlib, bzip2, xz, zstd, LZ4, 7z and RAR. Snappy and brotli have no magic bytes, so
+it never detects them.
+
+Sniffing is not decoding. The sniffer names xz, zstd, bzip2, 7z and RAR, and
+KiteArchive cannot decode any of those five formats.
 
 ## Targets
 
@@ -208,13 +224,18 @@ fun Codec.compress(source: RawSource): ByteArray
 fun Codec.decompress(source: RawSource, limits: ArchiveLimits): ByteArray
 ```
 
-There is no `RawSink` bridge, no `FileHandle` and no seeking —
-`toRandomAccessSource()` drains the entire source into a `ByteArray` and wraps
-that. If you already hold a kotlinx-io `RawSource` these save you a
-`readByteArray()` call. If you expected a seekable file handle so a large ZIP
-could be browsed without loading it, that does not exist yet. Writing the four
-adapters yourself is cheaper than taking a second artifact and a kotlinx-io
-dependency for them.
+Four facts about this artifact:
+
+- There is no `RawSink` bridge, no `FileHandle` and no seeking.
+- `toRandomAccessSource()` drains the entire source into a `ByteArray` and wraps
+  that.
+- These functions save you a `readByteArray()` call when you already hold a
+  kotlinx-io `RawSource`. That is all they do.
+- You cannot browse a large ZIP without loading all of it, because there is no
+  seekable file handle.
+
+Writing these four adapters yourself is usually less work than adding a second
+artifact and a kotlinx-io dependency.
 
 ## Limits
 
@@ -222,55 +243,61 @@ dependency for them.
   `ByteArray`, and the only `RandomAccessSource` is backed by a `ByteArray`. A
   2 GB archive needs 2 GB of heap plus room for the output. There is no streaming
   or suspend API.
-- gzip and zlib do not verify their trailers on decode. The CRC-32 and ISIZE, and
-  the Adler-32, are written on compress and ignored on decompress — inflate stops
-  at the final DEFLATE block and never reads them, so a corrupt payload that still
-  inflates comes back silently wrong. ZIP entries are CRC-checked, because the
-  value is in the central directory.
-- The decompression-bomb size check for DEFLATE, gzip and zlib runs after
-  inflation completes, so a bomb is fully in memory by the time the limit throws.
-  LZ4 is the only codec that checks per block.
+- gzip and zlib do not verify their trailers on decode. The library writes the
+  CRC-32 and ISIZE, and the Adler-32, when it compresses, then ignores them when
+  it decompresses. Inflate stops at the final DEFLATE block and never reads them.
+  A corrupt payload that still inflates therefore returns wrong data, with no
+  error. The ZIP reader does check each entry's CRC, because that value sits in
+  the central directory.
+- The decompression-bomb check runs late for DEFLATE, gzip and zlib. A
+  decompression bomb is a small file that expands to a very large one. The size
+  check for those three codecs runs after inflation completes, so the bomb is
+  fully in memory by the time the limit throws. LZ4 is the only codec that checks
+  per block.
 - `Gzip.decompress` and `Zlib.decompress` cap output at 4 MiB when called
   directly, while `ArchiveLimits.DEFAULT` allows 2 GiB. `Gzip.decompress(x)` and
   `KiteArchive.gzip.decompress(x)` therefore behave differently on the same input.
-- `PathGuard` is not wired into any reader. Path safety is the caller's job; see
+- `PathGuard` is not wired into any reader. Path safety is the caller's
+  responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
 - Of `ArchiveLimits`, only `checkOutputSize` and `checkRatio` are ever called.
-  `maxEntries` and `maxNestingDepth` are read by nothing, and `checkRatio` is
-  called only by `ZipReader`.
+  Nothing reads `maxEntries` or `maxNestingDepth`, and only `ZipReader` calls
+  `checkRatio`.
 - `ArchiveEntry.size` is a `Long`, but every reader narrows it to `Int` at the
-  point of reading, so an entry over 2 GiB fails regardless of the ZIP64 support
-  on the directory side.
+  point of reading. An entry over 2 GiB therefore fails, whatever the ZIP64
+  support on the directory side allows.
 - gzip decodes the first member only. A multi-member `.gz` silently loses
   everything after the first member.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files. ar
   does not handle BSD `#1/len` long names. cpio does not handle the old binary
   dialect.
 - The LZ4 frame decoder skips the optional block and content xxHash32 checksums
-  rather than verifying them.
+  instead of verifying them.
 - Snappy's encoder emits literals only, with no back-reference matching. The
-  output is a valid Snappy block and slightly larger than the input.
+  output is a valid Snappy block, and slightly larger than the input.
 - The public API is not frozen. There is no explicit API mode and no committed
-  ABI dump, and `Codec` and `ArchiveReader` will change when a streaming API
-  arrives.
+  ABI dump. `Codec` and `ArchiveReader` will change when a streaming API arrives.
 
 ## Testing
 
-58 tests. `commonTest` runs on every target and covers DEFLATE round-trips,
-dynamic Huffman on skewed alphabets, gzip and zlib decoding of vectors emitted by
-CPython, a ZIP produced by CPython `zipfile`, an LZ4 frame produced by the `lz4`
-CLI, Snappy, ar and cpio hand vectors, magic sniffing, checksum check values and
-`PathGuard`.
+58 tests. `commonTest` runs on every target, and covers:
 
-Two JVM-only suites do the interop that matters. `ZlibInteropTest` feeds our raw
-DEFLATE, zlib and gzip output to `java.util.zip.Inflater` and `GZIPInputStream`,
-which validate the Adler-32 and CRC-32/ISIZE trailers our own decoder skips —
-that is what caught a signed-`Int` Adler-32 overflow. `ZipInteropTest` round-trips
-ZIPs both directions against `java.util.zip`, including a 70,000-entry ZIP64
-archive.
+- DEFLATE round-trips.
+- Dynamic Huffman on skewed alphabets.
+- gzip and zlib decoding of vectors emitted by CPython.
+- A ZIP produced by CPython `zipfile`.
+- An LZ4 frame produced by the `lz4` CLI.
+- Snappy, ar and cpio hand-written test vectors.
+- Magic sniffing, checksum check values and `PathGuard`.
 
-Not covered: xxHash32 has no check-value test; it is exercised only as the LZ4
-frame header byte.
+Two JVM-only suites test interoperability. `ZlibInteropTest` feeds our raw
+DEFLATE, zlib and gzip output to `java.util.zip.Inflater` and `GZIPInputStream`.
+Those two classes validate the Adler-32 and CRC-32/ISIZE trailers that our own
+decoder skips. `ZipInteropTest` round-trips ZIPs in both directions against
+`java.util.zip`, including a 70,000-entry ZIP64 archive.
+
+Not covered: xxHash32 has no check-value test. The suite exercises it only as the
+LZ4 frame header byte.
 
 ## Building
 
@@ -280,22 +307,23 @@ frame header byte.
 ./gradlew build                        # all modules, all targets
 ```
 
-Requires JDK 21 and the Android SDK (`local.properties` → `sdk.dir`).
+You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
+your SDK install.
 
-## Status
+## Format status
 
-[PORTING_STATUS.md](PORTING_STATUS.md) tracks what is implemented per format,
-what is next, and the feasibility or licensing call on the formats that are not.
+[PORTING_STATUS.md](PORTING_STATUS.md) lists the support level for every codec
+and container, and what comes next.
 
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
 
 KiteArchive is an independent, clean-room reimplementation. The inflate path
-derives from Mark Adler's public-domain `puff`. The permissively-licensed
-reference sources consulted during porting are listed in [NOTICE](NOTICE) and are
-not redistributed. RAR, ACE and StuffIt are out of scope for licensing reasons;
-KiteArchive will never create RAR archives.
+derives from Mark Adler's public-domain `puff`. [NOTICE](NOTICE) lists the
+permissively licensed reference sources, and this repository does not
+redistribute them. RAR, ACE and StuffIt are out of scope for licensing reasons,
+and KiteArchive will never create RAR archives.
 
 Part of the Kite family: [KiteCore](https://github.com/yuroyami/KiteCore),
 [KitePDF](https://github.com/yuroyami/KitePDF),

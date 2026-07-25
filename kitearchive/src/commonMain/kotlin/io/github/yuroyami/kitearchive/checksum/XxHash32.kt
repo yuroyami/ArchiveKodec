@@ -1,7 +1,7 @@
 package io.github.yuroyami.kitearchive.checksum
 
 /**
- * xxHash32 (Yann Collet) — the checksum used by the LZ4 frame format for its header
+ * xxHash32 (Yann Collet): the checksum used by the LZ4 frame format for its header
  * (HC byte) and optional block/content checks. Pure-Kotlin, one-shot. 32-bit wrapping
  * arithmetic done in `Int`; the result is exposed unsigned in the low 32 bits of a Long.
  *

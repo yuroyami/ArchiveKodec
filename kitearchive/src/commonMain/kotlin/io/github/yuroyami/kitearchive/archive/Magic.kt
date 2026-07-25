@@ -1,9 +1,9 @@
 package io.github.yuroyami.kitearchive.archive
 
 /**
- * Magic-byte format sniffer — the analogue of KiteQR's `MultiFormatReader` dispatch.
- * Inspects a header (or the first 512 bytes of a [RandomAccessSource]) and returns
- * the [ArchiveFormat]. Brotli has no magic, so it is never auto-detected here.
+ * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
+ * [RandomAccessSource], and returns the matching [ArchiveFormat]. Brotli has no
+ * magic bytes, so this object never detects it.
  */
 object Magic {
 
@@ -29,7 +29,7 @@ object Magic {
             at(0) == 0x52 && at(1) == 0x61 && at(2) == 0x72 && at(3) == 0x21 && at(4) == 0x1A && at(5) == 0x07 ->
                 ArchiveFormat.RAR
             // .lzma-alone: properties byte (<=0xE0 for valid lc/lp/pb) then 4-byte dict size.
-            // Too weak to sniff reliably from magic alone — left to explicit selection.
+            // Too weak to sniff reliably from magic alone, so it needs explicit selection.
             // TAR: "ustar" at offset 257.
             at(257) == 0x75 && at(258) == 0x73 && at(259) == 0x74 && at(260) == 0x61 && at(261) == 0x72 ->
                 ArchiveFormat.TAR

@@ -1,9 +1,10 @@
 package io.github.yuroyami.kitearchive.util
 
 /**
- * A minimal growable byte buffer — the pure-Kotlin equivalent of a `ByteArrayOutputStream`,
- * with no `java.io` dependency so it lives in `commonMain`. Amortised O(1) append by
- * doubling. Used by the DEFLATE encoder and the gzip/zlib framers.
+ * A minimal growable byte buffer. It is the pure-Kotlin equivalent of a
+ * `ByteArrayOutputStream`, with no `java.io` dependency, so it lives in `commonMain`.
+ * Amortised O(1) append by doubling. Used by the DEFLATE encoder and the gzip and
+ * zlib framers.
  */
 class ByteArrayBuilder(initialCapacity: Int = 64) {
     private var buf = ByteArray(if (initialCapacity < 16) 16 else initialCapacity)

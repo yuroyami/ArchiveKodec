@@ -13,14 +13,14 @@ import io.github.yuroyami.kitearchive.security.DecompressionBombException
 
 /**
  * ZIP reader over a seekable [RandomAccessSource] (+ZIP64). Reads the central
- * directory at the tail — the authoritative source of truth — so [entries] is a
- * cheap "browse without extract", and [read] seeks to a single local header for
- * partial extract. STORE + DEFLATE are decoded today; other methods list fine and
- * throw on [read] until their codec lands.
+ * directory at the tail (the authoritative record), so [entries] is a cheap
+ * "browse without extract", and [read] seeks to a single local header for
+ * partial extract. This reader decodes STORE and DEFLATE. Other methods appear in
+ * [entries], but [read] throws for them.
  *
  * Security: duplicate local-header offsets (the overlapping-bomb signature) are
  * rejected at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
- * the stored CRC-32. Entry names are returned raw — run them through
+ * the stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.kitearchive.security.PathGuard] before writing to disk.
  */
 class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
@@ -113,7 +113,7 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
                     val id = ZipFormat.u16(cd, ep)
                     val sz = ZipFormat.u16(cd, ep + 2)
                     var dp = ep + 4
-                    if (id == 0x0001) { // ZIP64 extended info — fields present in this order
+                    if (id == 0x0001) { // ZIP64 extended info: fields present in this order
                         if (uncompSize == 0xFFFFFFFFL) { uncompSize = ZipFormat.u64(cd, dp); dp += 8 }
                         if (compSize == 0xFFFFFFFFL) { compSize = ZipFormat.u64(cd, dp); dp += 8 }
                         if (localOffset == 0xFFFFFFFFL) { localOffset = ZipFormat.u64(cd, dp); dp += 8 }

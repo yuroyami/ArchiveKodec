@@ -3,20 +3,17 @@ package io.github.yuroyami.kitearchive.codec.deflate
 import io.github.yuroyami.kitearchive.util.ByteArrayBuilder
 
 /**
- * Pure-Kotlin RFC 1951 DEFLATE *deflater* — the inverse of [Inflate]. Consolidated
- * from the KitePDF FlateDecode encoder and upgraded with a **dynamic-Huffman**
- * (BTYPE=10) path.
+ * Pure-Kotlin RFC 1951 DEFLATE *deflater*, the inverse of [Inflate].
  *
  * Pipeline: greedy hash-chained LZ77 over a 32 KiB window → one final block,
  * emitted with whichever of **fixed** (BTYPE=01) or **dynamic** (BTYPE=10) Huffman
- * codes is smaller for this input. The dynamic code lengths are built with a faithful
- * port of zlib's length-limited Huffman (`trees.c` `build_tree` + `gen_bitlen`): a
- * min-heap Huffman tree, then the overflow-redistribution that caps lengths at 15
- * bits (7 for the code-length code) while preserving the Kraft equality.
+ * codes is smaller for this input. The dynamic code lengths follow zlib's
+ * length-limited Huffman (`trees.c` `build_tree` + `gen_bitlen`): a min-heap Huffman
+ * tree, then the overflow-redistribution that caps lengths at 15 bits (7 for the
+ * code-length code) while preserving the Kraft equality.
  *
- * Stored (BTYPE=00) blocks and multi-block chunking are deferred (PORTING_STATUS.md);
- * a single dynamic/fixed block encodes inputs of any size, and choosing the smaller of
- * the two is a strict improvement over the old fixed-only encoder.
+ * This encoder never emits stored (BTYPE=00) blocks and never splits its output into
+ * several blocks. One dynamic or fixed block encodes an input of any size.
  *
  * Output is bare DEFLATE; the gzip/zlib framers wrap it. It decodes byte-for-byte
  * through [Inflate] and through stock zlib.
@@ -80,7 +77,7 @@ private class Deflater(private val data: ByteArray) {
         return out.toByteArray()
     }
 
-    /* ─── LZ77 (greedy, hash-chained) — gathers tokens + frequencies ──────── */
+    /* ─── LZ77 (greedy, hash-chained): gathers tokens + frequencies ──────── */
 
     private fun lz77() {
         val n = data.size
@@ -351,7 +348,7 @@ private class Deflater(private val data: ByteArray) {
 
         /**
          * Length-limited Huffman code lengths for [freq], capped at [maxLen] bits.
-         * Faithful port of zlib `trees.c`: min-heap tree build, then the
+         * Follows zlib `trees.c`: min-heap tree build, then the
          * overflow-redistribution of `gen_bitlen` (move a leaf down and rebalance,
          * preserving the Kraft equality), then re-assign lengths longest-first to the
          * least-frequent symbols. Returns 0 for unused symbols.
@@ -374,8 +371,8 @@ private class Deflater(private val data: ByteArray) {
             for (i in 0 until m) { weight[i] = freq[symbols[i]].toLong(); depth[i] = 0 }
             var nodeCount = m
 
-            // Min-heap of node ids keyed by (weight, depth) — depth tie-break mirrors
-            // zlib and keeps the tree shallow, minimising overflow.
+            // Min-heap of node ids keyed by (weight, depth). The depth tie-break matches
+            // zlib and keeps the tree shallow, which minimises overflow.
             val heap = IntArray(maxNodes)
             var heapSize = 0
             fun less(a: Int, b: Int): Boolean =

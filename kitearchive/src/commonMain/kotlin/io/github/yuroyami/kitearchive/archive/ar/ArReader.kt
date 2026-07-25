@@ -8,7 +8,7 @@ import io.github.yuroyami.kitearchive.archive.readFully
 import io.github.yuroyami.kitearchive.security.ArchiveLimits
 
 /**
- * Unix `ar` reader (`.a` / `.deb` / `.lib`). No compression — concatenated members
+ * Unix `ar` reader (`.a` / `.deb` / `.lib`). No compression: concatenated members
  * with 60-byte ASCII headers. Handles GNU trailing-slash short names and the GNU
  * `//` long-name table (`/offset` references); BSD `#1/len` long names are TODO.
  * The GNU symbol table (`/`) and the name table (`//`) are skipped as entries.
@@ -43,7 +43,7 @@ class ArReader(private val source: RandomAccessSource) : ArchiveReader {
 
             when {
                 rawName == "//" -> nameTable = source.readFully(dataStart, size.toInt())
-                rawName == "/" || rawName.isEmpty() -> { /* symbol table — skip */ }
+                rawName == "/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
                     val off = rawName.substring(1).toInt()
                     val name = nameTable?.let { extractLongName(it, off) } ?: rawName

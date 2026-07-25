@@ -1,7 +1,7 @@
 package io.github.yuroyami.kitearchive.checksum
 
 /**
- * CRC-64/XZ (ECMA-182) — reflected polynomial `0xC96C5795D7870F42`, init
+ * CRC-64/XZ (ECMA-182): reflected polynomial `0xC96C5795D7870F42`, init
  * `0xFFFFFFFFFFFFFFFF`, final XOR `0xFFFFFFFFFFFFFFFF`. This is the integrity check
  * used by the `.xz` container (and an optional 7z check).
  *

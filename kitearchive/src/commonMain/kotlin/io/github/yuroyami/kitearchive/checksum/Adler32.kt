@@ -1,7 +1,7 @@
 package io.github.yuroyami.kitearchive.checksum
 
 /**
- * Adler-32 (RFC 1950) — the zlib-stream trailer checksum. Two 16-bit rolling sums
+ * Adler-32 (RFC 1950): the zlib-stream trailer checksum. Two 16-bit rolling sums
  * modulo 65521, combined as `(b shl 16) or a`. Faster but weaker than CRC-32.
  *
  * Check value: `ADLER32("123456789") == 0x091E01DE`.

@@ -5,8 +5,8 @@ import io.github.yuroyami.kitearchive.security.ArchiveLimits
 import io.github.yuroyami.kitearchive.util.ByteArrayBuilder
 
 /**
- * LZ4 — block format (the LZ77 token codec) + frame format (`.lz4`, magic
- * `0x184D2204`). Pure-Kotlin, no entropy stage, so this is the cheap fast tier.
+ * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
+ * `0x184D2204`). Pure-Kotlin, with no entropy stage, so it is fast and cheap.
  *
  * Decoder reads any conformant frame (skipping/honoring the optional block and
  * content xxHash32 checks). Encoder writes a minimal frame (block-independent,

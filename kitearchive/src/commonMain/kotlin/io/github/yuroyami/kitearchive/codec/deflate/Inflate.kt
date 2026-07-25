@@ -1,10 +1,9 @@
 package io.github.yuroyami.kitearchive.codec.deflate
 
 /**
- * Raw DEFLATE (RFC 1951) decompressor — a faithful pure-Kotlin port of Mark
- * Adler's `puff()` (the canonical, deliberately-simple reference inflate, bundled
- * with zlib at `contrib/puff/puff.c`). Carried over from the KiteTorrent port,
- * which itself took it from libtorrent's `src/puff.cpp`.
+ * Raw DEFLATE (RFC 1951) decompressor. It is a pure-Kotlin translation of Mark
+ * Adler's `puff()`, the deliberately simple reference inflate that ships with zlib
+ * at `contrib/puff/puff.c`.
  *
  * Differences from the C, all behaviour-preserving:
  *
@@ -66,8 +65,8 @@ object Inflate {
      * Inflate a raw DEFLATE stream (no gzip/zlib wrapper) and return the
      * decompressed bytes.
      *
-     * @throws InflateException with the faithful [InflateError] on malformed or
-     *   truncated input — the same failure taxonomy puff returns numerically.
+     * @throws InflateException with the matching [InflateError] on malformed or
+     *   truncated input. The error set matches the codes puff returns numerically.
      */
     fun inflate(input: ByteArray): ByteArray {
         val s = State(input)

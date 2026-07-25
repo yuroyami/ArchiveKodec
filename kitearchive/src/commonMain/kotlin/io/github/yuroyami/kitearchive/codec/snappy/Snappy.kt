@@ -4,10 +4,10 @@ import io.github.yuroyami.kitearchive.security.ArchiveLimits
 import io.github.yuroyami.kitearchive.util.ByteArrayBuilder
 
 /**
- * Snappy raw block format (Google) — a byte-oriented LZ77 with no entropy stage.
- * [decompress] reads any conformant stream; [compress] emits a valid (all-literal)
- * stream — correct and fast, though without back-reference matching it does not
- * shrink. A matching encoder is a later upgrade (PORTING_STATUS.md).
+ * Snappy raw block format (Google): a byte-oriented LZ77 with no entropy stage.
+ * [decompress] reads any conformant stream. [compress] emits a valid all-literal
+ * stream, which is correct and fast. It has no back-reference matching, so it does
+ * not shrink the input.
  */
 object Snappy {
 

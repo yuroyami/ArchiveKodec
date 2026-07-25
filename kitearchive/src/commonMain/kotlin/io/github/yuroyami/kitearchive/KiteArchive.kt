@@ -13,12 +13,11 @@ import io.github.yuroyami.kitearchive.codec.CodecId
 import io.github.yuroyami.kitearchive.codec.Codecs
 
 /**
- * Top-level entry point — the analogue of `PdfDocument` / `KiteTorrentEngine` /
- * KiteQR's `Qr`. Sniff a format, grab a codec by id, or open a seekable source as a
- * container reader.
+ * Top-level entry point for the library. Use it to detect an archive format, get a
+ * codec by id, or open a seekable source as a container reader.
  *
- * Pure `commonMain`, `kotlin-stdlib` only. The kotlinx-io stream/file adapters live
- * in the separate `:kitearchive-io` artifact.
+ * Pure `commonMain`, `kotlin-stdlib` only. The kotlinx-io stream and file adapters
+ * live in the separate `:kitearchive-io` artifact.
  */
 object KiteArchive {
 
@@ -53,7 +52,7 @@ object KiteArchive {
         ArchiveFormat.AR -> ArReader(source)
         ArchiveFormat.CPIO -> CpioReader(source)
         else -> throw UnsupportedOperationException(
-            "no container reader for $format yet — see PORTING_STATUS.md",
+            "no container reader for $format",
         )
     }
 }

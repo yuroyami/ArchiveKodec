@@ -17,8 +17,8 @@ import kotlinx.io.readByteArray
  * There is no `RawSink` bridge and no seekable file handle. Every function here
  * reads its source fully into memory.
  *
- * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's concern —
- * these helpers operate on whatever source the app already holds.
+ * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's concern.
+ * These helpers operate on whatever source the app already holds.
  */
 
 /** Drain a [RawSource] fully into a `ByteArray`. */

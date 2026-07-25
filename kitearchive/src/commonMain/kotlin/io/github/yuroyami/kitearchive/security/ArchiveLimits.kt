@@ -6,7 +6,7 @@ package io.github.yuroyami.kitearchive.security
  * deliberately safe so a caller cannot forget them.
  *
  * See the classic 42.zip (42 KB → 4.5 PB) and Fifield's non-recursive overlapping
- * bombs (~10 MB → 281 TB in one pass) — the only universal defence is a hard cap on
+ * bombs (~10 MB → 281 TB in one pass). The only universal defence is a hard cap on
  * bytes written, which [checkOutputSize] enforces.
  */
 data class ArchiveLimits(
@@ -48,7 +48,7 @@ data class ArchiveLimits(
         /** The safe default applied when a caller doesn't pass its own. */
         val DEFAULT = ArchiveLimits()
 
-        /** Opt-out for trusted input — every guard relaxed to its maximum. */
+        /** Opt-out for trusted input: every guard relaxed to its maximum. */
         val UNBOUNDED = ArchiveLimits(
             maxUncompressedBytes = Long.MAX_VALUE,
             maxCompressionRatio = Int.MAX_VALUE,

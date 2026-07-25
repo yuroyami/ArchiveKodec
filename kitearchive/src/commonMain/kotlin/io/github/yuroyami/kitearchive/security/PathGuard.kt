@@ -12,7 +12,7 @@ package io.github.yuroyami.kitearchive.security
  *  - backslash separators (normalised, then re-checked).
  *
  * It returns a clean, forward-slash relative path safe to resolve under a root.
- * (Spaces in names are allowed — only control characters and NUL are rejected.)
+ * (Spaces in names are allowed. Only control characters and NUL are rejected.)
  */
 object PathGuard {
 

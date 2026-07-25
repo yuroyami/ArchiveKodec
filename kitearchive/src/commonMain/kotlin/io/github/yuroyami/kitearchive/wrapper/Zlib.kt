@@ -8,7 +8,7 @@ import io.github.yuroyami.kitearchive.codec.deflate.InflateException
 import io.github.yuroyami.kitearchive.util.ByteArrayBuilder
 
 /**
- * zlib (RFC 1950) framing over [Deflate] / [Inflate] — a 2-byte CMF/FLG header and
+ * zlib (RFC 1950) framing over [Deflate] / [Inflate]: a 2-byte CMF/FLG header and
  * a big-endian Adler-32 trailer. This is the wrapper PNG `IDAT` and PDF `FlateDecode`
  * use.
  */

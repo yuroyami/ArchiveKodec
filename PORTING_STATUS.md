@@ -1,104 +1,127 @@
-# KiteArchive — porting status
+# KiteArchive format status
 
-Pure-Kotlin compression + archive toolkit for KMP. `kotlin-stdlib`-only core; kotlinx-io
-adapter in a separate module. This file tracks what is implemented, what is next, and the
-feasibility / legal call per format. The permissively-licensed sources consulted during
-porting are listed in [NOTICE](NOTICE); the `reference/` checkout they live in is
-git-ignored and not part of a clone.
+This file lists the support level for every codec and container in KiteArchive.
+It also records what comes next, and why some formats are absent. For install
+instructions, targets and limits, read the [README](README.md).
 
 ## Legend
 
-`✅ done` · `🟡 partial` · `⛔ roadmap` · `🚫 out of scope (legal / no clean reference)`
-
----
+| Mark | Meaning |
+|---|---|
+| ✅ | Implemented and tested |
+| 🟡 | Partly implemented: read the note |
+| ⛔ | Planned, no implementation yet |
+| 🚫 | Out of scope: licensing, or no clean reference to work from |
 
 ## Codecs
 
 | Codec | Decode | Encode | Difficulty | Notes |
 |---|---|---|---|---|
-| Store | ✅ | ✅ | trivial | identity / ZIP method 0 |
-| DEFLATE | ✅ | ✅ | easy | inflate = faithful `puff` port; encoder now does fixed **and dynamic** Huffman (zlib `gen_bitlen` length-limiter), picks the smaller per block; output verified decodable by stock `java.util.zip` / CPython zlib |
-| zlib | ✅ | ✅ | trivial | CMF/FLG + Adler-32 |
-| gzip | ✅ | ✅ | trivial | header flags + CRC-32 + ISIZE; multi-member decode TODO |
-| CRC-32 / CRC-32C / Adler-32 / CRC-64 | ✅ | — | trivial | standard check values verified |
-| LZ4 (block+frame) | ✅ | ✅ | easy | greedy hash block compressor + frame; decode verified against a frame from the `lz4` CLI, encode by round-trip; xxHash32 implemented (used for the frame header byte, no check-value test, and the optional block/content checksums are skipped rather than verified) |
-| Snappy | ✅ | 🟡 | easy | decoder complete; encoder is valid all-literal (no matching yet) |
-| bzip2 | ⛔ | ⛔ | moderate | BWT/MTF/RLE/Huffman; encode leans hard (suffix sort); ref `commons-compress`. ← next (W2) |
-| range coder (shared) | ⛔ | ⛔ | moderate | unlocks LZMA + LZMA2 + PPMd |
-| LZMA / LZMA2 | ⛔ | ⛔ | hard | port `reference/xz-java` (0BSD); do `.lzma`-alone first to validate the coder |
-| FSE / Huff0 (shared) | ⛔ | ⛔ | moderate | the gate to zstd |
-| zstd | ⛔ | ⛔ | hard | RFC 8878; ref `zstd/doc` + educational decoder; highest-value modern codec |
-| brotli | ⛔ | ⛔ | hard | 120 KB static dict; decode-first; ref `brotli/java/org/brotli/dec` (MIT) |
-| PPMd | ⛔ | ⛔ | hard | needs the shared range coder |
+| Store | ✅ | ✅ | trivial | Identity. ZIP method 0 |
+| DEFLATE | ✅ | ✅ | easy | The encoder does fixed **and dynamic** Huffman and picks the smaller of the two per block. The JDK's `java.util.zip` and CPython zlib both decode our output |
+| zlib | ✅ | ✅ | trivial | CMF and FLG header, Adler-32 trailer |
+| gzip | ✅ | ✅ | trivial | Header flags, CRC-32 and ISIZE. Decode reads the first member only |
+| CRC-32, CRC-32C, Adler-32, CRC-64 | ✅ | not applicable | trivial | Standard check values verified |
+| LZ4 (block and frame) | ✅ | ✅ | easy | Greedy hash block compressor plus frame support. The suite decodes a frame from the `lz4` CLI, and checks the encoder by round trip. xxHash32 exists and supplies the frame header byte. It has no check-value test, and the frame decoder skips the optional block and content checksums instead of verifying them |
+| Snappy | ✅ | 🟡 | easy | Decoder complete. The encoder emits literals only, with no matching yet |
+| bzip2 | ⛔ | ⛔ | moderate | Needs the Burrows-Wheeler transform, move-to-front coding, run-length encoding and Huffman coding. The encoder also needs a suffix sort. This is the next piece of work |
+| Range coder (shared) | ⛔ | ⛔ | moderate | Needed by LZMA, LZMA2 and PPMd |
+| LZMA and LZMA2 | ⛔ | ⛔ | hard | Plan: do `.lzma` alone first, to validate the coder |
+| FSE and Huff0 (shared) | ⛔ | ⛔ | moderate | Needed by zstd |
+| zstd | ⛔ | ⛔ | hard | RFC 8878 |
+| brotli | ⛔ | ⛔ | hard | Decode first. Needs the 120 KB static dictionary |
+| PPMd | ⛔ | ⛔ | hard | Needs the shared range coder |
 
 ## Containers
 
 | Format | Read | Write | Difficulty | Notes |
 |---|---|---|---|---|
-| TAR (v7/ustar/gnu) | ✅ | ⛔ | easy | long-name (GNU `L`) + base-256 done; pax `x`/`g` + sparse TODO |
-| gzip / zlib / lz4 (single-stream) | ✅ | ✅ | — | gzip/zlib/lz4 done; xz/zstd follow their codec |
-| ZIP (+ZIP64) | ✅ | ✅ | easy–moderate | central-directory reader + writer; STORE/DEFLATE; overlapping-header bomb check; verified both ways vs `java.util.zip` + CPython |
-| ar | ✅ | ⛔ | easy | GNU short + `//` long-name table; BSD `#1/len` TODO |
-| cpio | ✅ | ⛔ | easy | newc/crc + odc dialects; old binary TODO |
-| 7z | ⛔ | ⛔ | hard | gated on LZMA2 + the solid-folder model |
-| ISO9660 / SquashFS / CAB / WIM | ⛔ | ⛔ | moderate–hard | tier-2 |
-| RAR4 / RAR5 | 🚫 | 🚫 | brutal | **extract-only, far future, license-encumbered; creation forbidden** |
-| ACE / StuffIt / ALZ | 🚫 | 🚫 | — | proprietary; no clean reference |
+| TAR (v7, ustar, GNU) | ✅ | ⛔ | easy | GNU `L` long names and base-256 sizes are done. pax `x` and `g` headers and sparse files are not |
+| gzip, zlib, lz4 (single stream) | ✅ | ✅ | easy | Done. xz and zstd follow their codec |
+| ZIP (and ZIP64) | ✅ | ✅ | easy to moderate | Central-directory reader and writer, STORE and DEFLATE. Rejects an overlapping local header. Verified both ways against `java.util.zip` and CPython |
+| ar | ✅ | ⛔ | easy | GNU short names and the `//` long-name table. BSD `#1/len` is not handled |
+| cpio | ✅ | ⛔ | easy | newc, crc and odc dialects. The old binary dialect is not handled |
+| 7z | ⛔ | ⛔ | hard | Blocked on LZMA2 and on solid folders, where several files share one compressed block |
+| ISO9660, SquashFS, CAB, WIM | ⛔ | ⛔ | moderate to hard | Planned, with no date |
+| RAR4 and RAR5 | 🚫 | 🚫 | very hard | **Extract only, far future, license-encumbered. Creating RAR archives is forbidden** |
+| ACE, StuffIt, ALZ | 🚫 | 🚫 | not applicable | Proprietary, with no clean reference |
 
 ## Security
 
+Two terms used in this table. A decompression bomb is a small file that expands
+into a very large one. In a Zip-Slip attack, an archive entry name escapes the
+folder you extract into. The entry then overwrites a file somewhere else on disk.
+
 | Guard | Status | Notes |
 |---|---|---|
-| Zip-Slip / path traversal (`PathGuard`) | 🟡 | implemented and tested, but **opt-in**: no reader calls it, so the caller must run `sanitize` on every entry name before joining it to a path |
-| Decompression-bomb size cap (`ArchiveLimits.checkOutputSize`) | 🟡 | enforced by every codec and reader, but for DEFLATE/gzip/zlib it runs *after* full inflation — only LZ4 checks per block |
-| Compression-ratio cap (`ArchiveLimits.checkRatio`) | 🟡 | `ZipReader.read` only; no other caller |
-| Entry-count cap (`ArchiveLimits.maxEntries`) | ⛔ | field and `checkEntryCount` exist; nothing calls them |
-| Nesting-depth cap (`ArchiveLimits.maxNestingDepth`) | ⛔ | field exists; there is no auto-extract path to enforce it on |
-| Overlapping-local-header detection | ✅ | `ZipReader.parseCentralDirectory` rejects a duplicate local-header offset (Fifield bomb signature) |
-| Symlink/hardlink-escape on extract | ⛔ | belongs to the future file-extraction API; `PathGuard` has no symlink logic |
-| Encrypt-then-MAC verify-before-decompress | ⛔ | with the crypto layer |
+| Zip-Slip and path traversal (`PathGuard`) | 🟡 | Implemented and tested, but **opt-in**. No reader calls it, so you must run `sanitize` on every entry name before you join it to a path |
+| Decompression-bomb size cap (`ArchiveLimits.checkOutputSize`) | 🟡 | Every codec and reader enforces it. For DEFLATE, gzip and zlib it runs *after* full inflation, so the data is already in memory. LZ4 is the only codec that checks per block |
+| Compression-ratio cap (`ArchiveLimits.checkRatio`) | 🟡 | Called by `ZipReader.read` only |
+| Entry-count cap (`ArchiveLimits.maxEntries`) | ⛔ | The field and `checkEntryCount` exist. Nothing calls them |
+| Nesting-depth cap (`ArchiveLimits.maxNestingDepth`) | ⛔ | The field exists. There is no auto-extract path to enforce it on |
+| Overlapping local-header detection | ✅ | `ZipReader.parseCentralDirectory` rejects a duplicate local-header offset. That is how one well-known ZIP bomb works: many entries point at the same compressed data |
+| Symlink and hardlink escape on extract | ⛔ | Belongs to the future file-extraction API. `PathGuard` has no symlink logic |
+| Verify the authentication tag before decompressing | ⛔ | Arrives with the crypto layer |
 
-## Crypto (planned — hybrid strategy)
+## Crypto (planned)
 
-Checksums stay 100% pure-Kotlin (done). AES/HMAC/PBKDF2 will go behind a `CryptoProvider`
-interface backed by **whyoleg/cryptography-kotlin** (hardware-accelerated, constant-time
-per platform) rather than a hand-rolled table-AES. Scope: ZipCrypto (decrypt-only,
-INSECURE-flagged), WinZip-AES (full), 7z AES-256-CBC (confidentiality-only, headers
-encrypted by default). RAR crypto = decrypt-only-someday at most.
+Checksums stay pure Kotlin, and they are done. AES, HMAC and PBKDF2 will sit
+behind a `CryptoProvider` interface. The plan is to back that interface with
+**whyoleg/cryptography-kotlin** rather than a hand-written table-based AES. That
+library uses each platform's hardware acceleration, and runs in constant time, so
+its timing does not leak key material.
+
+Planned scope: ZipCrypto (decrypt only, flagged INSECURE), WinZip-AES (full), and
+7z AES-256-CBC (confidentiality only, with headers encrypted by default). RAR
+crypto would be decrypt-only at most, and is not scheduled.
 
 ## IO foundation
 
-`:kitearchive` is `kotlin-stdlib`-only and operates on `ByteArray` + the `RandomAccessSource`
-contract. Everything is whole-array: the payload is fully in memory, and the only
-`RandomAccessSource` implementation is `ByteArrayRandomAccessSource`.
+`:kitearchive` depends on `kotlin-stdlib` only. It operates on `ByteArray` and on
+the `RandomAccessSource` contract. Everything is whole-array: the payload sits
+fully in memory, and `ByteArrayRandomAccessSource` is the only implementation of
+`RandomAccessSource`.
 
-`:kitearchive-io` is currently four convenience adapters over kotlinx-io `RawSource`
-(`readAllBytes`, `toRandomAccessSource`, and `Codec.compress`/`decompress` over a source).
-There is no `RawSink` bridge, no `FileHandle` and no seeking — `toRandomAccessSource()`
-drains the source into a `ByteArray`. A real seekable file source, the streaming
-`Source`→`Sink` codec API, and the suspend, solid-folder-aware `extract(Set<ArchiveEntry>)`
-contract (with `ProgressSink` + cancellation + `PasswordProvider`) are the next API milestone.
+`:kitearchive-io` is four convenience adapters over kotlinx-io `RawSource`:
+`readAllBytes`, `toRandomAccessSource`, and `Codec.compress` and
+`Codec.decompress` over a source. There is no `RawSink` bridge, no `FileHandle`
+and no seeking, because `toRandomAccessSource()` drains the source into a
+`ByteArray`.
 
-## Roadmap order
+Three things make up the next API milestone. The first is a real seekable file
+source. The second is a streaming `Source` to `Sink` codec API. The third is a
+suspend `extract(Set<ArchiveEntry>)` contract with `ProgressSink`, cancellation
+and `PasswordProvider`, which understands solid folders.
 
-1. ✅ **Dynamic-Huffman DEFLATE encoder** (done — fixed+dynamic, zlib-interop verified).
-2. ✅ **ZIP (+ZIP64) reader/writer** (done — STORE/DEFLATE, overlapping-header bomb check, JDK+CPython interop).
-3. ✅ **ar · cpio · LZ4 · Snappy** (done — W1 complete).
-4. **bzip2** decode-first (W2). ← next
-5. **Range coder → `.lzma`-alone → `.xz` → 7z** decode-first (W2; port from 0BSD xz-java).
-6. **FSE/Huff0 → zstd** decode-first (W3), then **brotli** decode.
-7. Streaming + suspend extraction API; crypto layer (ZipCrypto/WinZip-AES/7z-AES).
-8. Tier-2 containers (ISO9660, SquashFS, CAB, WIM); RAR5 extract-only (marquee, late).
+## What comes next
+
+1. bzip2, decode first. This is the next piece of work.
+2. The shared range coder, then `.lzma` alone, then `.xz`, then 7z. Decode first.
+3. FSE and Huff0, then zstd decode, then brotli decode.
+4. The streaming and suspend extraction API, then the crypto layer (ZipCrypto,
+   WinZip-AES and 7z-AES).
+5. Further containers: ISO9660, SquashFS, CAB and WIM. RAR5 extract-only last.
 
 ## Tests
 
-Golden-vector harness in `commonTest` (runs on every target via `kotlin.test`):
-DEFLATE round-trips, dynamic-Huffman on skewed alphabets, gzip/zlib decode-conformance
-against CPython output, checksum check values (incl. a large-input Adler-32 overflow
-regression), TAR parse, magic sniffing, path-traversal rejection. A JVM-only
-`ZlibInteropTest` round-trips our raw-deflate / gzip / zlib output **through the JDK's
-native `java.util.zip`**, which validates the Adler-32 and CRC-32/ISIZE trailers our own
-lenient inflate skips. ZIP is verified both directions against `java.util.zip` + CPython
-zipfile (incl. a 70,000-entry ZIP64 round-trip); LZ4 decode against an `lz4` CLI frame;
-ar/cpio/Snappy against CLI/hand vectors. **58 tests pass.** Not covered: xxHash32 has no
-check-value test. Planned: Canterbury + Silesia corpora.
+**58 tests pass.**
+
+`commonTest` holds a golden-vector harness that runs on every target through
+`kotlin.test`. It covers:
+
+- DEFLATE round trips, and dynamic Huffman on skewed alphabets.
+- gzip and zlib decode conformance against CPython output.
+- A ZIP produced by CPython `zipfile`.
+- An LZ4 frame produced by the `lz4` CLI.
+- Snappy, ar and cpio hand-written test vectors.
+- Checksum check values, including a large-input Adler-32 overflow regression.
+- TAR parsing, magic sniffing and path-traversal rejection.
+
+Two JVM-only suites cover interoperability. `ZlibInteropTest` feeds our raw
+DEFLATE, gzip and zlib output to **the JDK's `java.util.zip`**. That check
+validates the Adler-32 and CRC-32/ISIZE trailers, which our own lenient inflate
+skips. `ZipInteropTest` round-trips ZIPs in both directions against
+`java.util.zip`, including a 70,000-entry ZIP64 archive.
+
+Not covered: xxHash32 has no check-value test. Planned: the Canterbury and
+Silesia corpora.

@@ -13,7 +13,7 @@ import kotlin.test.assertContentEquals
 /**
  * JVM-only interop gate: our encoder output must be decodable by the JDK's native
  * zlib (`java.util.zip`), which also validates the Adler-32 (zlib) and CRC-32 + ISIZE
- * (gzip) trailers — checks our own lenient [Deflate]/Inflate round-trips do not make.
+ * (gzip) trailers. Our own lenient [Deflate]/Inflate round-trips do not make those checks.
  * This is what caught the signed-Int Adler-32 overflow.
  */
 class ZlibInteropTest {
