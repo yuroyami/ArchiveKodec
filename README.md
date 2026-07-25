@@ -4,6 +4,7 @@ Compression and archive formats implemented in pure Kotlin, for Kotlin
 Multiplatform projects that need to gunzip a buffer or read a ZIP on iOS and in
 the browser as well as on the JVM.
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.yuroyami/kitearchive)](https://central.sonatype.com/artifact/io.github.yuroyami/kitearchive)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Targets](https://img.shields.io/badge/targets-Android%20%7C%20iOS%20%7C%20JVM%20%7C%20JS-blue)](#targets)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
@@ -49,18 +50,11 @@ for (entry in reader.entries()) {
 
 ## Install
 
-KiteArchive is not published. It is `0.0.1-SNAPSHOT` and you consume it from
-`mavenLocal()` after publishing it yourself.
-
-```bash
-./gradlew publishToMavenLocal
-```
-
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.yuroyami:kitearchive:0.0.1-SNAPSHOT")
+            implementation("io.github.yuroyami:kitearchive:0.1.0")
         }
     }
 }
