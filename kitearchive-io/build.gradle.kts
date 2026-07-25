@@ -8,15 +8,16 @@ plugins {
 }
 
 /*
- * :kitearchive-io is the thin I/O adapter (Tier 2). It bridges the pure
- * :kitearchive core to kotlinx-io:
- *   - kotlinx-io RawSource/RawSink  ↔  the core's streaming byte contracts
- *   - kotlinx-io files / SystemFileSystem  →  a seekable RandomAccessSource so the
- *     ZIP central-directory reader can browse and single-entry-extract by seek.
+ * :kitearchive-io is the kotlinx-io adapter. Today it is four convenience functions
+ * over RawSource: drain to a ByteArray, wrap as an in-memory RandomAccessSource, and
+ * run a Codec over a source. There is no RawSink bridge and no seekable file handle
+ * yet — toRandomAccessSource() reads the whole source into memory.
  *
- * No JS/WASM target: the browser has no filesystem for the seekable-source path.
- * Filesystem access (Android SAF, the iOS sandbox) stays the *consumer's* problem —
- * this module only adapts whatever Source/Sink/handle the app already holds.
+ * This module deliberately has no JS target, so it does not match :kitearchive's
+ * target set. A consumer that builds for JS cannot put both in one commonMain.
+ *
+ * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's problem —
+ * this module only adapts whatever Source the app already holds.
  */
 kotlin {
     jvmToolchain(21)
@@ -60,3 +61,4 @@ kotlin {
         }
     }
 }
+

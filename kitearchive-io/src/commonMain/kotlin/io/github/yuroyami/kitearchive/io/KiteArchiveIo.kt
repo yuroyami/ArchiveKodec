@@ -9,13 +9,16 @@ import kotlinx.io.RawSource
 import kotlinx.io.readByteArray
 
 /**
- * kotlinx-io bridge for KiteArchive. Adapts kotlinx-io `RawSource`/`RawSink` and
- * file handles to the pure core's byte / [RandomAccessSource] contracts, so the
- * experimental kotlinx-io dependency never reaches the core or consumers who only
- * want the codecs.
+ * kotlinx-io convenience adapters for KiteArchive: drain a `RawSource` to a
+ * `ByteArray`, wrap one as an in-memory [RandomAccessSource], and run a [Codec] over
+ * a source. They live in a separate artifact so the kotlinx-io dependency never
+ * reaches the core or consumers who only want the codecs.
+ *
+ * There is no `RawSink` bridge and no seekable file handle. Every function here
+ * reads its source fully into memory.
  *
  * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's concern —
- * these helpers operate on whatever Source/Sink the app already holds.
+ * these helpers operate on whatever source the app already holds.
  */
 
 /** Drain a [RawSource] fully into a `ByteArray`. */

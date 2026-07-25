@@ -1,15 +1,14 @@
 package io.github.yuroyami.kitearchive.archive
 
 /**
- * A seekable, random-access byte source — the load-bearing read contract for
- * archives. ZIP "browse without extract" (read the central directory at the tail)
- * and single-entry extract (seek to one local header) both need offset reads, not a
- * forward-only stream. Multi-volume archives are modelled as a composed source over
- * an ordered list (a future `ConcatenatedSource`).
+ * A seekable, random-access byte source — the read contract every container reader
+ * works against. ZIP "browse without extract" (read the central directory at the
+ * tail) and single-entry extract (seek to one local header) both need offset reads
+ * rather than a forward-only stream.
  *
- * Platform actuals (file handle on JVM/Android, `FileHandle` on iOS) live in
- * `:kitearchive-io`; [ByteArrayRandomAccessSource] is the in-memory implementation
- * the core ships for tests and small buffers.
+ * [ByteArrayRandomAccessSource] is the only implementation shipped, so an archive
+ * has to be fully in memory before a reader can open it. Implement this interface
+ * yourself to back a reader with a real file handle.
  */
 interface RandomAccessSource {
     /** Total size in bytes. */

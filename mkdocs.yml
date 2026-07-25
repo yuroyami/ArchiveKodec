@@ -1,9 +1,9 @@
 site_name: KiteArchive
 site_url: https://yuroyami.github.io/KiteArchive/
 site_description: >-
-  A pure-Kotlin compression & archive toolkit: from-scratch Kotlin Multiplatform
-  ports of zlib/DEFLATE, gzip, zlib, TAR (and, on the roadmap, bzip2, LZMA/xz,
-  zstd, brotli). No JNI, no cinterop. Android, iOS, JVM, JS.
+  Pure-Kotlin compression codecs and archive readers for Kotlin Multiplatform:
+  DEFLATE, gzip, zlib, LZ4 and Snappy, ZIP read and write (+ZIP64), TAR, ar and
+  cpio readers, and checksums. No JNI, no cinterop. Android, iOS, JVM, JS.
 site_author: yuroyami
 copyright: Copyright &copy; 2026 yuroyami, Apache-2.0
 
@@ -18,45 +18,55 @@ theme:
   language: en
   icon:
     repo: fontawesome/brands/github
-    logo: material/folder-zip
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: black
+      accent: deep purple
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: black
+      accent: deep purple
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
-    - navigation.tabs
+    - navigation.instant
+    - navigation.tracking
     - navigation.sections
+    - navigation.indexes
     - navigation.top
     - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
     - search.suggest
     - search.highlight
-    - content.code.copy
-    - content.action.edit
+    - search.share
+
+extra_css:
+  - theme/kite.css
 
 markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
   - tables
-  - toc:
-      permalink: true
-      title: On this page
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.superfences
-  - pymdownx.details
+      line_spans: __span
+  - toc:
+      permalink: true
+      toc_depth: 3
 
 plugins:
   - search

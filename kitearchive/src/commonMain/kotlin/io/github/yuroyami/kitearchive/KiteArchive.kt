@@ -4,6 +4,8 @@ import io.github.yuroyami.kitearchive.archive.ArchiveFormat
 import io.github.yuroyami.kitearchive.archive.ArchiveReader
 import io.github.yuroyami.kitearchive.archive.Magic
 import io.github.yuroyami.kitearchive.archive.RandomAccessSource
+import io.github.yuroyami.kitearchive.archive.ar.ArReader
+import io.github.yuroyami.kitearchive.archive.cpio.CpioReader
 import io.github.yuroyami.kitearchive.archive.tar.TarReader
 import io.github.yuroyami.kitearchive.archive.zip.ZipReader
 import io.github.yuroyami.kitearchive.codec.Codec
@@ -20,7 +22,7 @@ import io.github.yuroyami.kitearchive.codec.Codecs
  */
 object KiteArchive {
 
-    const val VERSION: String = "0.0.1-SNAPSHOT"
+    const val VERSION: String = "0.1.0"
 
     /** Detect the format of a header buffer. */
     fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
@@ -48,6 +50,8 @@ object KiteArchive {
     fun open(source: RandomAccessSource): ArchiveReader = when (val format = sniff(source)) {
         ArchiveFormat.TAR -> TarReader(source)
         ArchiveFormat.ZIP -> ZipReader(source)
+        ArchiveFormat.AR -> ArReader(source)
+        ArchiveFormat.CPIO -> CpioReader(source)
         else -> throw UnsupportedOperationException(
             "no container reader for $format yet — see PORTING_STATUS.md",
         )

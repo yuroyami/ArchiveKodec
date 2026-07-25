@@ -14,9 +14,9 @@ plugins {
  * disk): the DEFLATE codec, gzip/zlib framing, checksums, the container parsers,
  * the path-traversal / decompression-bomb guards, and the seekable-source contract.
  *
- * The kotlinx-io stream/file adapters live in a separate :kitearchive-io module so
- * this core stays portable to every target, including JS and WASM, and so the
- * experimental kotlinx-io dependency never reaches consumers who don't want it.
+ * The kotlinx-io adapters live in a separate :kitearchive-io module so the
+ * kotlinx-io dependency never reaches consumers who don't want it. That module has
+ * no JS target; this one does. Neither builds for wasmJs, macOS, Linux or mingw.
  */
 kotlin {
     jvmToolchain(21)
@@ -64,3 +64,4 @@ kotlin {
         }
     }
 }
+

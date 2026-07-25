@@ -27,6 +27,14 @@ class ChecksumTest {
     fun adler32Empty() = assertEquals(1L, Adler32.of(ByteArray(0)))
 
     @Test
+    fun adler32LargeInputNoOverflow() {
+        // Regression: signed-Int accumulators overflowed past one NMAX run.
+        // Expected value cross-checked against CPython zlib.adler32.
+        val ramp = ByteArray(100_000) { (it % 256).toByte() }
+        assertEquals(0x61657A0FL, Adler32.of(ramp))
+    }
+
+    @Test
     fun incrementalMatchesOneShot() {
         val c = Crc32()
         c.update(check, 0, 4)

@@ -3,53 +3,88 @@ package io.github.yuroyami.kitearchive.codec.deflate
 import io.github.yuroyami.kitearchive.util.ByteArrayBuilder
 
 /**
- * Pure-Kotlin RFC 1951 DEFLATE *deflater* — the inverse of [Inflate]. Carried over
- * from the KitePDF FlateDecode encoder.
+ * Pure-Kotlin RFC 1951 DEFLATE *deflater* — the inverse of [Inflate]. Consolidated
+ * from the KitePDF FlateDecode encoder and upgraded with a **dynamic-Huffman**
+ * (BTYPE=10) path.
  *
- * Emits a single final block using the **fixed Huffman** code tables (BTYPE=01)
- * with greedy LZ77 match finding over a 32 KiB window (hash-chained, bounded chain
- * length). Fixed Huffman avoids transmitting dynamic code-length tables while still
- * giving real compression; **dynamic Huffman (BTYPE=10) is the next ratio upgrade**
- * and is tracked in PORTING_STATUS.md — it is the one missing piece before this
- * encoder is competitive with zlib on heterogeneous data.
+ * Pipeline: greedy hash-chained LZ77 over a 32 KiB window → one final block,
+ * emitted with whichever of **fixed** (BTYPE=01) or **dynamic** (BTYPE=10) Huffman
+ * codes is smaller for this input. The dynamic code lengths are built with a faithful
+ * port of zlib's length-limited Huffman (`trees.c` `build_tree` + `gen_bitlen`): a
+ * min-heap Huffman tree, then the overflow-redistribution that caps lengths at 15
+ * bits (7 for the code-length code) while preserving the Kraft equality.
  *
- * Output is bare DEFLATE; [io.github.yuroyami.kitearchive.wrapper.Gzip] /
- * [io.github.yuroyami.kitearchive.wrapper.Zlib] wrap it. The result decodes
- * byte-for-byte through [Inflate] (and zlib).
+ * Stored (BTYPE=00) blocks and multi-block chunking are deferred (PORTING_STATUS.md);
+ * a single dynamic/fixed block encodes inputs of any size, and choosing the smaller of
+ * the two is a strict improvement over the old fixed-only encoder.
  *
- * Bit-packing matches [Inflate]'s reader: data elements (block header + the
- * length/distance extra bits) are packed least-significant-bit-first, while Huffman
- * codes are packed most-significant-bit-first.
+ * Output is bare DEFLATE; the gzip/zlib framers wrap it. It decodes byte-for-byte
+ * through [Inflate] and through stock zlib.
  */
 object Deflate {
 
     /** Compress [data] to a bare DEFLATE stream (no zlib/gzip wrapper). */
-    fun encode(data: ByteArray): ByteArray = Deflater().encode(data)
+    fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
 }
 
-private class Deflater {
+private class Deflater(private val data: ByteArray) {
 
-    private val out = ByteArrayBuilder(64)
+    private val out = ByteArrayBuilder(maxOf(64, data.size / 3))
     private var bitBuf = 0
     private var bitCount = 0
 
-    fun encode(data: ByteArray): ByteArray {
-        // One block, final, fixed Huffman. BFINAL=1 then BTYPE=01, LSB-first.
+    // LZ77 token stream, packed one Int per token (see [MATCH_FLAG]).
+    private var tokens = IntArray(256)
+    private var tokenCount = 0
+
+    // Symbol frequencies gathered during LZ77.
+    private val llFreq = IntArray(286)   // literals 0..255, EOB 256, length codes 257..285
+    private val dFreq = IntArray(30)     // distance codes
+
+    fun encode(): ByteArray {
+        lz77()
+        llFreq[END_OF_BLOCK]++           // every block ends with one EOB
+
+        // Build dynamic tables.
+        val llLen = codeLengths(llFreq, MAX_BITS)
+        val dLenRaw = codeLengths(dFreq, MAX_BITS)
+        val dLen = if (dLenRaw.any { it > 0 }) dLenRaw else IntArray(30).also { it[0] = 1 }
+
+        val hlit = maxIndex(llLen, minTop = END_OF_BLOCK) + 1   // >= 257
+        val hdist = maxIndex(dLen, minTop = 0) + 1              // >= 1
+
+        // Code-length code: RLE of (llLen[0..hlit) ++ dLen[0..hdist)).
+        val clSeq = buildCodeLengthSequence(llLen, hlit, dLen, hdist)
+        val clFreq = IntArray(19)
+        for (i in clSeq.indices step 3) clFreq[clSeq[i]]++
+        val clLen = codeLengths(clFreq, MAX_CL_BITS)
+        var numCl = 19
+        while (numCl > 4 && clLen[ORDER[numCl - 1]] == 0) numCl--
+
+        // Pick the smaller of dynamic vs fixed (extra bits cancel, so compare the rest).
+        val dynamicBits = dynamicHeaderBits(numCl, clSeq, clLen) + symbolBits(llLen, dLen)
+        val fixedBits = fixedSymbolBits()
+        val useDynamic = dynamicBits < fixedBits
+
+        // BFINAL=1, then BTYPE (LSB-first).
         writeBits(1, 1)
-        writeBits(0b01, 2)
-        emitTokens(data)
-        // End-of-block symbol (256).
-        writeLitLen(256)
+        if (useDynamic) {
+            writeBits(0b10, 2)
+            writeDynamicHeader(hlit, hdist, numCl, clSeq, clLen)
+            emitData(canonicalCodes(llLen), llLen, canonicalCodes(dLen), dLen)
+        } else {
+            writeBits(0b01, 2)
+            emitData(FIXED_LITLEN_CODE, FIXED_LITLEN_LEN, FIXED_DIST_CODE, FIXED_DIST_LEN)
+        }
         flushToByte()
         return out.toByteArray()
     }
 
-    /* ─── LZ77 (greedy, hash-chained) ────────────────────────────────────── */
+    /* ─── LZ77 (greedy, hash-chained) — gathers tokens + frequencies ──────── */
 
-    private fun emitTokens(data: ByteArray) {
+    private fun lz77() {
         val n = data.size
         if (n == 0) return
-
         val head = IntArray(HASH_SIZE) { -1 }
         val prev = IntArray(n)
 
@@ -87,31 +122,138 @@ private class Deflater {
                 }
             }
             if (bestLen >= MIN_MATCH) {
-                emitMatch(bestLen, bestDist)
+                addMatch(bestLen, bestDist)
                 val end = pos + bestLen
-                while (pos < end) {
-                    insert(pos)
-                    pos++
-                }
+                while (pos < end) { insert(pos); pos++ }
             } else {
-                writeLitLen(data[pos].toInt() and 0xFF)
+                addLiteral(data[pos].toInt() and 0xFF)
                 insert(pos)
                 pos++
             }
         }
     }
 
-    private fun emitMatch(length: Int, distance: Int) {
-        val li = lengthCode(length)
-        val sym = 257 + li
-        writeLitLen(sym)
-        if (LENGTH_EXTRA[li] > 0) writeBits(length - LENGTH_BASE[li], LENGTH_EXTRA[li])
+    private fun addLiteral(v: Int) {
+        appendToken(v)
+        llFreq[v]++
+    }
 
-        val dj = distCode(distance)
-        // Fixed-Huffman distance codes are 5 bits and the canonical code equals the
-        // symbol value, so emit it directly MSB-first.
-        writeCode(dj, 5)
-        if (DIST_EXTRA[dj] > 0) writeBits(distance - DIST_BASE[dj], DIST_EXTRA[dj])
+    private fun addMatch(length: Int, distance: Int) {
+        appendToken(MATCH_FLAG or (length shl 16) or distance)
+        llFreq[END_OF_BLOCK + 1 + lengthCode(length)]++  // 257 + lc
+        dFreq[distCode(distance)]++
+    }
+
+    private fun appendToken(t: Int) {
+        if (tokenCount == tokens.size) tokens = tokens.copyOf(tokens.size * 2)
+        tokens[tokenCount++] = t
+    }
+
+    /* ─── Emit the token stream with a chosen pair of code tables ─────────── */
+
+    private fun emitData(llCode: IntArray, llLen: IntArray, dCode: IntArray, dLen: IntArray) {
+        for (i in 0 until tokenCount) {
+            val t = tokens[i]
+            if (t and MATCH_FLAG == 0) {
+                writeCode(llCode[t], llLen[t])                              // literal
+            } else {
+                val length = (t ushr 16) and 0x1FF
+                val distance = t and 0xFFFF
+                val lc = lengthCode(length)
+                val sym = END_OF_BLOCK + 1 + lc
+                writeCode(llCode[sym], llLen[sym])
+                if (LENGTH_EXTRA[lc] > 0) writeBits(length - LENGTH_BASE[lc], LENGTH_EXTRA[lc])
+                val dc = distCode(distance)
+                writeCode(dCode[dc], dLen[dc])
+                if (DIST_EXTRA[dc] > 0) writeBits(distance - DIST_BASE[dc], DIST_EXTRA[dc])
+            }
+        }
+        writeCode(llCode[END_OF_BLOCK], llLen[END_OF_BLOCK])               // EOB
+    }
+
+    /* ─── Dynamic-block header (HLIT/HDIST/HCLEN + code-length code) ──────── */
+
+    private fun writeDynamicHeader(hlit: Int, hdist: Int, numCl: Int, clSeq: IntArray, clLen: IntArray) {
+        writeBits(hlit - 257, 5)
+        writeBits(hdist - 1, 5)
+        writeBits(numCl - 4, 4)
+        for (k in 0 until numCl) writeBits(clLen[ORDER[k]], 3)
+        val clCode = canonicalCodes(clLen)
+        var i = 0
+        while (i < clSeq.size) {
+            val sym = clSeq[i]
+            val extra = clSeq[i + 1]
+            val nbits = clSeq[i + 2]
+            writeCode(clCode[sym], clLen[sym])
+            if (nbits > 0) writeBits(extra, nbits)
+            i += 3
+        }
+    }
+
+    /**
+     * RLE-encode the concatenated code-length list into code-length-code symbols
+     * (0..15 literal, 16 = repeat-prev 3..6, 17 = zero 3..10, 18 = zero 11..138).
+     * Returns a flat [sym, extra, extraBits] triple stream.
+     */
+    private fun buildCodeLengthSequence(llLen: IntArray, hlit: Int, dLen: IntArray, hdist: Int): IntArray {
+        val merged = IntArray(hlit + hdist)
+        for (i in 0 until hlit) merged[i] = llLen[i]
+        for (i in 0 until hdist) merged[hlit + i] = dLen[i]
+
+        val seq = ArrayList<Int>(merged.size)
+        fun emit(sym: Int, extra: Int, nbits: Int) { seq.add(sym); seq.add(extra); seq.add(nbits) }
+
+        var i = 0
+        while (i < merged.size) {
+            val cur = merged[i]
+            var run = 1
+            while (i + run < merged.size && merged[i + run] == cur) run++
+            if (cur == 0) {
+                var rl = run
+                while (rl >= 11) { val take = minOf(rl, 138); emit(18, take - 11, 7); rl -= take }
+                while (rl >= 3) { val take = minOf(rl, 10); emit(17, take - 3, 3); rl -= take }
+                repeat(rl) { emit(0, 0, 0) }
+            } else {
+                emit(cur, 0, 0)
+                var rl = run - 1
+                while (rl >= 3) { val take = minOf(rl, 6); emit(16, take - 3, 2); rl -= take }
+                repeat(rl) { emit(cur, 0, 0) }
+            }
+            i += run
+        }
+        return seq.toIntArray()
+    }
+
+    /* ─── Size estimation (to choose dynamic vs fixed) ───────────────────── */
+
+    private fun symbolBits(llLen: IntArray, dLen: IntArray): Long {
+        var bits = 0L
+        for (s in 0..285) bits += llFreq[s].toLong() * llLen[s]
+        for (d in 0..29) bits += dFreq[d].toLong() * dLen[d]
+        return bits
+    }
+
+    private fun fixedSymbolBits(): Long {
+        var bits = 0L
+        for (s in 0..285) bits += llFreq[s].toLong() * FIXED_LITLEN_LEN[s]
+        for (d in 0..29) bits += dFreq[d].toLong() * FIXED_DIST_LEN[d]
+        return bits
+    }
+
+    private fun dynamicHeaderBits(numCl: Int, clSeq: IntArray, clLen: IntArray): Long {
+        var bits = (5 + 5 + 4 + numCl * 3).toLong()
+        var i = 0
+        while (i < clSeq.size) {
+            bits += clLen[clSeq[i]] + clSeq[i + 2]
+            i += 3
+        }
+        return bits
+    }
+
+    private fun maxIndex(lengths: IntArray, minTop: Int): Int {
+        var top = minTop
+        for (i in lengths.indices) if (lengths[i] > 0) top = i
+        return top
     }
 
     /* ─── Bit writer ─────────────────────────────────────────────────────── */
@@ -126,8 +268,7 @@ private class Deflater {
         }
     }
 
-    private fun writeLitLen(sym: Int) = writeBits(FIXED_LITLEN_REV[sym], FIXED_LITLEN_LEN[sym])
-
+    /** Write a Huffman [code] of [len] bits, most-significant bit first. */
     private fun writeCode(code: Int, len: Int) {
         var reversed = 0
         var c = code
@@ -145,8 +286,6 @@ private class Deflater {
             bitCount = 0
         }
     }
-
-    /* ─── Length/distance code lookup (RFC 1951 §3.2.5) ──────────────────── */
 
     private fun lengthCode(length: Int): Int {
         var i = 0
@@ -166,6 +305,16 @@ private class Deflater {
         private const val MAX_MATCH = 258
         private const val HASH_SIZE = 1 shl 15
         private const val MAX_CHAIN = 128
+
+        private const val END_OF_BLOCK = 256
+        private const val MAX_BITS = 15        // max bits for lit/len + dist codes
+        private const val MAX_CL_BITS = 7      // max bits for the code-length code
+        private const val MATCH_FLAG = 1 shl 30
+
+        // HCLEN permutation (RFC 1951 §3.2.7).
+        private val ORDER = intArrayOf(
+            16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
+        )
 
         private val LENGTH_BASE = intArrayOf(
             3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
@@ -196,16 +345,111 @@ private class Deflater {
         }
         private val FIXED_LITLEN_CODE = canonicalCodes(FIXED_LITLEN_LEN)
 
-        /** Each fixed lit/len code pre-reversed to LSB-first emit order (set once). */
-        private val FIXED_LITLEN_REV = IntArray(288) { sym ->
-            var rev = 0
-            var c = FIXED_LITLEN_CODE[sym]
-            repeat(FIXED_LITLEN_LEN[sym]) { rev = (rev shl 1) or (c and 1); c = c ushr 1 }
-            rev
+        /** Fixed-Huffman distance codes: all 30 are 5 bits. */
+        private val FIXED_DIST_LEN = IntArray(30) { 5 }
+        private val FIXED_DIST_CODE = canonicalCodes(FIXED_DIST_LEN)
+
+        /**
+         * Length-limited Huffman code lengths for [freq], capped at [maxLen] bits.
+         * Faithful port of zlib `trees.c`: min-heap tree build, then the
+         * overflow-redistribution of `gen_bitlen` (move a leaf down and rebalance,
+         * preserving the Kraft equality), then re-assign lengths longest-first to the
+         * least-frequent symbols. Returns 0 for unused symbols.
+         */
+        fun codeLengths(freq: IntArray, maxLen: Int): IntArray {
+            val n = freq.size
+            val lengths = IntArray(n)
+
+            val symbols = ArrayList<Int>()
+            for (i in 0 until n) if (freq[i] > 0) symbols.add(i)
+            val m = symbols.size
+            if (m == 0) return lengths
+            if (m == 1) { lengths[symbols[0]] = 1; return lengths }
+
+            // Node arrays: leaves 0..m-1, internal nodes m..(2m-2).
+            val maxNodes = 2 * m
+            val weight = LongArray(maxNodes)
+            val depth = IntArray(maxNodes)
+            val parent = IntArray(maxNodes) { -1 }
+            for (i in 0 until m) { weight[i] = freq[symbols[i]].toLong(); depth[i] = 0 }
+            var nodeCount = m
+
+            // Min-heap of node ids keyed by (weight, depth) — depth tie-break mirrors
+            // zlib and keeps the tree shallow, minimising overflow.
+            val heap = IntArray(maxNodes)
+            var heapSize = 0
+            fun less(a: Int, b: Int): Boolean =
+                weight[a] < weight[b] || (weight[a] == weight[b] && depth[a] < depth[b])
+            fun siftUp(start: Int) {
+                var i = start
+                while (i > 0) {
+                    val p = (i - 1) / 2
+                    if (less(heap[i], heap[p])) { val t = heap[i]; heap[i] = heap[p]; heap[p] = t; i = p }
+                    else break
+                }
+            }
+            fun siftDown(start: Int) {
+                var i = start
+                while (true) {
+                    val l = 2 * i + 1; val r = 2 * i + 2; var s = i
+                    if (l < heapSize && less(heap[l], heap[s])) s = l
+                    if (r < heapSize && less(heap[r], heap[s])) s = r
+                    if (s == i) break
+                    val t = heap[i]; heap[i] = heap[s]; heap[s] = t; i = s
+                }
+            }
+            for (i in 0 until m) { heap[heapSize++] = i; siftUp(heapSize - 1) }
+            fun pop(): Int {
+                val top = heap[0]
+                heap[0] = heap[--heapSize]
+                if (heapSize > 0) siftDown(0)
+                return top
+            }
+
+            while (heapSize > 1) {
+                val a = pop(); val b = pop()
+                val node = nodeCount++
+                weight[node] = weight[a] + weight[b]
+                depth[node] = maxOf(depth[a], depth[b]) + 1
+                parent[a] = node; parent[b] = node
+                heap[heapSize++] = node; siftUp(heapSize - 1)
+            }
+
+            // Raw (unbounded) length per leaf = depth in the tree.
+            val blCount = IntArray(maxLen + 2)
+            var overflow = 0
+            for (i in 0 until m) {
+                var d = 0; var p = parent[i]
+                while (p != -1) { d++; p = parent[p] }
+                if (d > maxLen) { blCount[maxLen]++; overflow++ } else blCount[d]++
+            }
+
+            // zlib gen_bitlen overflow redistribution (keeps sum == m and Kraft == 1).
+            if (overflow > 0) {
+                do {
+                    var bits = maxLen - 1
+                    while (blCount[bits] == 0) bits--
+                    blCount[bits]--
+                    blCount[bits + 1] += 2
+                    blCount[maxLen]--
+                    overflow -= 2
+                } while (overflow > 0)
+            }
+
+            // Assign the length multiset to symbols: longest codes to least-frequent.
+            val order = symbols.indices.sortedWith(
+                compareBy({ freq[symbols[it]] }, { symbols[it] }),
+            )
+            var oi = 0
+            for (bits in maxLen downTo 1) {
+                var c = blCount[bits]
+                while (c > 0) { lengths[symbols[order[oi++]]] = bits; c-- }
+            }
+            return lengths
         }
 
         /** Assign canonical Huffman codes from code lengths (RFC 1951 §3.2.2). */
-        private fun canonicalCodes(lengths: IntArray): IntArray {
+        fun canonicalCodes(lengths: IntArray): IntArray {
             val maxBits = 15
             val blCount = IntArray(maxBits + 1)
             for (l in lengths) if (l > 0) blCount[l]++

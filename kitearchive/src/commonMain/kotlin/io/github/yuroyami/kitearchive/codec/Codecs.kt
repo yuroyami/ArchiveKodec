@@ -2,6 +2,8 @@ package io.github.yuroyami.kitearchive.codec
 
 import io.github.yuroyami.kitearchive.codec.deflate.Deflate
 import io.github.yuroyami.kitearchive.codec.deflate.Inflate
+import io.github.yuroyami.kitearchive.codec.lz4.Lz4
+import io.github.yuroyami.kitearchive.codec.snappy.Snappy
 import io.github.yuroyami.kitearchive.security.ArchiveLimits
 import io.github.yuroyami.kitearchive.wrapper.Gzip
 import io.github.yuroyami.kitearchive.wrapper.Zlib
@@ -38,7 +40,21 @@ object Codecs {
             Zlib.decompress(data, limits.maxUncompressedBytes)
     }
 
-    private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB)
+    val LZ4: Codec = object : Codec {
+        override val id = CodecId.LZ4
+        override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            Lz4.frameDecompress(data, limits)
+    }
+
+    val SNAPPY: Codec = object : Codec {
+        override val id = CodecId.SNAPPY
+        override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            Snappy.decompress(data, limits)
+    }
+
+    private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB, LZ4, SNAPPY)
 
     /** The codec for [id], or null if not yet implemented. */
     fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }

@@ -11,15 +11,16 @@ enum class CodecId(val displayName: String, val implemented: Boolean) {
     ZLIB("zlib", true),
     GZIP("gzip", true),
 
+    LZ4("lz4", true),
+    SNAPPY("snappy", true),
+
     // Roadmap — not yet implemented.
     BZIP2("bzip2", false),
     LZMA("lzma", false),
     LZMA2("lzma2", false),
     XZ("xz", false),
     ZSTD("zstd", false),
-    LZ4("lz4", false),
     BROTLI("brotli", false),
-    SNAPPY("snappy", false),
     PPMD("ppmd", false),
     ;
 }

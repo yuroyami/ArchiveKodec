@@ -7,8 +7,10 @@ package io.github.yuroyami.kitearchive.checksum
  * Check value: `ADLER32("123456789") == 0x091E01DE`.
  */
 class Adler32 : Checksum {
-    private var a = 1
-    private var b = 0
+    // Long accumulators: over a 5552-byte NMAX run s2 reaches ~4.1e9, which overflows
+    // a SIGNED 32-bit Int (zlib's NMAX is sized for UNSIGNED 32-bit). Long has the room.
+    private var a = 1L
+    private var b = 0L
 
     override fun update(data: ByteArray, offset: Int, length: Int) {
         var s1 = a
@@ -16,10 +18,10 @@ class Adler32 : Checksum {
         var i = offset
         val end = offset + length
         while (i < end) {
-            // Process in NMAX-sized runs so the sums can't overflow Int before the mod.
+            // Process in NMAX-sized runs to bound how often we take the modulo.
             var n = minOf(end - i, NMAX)
             while (n-- > 0) {
-                s1 += data[i++].toInt() and 0xFF
+                s1 += (data[i++].toInt() and 0xFF).toLong()
                 s2 += s1
             }
             s1 %= MOD
@@ -29,9 +31,9 @@ class Adler32 : Checksum {
         b = s2
     }
 
-    override fun value(): Long = ((b.toLong() shl 16) or a.toLong()) and 0xFFFFFFFFL
+    override fun value(): Long = ((b shl 16) or a) and 0xFFFFFFFFL
 
-    override fun reset() { a = 1; b = 0 }
+    override fun reset() { a = 1L; b = 0L }
 
     companion object {
         private const val MOD = 65521      // largest prime below 2^16

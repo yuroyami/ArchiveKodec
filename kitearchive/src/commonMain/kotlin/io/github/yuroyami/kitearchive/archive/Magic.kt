@@ -20,6 +20,12 @@ object Magic {
             at(0) == 0x42 && at(1) == 0x5A && at(2) == 0x68 -> ArchiveFormat.BZIP2 // "BZh"
             at(0) == 0x37 && at(1) == 0x7A && at(2) == 0xBC && at(3) == 0xAF && at(4) == 0x27 && at(5) == 0x1C ->
                 ArchiveFormat.SEVEN_ZIP
+            // ar: "!<arch>\n"
+            at(0) == 0x21 && at(1) == 0x3C && at(2) == 0x61 && at(3) == 0x72 && at(4) == 0x63 &&
+                at(5) == 0x68 && at(6) == 0x3E && at(7) == 0x0A -> ArchiveFormat.AR
+            // cpio: "070701"/"070702" (newc/crc) or "070707" (odc)
+            at(0) == 0x30 && at(1) == 0x37 && at(2) == 0x30 && at(3) == 0x37 && at(4) == 0x30 &&
+                (at(5) == 0x31 || at(5) == 0x32 || at(5) == 0x37) -> ArchiveFormat.CPIO
             at(0) == 0x52 && at(1) == 0x61 && at(2) == 0x72 && at(3) == 0x21 && at(4) == 0x1A && at(5) == 0x07 ->
                 ArchiveFormat.RAR
             // .lzma-alone: properties byte (<=0xE0 for valid lc/lp/pb) then 4-byte dict size.
