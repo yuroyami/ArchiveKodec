@@ -87,9 +87,9 @@ with a writer.
 <span>Every public type, generated from source.</span>
 </a>
 
-<a class="kite-card" href="https://github.com/yuroyami/KiteArchive/blob/main/PORTING_STATUS.md">
-<strong>Format status</strong>
-<span>The support level for every codec and container, and what comes next.</span>
+<a class="kite-card" href="https://github.com/yuroyami/KiteArchive/issues">
+<strong>What is planned</strong>
+<span>Every missing codec, container and API, filed as an issue you can follow.</span>
 </a>
 
 </div>

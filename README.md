@@ -310,10 +310,23 @@ LZ4 frame header byte.
 You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
 your SDK install.
 
-## Format status
+## What is planned
 
-[PORTING_STATUS.md](PORTING_STATUS.md) lists the support level for every codec
-and container, and what comes next.
+The table at the top lists what works today. Everything still missing has its own
+issue, so the tracker is the current answer instead of a file that goes stale
+between releases.
+
+- [Missing codecs](https://github.com/yuroyami/KiteArchive/labels/plan%3Amore-codecs): bzip2, zstd, brotli, PPMd, and a Snappy
+  encoder that actually compresses.
+- [LZMA, xz and 7z](https://github.com/yuroyami/KiteArchive/labels/plan%3Alzma-family).
+- [Streaming and extraction](https://github.com/yuroyami/KiteArchive/labels/plan%3Astreaming-api): reading from a file, and
+  extracting without holding the whole archive in memory.
+- [Security hardening](https://github.com/yuroyami/KiteArchive/labels/plan%3Asecurity-hardening): one issue per guard listed under
+  Limits.
+- [Writers](https://github.com/yuroyami/KiteArchive/labels/plan%3Acontainer-writers) for TAR, ar and cpio.
+- [More containers](https://github.com/yuroyami/KiteArchive/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM.
+
+RAR, ACE, StuffIt and ALZ stay out of scope. See License below.
 
 ## License
 
@@ -322,8 +335,9 @@ Apache-2.0. See [LICENSE](LICENSE).
 KiteArchive is an independent, clean-room reimplementation. The inflate path
 derives from Mark Adler's public-domain `puff`. [NOTICE](NOTICE) lists the
 permissively licensed reference sources, and this repository does not
-redistribute them. RAR, ACE and StuffIt are out of scope for licensing reasons,
-and KiteArchive will never create RAR archives.
+redistribute them. RAR is out of scope for licensing reasons, and KiteArchive
+will never create RAR archives. ACE, StuffIt and ALZ are proprietary with no
+clean reference to work from, so they are out of scope too.
 
 Part of the Kite family: [KiteCore](https://github.com/yuroyami/KiteCore),
 [KitePDF](https://github.com/yuroyami/KitePDF),
