@@ -6,7 +6,7 @@ agp = "9.2.1"
 vanniktechPublish = "0.36.0"
 dokka = "2.2.0"
 
-# Tier 2 (:kitearchive-io) only. The :kitearchive core stays kotlin-stdlib-only.
+# Tier 2 (:archivekodec-io) only. The :archivekodec core stays kotlin-stdlib-only.
 kotlinxIo = "0.9.1"
 coroutines = "1.11.0"
 

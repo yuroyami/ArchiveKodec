@@ -1,7 +1,7 @@
 name: Docs
 
 # Builds the MkDocs Material site and the Dokka API reference and deploys both
-# to GitHub Pages (https://yuroyami.github.io/KiteArchive/). The API reference lands
+# to GitHub Pages (https://yuroyami.github.io/ArchiveKodec/). The API reference lands
 # at /api/ to match the "API reference" link in mkdocs.yml.
 
 on:

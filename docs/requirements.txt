@@ -1,4 +1,4 @@
-# Tooling for the KiteArchive documentation site (https://yuroyami.github.io/KiteArchive/).
+# Tooling for the ArchiveKodec documentation site (https://yuroyami.github.io/ArchiveKodec/).
 # Install with:  pip install -r docs/requirements.txt
 # Serve locally with:  mkdocs serve
 mkdocs-material>=9.5

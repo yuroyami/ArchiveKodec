@@ -1,15 +1,15 @@
-# KiteArchive
+# ArchiveKodec
 
 Compression and archive formats in pure Kotlin, for Kotlin Multiplatform. Gunzip
 a buffer or read a ZIP on iOS and in the browser, as well as on the JVM, from one
 shared codebase.
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.yuroyami/kitearchive)](https://central.sonatype.com/artifact/io.github.yuroyami/kitearchive)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.yuroyami/archivekodec)](https://central.sonatype.com/artifact/io.github.yuroyami/archivekodec)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Targets](https://img.shields.io/badge/targets-Android%20%7C%20iOS%20%7C%20JVM%20%7C%20JS-blue)](#targets)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**[Documentation](https://yuroyami.github.io/KiteArchive/)** · an overview with
+**[Documentation](https://yuroyami.github.io/ArchiveKodec/)** · an overview with
 examples, plus the generated API reference.
 
 ## What you get
@@ -17,7 +17,7 @@ examples, plus the generated API reference.
 `java.util.zip` exists on the JVM and Android and nowhere else. A Kotlin
 Multiplatform project that reads or writes archives usually adds a cinterop
 binding on iOS and a JavaScript shim on web. That means a native build, a native
-ABI, and a different code path per target. KiteArchive implements the formats in
+ABI, and a different code path per target. ArchiveKodec implements the formats in
 `commonMain` instead. There is no JNI, no cinterop and no native binary. The core
 artifact depends on `kotlin-stdlib` and nothing else.
 
@@ -36,20 +36,20 @@ memory, and there is no streaming API. Second, the readers do not sanitize entry
 names. You must call `PathGuard` yourself before you use a name as a path.
 
 ```kotlin
-import io.github.yuroyami.kitearchive.KiteArchive
-import io.github.yuroyami.kitearchive.archive.ByteArrayRandomAccessSource
-import io.github.yuroyami.kitearchive.archive.zip.ZipWriter
-import io.github.yuroyami.kitearchive.codec.CodecId
-import io.github.yuroyami.kitearchive.security.PathGuard
+import io.github.yuroyami.archivekodec.ArchiveKodec
+import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.security.PathGuard
 
-val gz = KiteArchive.gzip.compress("hello".encodeToByteArray())
-val back = KiteArchive.gzip.decompress(gz)
+val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
+val back = ArchiveKodec.gzip.decompress(gz)
 
 val zipBytes = ZipWriter.write(
     listOf(ZipWriter.FileSpec("hello.txt", "Hello!".encodeToByteArray(), CodecId.STORE)),
 )
 
-val reader = KiteArchive.open(ByteArrayRandomAccessSource(zipBytes))
+val reader = ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes))
 for (entry in reader.entries()) {
     // The reader returns names unchanged. Sanitize one before you use it as a path.
     val safeName = PathGuard.sanitize(entry.name)
@@ -64,25 +64,27 @@ for (entry in reader.entries()) {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.yuroyami:kitearchive:0.1.0")
+            implementation("io.github.yuroyami:archivekodec:0.2.0")
         }
     }
 }
 ```
 
-There is a second artifact, `kitearchive-io`. It holds four small adapters and it
+Versions before 0.2.0 use older coordinates. 0.1.0 is `io.github.yuroyami:kitearchive`.
+
+There is a second artifact, `archivekodec-io`. It holds four small adapters and it
 does not build for JS. Read [The `-io` artifact](#the--io-artifact) before you
 add it.
 
 ## Compress and decompress
 
 ```kotlin
-KiteArchive.gzip.compress(bytes)      // gzip member
-KiteArchive.zlib.compress(bytes)      // zlib stream: PNG IDAT, PDF FlateDecode
-KiteArchive.deflate.compress(bytes)   // bare RFC 1951
-KiteArchive.store.compress(bytes)     // identity
+ArchiveKodec.gzip.compress(bytes)      // gzip member
+ArchiveKodec.zlib.compress(bytes)      // zlib stream: PNG IDAT, PDF FlateDecode
+ArchiveKodec.deflate.compress(bytes)   // bare RFC 1951
+ArchiveKodec.store.compress(bytes)     // identity
 
-val lz4 = KiteArchive.codec(CodecId.LZ4)      // null for an unimplemented id
+val lz4 = ArchiveKodec.codec(CodecId.LZ4)      // null for an unimplemented id
 val out = lz4!!.decompress(frameBytes)
 ```
 
@@ -95,11 +97,11 @@ val out = lz4!!.decompress(frameBytes)
 | LZ4 (frame and block) | yes | yes |
 | Snappy (raw block) | yes | valid output, but it does not compress |
 
-`gzip`, `zlib`, `deflate` and `store` have named accessors on `KiteArchive`. You
-reach LZ4 and Snappy through `KiteArchive.codec(id)`.
+`gzip`, `zlib`, `deflate` and `store` have named accessors on `ArchiveKodec`. You
+reach LZ4 and Snappy through `ArchiveKodec.codec(id)`.
 
 `CodecId` also carries entries for bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd.
-None of those have an implementation. `KiteArchive.codec(...)` returns `null` for
+None of those have an implementation. `ArchiveKodec.codec(...)` returns `null` for
 them. A ZIP entry that uses one of them appears in the entry list, but reading it
 throws.
 
@@ -111,7 +113,7 @@ enforces less than the field list suggests. The lower-level `Gzip.decompress` an
 ## Read an archive
 
 ```kotlin
-val reader = KiteArchive.open(ByteArrayRandomAccessSource(bytes))
+val reader = ArchiveKodec.open(ByteArrayRandomAccessSource(bytes))
 reader.entries()          // parsed from the header or central directory only
 reader.read(entry)        // decode one entry
 ```
@@ -144,7 +146,7 @@ val bytes = ZipWriter.write(
 ```
 
 `ZipWriter` is the only writer in the library. It is not reachable from the
-`KiteArchive` object, so import it directly. It emits ZIP64 records only when
+`ArchiveKodec` object, so import it directly. It emits ZIP64 records only when
 they are needed, meaning more than 65,535 entries or a size or offset past 4 GiB.
 Ordinary archives therefore stay in the classic ZIP layout.
 
@@ -188,8 +190,8 @@ one-shot only.
 ## Sniff a format
 
 ```kotlin
-KiteArchive.sniff(header)     // ArchiveFormat.ZIP, TAR, GZIP, ...
-KiteArchive.sniff(source)     // reads the first 512 bytes of a RandomAccessSource
+ArchiveKodec.sniff(header)     // ArchiveFormat.ZIP, TAR, GZIP, ...
+ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSource
 ```
 
 The sniffer recognizes ZIP, TAR (ustar magic at offset 257), ar, cpio, gzip,
@@ -197,14 +199,14 @@ zlib, bzip2, xz, zstd, LZ4, 7z and RAR. Snappy and brotli have no magic bytes, s
 it never detects them.
 
 Sniffing is not decoding. The sniffer names xz, zstd, bzip2, 7z and RAR, and
-KiteArchive cannot decode any of those five formats.
+ArchiveKodec cannot decode any of those five formats.
 
 ## Targets
 
-The two artifacts do not build for the same targets. `kitearchive-io` has no JS
+The two artifacts do not build for the same targets. `archivekodec-io` has no JS
 target, so adding both to one `commonMain` breaks a project that builds for JS.
 
-| Target | `kitearchive` | `kitearchive-io` |
+| Target | `archivekodec` | `archivekodec-io` |
 | --- | --- | --- |
 | Android, minSdk 21, compileSdk 36 | yes | yes |
 | `jvm`, JDK 21 toolchain | yes | yes |
@@ -215,7 +217,7 @@ Neither artifact builds for `wasmJs`, macOS, Linux or mingw.
 
 ## The `-io` artifact
 
-`kitearchive-io` is one common source file with four functions:
+`archivekodec-io` is one common source file with four functions:
 
 ```kotlin
 fun RawSource.readAllBytes(): ByteArray
@@ -256,7 +258,7 @@ artifact and a kotlinx-io dependency.
   per block.
 - `Gzip.decompress` and `Zlib.decompress` cap output at 4 MiB when called
   directly, while `ArchiveLimits.DEFAULT` allows 2 GiB. `Gzip.decompress(x)` and
-  `KiteArchive.gzip.decompress(x)` therefore behave differently on the same input.
+  `ArchiveKodec.gzip.decompress(x)` therefore behave differently on the same input.
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
@@ -302,8 +304,8 @@ LZ4 frame header byte.
 ## Building
 
 ```bash
-./gradlew :kitearchive:jvmTest         # core test suite
-./gradlew :kitearchive-io:jvmTest      # kotlinx-io adapter tests
+./gradlew :archivekodec:jvmTest         # core test suite
+./gradlew :archivekodec-io:jvmTest      # kotlinx-io adapter tests
 ./gradlew build                        # all modules, all targets
 ```
 
@@ -316,15 +318,15 @@ The table at the top lists what works today. Everything still missing has its ow
 issue, so the tracker is the current answer instead of a file that goes stale
 between releases.
 
-- [Missing codecs](https://github.com/yuroyami/KiteArchive/labels/plan%3Amore-codecs): bzip2, zstd, brotli, PPMd, and a Snappy
+- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): bzip2, zstd, brotli, PPMd, and a Snappy
   encoder that actually compresses.
-- [LZMA, xz and 7z](https://github.com/yuroyami/KiteArchive/labels/plan%3Alzma-family).
-- [Streaming and extraction](https://github.com/yuroyami/KiteArchive/labels/plan%3Astreaming-api): reading from a file, and
+- [LZMA, xz and 7z](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Alzma-family).
+- [Streaming and extraction](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Astreaming-api): reading from a file, and
   extracting without holding the whole archive in memory.
-- [Security hardening](https://github.com/yuroyami/KiteArchive/labels/plan%3Asecurity-hardening): one issue per guard listed under
+- [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under
   Limits.
-- [Writers](https://github.com/yuroyami/KiteArchive/labels/plan%3Acontainer-writers) for TAR, ar and cpio.
-- [More containers](https://github.com/yuroyami/KiteArchive/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM.
+- [Writers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Acontainer-writers) for TAR, ar and cpio.
+- [More containers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM.
 
 RAR, ACE, StuffIt and ALZ stay out of scope. See License below.
 
@@ -332,10 +334,10 @@ RAR, ACE, StuffIt and ALZ stay out of scope. See License below.
 
 Apache-2.0. See [LICENSE](LICENSE).
 
-KiteArchive is an independent, clean-room reimplementation. The inflate path
+ArchiveKodec is an independent, clean-room reimplementation. The inflate path
 derives from Mark Adler's public-domain `puff`. [NOTICE](NOTICE) lists the
 permissively licensed reference sources, and this repository does not
-redistribute them. RAR is out of scope for licensing reasons, and KiteArchive
+redistribute them. RAR is out of scope for licensing reasons, and ArchiveKodec
 will never create RAR archives. ACE, StuffIt and ALZ are proprietary with no
 clean reference to work from, so they are out of scope too.
 

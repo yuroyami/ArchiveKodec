@@ -1,5 +1,5 @@
-site_name: KiteArchive
-site_url: https://yuroyami.github.io/KiteArchive/
+site_name: ArchiveKodec
+site_url: https://yuroyami.github.io/ArchiveKodec/
 site_description: >-
   Pure-Kotlin compression codecs and archive readers for Kotlin Multiplatform:
   DEFLATE, gzip, zlib, LZ4 and Snappy, ZIP read and write (+ZIP64), TAR, ar and
@@ -7,8 +7,8 @@ site_description: >-
 site_author: yuroyami
 copyright: Copyright &copy; 2026 yuroyami, Apache-2.0
 
-repo_name: yuroyami/KiteArchive
-repo_url: https://github.com/yuroyami/KiteArchive
+repo_name: yuroyami/ArchiveKodec
+repo_url: https://github.com/yuroyami/ArchiveKodec
 edit_uri: edit/main/docs/
 
 docs_dir: docs
@@ -74,10 +74,10 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/yuroyami/KiteArchive
+      link: https://github.com/yuroyami/ArchiveKodec
     - icon: material/package-variant-closed
       link: https://central.sonatype.com/namespace/io.github.yuroyami
 
 nav:
   - Home: index.md
-  - API reference: https://yuroyami.github.io/KiteArchive/api/
+  - API reference: https://yuroyami.github.io/ArchiveKodec/api/

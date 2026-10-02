@@ -1,15 +1,15 @@
 <div class="kite-hero" markdown>
 
-# KiteArchive
+# ArchiveKodec
 
-KiteArchive implements compression codecs and archive readers in pure Kotlin, for
+ArchiveKodec implements compression codecs and archive readers in pure Kotlin, for
 Kotlin Multiplatform. Gunzip a buffer or read a ZIP on iOS and in the browser, as
 well as on the JVM.
 
 <div class="kite-hero-actions" markdown>
 [Get started](#a-first-example){ .kite-primary }
 [API reference](api/)
-[GitHub](https://github.com/yuroyami/KiteArchive)
+[GitHub](https://github.com/yuroyami/ArchiveKodec)
 </div>
 
 </div>
@@ -20,16 +20,16 @@ There is no JNI, no cinterop and no native binary. The core artifact depends on
 ## A first example
 
 ```kotlin
-import io.github.yuroyami.kitearchive.KiteArchive
-import io.github.yuroyami.kitearchive.archive.ByteArrayRandomAccessSource
-import io.github.yuroyami.kitearchive.security.PathGuard
+import io.github.yuroyami.archivekodec.ArchiveKodec
+import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.security.PathGuard
 
-val gz = KiteArchive.gzip.compress("hello".encodeToByteArray())
-val back = KiteArchive.gzip.decompress(gz)
+val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
+val back = ArchiveKodec.gzip.decompress(gz)
 
-KiteArchive.sniff(bytes)                            // -> ArchiveFormat.ZIP / TAR / GZIP / ...
+ArchiveKodec.sniff(bytes)                            // -> ArchiveFormat.ZIP / TAR / GZIP / ...
 
-val reader = KiteArchive.open(ByteArrayRandomAccessSource(zipBytes))
+val reader = ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes))
 for (entry in reader.entries()) {
     // The reader returns names unchanged. Sanitize one before you join it to a path.
     println(PathGuard.sanitize(entry.name))
@@ -51,10 +51,10 @@ into. Call `PathGuard.sanitize` on every name before you use it as a path.
 
 | Module | What it holds | Targets |
 | --- | --- | --- |
-| `kitearchive` | Codecs, archive readers, a ZIP writer, checksums, a sniffer and the safety checks. See the table below | Android, iOS, JVM, JS |
-| `kitearchive-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | Android, iOS, JVM |
+| `archivekodec` | Codecs, archive readers, a ZIP writer, checksums, a sniffer and the safety checks. See the table below | Android, iOS, JVM, JS |
+| `archivekodec-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | Android, iOS, JVM |
 
-What `kitearchive` contains:
+What `archivekodec` contains:
 
 | Area | Contents |
 | --- | --- |
@@ -63,21 +63,21 @@ What `kitearchive` contains:
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Safety | A magic sniffer, plus the opt-in `PathGuard` and `ArchiveLimits` checks |
 
-`kitearchive-io` has **no JS target**. It cannot go in the same `commonMain` as
+`archivekodec-io` has **no JS target**. It cannot go in the same `commonMain` as
 the core in a project that builds for JS.
 
 ## Not implemented
 
 `CodecId` names bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd, and the sniffer
 recognizes several of them. None of them has an implementation, and
-`KiteArchive.codec(id)` returns `null` for those ids. ZIP is the only container
+`ArchiveKodec.codec(id)` returns `null` for those ids. ZIP is the only container
 with a writer.
 
 ## Where to go next
 
 <div class="kite-cards" markdown>
 
-<a class="kite-card" href="https://github.com/yuroyami/KiteArchive#readme">
+<a class="kite-card" href="https://github.com/yuroyami/ArchiveKodec#readme">
 <strong>README</strong>
 <span>Install, per-format tables, targets, and the full list of limits.</span>
 </a>
@@ -87,7 +87,7 @@ with a writer.
 <span>Every public type, generated from source.</span>
 </a>
 
-<a class="kite-card" href="https://github.com/yuroyami/KiteArchive/issues">
+<a class="kite-card" href="https://github.com/yuroyami/ArchiveKodec/issues">
 <strong>What is planned</strong>
 <span>Every missing codec, container and API, filed as an issue you can follow.</span>
 </a>

@@ -19,14 +19,14 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "KiteArchive-KMP"
+rootProject.name = "ArchiveKodec-KMP"
 
-// :kitearchive — the pure-Kotlin compression + archive core (stdlib only). Codecs
+// :archivekodec — the pure-Kotlin compression + archive core (stdlib only). Codecs
 // (store, DEFLATE, gzip/zlib, LZ4, Snappy), the ZIP reader/writer and the TAR/ar/cpio
 // readers, checksums, the magic sniffer and the security checks. Android, iOS, JVM, JS.
-include(":kitearchive")
+include(":archivekodec")
 
-// :kitearchive-io — the kotlinx-io adapter: four convenience functions over RawSource.
+// :archivekodec-io — the kotlinx-io adapter: four convenience functions over RawSource.
 // No RawSink bridge and no seekable file handle yet. Keeps the kotlinx-io dependency
 // off the core and off consumers that don't want it. Android, iOS, JVM — no JS.
-include(":kitearchive-io")
+include(":archivekodec-io")

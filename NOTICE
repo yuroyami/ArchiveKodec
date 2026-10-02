@@ -1,4 +1,4 @@
-KiteArchive
+ArchiveKodec
 Copyright 2026 yuroyami
 
 This product is a from-scratch, clean-room Kotlin Multiplatform reimplementation of
@@ -13,4 +13,4 @@ reference/REFERENCES.md) are each under permissive licenses: zlib (zlib), XZ for
 
 RAR / ACE / StuffIt are deliberately excluded: the UnRAR license forbids using its
 source to build a RAR-compatible compressor, and no clean open reference exists for
-ACE/StuffIt. KiteArchive will never create RAR archives.
+ACE/StuffIt. ArchiveKodec will never create RAR archives.

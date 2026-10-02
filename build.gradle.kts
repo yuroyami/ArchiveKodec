@@ -17,12 +17,12 @@ allprojects {
 
 // Aggregate the published library modules into a single Dokka API reference.
 dependencies {
-    dokka(project(":kitearchive"))
-    dokka(project(":kitearchive-io"))
+    dokka(project(":archivekodec"))
+    dokka(project(":archivekodec-io"))
 }
 
 dokka {
-    moduleName.set("KiteArchive")
+    moduleName.set("ArchiveKodec")
 }
 
 // Shared Kite theme. Sources live in ../_kite-docs; ./_kite-docs/sync.sh copies
@@ -42,7 +42,7 @@ allprojects {
                 templatesDir.set(
                     rootProject.layout.projectDirectory.dir("dokka-templates"),
                 )
-                footerMessage.set("Apache-2.0 · KiteArchive is part of the Kite family.")
+                footerMessage.set("Apache-2.0 · ArchiveKodec is part of the Kite family.")
             }
 
             // A module with a Module.md gets its description onto the aggregated
