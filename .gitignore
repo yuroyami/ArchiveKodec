@@ -8,6 +8,6 @@ local.properties
 kotlin-js-store/
 
 # Reference source trees are for porting/study only — never distributed.
-# (Permissive licenses, but they bloat the repo and the published artifact must
-# stay clean-room. See reference/REFERENCES.md for what each maps to.)
-reference/
+# The origin/license notes remain tracked; third-party source trees do not.
+reference/*
+!reference/REFERENCES.md

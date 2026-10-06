@@ -334,10 +334,13 @@ RAR, ACE, StuffIt and ALZ stay out of scope. See License below.
 
 Apache-2.0. See [LICENSE](LICENSE).
 
-ArchiveKodec is an independent, clean-room reimplementation. The inflate path
-derives from Mark Adler's public-domain `puff`. [NOTICE](NOTICE) lists the
-permissively licensed reference sources, and this repository does not
-redistribute them. RAR is out of scope for licensing reasons, and ArchiveKodec
+ArchiveKodec combines specification implementations with ports of permissively
+licensed code. The inflate path is an altered Kotlin translation of Mark Adler's
+zlib-licensed `puff`, via KiteTorrent and libtorrent. The encoder's Huffman
+construction follows zlib's `trees.c`; both source files retain the zlib notices.
+[NOTICE](NOTICE) and [reference/REFERENCES.md](reference/REFERENCES.md) record the
+origins and licenses. Reference source trees are used for study and are not
+redistributed. RAR is out of scope for licensing reasons, and ArchiveKodec
 will never create RAR archives. ACE, StuffIt and ALZ are proprietary with no
 clean reference to work from, so they are out of scope too.
 

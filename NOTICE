@@ -1,10 +1,15 @@
 ArchiveKodec
 Copyright 2026 yuroyami
 
-This product is a from-scratch, clean-room Kotlin Multiplatform reimplementation of
-established compression formats. The DEFLATE inflate path derives from Mark Adler's
-public-domain `puff` reference (via the KiteTorrent / libtorrent lineage); the DEFLATE
-encoder derives from the KitePDF FlateDecode encoder.
+This Kotlin Multiplatform library combines specification implementations with
+ports of permissively licensed compression code.
+
+The DEFLATE inflate path is an altered Kotlin translation of Mark Adler's puff
+(2002-2013), via KiteTorrent and libtorrent. puff carries a zlib-style license,
+not a public-domain dedication; its original notice is retained in Inflate.kt.
+The DEFLATE encoder originated in KitePDF's FlateDecode encoder and its
+length-limited Huffman construction follows zlib's trees.c (Jean-loup Gailly and
+Mark Adler). Deflate.kt retains the zlib copyright and license notice.
 
 Format references consulted for porting (study only, not redistributed; see
 reference/REFERENCES.md) are each under permissive licenses: zlib (zlib), XZ for Java
