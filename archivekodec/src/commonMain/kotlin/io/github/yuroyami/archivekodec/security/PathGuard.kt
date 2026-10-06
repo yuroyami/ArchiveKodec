@@ -31,9 +31,6 @@ object PathGuard {
 
         val normalized = entryName.replace('\\', '/')
         if (normalized.startsWith("/")) throw ArchivePathException("absolute path: '$entryName'")
-        if (normalized.length >= 2 && normalized[1] == ':') {
-            throw ArchivePathException("drive-letter path: '$entryName'")
-        }
 
         val stack = ArrayList<String>()
         for (part in normalized.split('/')) {
@@ -44,7 +41,12 @@ object PathGuard {
             }
         }
         if (stack.isEmpty()) throw ArchivePathException("entry resolves to nothing: '$entryName'")
-        return stack.joinToString("/")
+        val result = stack.joinToString("/")
+        // Collapsing a leading ./ can expose a Windows drive prefix.
+        if (result.length >= 2 && result[1] == ':') {
+            throw ArchivePathException("drive-letter path: '$entryName'")
+        }
+        return result
     }
 
     /** Non-throwing variant: true if [entryName] is a safe relative path. */

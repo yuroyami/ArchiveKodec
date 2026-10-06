@@ -3,6 +3,8 @@ package io.github.yuroyami.archivekodec.security
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class PathGuardTest {
 
@@ -27,6 +29,25 @@ class PathGuardTest {
 
     @Test
     fun rejectsDriveLetter() = assertFalse(PathGuard.isSafe("C:/Windows"))
+
+    @Test
+    fun rejectsDrivePathsAfterRemovingDotSegments() {
+        for (name in listOf("./C:/outside.txt", "././c:outside.txt", ".//C:/outside.txt", ".\\C:\\outside.txt", "./.\\C:/outside.txt")) {
+            assertFailsWith<ArchivePathException>(name) { PathGuard.sanitize(name) }
+            assertFalse(PathGuard.isSafe(name), name)
+        }
+    }
+
+    @Test
+    fun normalizedNamesRemainSafeAndRelative() {
+        for (name in listOf("./folder/file.txt", "folder\\.\\file.txt", "./a//b/", "./:colon.txt", "./my file.txt")) {
+            val safe = PathGuard.sanitize(name)
+            assertTrue(PathGuard.isSafe(safe), name)
+            assertEquals(safe, PathGuard.sanitize(safe), name)
+            assertFalse(safe.startsWith("/"), name)
+            assertFalse(safe.length >= 2 && safe[1] == ':', name)
+        }
+    }
 
     @Test
     fun rejectsNul() {
