@@ -120,8 +120,9 @@ reader.read(entry)        // decode one entry
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
 `CpioReader`. Anything else throws `UnsupportedOperationException`. `entries()`
-does not touch payload bytes, so listing a large ZIP is fast. `read` seeks to one
-local header for a single-entry extract.
+does not touch payload bytes. ZIP listing validates the central directory and
+local headers, so custom sources must support those metadata reads. `read` seeks
+to one local header for a single-entry extract.
 
 | Format | Read | Write |
 | --- | --- | --- |
@@ -265,9 +266,11 @@ artifact and a kotlinx-io dependency.
 - Of `ArchiveLimits`, only `checkOutputSize` and `checkRatio` are ever called.
   Nothing reads `maxEntries` or `maxNestingDepth`, and only `ZipReader` calls
   `checkRatio`.
-- `ArchiveEntry.size` is a `Long`, but every reader narrows it to `Int` at the
-  point of reading. An entry over 2 GiB therefore fails, whatever the ZIP64
-  support on the directory side allows.
+- `ArchiveEntry.size` stays a `Long` during parsing. Readers validate source
+  ranges before allocation, including ZIP local-header and payload extents.
+  Configured output limits apply first; a whole-array read above `Int.MAX_VALUE`
+  then throws `ArchiveFormatException`. Larger valid entries can be listed from
+  a seekable source, but extracting them to a stream is still planned.
 - gzip decodes the first member only. A multi-member `.gz` silently loses
   everything after the first member.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files. ar

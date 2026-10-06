@@ -1,10 +1,13 @@
 package io.github.yuroyami.archivekodec.archive.cpio
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
+import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -23,14 +26,14 @@ class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
         limits.checkOutputSize(entry.size)
         if (entry.isDirectory || entry.size == 0L) return ByteArray(0)
-        return source.readFully(entry.dataOffset, entry.size.toInt())
+        return source.readFullyChecked(entry.dataOffset, entry.size)
     }
 
     private fun parse(): List<ArchiveEntry> {
         val out = ArrayList<ArchiveEntry>()
         var pos = 0L
         val total = source.size
-        while (pos + 6 <= total) {
+        while (pos <= total && total - pos >= 6) {
             val magic = source.readFully(pos, 6).decodeToString()
             when (magic) {
                 "070701", "070702" -> pos = parseNewc(pos, out) ?: break
@@ -47,10 +50,11 @@ class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
         fun field(i: Int): Long = hex(h, 6 + i * 8, 8)
         val mode = field(1)
         val fileSize = field(6)
-        val nameSize = field(11).toInt()
+        val nameSize = field(11)
         val nameStart = pos + 110
-        val name = source.readFully(nameStart, nameSize).decodeToString(0, nameSize - 1) // strip NUL
+        val name = readName(nameStart, nameSize) // strip NUL
         val dataStart = align4(nameStart + nameSize)
+        source.requireRange(dataStart, fileSize)
         if (name == TRAILER) return null
         addEntry(out, name, fileSize, mode, dataStart)
         return align4(dataStart + fileSize)
@@ -60,11 +64,12 @@ class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
     private fun parseOdc(pos: Long, out: ArrayList<ArchiveEntry>): Long? {
         val h = source.readFully(pos, 76)
         val mode = oct(h, 18, 6)
-        val nameSize = oct(h, 59, 6).toInt()
+        val nameSize = oct(h, 59, 6)
         val fileSize = oct(h, 65, 11)
         val nameStart = pos + 76
-        val name = source.readFully(nameStart, nameSize).decodeToString(0, nameSize - 1)
+        val name = readName(nameStart, nameSize)
         val dataStart = nameStart + nameSize
+        source.requireRange(dataStart, fileSize)
         if (name == TRAILER) return null
         addEntry(out, name, fileSize, mode, dataStart)
         return dataStart + fileSize
@@ -75,7 +80,18 @@ class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
         out.add(ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir, dataOffset = dataStart))
     }
 
-    private fun align4(v: Long): Long = (v + 3) and 3L.inv()
+    private fun readName(offset: Long, length: Long): String {
+        if (length < 1) throw ArchiveFormatException("cpio: empty name field", offset)
+        val bytes = source.readFullyChecked(offset, length)
+        if (bytes.last().toInt() != 0) throw ArchiveFormatException("cpio: missing name terminator", offset)
+        return bytes.decodeToString(0, bytes.size - 1)
+    }
+
+    private fun align4(v: Long): Long {
+        val padding = (4 - (v and 3L)) and 3L
+        source.requireRange(v, padding)
+        return v + padding
+    }
 
     private fun hex(b: ByteArray, off: Int, len: Int): Long {
         var v = 0L

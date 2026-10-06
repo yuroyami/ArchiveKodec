@@ -1,11 +1,14 @@
 package io.github.yuroyami.archivekodec
 
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.zip64WithComment
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.CodecId
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.nio.file.Files
+import java.util.zip.ZipFile
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -50,6 +53,25 @@ class ZipInteropTest {
         val byName = reader.entries().associateBy { it.name }
         assertContentEquals(dataB, reader.read(byName.getValue("x.txt")))
         assertContentEquals(dataA, reader.read(byName.getValue("y.txt")))
+    }
+
+    @Test
+    fun zip64LongCommentsAgreeWithJdkCentralDirectoryReader() {
+        for (length in listOf(0, 65515, 65516, 65535)) {
+            val bytes = zip64WithComment(length)
+            val path = Files.createTempFile("zip64-comment", ".zip")
+            try {
+                Files.write(path, bytes)
+                ZipFile(path.toFile()).use { jdk ->
+                    val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
+                    val entry = reader.entries().single()
+                    assertEquals(jdk.size(), reader.entries().size)
+                    assertContentEquals(jdk.getInputStream(jdk.getEntry(entry.name)).readBytes(), reader.read(entry))
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
     }
 
     @Test

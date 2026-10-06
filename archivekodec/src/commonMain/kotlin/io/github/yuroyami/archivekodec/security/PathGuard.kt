@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.security
 
+import io.github.yuroyami.archivekodec.ArchiveException
+
 /**
  * Zip-Slip / path-traversal defence (Snyk 2018; CVE-2020-8913; CVE-2023-35947;
  * Android "Zip Path Traversal"). Every entry name read out of an archive MUST pass
@@ -55,4 +57,4 @@ object PathGuard {
 }
 
 /** Thrown when an archive entry name fails the [PathGuard] checks. */
-class ArchivePathException(message: String) : Exception(message)
+class ArchivePathException(message: String) : ArchiveException(message)

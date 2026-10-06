@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import io.github.yuroyami.archivekodec.ArchiveException
+
 /**
  * Error codes for DEFLATE and gzip inflation. The integer [code] is exactly the value
  * Mark Adler's `puff()` returns, plus two wrapper-level codes `puff()` never produces.
@@ -81,4 +83,4 @@ enum class InflateError(val code: Int, val message: String) {
  * Thrown by [Inflate] and the gzip/zlib framers when decompression fails. Carries
  * the specific [error] so callers can branch on the exact failure mode.
  */
-class InflateException(val error: InflateError) : Exception(error.message)
+class InflateException(val error: InflateError) : ArchiveException(error.message)

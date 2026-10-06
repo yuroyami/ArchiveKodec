@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.security
 
+import io.github.yuroyami.archivekodec.ArchiveException
+
 /**
  * Decompression-bomb defences, applied **during** decode (never trust a declared
  * size for allocation). Passed into every `decompress`/`read` call; the defaults are
@@ -59,4 +61,4 @@ data class ArchiveLimits(
 }
 
 /** Thrown when input trips a decompression-bomb guard. */
-class DecompressionBombException(message: String) : Exception(message)
+class DecompressionBombException(message: String) : ArchiveException(message)

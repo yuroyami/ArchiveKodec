@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
+
 /**
  * A seekable, random-access byte source. Every container reader works against this
  * read contract. ZIP "browse without extract" (read the central directory at the
@@ -17,7 +19,12 @@ interface RandomAccessSource {
     /**
      * Read up to [length] bytes starting at absolute [offset] into [into] at
      * [intoOffset]. Returns the number of bytes read, or -1 at end of source.
+     * A zero-length read returns 0, including at EOF.
+     *
+     * @throws ArchiveFormatException for a negative source offset.
+     * @throws IllegalArgumentException for an invalid destination slice.
      */
+    @Throws(ArchiveFormatException::class, IllegalArgumentException::class)
     fun read(offset: Long, into: ByteArray, intoOffset: Int = 0, length: Int = into.size): Int
 
     /** Release any underlying handle. No-op for in-memory sources. */
@@ -25,14 +32,34 @@ interface RandomAccessSource {
 }
 
 /**
- * Read exactly [length] bytes at [offset], or fail. Convenience over [RandomAccessSource.read].
+ * Read exactly [length] bytes at [offset]. Validate the source range before allocation.
+ *
+ * @throws ArchiveFormatException for an invalid range or a premature end of source.
  */
-fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray {
-    val buf = ByteArray(length)
+@Throws(ArchiveFormatException::class)
+fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray =
+    readFullyChecked(offset, length.toLong())
+
+internal fun RandomAccessSource.requireRange(offset: Long, length: Long) {
+    val total = size
+    if (total < 0 || offset < 0 || length < 0 || offset > total || length > total - offset) {
+        throw ArchiveFormatException("source range at $offset of $length bytes exceeds source size $total", offset)
+    }
+}
+
+internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): ByteArray {
+    requireRange(offset, length)
+    if (length > Int.MAX_VALUE) {
+        throw ArchiveFormatException("range of $length bytes cannot fit in a ByteArray", offset)
+    }
+    val count = length.toInt()
+    val buf = ByteArray(count)
     var got = 0
-    while (got < length) {
-        val n = read(offset + got, buf, got, length - got)
-        if (n <= 0) throw IllegalStateException("unexpected EOF at ${offset + got} (wanted $length)")
+    while (got < count) {
+        val n = read(offset + got, buf, got, count - got)
+        if (n <= 0 || n > count - got) {
+            throw ArchiveFormatException("unexpected read at ${offset + got} (wanted ${count - got}, got $n)", offset + got)
+        }
         got += n
     }
     return buf
@@ -42,7 +69,13 @@ fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray {
 class ByteArrayRandomAccessSource(private val data: ByteArray) : RandomAccessSource {
     override val size: Long get() = data.size.toLong()
 
+    @Throws(ArchiveFormatException::class, IllegalArgumentException::class)
     override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+        if (offset < 0) throw ArchiveFormatException("negative source offset $offset", offset)
+        require(intoOffset >= 0 && length >= 0 && intoOffset <= into.size && length <= into.size - intoOffset) {
+            "invalid destination slice: offset $intoOffset, length $length, size ${into.size}"
+        }
+        if (length == 0) return 0
         if (offset >= data.size) return -1
         val start = offset.toInt()
         val avail = minOf(length, data.size - start)

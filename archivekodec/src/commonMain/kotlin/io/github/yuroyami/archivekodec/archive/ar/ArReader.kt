@@ -1,10 +1,13 @@
 package io.github.yuroyami.archivekodec.archive.ar
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
+import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -23,7 +26,7 @@ class ArReader(private val source: RandomAccessSource) : ArchiveReader {
 
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
         limits.checkOutputSize(entry.size)
-        return source.readFully(entry.dataOffset, entry.size.toInt())
+        return source.readFullyChecked(entry.dataOffset, entry.size)
     }
 
     private fun parse(): List<ArchiveEntry> {
@@ -34,15 +37,22 @@ class ArReader(private val source: RandomAccessSource) : ArchiveReader {
         var nameTable: ByteArray? = null
         val out = ArrayList<ArchiveEntry>()
         var pos = 8L
-        while (pos + 60 <= total) {
+        while (pos <= total && total - pos >= 60) {
             val h = source.readFully(pos, 60)
             if ((h[58].toInt() and 0xFF) != 0x60 || (h[59].toInt() and 0xFF) != 0x0A) break
             val rawName = h.decodeToString(0, 16).trimEnd()
-            val size = h.decodeToString(48, 58).trim().toLongOrNull() ?: break
+            val sizeText = h.decodeToString(48, 58).trim()
+            if (sizeText.isEmpty() || sizeText.any { it !in '0'..'9' }) {
+                throw ArchiveFormatException("ar: invalid member size '$sizeText'", pos + 48, rawName)
+            }
+            val size = sizeText.toLongOrNull()
+                ?: throw ArchiveFormatException("ar: member size overflows Long", pos + 48, rawName)
             val dataStart = pos + 60
+            source.requireRange(dataStart, size)
+            source.requireRange(dataStart + size, size and 1L)
 
             when {
-                rawName == "//" -> nameTable = source.readFully(dataStart, size.toInt())
+                rawName == "//" -> nameTable = source.readFullyChecked(dataStart, size)
                 rawName == "/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
                     val off = rawName.substring(1).toInt()
