@@ -343,5 +343,5 @@ clean reference to work from, so they are out of scope too.
 
 Part of the Kite family: [KiteCore](https://github.com/yuroyami/KiteCore),
 [KitePDF](https://github.com/yuroyami/KitePDF),
-[KiteImage](https://github.com/yuroyami/KiteImage),
+[ImageKodec](https://github.com/yuroyami/ImageKodec),
 [KiteQR](https://github.com/yuroyami/KiteQR).
