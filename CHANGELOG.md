@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- ZIP writing uses the valid reproducible default timestamp 1980-01-01 00:00:00
+  in both headers. The DOS date field is 0x0021 instead of the invalid zero month
+  and day; output remains independent of the clock and timezone.
+
 - ZIP end records must have a comment length that reaches EOF. False candidates
   inside comments are skipped, and multi-disk metadata in classic/ZIP64 end
   records, locators, or entries throws `ArchiveUnsupportedException` with context.

@@ -208,6 +208,7 @@ Names are encoded as UTF-8 and marked with bit 11 in both ZIP headers. All names
 are validated before payload compression or output assembly. An encoded name
 longer than 65,535 bytes throws `ArchiveFormatException` carrying the entry name;
 ZIP64 does not extend this filename limit.
+Both headers use the reproducible default timestamp 1980-01-01 00:00:00.
 
 ## Sanitize entry names before writing them
 

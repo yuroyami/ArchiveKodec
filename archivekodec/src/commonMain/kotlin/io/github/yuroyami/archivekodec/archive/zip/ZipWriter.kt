@@ -18,6 +18,7 @@ import io.github.yuroyami.archivekodec.util.checkedArraySize
  * so ordinary archives stay classic and small.
  * Names are UTF-8 with bit 11 set in both headers. Their encoded length must fit
  * the 16-bit filename field, including for ZIP64 archives.
+ * Entries use the reproducible default timestamp 1980-01-01 00:00:00.
  *
  * This is the only writer in the library, and it is not reachable from the
  * `ArchiveKodec` object.
@@ -44,6 +45,7 @@ object ZipWriter {
     private const val MASK32 = 0xFFFFFFFFL
     private const val UTF8_FLAG = 0x0800
     private const val MAX_NAME_BYTES = 0xFFFF
+    private const val DEFAULT_DOS_DATE = 0x0021 // 1980-01-01
 
     /**
      * @throws ArchiveFormatException if an encoded name exceeds 65535 bytes.
@@ -94,7 +96,7 @@ object ZipWriter {
             out.le16(if (needs64) 45 else 20) // version needed
             out.le16(UTF8_FLAG)                // flags: UTF-8 name
             out.le16(method)
-            out.le16(0); out.le16(0)           // mod time, date
+            out.le16(0); out.le16(DEFAULT_DOS_DATE) // midnight, 1980-01-01
             out.le32(crc)
             if (needs64) { out.le32(MASK32); out.le32(MASK32) } else { out.le32(comp.size.toLong()); out.le32(f.data.size.toLong()) }
             out.le16(nameBytes.size)
@@ -116,7 +118,7 @@ object ZipWriter {
             out.le16(if (r.zip64) 45 else 20)  // version needed
             out.le16(UTF8_FLAG)                // flags: UTF-8 name
             out.le16(r.method)
-            out.le16(0); out.le16(0)           // time, date
+            out.le16(0); out.le16(DEFAULT_DOS_DATE) // midnight, 1980-01-01
             out.le32(r.crc)
             if (r.zip64) { out.le32(MASK32); out.le32(MASK32) } else { out.le32(r.comp); out.le32(r.uncomp) }
             out.le16(r.nameBytes.size)
