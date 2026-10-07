@@ -13,8 +13,13 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  * trailer. [decompress] also transparently accepts a bare zlib (RFC 1950) stream
  * (some servers label a zlib stream `Content-Encoding: deflate`); that fallback is
  * a small, clearly-marked extension.
+ *
+ * This is a supported low-level public API for format-specific gzip operations,
+ * including its compatibility overloads. The registered
+ * [io.github.yuroyami.archivekodec.codec.Codecs.GZIP] codec offers the shared
+ * [io.github.yuroyami.archivekodec.codec.Codec] interface.
  */
-object Gzip {
+public object Gzip {
 
     // gzip header flag bits.
     private const val FHCRC = 0x02
@@ -28,11 +33,11 @@ object Gzip {
 
     /** Legacy explicit cap; the active default is [ArchiveLimits.DEFAULT]. */
     @Deprecated("Use ArchiveLimits.DEFAULT or an explicit ArchiveLimits policy")
-    const val DEFAULT_MAXIMUM_SIZE: Long = 4L * 1024 * 1024
+    public const val DEFAULT_MAXIMUM_SIZE: Long = 4L * 1024 * 1024
 
     /** Compress [data] into a complete gzip member. */
     @Throws(ArchiveException::class)
-    fun compress(data: ByteArray): ByteArray {
+    public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 32)
         out.append(MAGIC0.toByte())
         out.append(MAGIC1.toByte())
@@ -49,7 +54,7 @@ object Gzip {
 
     /** Decode all gzip members with [ArchiveLimits.DEFAULT]. Also accepts one zlib stream. */
     @Throws(ArchiveException::class)
-    fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
+    public fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
     /**
      * Decode and concatenate all gzip members under one cumulative [limits] policy.
@@ -64,7 +69,7 @@ object Gzip {
      *   before output growth if the output or whole-input ratio exceeds [limits].
      */
     @Throws(ArchiveException::class)
-    fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+    public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) {
             return Zlib.decompress(input, limits)
         }
@@ -93,7 +98,7 @@ object Gzip {
         ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
     @Throws(ArchiveException::class)
-    fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
+    public fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
 
     private fun writeLe32(out: ByteArrayBuilder, v: Long) {

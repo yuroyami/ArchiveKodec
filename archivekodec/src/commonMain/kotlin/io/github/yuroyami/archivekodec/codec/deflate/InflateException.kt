@@ -8,12 +8,9 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * A reader who cross-references the canonical C source can map an exception back to
  * the branch that raised it.
  */
-enum class InflateError(val code: Int, val message: String) {
+public enum class InflateError(public val code: Int, public val message: String) {
     /** puff 2: `bits()`/`decode()` read past the end of the input (longjmp path). */
     DATA_DID_NOT_TERMINATE(2, "available inflate data did not terminate"),
-
-    /** puff 1: the output cannot fit in a single ByteArray. */
-    SPACE_EXHAUSTED(1, "output space exhausted before completing inflate"),
 
     /** puff -1: block type field was 3 (reserved). */
     INVALID_BLOCK_TYPE(-1, "invalid block type (type == 3)"),
@@ -58,11 +55,10 @@ enum class InflateError(val code: Int, val message: String) {
     UNKNOWN(999, "unknown inflate error"),
     ;
 
-    companion object {
+    public companion object {
         /** Map a raw `puff()` return value to the corresponding [InflateError]. */
-        fun fromPuff(code: Int): InflateError = when (code) {
+        internal fun fromPuff(code: Int): InflateError = when (code) {
             2 -> DATA_DID_NOT_TERMINATE
-            1 -> SPACE_EXHAUSTED
             -1 -> INVALID_BLOCK_TYPE
             -2 -> INVALID_STORED_BLOCK_LENGTH
             -3 -> TOO_MANY_LENGTH_OR_DISTANCE_CODES
@@ -83,8 +79,8 @@ enum class InflateError(val code: Int, val message: String) {
  * Thrown by [Inflate] and the gzip/zlib framers when decompression fails. Carries
  * the specific [error] so callers can branch on the exact failure mode.
  */
-class InflateException(
-    val error: InflateError, offset: Long?, entryName: String?, cause: Throwable?,
+public class InflateException(
+    public val error: InflateError, offset: Long?, entryName: String?, cause: Throwable?,
 ) : ArchiveException(error.message, cause, offset, entryName) {
-    constructor(error: InflateError) : this(error, null, null, null)
+    public constructor(error: InflateError) : this(error, null, null, null)
 }

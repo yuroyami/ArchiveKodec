@@ -8,7 +8,7 @@ package io.github.yuroyami.archivekodec.util
  * Appends throw [io.github.yuroyami.archivekodec.ArchiveSizeException] when the
  * result cannot fit in one ByteArray.
  */
-class ByteArrayBuilder(initialCapacity: Int = 64) {
+internal class ByteArrayBuilder(initialCapacity: Int = 64) {
     private var buf = ByteArray(if (initialCapacity < 16) 16 else initialCapacity)
     private var len = 0
     private var maximum = Int.MAX_VALUE

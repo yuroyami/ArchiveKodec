@@ -44,12 +44,16 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  *
  * Output is bare DEFLATE; the gzip/zlib framers wrap it. It decodes byte-for-byte
  * through [Inflate] and through stock zlib.
+ *
+ * This is a supported low-level public API for callers that need a raw RFC 1951
+ * stream. Use [io.github.yuroyami.archivekodec.codec.Codecs.DEFLATE] when a
+ * [io.github.yuroyami.archivekodec.codec.Codec] interface is more convenient.
  */
-object Deflate {
+public object Deflate {
 
     /** Compress [data] to a bare DEFLATE stream (no zlib/gzip wrapper). */
     @Throws(ArchiveException::class)
-    fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
+    public fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
 }
 
 private class Deflater(private val data: ByteArray) {

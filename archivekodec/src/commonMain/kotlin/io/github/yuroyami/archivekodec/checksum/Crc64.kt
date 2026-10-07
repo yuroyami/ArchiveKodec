@@ -7,7 +7,7 @@ package io.github.yuroyami.archivekodec.checksum
  *
  * Check value: `CRC64("123456789") == 0x995DC9BBDF1939FA`.
  */
-class Crc64 : Checksum {
+public class Crc64 : Checksum {
     private var crc = -1L // 0xFFFFFFFFFFFFFFFF
 
     @Throws(IllegalArgumentException::class)
@@ -26,7 +26,7 @@ class Crc64 : Checksum {
 
     override fun reset() { crc = -1L }
 
-    companion object {
+    public companion object {
         private val POLY = 0xC96C5795D7870F42uL.toLong()
 
         private val TABLE = LongArray(256) { n ->
@@ -35,6 +35,6 @@ class Crc64 : Checksum {
             c
         }
 
-        fun of(data: ByteArray): Long = Crc64().apply { update(data) }.value()
+        public fun of(data: ByteArray): Long = Crc64().apply { update(data) }.value()
     }
 }

@@ -20,6 +20,7 @@ plugins {
  * no JS target; this one does. Neither builds for wasmJs, macOS, Linux or mingw.
  */
 kotlin {
+    explicitApi()
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {
         keepLocallyUnsupportedTargets.set(false)

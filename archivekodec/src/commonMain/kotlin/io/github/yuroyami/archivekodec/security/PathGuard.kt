@@ -17,7 +17,7 @@ import io.github.yuroyami.archivekodec.archive.ArchiveEntry
  * It returns a clean, forward-slash relative path safe to resolve under a root.
  * (Spaces in names are allowed. Only control characters and NUL are rejected.)
  */
-object PathGuard {
+public object PathGuard {
 
     /**
      * Validate and normalise [entryName] to a safe relative path.
@@ -27,7 +27,7 @@ object PathGuard {
      * @throws ArchivePathException if the name is unsafe.
      */
     @Throws(ArchiveException::class)
-    fun sanitize(entryName: String): String = normalize(entryName, allowRoot = false)
+    public fun sanitize(entryName: String): String = normalize(entryName, allowRoot = false)
 
     /**
      * Whether [entry] is a directory naming the extraction root, such as `.` or `./`.
@@ -35,7 +35,7 @@ object PathGuard {
      * the root directory. Empty or unsafe names and non-directory entries return false.
      * A false result does not imply safety: validate the remaining name with [sanitize].
      */
-    fun isRootDirectory(entry: ArchiveEntry): Boolean = entry.isDirectory &&
+    public fun isRootDirectory(entry: ArchiveEntry): Boolean = entry.isDirectory &&
         try { normalize(entry.name, allowRoot = true).isEmpty() } catch (_: ArchivePathException) { false }
 
     private fun normalize(entryName: String, allowRoot: Boolean): String {
@@ -70,12 +70,12 @@ object PathGuard {
     }
 
     /** Non-throwing variant: true if [entryName] is a safe relative path. */
-    fun isSafe(entryName: String): Boolean =
+    public fun isSafe(entryName: String): Boolean =
         try { sanitize(entryName); true } catch (_: ArchivePathException) { false }
 }
 
 /** Thrown when an archive entry name fails the [PathGuard] checks. */
-class ArchivePathException : ArchiveException {
-    constructor(message: String) : super(message)
-    constructor(message: String, entryName: String) : super(message, entryName = entryName)
+public class ArchivePathException : ArchiveException {
+    public constructor(message: String) : super(message)
+    public constructor(message: String, entryName: String) : super(message, entryName = entryName)
 }

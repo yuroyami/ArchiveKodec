@@ -4,7 +4,7 @@ package io.github.yuroyami.archivekodec.codec
  * Identifier for a compression codec. [implemented] tells you whether this build can
  * decode the codec. A container can name a method even when no engine handles it.
  */
-enum class CodecId(val displayName: String, val implemented: Boolean) {
+public enum class CodecId(public val displayName: String, public val implemented: Boolean) {
     STORE("store", true),
     DEFLATE("deflate", true),
     ZLIB("zlib", true),

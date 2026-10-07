@@ -9,7 +9,7 @@ package io.github.yuroyami.archivekodec.checksum
  * [value] returns the result in the low bits of a `Long` (32-bit checksums fit in the
  * low 32 bits; CRC-64 uses the full width).
  */
-interface Checksum {
+public interface Checksum {
     /**
      * Feed a slice of bytes into the running checksum. Omitting [length] selects
      * the suffix starting at [offset]. An empty slice at the end is valid.
@@ -18,13 +18,13 @@ interface Checksum {
      * happens before processing bytes, so a rejected update leaves the state unchanged.
      */
     @Throws(IllegalArgumentException::class)
-    fun update(data: ByteArray, offset: Int = 0, length: Int = data.size - offset)
+    public fun update(data: ByteArray, offset: Int = 0, length: Int = data.size - offset)
 
     /** Current checksum value (low bits of the Long). */
-    fun value(): Long
+    public fun value(): Long
 
     /** Reset to the initial state so the instance can be reused. */
-    fun reset()
+    public fun reset()
 }
 
 /** Validate with subtraction before computing an end that could otherwise overflow. */

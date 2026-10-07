@@ -14,21 +14,21 @@ import io.github.yuroyami.archivekodec.codec.CodecId
  * API. Value equality uses the nine original metadata properties. Supplementary
  * stored bytes survive [copy] without expanding those public signatures.
  */
-class ArchiveEntry(
-    val name: String,
-    val size: Long,
-    val isDirectory: Boolean,
-    val lastModifiedEpochSeconds: Long? = null,
-    val compressedSize: Long = size,
-    val codec: CodecId = CodecId.STORE,
-    val isEncrypted: Boolean = false,
-    val crc32: Long? = null,
-    val dataOffset: Long = -1L,
+public class ArchiveEntry(
+    public val name: String,
+    public val size: Long,
+    public val isDirectory: Boolean,
+    public val lastModifiedEpochSeconds: Long? = null,
+    public val compressedSize: Long = size,
+    public val codec: CodecId = CodecId.STORE,
+    public val isEncrypted: Boolean = false,
+    public val crc32: Long? = null,
+    public val dataOffset: Long = -1L,
 ) {
     private var storedNameBytes: ByteArray? = null
 
     /** Defensive copy of the stored name; null on manually constructed entries. */
-    val nameBytes: ByteArray? get() = storedNameBytes?.copyOf()
+    public val nameBytes: ByteArray? get() = storedNameBytes?.copyOf()
 
     internal fun withNameBytes(bytes: ByteArray): ArchiveEntry {
         check(storedNameBytes == null)
@@ -37,7 +37,7 @@ class ArchiveEntry(
     }
 
     /** Copy the original value properties and preserve the immutable stored-name snapshot. */
-    fun copy(
+    public fun copy(
         name: String = this.name,
         size: Long = this.size,
         isDirectory: Boolean = this.isDirectory,
@@ -52,15 +52,15 @@ class ArchiveEntry(
         it.storedNameBytes = storedNameBytes
     }
 
-    operator fun component1(): String = name
-    operator fun component2(): Long = size
-    operator fun component3(): Boolean = isDirectory
-    operator fun component4(): Long? = lastModifiedEpochSeconds
-    operator fun component5(): Long = compressedSize
-    operator fun component6(): CodecId = codec
-    operator fun component7(): Boolean = isEncrypted
-    operator fun component8(): Long? = crc32
-    operator fun component9(): Long = dataOffset
+    public operator fun component1(): String = name
+    public operator fun component2(): Long = size
+    public operator fun component3(): Boolean = isDirectory
+    public operator fun component4(): Long? = lastModifiedEpochSeconds
+    public operator fun component5(): Long = compressedSize
+    public operator fun component6(): CodecId = codec
+    public operator fun component7(): Boolean = isEncrypted
+    public operator fun component8(): Long? = crc32
+    public operator fun component9(): Long = dataOffset
 
     override fun equals(other: Any?): Boolean = other is ArchiveEntry &&
         name == other.name && size == other.size && isDirectory == other.isDirectory &&

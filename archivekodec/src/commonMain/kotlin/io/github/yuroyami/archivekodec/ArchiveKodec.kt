@@ -21,27 +21,27 @@ import io.github.yuroyami.archivekodec.codec.Codecs
  * Pure `commonMain`, `kotlin-stdlib` only. The kotlinx-io stream and file adapters
  * live in the separate `:archivekodec-io` artifact.
  */
-object ArchiveKodec {
+public object ArchiveKodec {
 
-    const val VERSION: String = "0.1.0"
+    public const val VERSION: String = "0.1.0"
 
     /** Detect the format of a header buffer. */
-    fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
+    public fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
 
     /** Detect the format of a seekable source (reads up to the first 512 bytes). */
     @Throws(ArchiveException::class)
-    fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
+    public fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
 
     /** The codec for [id], or null if not yet implemented. */
-    fun codec(id: CodecId): Codec? = Codecs.byId(id)
+    public fun codec(id: CodecId): Codec? = Codecs.byId(id)
 
     /** Codec ids available right now. */
-    val codecs: List<CodecId> get() = Codecs.implemented
+    public val codecs: List<CodecId> get() = Codecs.implemented
 
-    val store: Codec get() = Codecs.STORE
-    val deflate: Codec get() = Codecs.DEFLATE
-    val gzip: Codec get() = Codecs.GZIP
-    val zlib: Codec get() = Codecs.ZLIB
+    public val store: Codec get() = Codecs.STORE
+    public val deflate: Codec get() = Codecs.DEFLATE
+    public val gzip: Codec get() = Codecs.GZIP
+    public val zlib: Codec get() = Codecs.ZLIB
 
     /**
      * Open a container reader for a seekable [source], dispatching on the sniffed
@@ -54,7 +54,7 @@ object ArchiveKodec {
      * @throws ArchiveUnsupportedException for a format with no reader yet.
      */
     @Throws(ArchiveException::class)
-    fun open(source: RandomAccessSource): ArchiveReader = when (val format = containerFormat(source)) {
+    public fun open(source: RandomAccessSource): ArchiveReader = when (val format = containerFormat(source)) {
         ArchiveFormat.TAR -> TarReader(source)
         ArchiveFormat.ZIP -> ZipReader(source)
         ArchiveFormat.AR -> ArReader(source)
@@ -67,7 +67,7 @@ object ArchiveKodec {
 
     /** Open with explicit filename decoding; ZIP Unicode metadata still takes precedence. */
     @Throws(ArchiveException::class)
-    fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader = when (val format = containerFormat(source)) {
+    public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader = when (val format = containerFormat(source)) {
         ArchiveFormat.TAR -> TarReader(source, nameDecoder)
         ArchiveFormat.ZIP -> ZipReader(source, nameDecoder)
         ArchiveFormat.AR -> ArReader(source, nameDecoder)

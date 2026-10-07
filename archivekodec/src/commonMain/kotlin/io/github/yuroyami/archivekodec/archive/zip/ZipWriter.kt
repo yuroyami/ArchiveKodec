@@ -29,10 +29,10 @@ import kotlin.text.CharacterCodingException
  * This is the only writer in the library, and it is not reachable from the
  * `ArchiveKodec` object.
  */
-object ZipWriter {
+public object ZipWriter {
 
     /** One file to add: its exact archive [name], raw [data], and compression [codec]. */
-    data class FileSpec(
+    public data class FileSpec(
         val name: String,
         val data: ByteArray,
         val codec: CodecId = CodecId.DEFLATE,
@@ -116,7 +116,7 @@ object ZipWriter {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
-    fun write(files: List<FileSpec>): ByteArray {
+    public fun write(files: List<FileSpec>): ByteArray {
         // Include both headers and the end records before constructing any output.
         var plannedSize = 22L + (if (files.size > 0xFFFF) 76 else 0) + files.size.toLong() * 76
         checkedArraySize(plannedSize)

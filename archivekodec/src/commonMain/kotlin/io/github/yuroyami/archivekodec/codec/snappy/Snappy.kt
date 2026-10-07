@@ -12,11 +12,11 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  * stream, which is correct and fast. It has no back-reference matching, so it does
  * not shrink the input.
  */
-object Snappy {
+public object Snappy {
 
     /** Decompress a Snappy block, validating its complete structure before output allocation. */
     @Throws(ArchiveException::class)
-    fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
+    public fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
         var length = 0L
         var terminated = false
@@ -98,7 +98,7 @@ object Snappy {
 
     /** Compress [data] into a valid (all-literal) Snappy block. */
     @Throws(ArchiveException::class)
-    fun compress(data: ByteArray): ByteArray {
+    public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size + 8)
         var v = data.size
         while (true) {

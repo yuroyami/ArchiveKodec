@@ -369,7 +369,6 @@ public final class io/github/yuroyami/archivekodec/codec/deflate/InflateError : 
 	public static final field MISSING_END_OF_BLOCK_CODE Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
 	public static final field REPEAT_LENGTHS_WITH_NO_FIRST_LENGTH Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
 	public static final field REPEAT_MORE_THAN_SPECIFIED_LENGTHS Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
-	public static final field SPACE_EXHAUSTED Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
 	public static final field TOO_MANY_LENGTH_OR_DISTANCE_CODES Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
 	public static final field UNKNOWN Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
 	public final fun getCode ()I
@@ -380,7 +379,6 @@ public final class io/github/yuroyami/archivekodec/codec/deflate/InflateError : 
 }
 
 public final class io/github/yuroyami/archivekodec/codec/deflate/InflateError$Companion {
-	public final fun fromPuff (I)Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/deflate/InflateException : io/github/yuroyami/archivekodec/ArchiveException {
@@ -391,9 +389,6 @@ public final class io/github/yuroyami/archivekodec/codec/deflate/InflateExceptio
 
 public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4 {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/lz4/Lz4;
-	public final fun blockCompress ([B)[B
-	public final fun blockDecompress ([BIII)[B
-	public static synthetic fun blockDecompress$default (Lio/github/yuroyami/archivekodec/codec/lz4/Lz4;[BIIIILjava/lang/Object;)[B
 	public final fun frameCompress ([B)[B
 	public final fun frameDecompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun frameDecompress$default (Lio/github/yuroyami/archivekodec/codec/lz4/Lz4;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
@@ -449,17 +444,6 @@ public final class io/github/yuroyami/archivekodec/security/PathGuard {
 	public final fun isRootDirectory (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)Z
 	public final fun isSafe (Ljava/lang/String;)Z
 	public final fun sanitize (Ljava/lang/String;)Ljava/lang/String;
-}
-
-public final class io/github/yuroyami/archivekodec/util/ByteArrayBuilder {
-	public fun <init> ()V
-	public fun <init> (I)V
-	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun append (B)V
-	public final fun append ([BII)V
-	public static synthetic fun append$default (Lio/github/yuroyami/archivekodec/util/ByteArrayBuilder;[BIIILjava/lang/Object;)V
-	public final fun getSize ()I
-	public final fun toByteArray ()[B
 }
 
 public final class io/github/yuroyami/archivekodec/wrapper/Gzip {

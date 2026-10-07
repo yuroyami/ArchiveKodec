@@ -6,7 +6,7 @@ package io.github.yuroyami.archivekodec.checksum
  *
  * Check value: `ADLER32("123456789") == 0x091E01DE`.
  */
-class Adler32 : Checksum {
+public class Adler32 : Checksum {
     // Long accumulators: over a 5552-byte NMAX run s2 reaches ~4.1e9, which overflows
     // a SIGNED 32-bit Int (zlib's NMAX is sized for UNSIGNED 32-bit). Long has the room.
     private var a = 1L
@@ -36,10 +36,10 @@ class Adler32 : Checksum {
 
     override fun reset() { a = 1L; b = 0L }
 
-    companion object {
+    public companion object {
         private const val MOD = 65521      // largest prime below 2^16
         private const val NMAX = 5552      // max iterations before a mod is required
 
-        fun of(data: ByteArray): Long = Adler32().apply { update(data) }.value()
+        public fun of(data: ByteArray): Long = Adler32().apply { update(data) }.value()
     }
 }

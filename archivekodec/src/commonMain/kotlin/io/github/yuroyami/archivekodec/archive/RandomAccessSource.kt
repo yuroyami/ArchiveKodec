@@ -17,9 +17,9 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
  * close the reader to release it. Do not share an owned source with another reader
  * or close it independently while its reader is in use.
  */
-interface RandomAccessSource {
+public interface RandomAccessSource {
     /** Total size in bytes. */
-    val size: Long
+    public val size: Long
 
     /**
      * Read up to [length] bytes starting at absolute [offset] into [into] at
@@ -30,11 +30,11 @@ interface RandomAccessSource {
      * @throws IllegalArgumentException for an invalid destination slice.
      */
     @Throws(ArchiveException::class, IllegalArgumentException::class)
-    fun read(offset: Long, into: ByteArray, intoOffset: Int = 0, length: Int = into.size): Int
+    public fun read(offset: Long, into: ByteArray, intoOffset: Int = 0, length: Int = into.size): Int
 
     /** Release any underlying handle. No-op for in-memory sources. */
     @Throws(ArchiveException::class)
-    fun close() {}
+    public fun close() {}
 }
 
 /**
@@ -43,7 +43,7 @@ interface RandomAccessSource {
  * @throws ArchiveFormatException for an invalid range or a premature end of source.
  */
 @Throws(ArchiveException::class)
-fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray =
+public fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray =
     readFullyChecked(offset, length.toLong())
 
 internal fun RandomAccessSource.requireRange(offset: Long, length: Long) {
@@ -72,7 +72,7 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
 }
 
 /** A [RandomAccessSource] backed by an in-memory [ByteArray]. */
-class ByteArrayRandomAccessSource(private val data: ByteArray) : RandomAccessSource {
+public class ByteArrayRandomAccessSource(private val data: ByteArray) : RandomAccessSource {
     override val size: Long get() = data.size.toLong()
 
     override fun toString(): String = "ByteArrayRandomAccessSource(size=${data.size})"

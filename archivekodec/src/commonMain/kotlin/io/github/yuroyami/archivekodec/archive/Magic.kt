@@ -10,9 +10,9 @@ import io.github.yuroyami.archivekodec.archive.tar.TarHeader
  * magic bytes, so this object never detects it. A match identifies a format
  * candidate; readers and codecs validate its complete structure and payload.
  */
-object Magic {
+public object Magic {
 
-    fun sniff(header: ByteArray): ArchiveFormat {
+    public fun sniff(header: ByteArray): ArchiveFormat {
         fun at(i: Int): Int = if (i < header.size) header[i].toInt() and 0xFF else -1
         return when {
             // A TAR filename can begin with any of the shorter format signatures.
@@ -52,7 +52,7 @@ object Magic {
      * Inconsistent sizes, premature EOF and invalid read counts are format errors.
      */
     @Throws(ArchiveException::class)
-    fun sniff(source: RandomAccessSource): ArchiveFormat {
+    public fun sniff(source: RandomAccessSource): ArchiveFormat {
         val size = source.size
         if (size < 0) throw ArchiveFormatException("negative source size $size", 0)
         if (size == 0L) return ArchiveFormat.UNKNOWN

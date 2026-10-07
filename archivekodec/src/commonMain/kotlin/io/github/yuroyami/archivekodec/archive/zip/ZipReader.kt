@@ -42,8 +42,8 @@ import kotlin.text.CharacterCodingException
  * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
  */
-class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
-    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.CP437)
+public class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.CP437)
 
     private class Member(
         val entry: ArchiveEntry,
@@ -60,7 +60,7 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
 
     override fun toString(): String = "ZipReader(source=$ownedSource)"
 
-    override val format = ArchiveFormat.ZIP
+    override val format: ArchiveFormat = ArchiveFormat.ZIP
 
     @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = directory().entries
@@ -68,7 +68,7 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
     private fun directory(): Directory = ownedSource.metadata { parseCentralDirectory() }
 
     @Throws(ArchiveException::class)
-    override fun close() = ownedSource.close()
+    override fun close(): Unit = ownedSource.close()
 
     /** Read a directory entry or an unchanged value copy; altered metadata is rejected. */
     @Throws(ArchiveException::class)

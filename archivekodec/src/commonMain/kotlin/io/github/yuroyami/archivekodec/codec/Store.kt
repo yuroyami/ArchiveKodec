@@ -4,8 +4,8 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /** The identity codec (ZIP method 0): no compression, the baseline fallback. */
-object Store : Codec {
-    override val id = CodecId.STORE
+public object Store : Codec {
+    override val id: CodecId = CodecId.STORE
 
     @Throws(ArchiveException::class)
     override fun compress(data: ByteArray): ByteArray = data.copyOf()

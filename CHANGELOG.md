@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Breaking API changes for the next minor release: `ByteArrayBuilder`,
+  `InflateError.fromPuff` and the raw `Lz4.blockCompress` / `blockDecompress`
+  helpers are internal. Use a registered codec or the public LZ4 frame operations.
+  `InflateError.SPACE_EXHAUSTED` is removed; output that cannot fit in a ByteArray
+  throws the shared `ArchiveSizeException`. Rebuild callers and update code that
+  referenced those helpers or the removed enum entry. Enum ordinals after that
+  entry change; persist the documented error codes rather than ordinal positions.
+  Direct `Deflate`, `Inflate`, `Gzip` and `Zlib` operations remain supported
+  low-level public APIs. Both modules require strict explicit API declarations
+  and committed ABI references for JVM, Android, JS and iOS.
+
 - DEFLATE dynamic trees use optimal length-limited package-merge coding with
   symbol-coverage, length and code-space checks. This fixes oversubscribed trees
   that made raw DEFLATE, gzip, zlib and deflated ZIP output undecodable for skewed

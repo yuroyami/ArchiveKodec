@@ -7,7 +7,7 @@ package io.github.yuroyami.archivekodec.checksum
  *
  * Check value: `xxHash32("", seed=0) == 0x02CC5D05`.
  */
-object XxHash32 {
+public object XxHash32 {
 
     private const val P1 = -1640531535   // 2654435761
     private const val P2 = -2048144777   // 2246822519
@@ -24,7 +24,7 @@ object XxHash32 {
      * @throws IllegalArgumentException if the slice is outside [data].
      */
     @Throws(IllegalArgumentException::class)
-    fun hash(data: ByteArray, offset: Int = 0, length: Int = data.size - offset, seed: Int = 0): Long {
+    public fun hash(data: ByteArray, offset: Int = 0, length: Int = data.size - offset, seed: Int = 0): Long {
         val end = checkedChecksumEnd(data.size, offset, length)
         var i = offset
         var h: Int

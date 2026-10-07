@@ -27,21 +27,21 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
  * Complete records may end without a trailer; nonempty partial headers are rejected.
  */
-class TarReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
-    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
+public class TarReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
     override fun toString(): String = "TarReader(source=$ownedSource)"
 
-    override val format = ArchiveFormat.TAR
+    override val format: ArchiveFormat = ArchiveFormat.TAR
 
     @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse() }
 
     @Throws(ArchiveException::class)
-    override fun close() = ownedSource.close()
+    override fun close(): Unit = ownedSource.close()
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
@@ -160,7 +160,7 @@ class TarReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
         return v
     }
 
-    companion object {
+    public companion object {
         private const val BLOCK = TarHeader.SIZE
         private const val SPACE = ' '.code
         private const val ZERO = '0'.code

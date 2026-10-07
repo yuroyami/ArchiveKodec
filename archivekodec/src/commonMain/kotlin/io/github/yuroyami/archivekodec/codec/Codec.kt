@@ -9,15 +9,15 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * [ArchiveLimits], so the decompression-bomb guard is part of the contract rather
  * than an option a caller can forget.
  */
-interface Codec {
+public interface Codec {
     /** Which codec this is. */
-    val id: CodecId
+    public val id: CodecId
 
     /** Compress [data] fully in memory. */
     @Throws(ArchiveException::class)
-    fun compress(data: ByteArray): ByteArray
+    public fun compress(data: ByteArray): ByteArray
 
     /** Decompress [data] fully in memory, enforcing [limits]. */
     @Throws(ArchiveException::class)
-    fun decompress(data: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
+    public fun decompress(data: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 }

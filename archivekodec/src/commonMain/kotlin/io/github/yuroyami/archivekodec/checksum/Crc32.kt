@@ -6,7 +6,7 @@ package io.github.yuroyami.archivekodec.checksum
  *
  * Check value: `CRC32("123456789") == 0xCBF43926`.
  */
-class Crc32 : Checksum {
+public class Crc32 : Checksum {
     private var crc = -1 // 0xFFFFFFFF
 
     @Throws(IllegalArgumentException::class)
@@ -25,7 +25,7 @@ class Crc32 : Checksum {
 
     override fun reset() { crc = -1 }
 
-    companion object {
+    public companion object {
         private const val POLY = 0xEDB88320.toInt()
 
         private val TABLE = IntArray(256) { n ->
@@ -35,6 +35,6 @@ class Crc32 : Checksum {
         }
 
         /** One-shot convenience. */
-        fun of(data: ByteArray): Long = Crc32().apply { update(data) }.value()
+        public fun of(data: ByteArray): Long = Crc32().apply { update(data) }.value()
     }
 }

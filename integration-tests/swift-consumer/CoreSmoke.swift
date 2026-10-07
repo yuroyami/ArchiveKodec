@@ -155,9 +155,12 @@ for (label, encoded) in [
     }) { _ = try Lz4.shared.frameDecompress(input: bytes(octets), limits: limits) }
 }
 expectFailure("LZ4 block terminal sequence", check: {
-    $0 is ArchiveFormatException && $0.offset?.int64Value == 11 && $0.message?.contains("final literal") == true
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 22 && $0.message?.contains("final literal") == true
 }) {
-    _ = try Lz4.shared.blockDecompress(src: bytes([0x80, 97, 98, 99, 100, 101, 102, 103, 104, 8, 0]), sOff: 0, sEnd: 11, expectedSize: -1)
+    _ = try Lz4.shared.frameDecompress(input: bytes([
+        4, 0x22, 0x4d, 0x18, 0x60, 0x40, 0x82, 11, 0, 0, 0,
+        0x80, 97, 98, 99, 100, 101, 102, 103, 104, 8, 0, 0, 0, 0, 0
+    ]), limits: limits)
 }
 expectFailure("LZ4 content checksum", check: {
     $0 is ArchiveFormatException && $0.offset?.int64Value == 11 && $0.message?.contains("content checksum mismatch") == true

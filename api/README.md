@@ -3,9 +3,12 @@
 Each library module has three current reference files: `api/jvm/<module>.api`,
 `api/android/<module>.api` and `api/<module>.klib.api`. The core klib dump covers
 JS and all three iOS targets; the IO dump covers all three iOS targets. These
-references were first recorded before the visibility cleanup in #79. They still
-include `ByteArrayBuilder`, `InflateError.fromPuff`, `SPACE_EXHAUSTED` and the raw
-LZ4 block functions so later removals are visible in a commit diff.
+references were first recorded before the visibility cleanup in #79, in commit
+`5fe7144`. That baseline includes `ByteArrayBuilder`, `InflateError.fromPuff`,
+`SPACE_EXHAUSTED` and the raw LZ4 block functions. The next commit removes those
+declarations from the public API and updates the references in the same diff.
+Both modules use strict explicit API mode so future declarations require an
+intentional visibility and type.
 
 `checkPortableAbi` reads the actual JVM JARs and Android AAR classes using Kotlin's
 public Build Tools ABI API. Android has its own reference because AGP's external

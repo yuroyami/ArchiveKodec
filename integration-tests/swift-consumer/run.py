@@ -21,8 +21,9 @@ def run(*args, capture=False, env=None):
 
 def verify_header(path, selectors, boolean_selectors=()):
     text = path.read_text()
-    if "asAutoCloseable" in text:
-        raise RuntimeError(f"Kotlin cleanup adapter unexpectedly exported to Objective-C in {path}")
+    for helper in ("asAutoCloseable", "ByteArrayBuilder", "fromPuff", "spaceExhausted", "blockCompress", "blockDecompress"):
+        if helper in text:
+            raise RuntimeError(f"Internal Kotlin helper {helper} unexpectedly exported to Objective-C in {path}")
     for selector in selectors:
         methods = [line for line in text.splitlines()
                    if re.match(r"^[-+] \([^)]*\)" + re.escape(selector) + r"(?:\b|:)", line)]
@@ -54,9 +55,9 @@ def main():
     core_selectors = [
         "openSource", "sniffSource", "entriesAndReturnError", "closeAndReturnError", "readEntry", "readOffset", "readFully",
         "compressData", "decompressData", "decompressInput", "inflateInput", "encodeData",
-        "blockDecompressSrc", "blockCompressData", "frameDecompressInput", "frameCompressData",
+        "frameDecompressInput", "frameCompressData",
         "decompressSrc", "sanitizeEntryName", "checkOutputSizeBytes", "checkRatioCompressedBytes",
-        "checkEntryCountCount", "writeFiles", "appendB", "appendBytes", "updateData", "hashData", "decodeBytes",
+        "checkEntryCountCount", "writeFiles", "updateData", "hashData", "decodeBytes",
     ]
     io_selectors = ["readAllBytes", "toRandomAccessSource", "compress", "decompress"]
     for target in ("iosSimulatorArm64", "iosArm64", "iosX64"):

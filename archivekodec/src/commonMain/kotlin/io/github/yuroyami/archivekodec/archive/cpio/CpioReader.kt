@@ -22,8 +22,8 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * metadata; reading verifies each crc record's unsigned byte sum, including
  * overwritten payloads. The archive ends at `TRAILER!!!`. Old binary cpio is not handled.
  */
-class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
-    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
+public class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
 
     private data class LinkKey(val odc: Boolean, val major: Long, val minor: Long, val inode: Long)
     private data class Record(
@@ -45,7 +45,7 @@ class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNam
 
     override fun toString(): String = "CpioReader(source=$ownedSource)"
 
-    override val format = ArchiveFormat.CPIO
+    override val format: ArchiveFormat = ArchiveFormat.CPIO
 
     @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = directory().entries
@@ -53,7 +53,7 @@ class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNam
     private fun directory(): Directory = ownedSource.metadata { parse() }
 
     @Throws(ArchiveException::class)
-    override fun close() = ownedSource.close()
+    override fun close(): Unit = ownedSource.close()
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
@@ -244,7 +244,7 @@ class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNam
         return v
     }
 
-    companion object {
+    public companion object {
         private val TRAILER_BYTES = "TRAILER!!!".encodeToByteArray()
     }
 }

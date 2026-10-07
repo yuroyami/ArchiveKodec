@@ -545,10 +545,9 @@ artifact and a kotlinx-io dependency.
   Empty output uses a zero token; an empty compressed byte sequence is invalid.
 - Snappy's encoder emits literals only, with no back-reference matching. The
   output is a valid Snappy block, and slightly larger than the input.
-- The public API is not frozen. Committed ABI dumps record the current surface
-  and detect changes; strict explicit API mode and the planned visibility cleanup
-  are still being implemented in #79. `Codec` and `ArchiveReader` will change when
-  a streaming API arrives.
+- The public API is not frozen. Both modules use strict explicit API mode, and
+  committed ABI dumps detect changes across every supported target. `Codec` and
+  `ArchiveReader` will change when a streaming API arrives.
 
 ## Testing
 

@@ -10,13 +10,13 @@ import kotlin.text.CharacterCodingException
  * names without valid Unicode Path metadata; bit 11 always selects strict UTF-8.
  * Supply a platform charset decoder for other legacy encodings.
  */
-fun interface ArchiveNameDecoder {
+public fun interface ArchiveNameDecoder {
     @Throws(ArchiveException::class)
-    fun decode(bytes: ByteArray): String
+    public fun decode(bytes: ByteArray): String
 
-    companion object {
+    public companion object {
         /** Strict UTF-8; malformed sequences raise [ArchiveFormatException]. */
-        val UTF8: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
+        public val UTF8: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
             try {
                 bytes.decodeToString(throwOnInvalidSequence = true)
             } catch (error: CharacterCodingException) {
@@ -25,7 +25,7 @@ fun interface ArchiveNameDecoder {
         }
 
         /** IBM CP437, including ASCII controls (not DOS screen glyphs). */
-        val CP437: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
+        public val CP437: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
             buildString(bytes.size) {
                 for (byte in bytes) {
                     val value = byte.toInt() and 255

@@ -11,7 +11,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * bombs (~10 MB → 281 TB in one pass). The only universal defence is a hard cap on
  * bytes written, which [checkOutputSize] enforces.
  */
-data class ArchiveLimits(
+public data class ArchiveLimits(
     /** Hard ceiling on total uncompressed bytes produced. Default 2 GiB. */
     val maxUncompressedBytes: Long = 2L * 1024 * 1024 * 1024,
     /** Per-entry compression-ratio ceiling. Default 10000:1. */
@@ -23,7 +23,7 @@ data class ArchiveLimits(
 ) {
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
     @Throws(ArchiveException::class)
-    fun checkOutputSize(bytes: Long) {
+    public fun checkOutputSize(bytes: Long) {
         if (bytes > maxUncompressedBytes) {
             throw DecompressionBombException(
                 "uncompressed output $bytes B exceeds limit $maxUncompressedBytes B",
@@ -33,7 +33,7 @@ data class ArchiveLimits(
 
     /** @throws DecompressionBombException if the ratio exceeds [maxCompressionRatio]. */
     @Throws(ArchiveException::class)
-    fun checkRatio(compressedBytes: Long, uncompressedBytes: Long) {
+    public fun checkRatio(compressedBytes: Long, uncompressedBytes: Long) {
         if (compressedBytes <= 0) return
         val quotient = uncompressedBytes / compressedBytes
         val remainder = uncompressedBytes % compressedBytes
@@ -46,18 +46,18 @@ data class ArchiveLimits(
 
     /** @throws DecompressionBombException if an entry count exceeds [maxEntries]. */
     @Throws(ArchiveException::class)
-    fun checkEntryCount(count: Int) {
+    public fun checkEntryCount(count: Int) {
         if (count > maxEntries) {
             throw DecompressionBombException("entry count $count exceeds limit $maxEntries")
         }
     }
 
-    companion object {
+    public companion object {
         /** The safe default applied when a caller doesn't pass its own. */
-        val DEFAULT = ArchiveLimits()
+        public val DEFAULT: ArchiveLimits = ArchiveLimits()
 
         /** Opt-out for trusted input: every guard relaxed to its maximum. */
-        val UNBOUNDED = ArchiveLimits(
+        public val UNBOUNDED: ArchiveLimits = ArchiveLimits(
             maxUncompressedBytes = Long.MAX_VALUE,
             maxCompressionRatio = Int.MAX_VALUE,
             maxEntries = Int.MAX_VALUE,
@@ -67,8 +67,8 @@ data class ArchiveLimits(
 }
 
 /** Thrown when input trips a decompression-bomb guard. */
-class DecompressionBombException : ArchiveException {
-    constructor(message: String) : super(message)
-    constructor(message: String, offset: Long?, entryName: String?, cause: Throwable?) :
+public class DecompressionBombException : ArchiveException {
+    public constructor(message: String) : super(message)
+    public constructor(message: String, offset: Long?, entryName: String?, cause: Throwable?) :
         super(message, cause, offset, entryName)
 }

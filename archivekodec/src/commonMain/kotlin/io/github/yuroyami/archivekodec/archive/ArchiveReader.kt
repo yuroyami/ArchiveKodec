@@ -14,17 +14,17 @@ import kotlin.native.HiddenFromObjC
  * the reader to release it, including after a listing or read failure. Readers
  * require external serialization of operations, including [close].
  */
-interface ArchiveReader {
+public interface ArchiveReader {
     /** The container format this reader handles. */
-    val format: ArchiveFormat
+    public val format: ArchiveFormat
 
     /** List members from the header/directory only. */
     @Throws(ArchiveException::class)
-    fun entries(): List<ArchiveEntry>
+    public fun entries(): List<ArchiveEntry>
 
     /** Read one entry's uncompressed bytes, enforcing [limits]. */
     @Throws(ArchiveException::class)
-    fun read(entry: ArchiveEntry, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
+    public fun read(entry: ArchiveEntry, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 
     /**
      * Release the underlying source and cached metadata. Built-in readers mark
@@ -36,7 +36,7 @@ interface ArchiveReader {
      * retaining a source or handle must override this method to release it.
      */
     @Throws(ArchiveException::class)
-    fun close() {}
+    public fun close() {}
 }
 
 /**
@@ -48,7 +48,7 @@ interface ArchiveReader {
  */
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
-fun ArchiveReader.asAutoCloseable(): AutoCloseable = AutoCloseable { close() }
+public fun ArchiveReader.asAutoCloseable(): AutoCloseable = AutoCloseable { close() }
 
 /**
  * Execute [block] and close this reader on normal or exceptional return. A close
@@ -58,5 +58,5 @@ fun ArchiveReader.asAutoCloseable(): AutoCloseable = AutoCloseable { close() }
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 @Throws(ArchiveException::class)
-inline fun <T : ArchiveReader?, R> T.use(block: (T) -> R): R =
+public inline fun <T : ArchiveReader?, R> T.use(block: (T) -> R): R =
     AutoCloseable { this?.close() }.use { block(this) }

@@ -45,7 +45,6 @@ final enum class io.github.yuroyami.archivekodec.codec.deflate/InflateError : ko
     enum entry MISSING_END_OF_BLOCK_CODE // io.github.yuroyami.archivekodec.codec.deflate/InflateError.MISSING_END_OF_BLOCK_CODE|null[0]
     enum entry REPEAT_LENGTHS_WITH_NO_FIRST_LENGTH // io.github.yuroyami.archivekodec.codec.deflate/InflateError.REPEAT_LENGTHS_WITH_NO_FIRST_LENGTH|null[0]
     enum entry REPEAT_MORE_THAN_SPECIFIED_LENGTHS // io.github.yuroyami.archivekodec.codec.deflate/InflateError.REPEAT_MORE_THAN_SPECIFIED_LENGTHS|null[0]
-    enum entry SPACE_EXHAUSTED // io.github.yuroyami.archivekodec.codec.deflate/InflateError.SPACE_EXHAUSTED|null[0]
     enum entry TOO_MANY_LENGTH_OR_DISTANCE_CODES // io.github.yuroyami.archivekodec.codec.deflate/InflateError.TOO_MANY_LENGTH_OR_DISTANCE_CODES|null[0]
     enum entry UNKNOWN // io.github.yuroyami.archivekodec.codec.deflate/InflateError.UNKNOWN|null[0]
 
@@ -59,9 +58,7 @@ final enum class io.github.yuroyami.archivekodec.codec.deflate/InflateError : ko
     final fun valueOf(kotlin/String): io.github.yuroyami.archivekodec.codec.deflate/InflateError // io.github.yuroyami.archivekodec.codec.deflate/InflateError.valueOf|valueOf#static(kotlin.String){}[0]
     final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.codec.deflate/InflateError> // io.github.yuroyami.archivekodec.codec.deflate/InflateError.values|values#static(){}[0]
 
-    final object Companion { // io.github.yuroyami.archivekodec.codec.deflate/InflateError.Companion|null[0]
-        final fun fromPuff(kotlin/Int): io.github.yuroyami.archivekodec.codec.deflate/InflateError // io.github.yuroyami.archivekodec.codec.deflate/InflateError.Companion.fromPuff|fromPuff(kotlin.Int){}[0]
-    }
+    final object Companion // io.github.yuroyami.archivekodec.codec.deflate/InflateError.Companion|null[0]
 }
 
 final enum class io.github.yuroyami.archivekodec.codec/CodecId : kotlin/Enum<io.github.yuroyami.archivekodec.codec/CodecId> { // io.github.yuroyami.archivekodec.codec/CodecId|null[0]
@@ -337,17 +334,6 @@ final class io.github.yuroyami.archivekodec.security/DecompressionBombException 
     constructor <init>(kotlin/String, kotlin/Long?, kotlin/String?, kotlin/Throwable?) // io.github.yuroyami.archivekodec.security/DecompressionBombException.<init>|<init>(kotlin.String;kotlin.Long?;kotlin.String?;kotlin.Throwable?){}[0]
 }
 
-final class io.github.yuroyami.archivekodec.util/ByteArrayBuilder { // io.github.yuroyami.archivekodec.util/ByteArrayBuilder|null[0]
-    constructor <init>(kotlin/Int = ...) // io.github.yuroyami.archivekodec.util/ByteArrayBuilder.<init>|<init>(kotlin.Int){}[0]
-
-    final val size // io.github.yuroyami.archivekodec.util/ByteArrayBuilder.size|{}size[0]
-        final fun <get-size>(): kotlin/Int // io.github.yuroyami.archivekodec.util/ByteArrayBuilder.size.<get-size>|<get-size>(){}[0]
-
-    final fun append(kotlin/Byte) // io.github.yuroyami.archivekodec.util/ByteArrayBuilder.append|append(kotlin.Byte){}[0]
-    final fun append(kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ...) // io.github.yuroyami.archivekodec.util/ByteArrayBuilder.append|append(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
-    final fun toByteArray(): kotlin/ByteArray // io.github.yuroyami.archivekodec.util/ByteArrayBuilder.toByteArray|toByteArray(){}[0]
-}
-
 final class io.github.yuroyami.archivekodec/ArchiveClosedException : io.github.yuroyami.archivekodec/ArchiveException { // io.github.yuroyami.archivekodec/ArchiveClosedException|null[0]
     constructor <init>(kotlin/String, kotlin/Long? = ..., kotlin/String? = ..., kotlin/Throwable? = ...) // io.github.yuroyami.archivekodec/ArchiveClosedException.<init>|<init>(kotlin.String;kotlin.Long?;kotlin.String?;kotlin.Throwable?){}[0]
 }
@@ -421,8 +407,6 @@ final object io.github.yuroyami.archivekodec.codec.deflate/Inflate { // io.githu
 }
 
 final object io.github.yuroyami.archivekodec.codec.lz4/Lz4 { // io.github.yuroyami.archivekodec.codec.lz4/Lz4|null[0]
-    final fun blockCompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.lz4/Lz4.blockCompress|blockCompress(kotlin.ByteArray){}[0]
-    final fun blockDecompress(kotlin/ByteArray, kotlin/Int, kotlin/Int, kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.lz4/Lz4.blockDecompress|blockDecompress(kotlin.ByteArray;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
     final fun frameCompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.lz4/Lz4.frameCompress|frameCompress(kotlin.ByteArray){}[0]
     final fun frameDecompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.lz4/Lz4.frameDecompress|frameDecompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 }

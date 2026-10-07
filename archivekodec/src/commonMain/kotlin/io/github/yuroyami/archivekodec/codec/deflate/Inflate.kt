@@ -41,8 +41,8 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  *
  *  - puff writes into a caller-supplied fixed-size buffer and returns `1`
  *    ("output space exhausted") when it's too small; we grow the output array on
- *    demand within the caller’s output and ratio budgets, and report error code
- *    `1` if the result cannot fit in a single ByteArray.
+ *    demand within the caller’s output and ratio budgets. [ArchiveSizeException]
+ *    reports a result that cannot fit in a single ByteArray.
  *
  *  - puff signals "ran past the end of input" via `setjmp`/`longjmp`; we model
  *    that non-local exit with a private [OutOfInput] throwable caught at the top
@@ -57,8 +57,12 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  *
  * This object is stateless and thread-safe; all mutable inflate state lives in the
  * private [State] created per call.
+ *
+ * This is a supported low-level public API for callers handling raw RFC 1951
+ * streams. The registered [io.github.yuroyami.archivekodec.codec.Codecs.DEFLATE]
+ * codec provides the common [io.github.yuroyami.archivekodec.codec.Codec] interface.
  */
-object Inflate {
+public object Inflate {
 
     // Maximums fixed by the deflate format (puff.c #defines).
     private const val MAXBITS = 15        // maximum bits in a code
@@ -96,7 +100,7 @@ object Inflate {
 
     /** Inflate exactly one complete raw DEFLATE stream with [ArchiveLimits.DEFAULT]. */
     @Throws(ArchiveException::class)
-    fun inflate(input: ByteArray): ByteArray = inflate(input, ArchiveLimits.DEFAULT)
+    public fun inflate(input: ByteArray): ByteArray = inflate(input, ArchiveLimits.DEFAULT)
 
     /**
      * Inflate exactly one raw DEFLATE stream. Every write checks [limits] before
@@ -105,11 +109,12 @@ object Inflate {
      *
      * @throws InflateException on malformed or truncated DEFLATE input.
      * @throws ArchiveFormatException if bytes remain after the stream.
+     * @throws ArchiveSizeException if the output cannot fit in a single ByteArray.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
      *   if the cumulative output or whole-input compression ratio exceeds [limits].
      */
     @Throws(ArchiveException::class)
-    fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null)
+    public fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null)
 
     /** ZIP's authoritative size constrains writes as well as the final stream length. */
     internal fun inflateExact(input: ByteArray, limits: ArchiveLimits, expectedSize: Long): ByteArray =
@@ -179,11 +184,7 @@ object Inflate {
             if (expectedSize != null && required > expectedSize) {
                 throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
             }
-            val capacity = try {
-                byteArrayCapacity(bytes.size, size, extra, maximum)
-            } catch (_: ArchiveSizeException) {
-                throw InflateException(InflateError.SPACE_EXHAUSTED)
-            }
+            val capacity = byteArrayCapacity(bytes.size, size, extra, maximum)
             if (capacity != bytes.size) bytes = bytes.copyOf(capacity)
         }
 

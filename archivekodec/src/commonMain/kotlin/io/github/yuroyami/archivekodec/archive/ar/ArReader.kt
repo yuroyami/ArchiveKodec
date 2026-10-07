@@ -22,21 +22,21 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * GNU indices (`/`, `/SYM64/`), the name table (`//`) and a leading BSD ranlib
  * index are skipped as entries.
  */
-class ArReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
-    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
+public class ArReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
     override fun toString(): String = "ArReader(source=$ownedSource)"
 
-    override val format = ArchiveFormat.AR
+    override val format: ArchiveFormat = ArchiveFormat.AR
 
     @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse() }
 
     @Throws(ArchiveException::class)
-    override fun close() = ownedSource.close()
+    override fun close(): Unit = ownedSource.close()
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
@@ -140,7 +140,7 @@ class ArReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameD
         return table.copyOfRange(offset, nameEnd)
     }
 
-    companion object {
+    public companion object {
         private const val MAGIC = "!<arch>\n"
     }
 }

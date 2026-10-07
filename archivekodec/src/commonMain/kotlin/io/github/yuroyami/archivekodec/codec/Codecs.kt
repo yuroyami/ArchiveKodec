@@ -12,39 +12,39 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
  * Registry of the codecs implemented today, each adapting a low-level engine
  * ([Deflate]/[Inflate], [Gzip], [Zlib], [Store]) to the [Codec] contract.
  */
-object Codecs {
+public object Codecs {
 
-    val STORE: Codec = Store
+    public val STORE: Codec = Store
 
-    val DEFLATE: Codec = object : Codec {
+    public val DEFLATE: Codec = object : Codec {
         override val id = CodecId.DEFLATE
         override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Inflate.inflate(data, limits)
     }
 
-    val GZIP: Codec = object : Codec {
+    public val GZIP: Codec = object : Codec {
         override val id = CodecId.GZIP
         override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Gzip.decompress(data, limits)
     }
 
-    val ZLIB: Codec = object : Codec {
+    public val ZLIB: Codec = object : Codec {
         override val id = CodecId.ZLIB
         override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Zlib.decompress(data, limits)
     }
 
-    val LZ4: Codec = object : Codec {
+    public val LZ4: Codec = object : Codec {
         override val id = CodecId.LZ4
         override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Lz4.frameDecompress(data, limits)
     }
 
-    val SNAPPY: Codec = object : Codec {
+    public val SNAPPY: Codec = object : Codec {
         override val id = CodecId.SNAPPY
         override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
@@ -54,8 +54,8 @@ object Codecs {
     private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB, LZ4, SNAPPY)
 
     /** The codec for [id], or null if not yet implemented. */
-    fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }
+    public fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }
 
     /** Ids of the codecs available right now. */
-    val implemented: List<CodecId> get() = all.map { it.id }
+    public val implemented: List<CodecId> get() = all.map { it.id }
 }

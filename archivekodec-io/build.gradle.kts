@@ -21,6 +21,7 @@ plugins {
  * this module only adapts whatever Source the app already holds.
  */
 kotlin {
+    explicitApi()
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {
         keepLocallyUnsupportedTargets.set(false)

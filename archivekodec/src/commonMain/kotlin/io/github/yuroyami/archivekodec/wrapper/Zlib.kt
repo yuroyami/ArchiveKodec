@@ -13,12 +13,17 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  * zlib (RFC 1950) framing over [Deflate] / [Inflate]: a 2-byte CMF/FLG header and
  * a big-endian Adler-32 trailer. This is the wrapper PNG `IDAT` and PDF `FlateDecode`
  * use.
+ *
+ * This is a supported low-level public API for callers that specifically need
+ * RFC 1950 framing and its compatibility overloads. Use
+ * [io.github.yuroyami.archivekodec.codec.Codecs.ZLIB] for the shared
+ * [io.github.yuroyami.archivekodec.codec.Codec] interface.
  */
-object Zlib {
+public object Zlib {
 
     /** Compress [data] into a zlib stream. */
     @Throws(ArchiveException::class)
-    fun compress(data: ByteArray): ByteArray {
+    public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 16)
         // CMF = 0x78 (CM=8, CINFO=7 → 32 KiB window), FLG = 0x9C so that
         // (CMF*256 + FLG) % 31 == 0 with FLEVEL=2, FDICT=0.
@@ -35,7 +40,7 @@ object Zlib {
 
     /** Decode exactly one complete zlib stream with [ArchiveLimits.DEFAULT]. */
     @Throws(ArchiveException::class)
-    fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
+    public fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
     /**
      * Decode one zlib stream and validate Adler-32 at its consumed-stream boundary.
@@ -49,7 +54,7 @@ object Zlib {
      *   if the output or whole-input ratio exceeds [limits].
      */
     @Throws(ArchiveException::class)
-    fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+    public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
         val cmf = input[0].toInt() and 0xff
         val flg = input[1].toInt() and 0xff
@@ -78,6 +83,6 @@ object Zlib {
         ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
     @Throws(ArchiveException::class)
-    fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
+    public fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
 }

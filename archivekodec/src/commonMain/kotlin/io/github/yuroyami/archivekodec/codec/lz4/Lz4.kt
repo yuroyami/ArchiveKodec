@@ -20,7 +20,7 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  * 4 MiB max block, no optional checksums) with a real greedy hash-chain block compressor and
  * a stored-block fallback when a block doesn't shrink.
  */
-object Lz4 {
+public object Lz4 {
 
     private const val MAGIC = 0x184D2204L
     private const val LEGACY_MAGIC = 0x184C2102L
@@ -41,7 +41,7 @@ object Lz4 {
      * Empty output is encoded by a zero token, rather than an empty byte sequence.
      */
     @Throws(ArchiveException::class)
-    fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
+    internal fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
         decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0, sEnd - sOff)
 
     private fun decodeBlock(
@@ -146,7 +146,7 @@ object Lz4 {
 
     /** Greedy LZ4 block compressor. Always produces a conformant block. */
     @Throws(ArchiveException::class)
-    fun blockCompress(data: ByteArray): ByteArray {
+    internal fun blockCompress(data: ByteArray): ByteArray {
         val n = data.size
         val out = ByteArrayBuilder(maxOf(16, n / 2))
         if (n < MF_LIMIT + 1) {
@@ -216,7 +216,7 @@ object Lz4 {
 
     /** Compress [data] into a complete LZ4 frame (no optional checksums, 4 MiB blocks). */
     @Throws(ArchiveException::class)
-    fun frameCompress(data: ByteArray): ByteArray {
+    public fun frameCompress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
         out.append(0x04.toByte()); out.append(0x22.toByte()); out.append(0x4D.toByte()); out.append(0x18.toByte())
         val flg = 0x60 // version=01, block-independent
@@ -259,7 +259,7 @@ object Lz4 {
      * Legacy frames raise [ArchiveUnsupportedException]. Empty input is malformed.
      */
     @Throws(ArchiveException::class)
-    fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
+    public fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
         fun needInput(n: Int) {
             if (n > input.size - p) throw ArchiveFormatException("lz4: truncated frame", p.toLong())
