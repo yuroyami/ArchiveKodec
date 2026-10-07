@@ -25,7 +25,10 @@
 
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveSizeException
+import io.github.yuroyami.archivekodec.checksum.Checksum
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 
 /**
@@ -33,12 +36,12 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  * Adler's `puff()`, the deliberately simple reference inflate that ships with zlib
  * at `contrib/puff/puff.c`.
  *
- * Differences from the C, all behaviour-preserving:
+ * Differences from the C:
  *
  *  - puff writes into a caller-supplied fixed-size buffer and returns `1`
  *    ("output space exhausted") when it's too small; we grow the output array on
- *    demand instead, and report error code `1` if the result cannot fit in a
- *    single ByteArray.
+ *    demand within the caller’s output and ratio budgets, and report error code
+ *    `1` if the result cannot fit in a single ByteArray.
  *
  *  - puff signals "ran past the end of input" via `setjmp`/`longjmp`; we model
  *    that non-local exit with a private [OutOfInput] throwable caught at the top
@@ -90,64 +93,125 @@ object Inflate {
         16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
     )
 
+    /** Inflate exactly one complete raw DEFLATE stream with [ArchiveLimits.DEFAULT]. */
+    fun inflate(input: ByteArray): ByteArray = inflate(input, ArchiveLimits.DEFAULT)
+
     /**
-     * Inflate a raw DEFLATE stream (no gzip/zlib wrapper) and return the
-     * decompressed bytes.
+     * Inflate exactly one raw DEFLATE stream. Every write checks [limits] before
+     * allocating or copying. Trailing bytes are a format error; gzip/zlib framing
+     * uses an internal cursor to read the following trailer separately.
      *
-     * @throws InflateException with the matching [InflateError] on malformed or
-     *   truncated input. The error set matches the codes puff returns numerically.
+     * @throws InflateException on malformed or truncated DEFLATE input.
+     * @throws ArchiveFormatException if bytes remain after the stream.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the cumulative output or whole-input compression ratio exceeds [limits].
      */
-    fun inflate(input: ByteArray): ByteArray {
-        val s = State(input)
+    fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray {
+        val output = Output(limits, input.size)
+        val end = inflateInto(input, 0, input.size, output)
+        if (end != input.size) throw ArchiveFormatException("deflate: trailing bytes after stream", end.toLong())
+        return output.toByteArray()
+    }
+
+    /** Return the first byte after the final block, including its partial final byte. */
+    internal fun inflateInto(input: ByteArray, offset: Int, end: Int, output: Output): Int {
+        require(offset >= 0 && end >= offset && end <= input.size) { "Invalid DEFLATE input slice" }
+        val s = State(input, offset, end, output)
         try {
             var last: Int
             do {
-                last = s.bits(1)            // one if last block
-                val type = s.bits(2)        // block type 0..3
+                last = s.bits(1)
+                val type = s.bits(2)
                 val err = when (type) {
                     0 -> stored(s)
                     1 -> fixed(s)
                     2 -> dynamic(s)
-                    else -> InflateError.INVALID_BLOCK_TYPE.code   // type == 3
+                    else -> InflateError.INVALID_BLOCK_TYPE.code
                 }
                 if (err != 0) throw InflateException(InflateError.fromPuff(err))
             } while (last == 0)
         } catch (_: OutOfInput) {
             throw InflateException(InflateError.DATA_DID_NOT_TERMINATE)
         }
-        return s.output()
+        return s.position
+    }
+
+    /** Shared output across gzip members; each State still has a fresh dictionary. */
+    internal class Output(private val limits: ArchiveLimits, private val compressedBytes: Int) {
+        private val maximum: Int
+        private var bytes: ByteArray
+        var size: Int = 0
+            private set
+
+        init {
+            limits.checkOutputSize(0)
+            limits.checkRatio(compressedBytes.toLong(), 0)
+            maximum = minOf(
+                Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes,
+                if (compressedBytes > 0) compressedBytes.toLong() * limits.maxCompressionRatio else Long.MAX_VALUE,
+            ).toInt()
+            bytes = ByteArray(minOf(256, maximum))
+        }
+
+        private fun ensure(extra: Int) {
+            val required = size.toLong() + extra
+            limits.checkOutputSize(required)
+            limits.checkRatio(compressedBytes.toLong(), required)
+            val capacity = try {
+                byteArrayCapacity(bytes.size, size, extra, maximum)
+            } catch (_: ArchiveSizeException) {
+                throw InflateException(InflateError.SPACE_EXHAUSTED)
+            }
+            if (capacity != bytes.size) bytes = bytes.copyOf(capacity)
+        }
+
+        fun writeByte(value: Int) {
+            ensure(1)
+            bytes[size++] = value.toByte()
+        }
+
+        fun copyBack(distance: Int, length: Int) {
+            ensure(length)
+            var source = size - distance
+            repeat(length) { bytes[size++] = bytes[source++] }
+        }
+
+        fun copyStored(input: ByteArray, offset: Int, length: Int) {
+            ensure(length)
+            input.copyInto(bytes, size, offset, offset + length)
+            size += length
+        }
+
+        fun checksum(checksum: Checksum, offset: Int = 0): Long {
+            checksum.update(bytes, offset, size - offset)
+            return checksum.value()
+        }
+
+        fun toByteArray(): ByteArray = bytes.copyOf(size)
     }
 
     /** Non-local "out of input" signal, replacing puff's setjmp/longjmp. */
     private class OutOfInput : Throwable()
 
-    /**
-     * Per-call inflate state. Holds the input cursor + bit buffer and the growable
-     * output. Mirrors puff's `struct state`, except [out] grows instead of being a
-     * fixed buffer. Growth rejects a result above the ByteArray size limit.
-     */
-    private class State(private val inBuf: ByteArray) {
-        private var incnt = 0           // bytes read so far
-        var bitbuf = 0                  // bit buffer
-        var bitcnt = 0                  // number of valid low bits in bitbuf
-
-        private var out = ByteArray(256)
-        var outcnt = 0
+    /** Per-stream input and bit cursor, with a dictionary starting at [outputStart]. */
+    private class State(
+        private val inBuf: ByteArray, offset: Int, private val end: Int,
+        private val output: Output,
+    ) {
+        var position = offset
             private set
-
-        val inLen: Int get() = inBuf.size
-        val inAvailable: Int get() = inBuf.size - incnt
-
-        fun output(): ByteArray = out.copyOf(outcnt)
+        var bitbuf = 0
+        var bitcnt = 0
+        private val outputStart = output.size
+        val outcnt: Int get() = output.size - outputStart
+        val inAvailable: Int get() = end - position
 
         fun nextByte(): Int {
-            if (incnt == inBuf.size) throw OutOfInput()
-            return inBuf[incnt++].toInt() and 0xff
+            if (position == end) throw OutOfInput()
+            return inBuf[position++].toInt() and 0xff
         }
 
-        fun rawByte(): Int = inBuf[incnt++].toInt() and 0xff
-
-        fun skip(n: Int) { incnt += n }
+        fun rawByte(): Int = nextByte()
 
         fun bits(need: Int): Int {
             var value = bitbuf
@@ -160,37 +224,11 @@ object Inflate {
             return value and ((1 shl need) - 1)
         }
 
-        fun ensure(extra: Int) {
-            val capacity = try {
-                byteArrayCapacity(out.size, outcnt, extra)
-            } catch (_: ArchiveSizeException) {
-                throw InflateException(InflateError.SPACE_EXHAUSTED)
-            }
-            if (capacity != out.size) out = out.copyOf(capacity)
-        }
-
-        fun writeByte(b: Int) {
-            ensure(1)
-            out[outcnt++] = b.toByte()
-        }
-
-        /** Copy [len] bytes from [dist] back in the output (LZ77 back-reference). */
-        fun copyBack(dist: Int, len: Int) {
-            ensure(len)
-            var src = outcnt - dist
-            var n = len
-            while (n-- > 0) {
-                out[outcnt++] = out[src++]
-            }
-        }
-
-        /** Copy [len] verbatim bytes straight from the input (stored block). */
-        fun copyStored(len: Int) {
-            ensure(len)
-            var n = len
-            while (n-- > 0) {
-                out[outcnt++] = inBuf[incnt++]
-            }
+        fun writeByte(value: Int) = output.writeByte(value)
+        fun copyBack(distance: Int, length: Int) = output.copyBack(distance, length)
+        fun copyStored(length: Int) {
+            output.copyStored(inBuf, position, length)
+            position += length
         }
     }
 

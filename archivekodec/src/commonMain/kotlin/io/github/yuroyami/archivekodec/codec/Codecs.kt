@@ -19,25 +19,22 @@ object Codecs {
     val DEFLATE: Codec = object : Codec {
         override val id = CodecId.DEFLATE
         override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray {
-            val out = Inflate.inflate(data)
-            limits.checkOutputSize(out.size.toLong())
-            return out
-        }
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            Inflate.inflate(data, limits)
     }
 
     val GZIP: Codec = object : Codec {
         override val id = CodecId.GZIP
         override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Gzip.decompress(data, limits.maxUncompressedBytes)
+            Gzip.decompress(data, limits)
     }
 
     val ZLIB: Codec = object : Codec {
         override val id = CodecId.ZLIB
         override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Zlib.decompress(data, limits.maxUncompressedBytes)
+            Zlib.decompress(data, limits)
     }
 
     val LZ4: Codec = object : Codec {

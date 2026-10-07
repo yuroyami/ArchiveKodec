@@ -1,10 +1,10 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Adler32
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
-import io.github.yuroyami.archivekodec.codec.deflate.InflateError
-import io.github.yuroyami.archivekodec.codec.deflate.InflateException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -30,23 +30,42 @@ object Zlib {
         return out.toByteArray()
     }
 
-    /** Decompress a zlib stream. The Adler-32 trailer is not re-validated here. */
-    fun decompress(input: ByteArray, maximumSize: Long = 4L * 1024 * 1024): ByteArray {
-        require(maximumSize > 0) { "maximumSize must be > 0" }
-        if (input.size < 2) throw InflateException(InflateError.INVALID_GZIP_HEADER)
+    /** Decode exactly one complete zlib stream with [ArchiveLimits.DEFAULT]. */
+    fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
-        val cmf = input[0].toInt() and 0xFF
-        val flg = input[1].toInt() and 0xFF
-        if ((cmf and 0x0F) != 8 || ((cmf ushr 4) and 0x0F) > 7) {
-            throw InflateException(InflateError.INVALID_GZIP_HEADER)
+    /**
+     * Decode one zlib stream and validate Adler-32 at its consumed-stream boundary.
+     * Trailing bytes are rejected. Preset dictionaries are unsupported.
+     * Output and whole-input ratio budgets are checked before allocating or copying.
+     *
+     * @throws ArchiveFormatException for an invalid header, trailer or checksum.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or whole-input ratio exceeds [limits].
+     */
+    fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+        if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
+        val cmf = input[0].toInt() and 0xff
+        val flg = input[1].toInt() and 0xff
+        if (cmf and 0x0f != 8 || cmf ushr 4 > 7 || ((cmf shl 8) or flg) % 31 != 0) {
+            throw ArchiveFormatException("zlib: invalid header", 0)
         }
-        if ((flg and 0x20) != 0) throw InflateException(InflateError.INVALID_GZIP_HEADER) // FDICT
-        if (((cmf shl 8) or flg) % 31 != 0) throw InflateException(InflateError.INVALID_GZIP_HEADER)
-
-        val out = Inflate.inflate(input.copyOfRange(2, input.size))
-        if (out.size.toLong() > maximumSize) {
-            throw InflateException(InflateError.INFLATED_DATA_TOO_LARGE)
-        }
-        return out
+        if (flg and 0x20 != 0) throw ArchiveFormatException("zlib: preset dictionaries are unsupported", 1)
+        val output = Inflate.Output(limits, input.size)
+        val trailer = Inflate.inflateInto(input, 2, input.size, output)
+        if (input.size - trailer < 4) throw ArchiveFormatException("zlib: truncated Adler-32 trailer", trailer.toLong())
+        var expected = 0L
+        repeat(4) { expected = (expected shl 8) or (input[trailer + it].toLong() and 0xff) }
+        if (expected != output.checksum(Adler32())) throw ArchiveFormatException("zlib: Adler-32 mismatch", trailer.toLong())
+        if (input.size - trailer != 4) throw ArchiveFormatException("zlib: trailing bytes after stream", (trailer + 4).toLong())
+        return output.toByteArray()
     }
+
+    /** Compatibility overload. A zero cap accepts only empty output, as [ArchiveLimits] does. */
+    @Deprecated(
+        "Pass ArchiveLimits to configure the complete decompression policy",
+        ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
+    )
+    fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
+        decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
 }

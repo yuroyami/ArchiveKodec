@@ -1,10 +1,10 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
-import io.github.yuroyami.archivekodec.codec.deflate.InflateError
-import io.github.yuroyami.archivekodec.codec.deflate.InflateException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -25,7 +25,8 @@ object Gzip {
     private const val MAGIC0 = 0x1f
     private const val MAGIC1 = 0x8b
 
-    /** Conservative default output cap (callers should pass their own from `ArchiveLimits`). */
+    /** Legacy explicit cap; the active default is [ArchiveLimits.DEFAULT]. */
+    @Deprecated("Use ArchiveLimits.DEFAULT or an explicit ArchiveLimits policy")
     const val DEFAULT_MAXIMUM_SIZE: Long = 4L * 1024 * 1024
 
     /** Compress [data] into a complete gzip member. */
@@ -44,28 +45,51 @@ object Gzip {
         return out.toByteArray()
     }
 
+    /** Decode all gzip members with [ArchiveLimits.DEFAULT]. Also accepts one zlib stream. */
+    fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
+
     /**
-     * Decompress a gzip (or bare zlib) stream and return the inflated bytes.
+     * Decode and concatenate all gzip members under one cumulative [limits] policy.
+     * Validates header CRC-16 when present and every member's CRC-32 and ISIZE.
+     * Zero padding between or after members is accepted as an interoperability
+     * extension. Nonzero trailing bytes or an incomplete later member are errors.
+     * A bare zlib input delegates to [Zlib.decompress], including its integrity checks.
      *
-     * @throws InflateException [InflateError.INVALID_GZIP_HEADER] if no valid header,
-     *   [InflateError.INFLATED_DATA_TOO_LARGE] if the cap is hit, or a DEFLATE-level error.
+     * @throws ArchiveFormatException for an invalid header, trailer or checksum.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   before output growth if the output or whole-input ratio exceeds [limits].
      */
-    fun decompress(input: ByteArray, maximumSize: Long = DEFAULT_MAXIMUM_SIZE): ByteArray {
-        require(maximumSize > 0) { "maximumSize must be > 0" }
-
-        val headerLen = headerLength(input)
-        if (headerLen < 0) throw InflateException(InflateError.INVALID_GZIP_HEADER)
-
-        // The gzip CRC32+ISIZE trailer and zlib Adler-32 trailer are ignored. Puff
-        // stops at the final DEFLATE block and never reads them.
-        val payload = input.copyOfRange(headerLen, input.size)
-        val out = Inflate.inflate(payload)
-
-        if (out.size.toLong() > maximumSize) {
-            throw InflateException(InflateError.INFLATED_DATA_TOO_LARGE)
+    fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+        if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) {
+            return Zlib.decompress(input, limits)
         }
-        return out
+        val output = Inflate.Output(limits, input.size)
+        var position = 0
+        do {
+            val payload = gzipHeader(input, position)
+            val outputStart = output.size
+            val trailer = Inflate.inflateInto(input, payload, input.size, output)
+            if (input.size - trailer < 8) throw ArchiveFormatException("gzip: truncated trailer", trailer.toLong())
+            if (le32(input, trailer) != output.checksum(Crc32(), outputStart)) {
+                throw ArchiveFormatException("gzip: CRC-32 mismatch", trailer.toLong())
+            }
+            if (le32(input, trailer + 4) != (output.size - outputStart).toLong()) {
+                throw ArchiveFormatException("gzip: ISIZE mismatch", (trailer + 4).toLong())
+            }
+            position = trailer + 8
+            while (position < input.size && input[position] == 0.toByte()) position++
+        } while (position < input.size)
+        return output.toByteArray()
     }
+
+    /** Compatibility overload. A zero cap accepts only empty output, as [ArchiveLimits] does. */
+    @Deprecated(
+        "Pass ArchiveLimits to configure the complete decompression policy",
+        ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
+    )
+    fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
+        decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
 
     private fun writeLe32(out: ByteArrayBuilder, v: Long) {
         out.append((v and 0xFF).toByte())
@@ -74,56 +98,47 @@ object Gzip {
         out.append(((v ushr 24) and 0xFF).toByte())
     }
 
-    private fun headerLength(input: ByteArray): Int {
-        val gz = gzipHeader(input)
-        if (gz >= 0) return gz
-        return zlibHeader(input)
-    }
+    private fun u(input: ByteArray, i: Int): Int = input[i].toInt() and 0xff
 
-    private fun gzipHeader(input: ByteArray): Int {
-        if (input.size < 10) return -1
-        fun u(i: Int): Int = input[i].toInt() and 0xff
+    private fun le32(input: ByteArray, offset: Int): Long =
+        u(input, offset).toLong() or (u(input, offset + 1).toLong() shl 8) or
+            (u(input, offset + 2).toLong() shl 16) or (u(input, offset + 3).toLong() shl 24)
 
-        if (u(0) != MAGIC0 || u(1) != MAGIC1) return -1
-        val method = u(2)
-        val flags = u(3)
-        if (method != 8 || (flags and FRESERVED) != 0) return -1
-
-        var pos = 10
-        fun remaining(): Int = input.size - pos
-
+    private fun gzipHeader(input: ByteArray, start: Int): Int {
+        var position = start
+        fun need(count: Int) {
+            if (count > input.size - position) throw ArchiveFormatException("gzip: truncated header", position.toLong())
+        }
+        need(10)
+        if (u(input, start) != MAGIC0 || u(input, start + 1) != MAGIC1) {
+            throw ArchiveFormatException("gzip: expected member header", start.toLong())
+        }
+        val flags = u(input, start + 3)
+        if (u(input, start + 2) != 8 || flags and FRESERVED != 0) {
+            throw ArchiveFormatException("gzip: invalid method or reserved flags", (start + 2).toLong())
+        }
+        position += 10
         if (flags and FEXTRA != 0) {
-            if (remaining() < 2) return -1
-            val extraLen = (u(pos + 1) shl 8) or u(pos)
-            if (remaining() < extraLen + 2) return -1
-            pos += extraLen + 2
+            need(2)
+            val length = u(input, position) or (u(input, position + 1) shl 8)
+            position += 2
+            need(length)
+            position += length
         }
-        if (flags and FNAME != 0) {
-            if (remaining() == 0) return -1
-            while (u(pos) != 0) { pos++; if (remaining() == 0) return -1 }
-            pos++
+        fun skipString() {
+            do {
+                need(1)
+            } while (input[position++] != 0.toByte())
         }
-        if (flags and FCOMMENT != 0) {
-            if (remaining() == 0) return -1
-            while (u(pos) != 0) { pos++; if (remaining() == 0) return -1 }
-            pos++
-        }
+        if (flags and FNAME != 0) skipString()
+        if (flags and FCOMMENT != 0) skipString()
         if (flags and FHCRC != 0) {
-            if (remaining() < 2) return -1
-            pos += 2
+            need(2)
+            val expected = u(input, position) or (u(input, position + 1) shl 8)
+            val actual = Crc32().apply { update(input, start, position - start) }.value().toInt() and 0xffff
+            if (actual != expected) throw ArchiveFormatException("gzip: header CRC-16 mismatch", position.toLong())
+            position += 2
         }
-        return pos
-    }
-
-    private fun zlibHeader(input: ByteArray): Int {
-        if (input.size < 2) return -1
-        val cmf = input[0].toInt() and 0xff
-        val flg = input[1].toInt() and 0xff
-        val method = cmf and 0x0f
-        val cinfo = (cmf ushr 4) and 0x0f
-        if (method != 8 || cinfo > 7) return -1
-        if ((flg and 0x20) != 0) return -1                 // FDICT set: unsupported
-        if (((cmf shl 8) or flg) % 31 != 0) return -1
-        return 2
+        return position
     }
 }

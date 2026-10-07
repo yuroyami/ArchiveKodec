@@ -93,7 +93,7 @@ val out = lz4!!.decompress(frameBytes)
 | store | yes | yes |
 | DEFLATE (RFC 1951) | yes | yes (fixed and dynamic Huffman, whichever is smaller) |
 | zlib (RFC 1950) | yes | yes |
-| gzip (RFC 1952) | first member only | yes |
+| gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
 | Snappy (raw block) | yes | valid output, but it does not compress |
 
@@ -107,8 +107,24 @@ throws.
 
 Every `Codec.decompress` takes an `ArchiveLimits`, defaulting to
 `ArchiveLimits.DEFAULT`. Read [Limits](#limits) to see what it enforces. It
-enforces less than the field list suggests. The lower-level `Gzip.decompress` and
-`Zlib.decompress` do not take an `ArchiveLimits`. They take a `Long` cap instead.
+enforces less than the field list suggests. Direct `Inflate.inflate`,
+`Gzip.decompress` and `Zlib.decompress` use the same default and accept an explicit
+`ArchiveLimits`. The old gzip/zlib `maximumSize: Long` overloads are deprecated
+compatibility delegates; their default also comes from `ArchiveLimits.DEFAULT`.
+
+```kotlin
+val limits = ArchiveLimits(maxUncompressedBytes = 8L * 1024 * 1024, maxCompressionRatio = 100)
+val decoded = Gzip.decompress(bytes, limits)
+```
+
+DEFLATE writes check the cumulative byte budget and whole-input compression ratio
+before output growth or copying. A zero-byte cap accepts valid empty output.
+Violations throw `DecompressionBombException`. gzip validates optional header
+CRC-16, CRC-32 and ISIZE for each member, then concatenates all members under the
+same budget. It accepts zero padding between/after members and rejects other
+trailing bytes. zlib validates Adler-32 and requires exactly one complete stream;
+raw DEFLATE also rejects bytes after its final block. Wrapper integrity failures
+throw `ArchiveFormatException`. The gzip-to-zlib fallback uses the same checks.
 
 ## Read an archive
 
@@ -246,33 +262,17 @@ artifact and a kotlinx-io dependency.
   `ByteArray`, and the only `RandomAccessSource` is backed by a `ByteArray`. A
   2 GB archive needs 2 GB of heap plus room for the output. There is no streaming
   or suspend API.
-- gzip and zlib do not verify their trailers on decode. The library writes the
-  CRC-32 and ISIZE, and the Adler-32, when it compresses, then ignores them when
-  it decompresses. Inflate stops at the final DEFLATE block and never reads them.
-  A corrupt payload that still inflates therefore returns wrong data, with no
-  error. The ZIP reader does check each entry's CRC, because that value sits in
-  the central directory.
-- The decompression-bomb check runs late for DEFLATE, gzip and zlib. A
-  decompression bomb is a small file that expands to a very large one. The size
-  check for those three codecs runs after inflation completes, so the bomb is
-  fully in memory by the time the limit throws. LZ4 is the only codec that checks
-  per block.
-- `Gzip.decompress` and `Zlib.decompress` cap output at 4 MiB when called
-  directly, while `ArchiveLimits.DEFAULT` allows 2 GiB. `Gzip.decompress(x)` and
-  `ArchiveKodec.gzip.decompress(x)` therefore behave differently on the same input.
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
 - Of `ArchiveLimits`, only `checkOutputSize` and `checkRatio` are ever called.
-  Nothing reads `maxEntries` or `maxNestingDepth`, and only `ZipReader` calls
-  `checkRatio`.
+  Nothing reads `maxEntries` or `maxNestingDepth`. ZIP, Snappy and the
+  DEFLATE/gzip/zlib paths apply `checkRatio`; STORE and LZ4 still need it wired in.
 - `ArchiveEntry.size` stays a `Long` during parsing. Readers validate source
   ranges before allocation, including ZIP local-header and payload extents.
   Configured output limits apply first; a whole-array read above `Int.MAX_VALUE`
   then throws `ArchiveFormatException`. Larger valid entries can be listed from
   a seekable source, but extracting them to a stream is still planned.
-- gzip decodes the first member only. A multi-member `.gz` silently loses
-  everything after the first member.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files. ar
   does not handle BSD `#1/len` long names. cpio does not handle the old binary
   dialect.
@@ -295,10 +295,14 @@ artifact and a kotlinx-io dependency.
 - Snappy, ar and cpio hand-written test vectors.
 - Magic sniffing, checksum check values and `PathGuard`.
 
-Two JVM-only suites test interoperability. `ZlibInteropTest` feeds our raw
+JVM-only suites test interoperability. `ZlibInteropTest` feeds our raw
 DEFLATE, zlib and gzip output to `java.util.zip.Inflater` and `GZIPInputStream`.
 The Inflater helper requires stream completion and full input consumption;
-the JDK also validates the wrapper checksums and gzip size. `ZipInteropTest` round-trips ZIPs in both directions against
+the JDK also validates the wrapper checksums and gzip size.
+`WrapperDecodeInteropTest` decodes JDK-produced raw DEFLATE/zlib/gzip streams,
+compares consumed cursors, checks legacy JVM method linking, and measures small-cap
+bomb rejection without allocating the expanded payload. `ZipInteropTest`
+round-trips ZIPs in both directions against
 `java.util.zip`, including a 70,000-entry ZIP64 archive.
 
 Not covered: xxHash32 has no check-value test. The suite exercises it only as the
