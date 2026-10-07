@@ -10,6 +10,7 @@ object Store : Codec {
 
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray {
         limits.checkOutputSize(data.size.toLong())
+        limits.checkRatio(data.size.toLong(), data.size.toLong())
         return data.copyOf()
     }
 }

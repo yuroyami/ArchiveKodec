@@ -28,17 +28,21 @@ object Lz4 {
 
     /** Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint. */
     fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
-        decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0)
+        decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0, sEnd - sOff)
 
     private fun decodeBlock(
         src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int,
-        blockMaximum: Int, limits: ArchiveLimits, outputBase: Int,
+        blockMaximum: Int, limits: ArchiveLimits, outputBase: Int, compressedBytes: Int,
     ): ByteArray {
         if (sOff < 0 || sEnd < sOff || sEnd > src.size) {
             throw ArchiveFormatException("lz4: invalid block slice [$sOff, $sEnd)", sOff.toLong())
         }
         limits.checkOutputSize(outputBase.toLong())
-        val budget = minOf(blockMaximum.toLong(), limits.maxUncompressedBytes - outputBase).toInt()
+        limits.checkRatio(compressedBytes.toLong(), outputBase.toLong())
+        val ratioBudget = if (compressedBytes > 0) {
+            compressedBytes.toLong() * limits.maxCompressionRatio - outputBase
+        } else Long.MAX_VALUE
+        val budget = minOf(blockMaximum.toLong(), limits.maxUncompressedBytes - outputBase, ratioBudget).toInt()
         // A size hint never triggers a large reservation before decoding any input.
         val hint = if (expectedSize > 0) expectedSize else 64
         var out = ByteArray(minOf(4096, hint, budget))
@@ -66,6 +70,7 @@ object Lz4 {
                 throw ArchiveFormatException("lz4: decoded block exceeds maximum $blockMaximum", s.toLong())
             }
             limits.checkOutputSize(outputBase.toLong() + required)
+            limits.checkRatio(compressedBytes.toLong(), outputBase.toLong() + required)
             val capacity = byteArrayCapacity(out.size, o, n, budget)
             if (capacity != out.size) out = out.copyOf(capacity)
         }
@@ -225,7 +230,11 @@ object Lz4 {
         p += optional // optional content size, dictionary ID, header checksum
 
         limits.checkOutputSize(0)
-        val maximum = minOf(Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes).toInt()
+        limits.checkRatio(input.size.toLong(), 0)
+        val maximum = minOf(
+            Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes,
+            input.size.toLong() * limits.maxCompressionRatio,
+        ).toInt()
         val out = ByteArrayBuilder(minOf(64, maximum), maximum)
         while (true) {
             val raw = u32()
@@ -236,9 +245,10 @@ object Lz4 {
             needInput(blockSize)
             if (uncompressed) {
                 limits.checkOutputSize(out.size.toLong() + blockSize)
+                limits.checkRatio(input.size.toLong(), out.size.toLong() + blockSize)
                 out.append(input, p, blockSize)
             } else {
-                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size))
+                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size, input.size))
             }
             p += blockSize
             if (blockChecksum) { needInput(4); p += 4 }

@@ -266,8 +266,9 @@ artifact and a kotlinx-io dependency.
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
 - Of `ArchiveLimits`, only `checkOutputSize` and `checkRatio` are ever called.
-  Nothing reads `maxEntries` or `maxNestingDepth`. ZIP, Snappy and the
-  DEFLATE/gzip/zlib paths apply `checkRatio`; STORE and LZ4 still need it wired in.
+  Nothing reads `maxEntries` or `maxNestingDepth`. Every implemented codec
+  applies `checkRatio` before output allocation or growth. ZIP checks each entry;
+  uncompressed TAR/ar/cpio reads check their known 1:1 ratio.
 - `ArchiveEntry.size` stays a `Long` during parsing. Readers validate source
   ranges before allocation, including ZIP local-header and payload extents.
   Configured output limits apply first; a whole-array read above `Int.MAX_VALUE`

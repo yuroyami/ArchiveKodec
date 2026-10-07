@@ -26,6 +26,7 @@ class ArReader(private val source: RandomAccessSource) : ArchiveReader {
 
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
         limits.checkOutputSize(entry.size)
+        limits.checkRatio(entry.size, entry.size)
         return source.readFullyChecked(entry.dataOffset, entry.size)
     }
 

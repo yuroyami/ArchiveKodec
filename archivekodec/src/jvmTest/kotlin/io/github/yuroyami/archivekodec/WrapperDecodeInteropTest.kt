@@ -111,6 +111,25 @@ class WrapperDecodeInteropTest {
         }
     }
 
+    @Test
+    fun smallRatioCapsRejectBombsWithoutAllocatingTheirExpansion() {
+        val bean = ManagementFactory.getThreadMXBean() as? com.sun.management.ThreadMXBean ?: return
+        if (!bean.isThreadAllocatedMemorySupported) return
+        bean.isThreadAllocatedMemoryEnabled = true
+        val data = ByteArray(4 * 1024 * 1024)
+        val limits = ArchiveLimits(maxCompressionRatio = 1)
+        for (codec in listOf(Codecs.DEFLATE, Codecs.GZIP, Codecs.ZLIB, Codecs.LZ4)) {
+            val input = codec.compress(data)
+            repeat(20) { assertFailsWith<DecompressionBombException> { codec.decompress(input, limits) } }
+            val thread = Thread.currentThread().threadId()
+            val before = bean.getThreadAllocatedBytes(thread)
+            assertFailsWith<DecompressionBombException> { codec.decompress(input, limits) }
+            val allocated = bean.getThreadAllocatedBytes(thread) - before
+            println("${codec.id}: $allocated allocated bytes rejecting ${data.size} output bytes under a 1:1 ratio cap")
+            assertTrue(allocated < 100_000, "${codec.id} allocated $allocated bytes under a 1:1 ratio cap")
+        }
+    }
+
     private fun deflate(data: ByteArray, level: Int, strategy: Int, raw: Boolean): ByteArray {
         val def = Deflater(level, raw)
         try {

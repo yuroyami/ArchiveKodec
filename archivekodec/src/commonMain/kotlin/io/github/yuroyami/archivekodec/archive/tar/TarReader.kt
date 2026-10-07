@@ -29,6 +29,7 @@ class TarReader(private val source: RandomAccessSource) : ArchiveReader {
 
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
         limits.checkOutputSize(entry.size)
+        limits.checkRatio(entry.size, entry.size)
         if (entry.isDirectory || entry.size == 0L) return ByteArray(0)
         return source.readFullyChecked(entry.dataOffset, entry.size)
     }

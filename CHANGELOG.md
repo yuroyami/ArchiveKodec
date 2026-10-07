@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- All implemented codecs enforce `maxCompressionRatio`, including stored and
+  compressed LZ4 blocks under a cumulative frame policy. STORE and uncompressed
+  TAR/ar/cpio payloads honor their 1:1 ratio before copying or reading data.
+  Empty output remains valid under a zero ratio.
+
 - DEFLATE, gzip and zlib enforce output and compression-ratio budgets before
   growing or copying output. Concatenated gzip members share one total budget
   while keeping separate DEFLATE history.
