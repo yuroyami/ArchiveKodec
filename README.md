@@ -77,9 +77,22 @@ kotlin {
 
 Versions before 0.2.0 use older coordinates. 0.1.0 is `io.github.yuroyami:kitearchive`.
 
-There is a second artifact, `archivekodec-io`. It holds four small adapters and it
-does not build for JS. Read [The `-io` artifact](#the--io-artifact) before you
-add it.
+There is a second artifact, `archivekodec-io`. It holds four small adapters over
+kotlinx-io. Read [The `-io` artifact](#the--io-artifact) before you add it.
+
+Requirements:
+
+- **Kotlin 2.1 or newer** in the consuming project. The libraries are compiled with
+  Kotlin 2.4 at language and API version 2.2, so their metadata is readable by a
+  compiler one minor version older and they call no standard-library API newer
+  than 2.2. Kotlin/Native and Kotlin/JS klibs follow Kotlin's own klib rules, which
+  can be stricter.
+- **Java 8 or newer** at run time on the JVM. The jars contain Java 8 class files
+  (major version 52), compiled against the Java 8 API with `-Xjdk-release=1.8`,
+  the same floor as `kotlin-stdlib` and kotlinx-io. Building the libraries
+  themselves needs JDK 21.
+- JPMS module names: `io.github.yuroyami.archivekodec` and
+  `io.github.yuroyami.archivekodec.io` (`Automatic-Module-Name`).
 
 ## Compress and decompress
 
@@ -486,8 +499,8 @@ platform-specific code, so each target compiles the same common sources.
 
 | Target | Both artifacts |
 | --- | --- |
-| Android, minSdk 21, compileSdk 36 | yes |
-| `jvm`, JDK 21 toolchain | yes |
+| Android, minSdk 21, compileSdk 36, Java 8 bytecode | yes |
+| `jvm`, Java 8 bytecode | yes |
 | `js`, browser and Node | yes |
 | `wasmJs`, browser and Node | yes |
 | `wasmWasi`, Node | yes |

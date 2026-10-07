@@ -1,6 +1,8 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -27,13 +29,23 @@ kotlin {
     abiValidation {
         keepLocallyUnsupportedTargets.set(false)
     }
+    // Build with JDK 21, but emit Java 8 bytecode against the Java 8 API, the same
+    // floor as kotlin-stdlib and kotlinx-io. The language and API versions are pinned
+    // so older Kotlin compilers can read the metadata (see the README's Install section).
     jvmToolchain(21)
+    compilerOptions {
+        languageVersion.set(KotlinVersion.KOTLIN_2_2)
+        apiVersion.set(KotlinVersion.KOTLIN_2_2)
+    }
 
     android {
         namespace = "io.github.yuroyami.archivekodec.io"
         compileSdk = 36
         minSdk = 21
         withHostTest {}
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_1_8)
+        }
     }
 
     listOf(
@@ -85,7 +97,18 @@ kotlin {
         binaries.library()
     }
 
-    jvm()
+    jvm {
+        // Only the published classes have the floor. The JVM tests compare against
+        // newer JDK APIs (CRC32C, HexFormat, readAllBytes).
+        compilations.named("main") {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    jvmTarget.set(JvmTarget.JVM_1_8)
+                    freeCompilerArgs.add("-Xjdk-release=1.8")
+                }
+            }
+        }
+    }
 
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     sourceSets {
@@ -109,4 +132,11 @@ kotlin {
 
 tasks.named("check") {
     dependsOn(":io-consumer-test:compileJava")
+}
+
+// A stable JPMS name, so modular callers do not depend on the jar's file name.
+tasks.named<Jar>("jvmJar") {
+    manifest {
+        attributes("Automatic-Module-Name" to "io.github.yuroyami.archivekodec.io")
+    }
 }

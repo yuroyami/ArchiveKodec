@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The JVM and Android classes are Java 8 bytecode (major version 52) instead of
+  Java 21 (65), so they load on Java 8 through 20 as well. The JVM compilation uses
+  `-Xjdk-release=1.8`. Both jars declare an `Automatic-Module-Name`
+  (`io.github.yuroyami.archivekodec`, `io.github.yuroyami.archivekodec.io`).
+  Language and API version are pinned to Kotlin 2.2, so consumers need Kotlin 2.1
+  or newer. Building still needs JDK 21.
+
 - Both artifacts now build for `wasmJs`, `wasmWasi`, `macosArm64`, `tvosArm64`,
   `tvosSimulatorArm64`, `watchosArm32`, `watchosArm64`, `watchosDeviceArm64`,
   `watchosSimulatorArm64`, `linuxX64`, `linuxArm64`, `mingwX64` and the four
