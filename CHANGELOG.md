@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- ZIP end records must have a comment length that reaches EOF. False candidates
+  inside comments are skipped, and multi-disk metadata in classic/ZIP64 end
+  records, locators, or entries throws `ArchiveUnsupportedException` with context.
+  Every central-directory entry sentinel must resolve through a complete ZIP64
+  extra field in the specified order. Missing, truncated, duplicate, or out-of-range
+  required fields throw `ArchiveFormatException` with the entry name and metadata offset. Resolved
+  32-bit maximum values remain valid metadata.
+
 - ZIP listing parses the whole central directory and rejects mismatched counts,
   incomplete records, unexplained trailing bytes, and overlap with end records.
   Classic counts may wrap modulo 65536; ZIP64 counts must match exactly. The exact

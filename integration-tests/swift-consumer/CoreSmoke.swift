@@ -63,6 +63,21 @@ for offset in [countedZip.size - 14, countedZip.size - 12] {
 expectFailure("ZIP directory count", check: { $0 is ArchiveFormatException && $0.message?.contains("count") == true }) {
     _ = try ZipReader(source: ByteArrayRandomAccessSource(data: countedZip)).entries()
 }
+let splitZip = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+splitZip.set(index: splitZip.size - 18, value: 1)
+expectFailure("ZIP multi-disk metadata", check: {
+    $0 is ArchiveUnsupportedException && $0.offset?.int64Value == Int64(splitZip.size - 18) && $0.message?.contains("multi-disk") == true
+}) {
+    _ = try ZipReader(source: ByteArrayRandomAccessSource(data: splitZip)).entries()
+}
+let missingZip64 = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+let zip64Central = missingZip64.size - 73
+for index in (zip64Central + 24)..<(zip64Central + 28) { missingZip64.set(index: index, value: -1) }
+expectFailure("ZIP64 entry metadata", check: {
+    $0 is ArchiveFormatException && $0.entryName == "a.txt" && $0.offset?.int64Value == Int64(zip64Central + 51)
+}) {
+    _ = try ZipReader(source: ByteArrayRandomAccessSource(data: missingZip64)).entries()
+}
 expectFailure("ar entries", check: { $0 is ArchiveFormatException }) {
     _ = try ArReader(source: ByteArrayRandomAccessSource(data: empty)).entries()
 }

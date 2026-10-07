@@ -173,6 +173,10 @@ reader.read(entry)        // decode one entry
 does not touch payload bytes. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
+ZIP/ZIP64 supports single-volume archives. Split-volume disk metadata throws
+`ArchiveUnsupportedException`. End-record comments must reach EOF, and missing
+or malformed required ZIP64 fields throw `ArchiveFormatException` with entry
+context. ZIP64 disk sentinels that resolve to disk zero are supported.
 
 | Format | Read | Write |
 | --- | --- | --- |
