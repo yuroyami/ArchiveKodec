@@ -1,10 +1,10 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.*
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.test.*
@@ -228,7 +228,7 @@ class ZipPrefixTest {
     }
 
     @Test fun shiftedOverlapsAndInconsistentOffsetConventionsRemainInvalid() {
-        val original = ZipWriter.write(listOf(ZipWriter.FileSpec("a", payload, CodecId.STORE), ZipWriter.FileSpec("b", payload, CodecId.STORE)))
+        val original = ZipWriter.write(listOf(ZipWriter.FileSpec("a", payload, ZipMethod.STORED), ZipWriter.FileSpec("b", payload, ZipMethod.STORED)))
         val directory = central(original)
         putLe(original, directory + 20, 40, 4)
         assertFailsWith<ArchiveFormatException> { ZipReader(ByteArrayRandomAccessSource(prefix + original)).entries() }

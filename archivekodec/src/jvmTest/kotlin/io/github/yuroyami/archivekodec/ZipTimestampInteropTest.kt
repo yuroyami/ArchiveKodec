@@ -1,7 +1,7 @@
 package io.github.yuroyami.archivekodec
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.util.zip.ZipFile
@@ -16,8 +16,8 @@ class ZipTimestampInteropTest {
     fun defaultDatesAreValidAndReproducibleInBothHeaders() {
         val expected = LocalDateTime.of(1980, 1, 1, 0, 0)
         val files = listOf(
-            ZipWriter.FileSpec("stored.txt", byteArrayOf(65, 66, 67), CodecId.STORE),
-            ZipWriter.FileSpec("deflated.txt", ByteArray(256) { it.toByte() }, CodecId.DEFLATE),
+            ZipWriter.FileSpec("stored.txt", byteArrayOf(65, 66, 67), ZipMethod.STORED),
+            ZipWriter.FileSpec("deflated.txt", ByteArray(256) { it.toByte() }, ZipMethod.DEFLATED),
         )
         val bytes = ZipWriter.write(files)
         assertContentEquals(bytes, ZipWriter.write(files))

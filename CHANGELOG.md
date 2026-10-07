@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Breaking ZIP file model change for the next minor release: `ZipWriter.FileSpec`
+  is an ordinary immutable class with fixed two/three-argument constructors, a
+  builder action factory and `copy { ... }`. Use `ZipMethod.STORED` or `DEFLATED`
+  instead of `CodecId`; the default remains deflated. The codec getter, generated
+  field-list copy and component functions are removed. Payloads are snapshotted
+  and the public data getter returns a copy. Equality/hash use content consistently,
+  and descriptions show a bounded escaped name, byte count and method. Native
+  construction/build/copy use a throwing argument-error bridge for future metadata
+  validation. Existing encoded ZIP bytes and complete filename preflight are preserved.
+
 - Breaking policy API change for the next minor release: `ArchiveLimits` is an
   ordinary immutable class with a private constructor. Use `ArchiveLimits { ... }`
   and `limits.copy { ... }` in Kotlin, or configure `ArchiveLimits.Builder` and call

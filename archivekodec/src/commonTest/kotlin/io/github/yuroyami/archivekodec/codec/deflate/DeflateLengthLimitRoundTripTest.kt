@@ -1,11 +1,11 @@
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import io.github.yuroyami.archivekodec.wrapper.Zlib
 import kotlin.test.Test
@@ -39,7 +39,7 @@ class DeflateLengthLimitRoundTripTest {
 
     @Test
     fun zipRoundTripsTheOversubscribedTreeRegression() {
-        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("regression.bin", deflateLengthLimitInput, CodecId.DEFLATE)))
+        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("regression.bin", deflateLengthLimitInput, ZipMethod.DEFLATED)))
         ZipReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
             assertContentEquals(deflateLengthLimitInput, reader.read(reader.entries().single()))
         }

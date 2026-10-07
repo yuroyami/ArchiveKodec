@@ -1,7 +1,7 @@
 package io.github.yuroyami.archivekodec
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.deflateLengthLimitInput
 import io.github.yuroyami.archivekodec.wrapper.Gzip
@@ -54,7 +54,7 @@ class DeflateLengthLimitInteropTest {
 
     @Test
     fun jdkAcceptsDeflatedZip() {
-        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("regression.bin", deflateLengthLimitInput, CodecId.DEFLATE)))
+        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("regression.bin", deflateLengthLimitInput, ZipMethod.DEFLATED)))
         ZipInputStream(ByteArrayInputStream(bytes)).use {
             assertEquals("regression.bin", it.nextEntry.name)
             assertContentEquals(deflateLengthLimitInput, it.readBytes())

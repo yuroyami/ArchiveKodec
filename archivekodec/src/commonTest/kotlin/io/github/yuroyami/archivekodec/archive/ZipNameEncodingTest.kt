@@ -1,9 +1,9 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -34,7 +34,7 @@ class ZipNameEncodingTest {
 
     @Test
     fun unflaggedUtf8LookingBytesAreCp437WithoutGuessing() {
-        val data = ZipWriter.write(listOf(ZipWriter.FileSpec("é", byteArrayOf(42), CodecId.STORE)))
+        val data = ZipWriter.write(listOf(ZipWriter.FileSpec("é", byteArrayOf(42), ZipMethod.STORED)))
         val central = data.size - 22 - 48
         data[6] = 0; data[7] = 0; data[central + 8] = 0; data[central + 9] = 0
         ZipReader(ByteArrayRandomAccessSource(data)).use { reader ->
@@ -44,7 +44,7 @@ class ZipNameEncodingTest {
 
     @Test
     fun invalidFlaggedUtf8FailsInsteadOfReplacingNameBytes() {
-        val data = ZipWriter.write(listOf(ZipWriter.FileSpec("ab", byteArrayOf(42), CodecId.STORE)))
+        val data = ZipWriter.write(listOf(ZipWriter.FileSpec("ab", byteArrayOf(42), ZipMethod.STORED)))
         val central = data.size - 22 - 48
         data[30] = 0xc0.toByte(); data[31] = 0xaf.toByte()
         data[central + 46] = 0xc0.toByte(); data[central + 47] = 0xaf.toByte()

@@ -1,10 +1,10 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 
-internal fun zipMetadataBase(): ByteArray = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), CodecId.STORE)))
+internal fun zipMetadataBase(): ByteArray = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), ZipMethod.STORED)))
 
 internal fun zipWithComment(bytes: ByteArray, comment: ByteArray): ByteArray {
     val result = bytes + comment

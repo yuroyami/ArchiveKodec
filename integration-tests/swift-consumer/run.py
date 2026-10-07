@@ -27,6 +27,17 @@ def verify_header(path, selectors, boolean_selectors=()):
     policy = re.search(r"@interface \w+ArchiveLimits : [^\n]+\n(.*?)\n@end", text, re.S)
     if policy and re.search(r"^[-+] .*\b(?:init\w*|component\d+|doCopyMax\w*)\b", policy.group(1), re.M):
         raise RuntimeError(f"Field-list policy construction or data-class methods exported in {path}")
+    file_spec = re.search(r"@interface \w+ZipWriterFileSpec : [^\n]+\n(.*?)\n@end", text, re.S)
+    if path.name == "ArchiveKodec.h" and not file_spec:
+        raise RuntimeError(f"Missing immutable file model in {path}")
+    if file_spec:
+        body = file_spec.group(1)
+        if re.search(r"^[-+] .*\b(?:component\d+|doCopyName)\b|^@property.*\b(?:codec|payload)\b", body, re.M):
+            raise RuntimeError(f"Legacy or mutable file model API exported in {path}")
+        constructors = [line for line in body.splitlines() if line.startswith("- (instancetype")]
+        if len(constructors) != 2 or any("NSError" not in line or "initWithName:" not in line for line in constructors):
+            raise RuntimeError(f"Missing throwing file model constructors in {path}")
+        print(f"Verified 1 throwing constructor selector group in {path.name}", flush=True)
     for selector in selectors:
         methods = [line for line in text.splitlines()
                    if re.match(r"^[-+] \([^)]*\)" + re.escape(selector) + r"(?:\b|:)", line)]
@@ -62,6 +73,7 @@ def main():
         "decompressSrc", "sanitizeEntryName", "checkOutputSizeBytes", "checkRatioCompressedBytes",
         "checkEntryCountCount", "writeFiles", "updateData", "hashData", "decodeBytes",
         "doCopyAndReturnError", "buildAndReturnError", "invokeAndReturnError",
+        "invokeName",
     ]
     io_selectors = ["readAllBytes", "toRandomAccessSource", "compress", "decompress"]
     for target in ("iosSimulatorArm64", "iosArm64", "iosX64"):

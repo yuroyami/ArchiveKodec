@@ -2,14 +2,12 @@ package io.github.yuroyami.archivekodec.archive.zip
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
-import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
-
 import io.github.yuroyami.archivekodec.checksum.Crc32
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.checkedArraySize
 import kotlin.text.CharacterCodingException
+import kotlin.jvm.JvmSynthetic
 
 /**
  * ZIP writer for STORE and DEFLATE entries, with ZIP64 where it is needed. The whole
@@ -31,12 +29,118 @@ import kotlin.text.CharacterCodingException
  */
 public object ZipWriter {
 
-    /** One file to add: its exact archive [name], raw [data], and compression [codec]. */
-    public data class FileSpec(
-        val name: String,
-        val data: ByteArray,
-        val codec: CodecId = CodecId.DEFLATE,
-    )
+    /**
+     * Immutable file description with an owned payload snapshot. The public [data]
+     * getter returns a copy; input arrays and retained builders cannot change it.
+     * Equality and hashing compare [name], [method] and payload content.
+     *
+     * Direct constructors have fixed two/three-argument signatures. Builder actions
+     * and [copy] accept future metadata without expanding those signatures. Native
+     * construction reserves a catchable argument-error bridge for validated metadata.
+     * Name/path validation remains at [write], before compression or output assembly.
+     */
+    public class FileSpec private constructor(builder: Builder) {
+        /** Exact archive spelling. Validated by [write]; no normalization is applied. */
+        public val name: String = builder.name
+
+        private val content: ByteArray = builder.data.copyOf()
+
+        /** Independent copy of the uncompressed payload. Each access copies the bytes. */
+        public val data: ByteArray get() = content.copyOf()
+
+        /** Supported ZIP method. The default is [ZipMethod.DEFLATED]. */
+        public val method: ZipMethod = builder.method
+
+        @get:JvmSynthetic
+        internal val payload: ByteArray get() = content
+
+        /** Snapshot [data] using the default deflated method. */
+        @Throws(IllegalArgumentException::class)
+        public constructor(name: String, data: ByteArray) : this(name, data, ZipMethod.DEFLATED)
+
+        /** Snapshot [data] using the selected supported [method]. */
+        @Throws(IllegalArgumentException::class)
+        public constructor(name: String, data: ByteArray, method: ZipMethod) :
+            this(Builder(name, data).apply { this.method = method })
+
+        /**
+         * Mutable single-thread configuration. [data] remains mutable while configuring;
+         * [build] takes an independent snapshot. Future settings are body properties.
+         */
+        public class Builder public constructor(public var name: String, public var data: ByteArray) {
+            /** Compression method, initially [ZipMethod.DEFLATED]. */
+            public var method: ZipMethod = ZipMethod.DEFLATED
+
+            internal constructor(source: FileSpec) : this(source.name, source.content.copyOf()) {
+                method = source.method
+            }
+
+            /** Snapshot settings and bytes. Reserves native throws for validated metadata. */
+            @Throws(IllegalArgumentException::class)
+            public fun build(): FileSpec = FileSpec(this)
+        }
+
+        /**
+         * Configure an independent builder from this file, then snapshot it.
+         * Mutable bytes inside [configure] belong to the copy, never the source.
+         * @throws IllegalArgumentException if [configure] throws an argument error.
+         */
+        @Throws(IllegalArgumentException::class)
+        public fun copy(configure: Builder.() -> Unit = {}): FileSpec = Builder(this).apply(configure).build()
+
+        override fun equals(other: Any?): Boolean = this === other || other is FileSpec &&
+            name == other.name && method == other.method && content.contentEquals(other.content)
+
+        override fun hashCode(): Int = 31 * (31 * name.hashCode() + method.hashCode()) + content.contentHashCode()
+
+        /** Bounded description with an escaped name, byte count and method; no payload dump. */
+        override fun toString(): String = "FileSpec(name=\"${descriptionName()}\", bytes=${content.size}, method=$method)"
+
+        private fun descriptionName(): String = buildString {
+            var at = 0
+            while (at < name.length) {
+                val char = name[at]
+                var width = 1
+                val text = when (char) {
+                    '\\' -> "\\\\"
+                    '"' -> "\\\""
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> when {
+                        char.code in 0xD800..0xDBFF && at + 1 < name.length && name[at + 1].code in 0xDC00..0xDFFF -> {
+                            width = 2
+                            name.substring(at, at + 2)
+                        }
+                        char.code < 0x20 || char.code == 0x7F || char.code in 0xD800..0xDFFF ->
+                            "\\u${char.code.toString(16).padStart(4, '0')}"
+                        else -> char.toString()
+                    }
+                }
+                if (length + text.length > 96) {
+                    append('…')
+                    break
+                }
+                append(text)
+                at += width
+            }
+        }
+
+        public companion object {
+            /**
+             * Configure additional settings before taking a snapshot, for example
+             * `FileSpec("a", bytes) { method = ZipMethod.STORED }`.
+             * @throws IllegalArgumentException if [configure] throws an argument error.
+             */
+            @Throws(IllegalArgumentException::class)
+            public operator fun invoke(
+                name: String,
+                data: ByteArray,
+                method: ZipMethod = ZipMethod.DEFLATED,
+                configure: Builder.() -> Unit = {},
+            ): FileSpec = Builder(name, data).apply { this.method = method }.apply(configure).build()
+        }
+    }
 
     private class PreparedFile(val spec: FileSpec, val nameBytes: ByteArray)
 
@@ -122,12 +226,9 @@ public object ZipWriter {
         checkedArraySize(plannedSize)
         val prepared = ArrayList<PreparedFile>(files.size)
         for (f in files) {
-            if (f.codec != CodecId.STORE && f.codec != CodecId.DEFLATE) {
-                throw ArchiveUnsupportedException("ZipWriter supports STORE/DEFLATE, not ${f.codec}", entryName = f.name)
-            }
             val nameBytes = encodeName(f.name)
             plannedSize += nameBytes.size * 2L
-            if (f.codec == CodecId.STORE) plannedSize += f.data.size
+            if (f.method == ZipMethod.STORED) plannedSize += f.payload.size
             checkedArraySize(plannedSize)
             prepared.add(PreparedFile(f, nameBytes))
         }
@@ -136,20 +237,20 @@ public object ZipWriter {
 
         for (file in prepared) {
             val f = file.spec
+            val data = f.payload
             val offset = out.size.toLong()
             val nameBytes = file.nameBytes
-            val crc = Crc32.of(f.data)
-            val method = ZipFormat.methodCode(f.codec)
-            val comp = when (f.codec) {
-                CodecId.STORE -> f.data
-                CodecId.DEFLATE -> Deflate.encode(f.data)
-                else -> throw ArchiveUnsupportedException("ZipWriter supports STORE/DEFLATE, not ${f.codec}", entryName = f.name)
+            val crc = Crc32.of(data)
+            val method = f.method.code
+            val comp = when (f.method) {
+                ZipMethod.STORED -> data
+                ZipMethod.DEFLATED -> Deflate.encode(data)
             }
-            if (f.codec != CodecId.STORE) {
+            if (f.method != ZipMethod.STORED) {
                 plannedSize += comp.size
                 checkedArraySize(plannedSize)
             }
-            val needs64 = offset > MASK32 || comp.size.toLong() > MASK32 || f.data.size.toLong() > MASK32
+            val needs64 = offset > MASK32 || comp.size.toLong() > MASK32 || data.size.toLong() > MASK32
 
             out.le32(ZipFormat.LOC)
             out.le16(if (needs64) 45 else 20) // version needed
@@ -157,17 +258,17 @@ public object ZipWriter {
             out.le16(method)
             out.le16(0); out.le16(DEFAULT_DOS_DATE) // midnight, 1980-01-01
             out.le32(crc)
-            if (needs64) { out.le32(MASK32); out.le32(MASK32) } else { out.le32(comp.size.toLong()); out.le32(f.data.size.toLong()) }
+            if (needs64) { out.le32(MASK32); out.le32(MASK32) } else { out.le32(comp.size.toLong()); out.le32(data.size.toLong()) }
             out.le16(nameBytes.size)
             out.le16(if (needs64) 20 else 0)   // extra len (zip64 = 4 hdr + 16 data)
             out.append(nameBytes)
             if (needs64) {
                 out.le16(0x0001); out.le16(16)
-                out.le64(f.data.size.toLong()); out.le64(comp.size.toLong())
+                out.le64(data.size.toLong()); out.le64(comp.size.toLong())
             }
             out.append(comp)
 
-            recs.add(Rec(nameBytes, method, crc, comp.size.toLong(), f.data.size.toLong(), offset, needs64))
+            recs.add(Rec(nameBytes, method, crc, comp.size.toLong(), data.size.toLong(), offset, needs64))
         }
 
         val cdStart = out.size.toLong()

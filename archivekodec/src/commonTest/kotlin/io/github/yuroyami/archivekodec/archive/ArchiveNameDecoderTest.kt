@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
@@ -56,7 +57,7 @@ class ArchiveNameDecoderTest {
     }
 
     private fun zip(name: ByteArray): ByteArray {
-        val data = ZipWriter.write(listOf(ZipWriter.FileSpec("n".repeat(name.size), payload, CodecId.STORE)))
+        val data = ZipWriter.write(listOf(ZipWriter.FileSpec("n".repeat(name.size), payload, ZipMethod.STORED)))
         val central = data.size - 22 - 46 - name.size
         data[6] = 0; data[7] = 0; data[central + 8] = 0; data[central + 9] = 0
         name.copyInto(data, 30); name.copyInto(data, central + 46)

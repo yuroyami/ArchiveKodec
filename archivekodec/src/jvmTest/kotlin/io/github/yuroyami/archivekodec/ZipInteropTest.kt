@@ -1,12 +1,12 @@
 package io.github.yuroyami.archivekodec
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip64WithComment
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
@@ -32,10 +32,10 @@ class ZipInteropTest {
     @Test
     fun ourZipReadByJdk() {
         val files = listOf(
-            ZipWriter.FileSpec("a.txt", dataA, CodecId.STORE),
-            ZipWriter.FileSpec("b.txt", dataB, CodecId.DEFLATE),
-            ZipWriter.FileSpec("dir/", byteArrayOf(), CodecId.STORE),
-            ZipWriter.FileSpec("dir/é雪.txt", ByteArray(256) { it.toByte() }, CodecId.DEFLATE),
+            ZipWriter.FileSpec("a.txt", dataA, ZipMethod.STORED),
+            ZipWriter.FileSpec("b.txt", dataB, ZipMethod.DEFLATED),
+            ZipWriter.FileSpec("dir/", byteArrayOf(), ZipMethod.STORED),
+            ZipWriter.FileSpec("dir/é雪.txt", ByteArray(256) { it.toByte() }, ZipMethod.DEFLATED),
         )
         val bytes = ZipWriter.write(files)
         withJdkZip(bytes) { assertJdkEntries(it, files) }
@@ -52,7 +52,7 @@ class ZipInteropTest {
 
     @Test
     fun damagedCentralDirectoryIsRejectedEvenWhenLocalEntriesRemainReadable() {
-        val file = ZipWriter.FileSpec("a.txt", dataA, CodecId.STORE)
+        val file = ZipWriter.FileSpec("a.txt", dataA, ZipMethod.STORED)
         val bytes = ZipWriter.write(listOf(file))
         val centralStart = ZipFormat.u32(bytes, bytes.size - 6).toInt()
         bytes.fill(0x7F.toByte(), centralStart, bytes.size - 22)
@@ -99,7 +99,7 @@ class ZipInteropTest {
     fun zip64EntryCountRoundTrip() {
         // > 65535 entries forces the ZIP64 end-of-central-directory on write + read.
         val files = (0 until 70_000).map {
-            ZipWriter.FileSpec("f$it", byteArrayOf((it and 0xFF).toByte()), CodecId.STORE)
+            ZipWriter.FileSpec("f$it", byteArrayOf((it and 0xFF).toByte()), ZipMethod.STORED)
         }
         val bytes = ZipWriter.write(files)
         withJdkZip(bytes) { assertJdkEntries(it, files) }
@@ -119,7 +119,7 @@ class ZipInteropTest {
             val entry = entries.nextElement()
             assertEquals(file.name, entry.name)
             assertEquals(file.name.endsWith('/'), entry.isDirectory)
-            val method = if (file.codec == CodecId.STORE) ZipEntry.STORED else ZipEntry.DEFLATED
+            val method = if (file.method == ZipMethod.STORED) ZipEntry.STORED else ZipEntry.DEFLATED
             assertEquals(method, entry.method, file.name)
             assertEquals(file.data.size.toLong(), entry.size, file.name)
             assertEquals(CRC32().also { it.update(file.data) }.value, entry.crc, file.name)

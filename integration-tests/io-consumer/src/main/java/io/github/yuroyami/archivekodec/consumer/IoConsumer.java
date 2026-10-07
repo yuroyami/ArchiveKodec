@@ -7,10 +7,18 @@ import io.github.yuroyami.archivekodec.archive.ArchiveEntry;
 import io.github.yuroyami.archivekodec.io.ArchiveKodecIoKt;
 import io.github.yuroyami.archivekodec.security.PathGuard;
 import io.github.yuroyami.archivekodec.security.ArchiveLimits;
+import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod;
 import kotlinx.io.RawSource;
 
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
+    public ZipWriter.FileSpec file(String name, byte[] data) {
+        ZipWriter.FileSpec.Builder builder = new ZipWriter.FileSpec.Builder(name, data);
+        builder.setMethod(ZipMethod.STORED);
+        return builder.build();
+    }
+
     public ArchiveLimits limits(long outputBytes) {
         ArchiveLimits.Builder builder = new ArchiveLimits.Builder();
         builder.setMaxUncompressedBytes(outputBytes);

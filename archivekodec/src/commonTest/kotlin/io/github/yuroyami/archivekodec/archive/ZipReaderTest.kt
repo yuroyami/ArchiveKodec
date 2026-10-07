@@ -1,8 +1,8 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -32,8 +32,8 @@ class ZipReaderTest {
     fun writerReaderRoundTrip() {
         val big = ("lorem ipsum dolor sit amet ").repeat(200).encodeToByteArray()
         val files = listOf(
-            ZipWriter.FileSpec("hello.txt", "Hello, ArchiveKodec!".encodeToByteArray(), CodecId.STORE),
-            ZipWriter.FileSpec("big.txt", big, CodecId.DEFLATE),
+            ZipWriter.FileSpec("hello.txt", "Hello, ArchiveKodec!".encodeToByteArray(), ZipMethod.STORED),
+            ZipWriter.FileSpec("big.txt", big, ZipMethod.DEFLATED),
         )
         val bytes = ZipWriter.write(files)
 

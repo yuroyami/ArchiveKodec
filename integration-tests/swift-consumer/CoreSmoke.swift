@@ -129,6 +129,43 @@ for gzip in [true, false] {
     }
 }
 
+let fileInput = bytes([1, 2, 3])
+let fileSnapshot = try ZipWriter.FileSpec(name: "a", data: fileInput, method: ZipMethod.stored)
+let defaultFile = try ZipWriter.FileSpec(name: "a", data: bytes([1, 2, 3]))
+precondition(defaultFile.method == ZipMethod.deflated)
+let fileBuilder = ZipWriter.FileSpecBuilder(name: "a", data: bytes([1, 2, 3]))
+fileBuilder.method = ZipMethod.stored
+let builtFile = try fileBuilder.build()
+precondition(builtFile.isEqual(fileSnapshot) && builtFile.hash() == fileSnapshot.hash())
+fileInput.set(index: 0, value: 9)
+fileSnapshot.data.set(index: 0, value: 8)
+fileBuilder.data.set(index: 0, value: 7)
+precondition(fileSnapshot.data.get(index: 0) == 1 && builtFile.data.get(index: 0) == 1)
+var retainedFileBuilder: ZipWriter.FileSpecBuilder?
+let copiedFile = try fileSnapshot.doCopy {
+    retainedFileBuilder = $0
+    $0.name = "b"
+    $0.method = ZipMethod.deflated
+    $0.data.set(index: 1, value: 4)
+}
+retainedFileBuilder!.data.set(index: 0, value: 6)
+precondition(copiedFile.data.get(index: 0) == 1 && copiedFile.data.get(index: 1) == 4)
+precondition(fileSnapshot.data.get(index: 1) == 2)
+let equalFile = try fileSnapshot.doCopy { _ in }
+let invokedFile = try ZipWriter.FileSpec.companion.invoke(name: "a", data: bytes([1, 2, 3]), method: ZipMethod.stored) { _ in }
+precondition(equalFile.isEqual(fileSnapshot) && invokedFile.isEqual(fileSnapshot))
+precondition(ZipMethod.stored.code == 0 && ZipMethod.deflated.code == 8)
+let fileSpecArchive = try ZipWriter.shared.write(files: [fileSnapshot, copiedFile])
+let fileSpecReader = ZipReader(source: ByteArrayRandomAccessSource(data: fileSpecArchive))
+let fileSpecEntries = try fileSpecReader.entries()
+let firstFileSpecPayload = try fileSpecReader.read(entry: fileSpecEntries[0], limits: limits)
+let secondFileSpecPayload = try fileSpecReader.read(entry: fileSpecEntries[1], limits: limits)
+precondition(fileSpecEntries.count == 2 && firstFileSpecPayload.get(index: 0) == 1 && secondFileSpecPayload.get(index: 1) == 4)
+try fileSpecReader.close()
+let hugeFileSpec = try ZipWriter.FileSpec(name: String(repeating: "😀", count: 1000),
+    data: KotlinByteArray(size: 1_000_000), method: ZipMethod.stored)
+precondition(hugeFileSpec.description().count < 200)
+
 // Filename callbacks receive copies; public snapshots cannot change ZIP integrity bytes.
 final class LatinNameDecoder: NSObject, ArchiveNameDecoder {
     var calls = 0
@@ -174,7 +211,7 @@ let unicodeNameReader = ZipReader(source: ByteArrayRandomAccessSource(data: unic
 let unicodeNameEntries = try unicodeNameReader.entries()
 precondition(unicodeNameEntries[0].name == "雪/🚀.txt")
 try unicodeNameReader.close()
-let invalidUtf8NameZip = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "ab", data: bytes([42]), codec: CodecId.store)])
+let invalidUtf8NameZip = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: "ab", data: bytes([42]), method: ZipMethod.stored)])
 invalidUtf8NameZip.set(index: 30, value: Int8(bitPattern: 0xc0))
 invalidUtf8NameZip.set(index: 31, value: Int8(bitPattern: 0xaf))
 invalidUtf8NameZip.set(index: invalidUtf8NameZip.size - 24, value: Int8(bitPattern: 0xc0))
@@ -762,17 +799,17 @@ expectFailure("TAR partial header", check: {
 }) { _ = try TarReader(source: ByteArrayRandomAccessSource(data: bytes([65, 66]))).entries() }
 let oversizedName = String(repeating: "x", count: 65536)
 expectFailure("ZIP filename", check: { $0 is ArchiveFormatException && $0.entryName == oversizedName }) {
-    _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: oversizedName, data: empty, codec: CodecId.store)])
+    _ = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: oversizedName, data: empty, method: ZipMethod.stored)])
 }
 let invalidWriterNames = ["a\\b.txt", "/abs.txt", "C:relative.txt", "./C:/file.txt", "RAM:file.txt", "dir/../up.txt", "a\u{0}b", "a\u{7f}b"]
-for codec in [CodecId.store, CodecId.deflate] {
+for method in [ZipMethod.stored, ZipMethod.deflated] {
     for name in invalidWriterNames {
         expectFailure("ZIP writer path \(name)", check: { $0 is ArchiveFormatException && $0.entryName == name }) {
-            _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: name, data: empty, codec: codec)])
+            _ = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: name, data: empty, method: method)])
         }
     }
     for name in ["", "./", "a//./b", "é/文件😀", "dir/report:today.txt"] {
-        let archive = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: name, data: bytes([65, 66, 67]), codec: codec)])
+        let archive = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: name, data: bytes([65, 66, 67]), method: method)])
         let reader = ZipReader(source: ByteArrayRandomAccessSource(data: archive))
         let entries = try reader.entries()
         precondition(entries.count == 1 && entries[0].name == name)
@@ -782,8 +819,8 @@ for codec in [CodecId.store, CodecId.deflate] {
     }
 }
 let countedZip = try ZipWriter.shared.write(files: [
-    ZipWriter.FileSpec(name: "first", data: empty, codec: CodecId.store),
-    ZipWriter.FileSpec(name: "second", data: empty, codec: CodecId.store)
+    try ZipWriter.FileSpec(name: "first", data: empty, method: ZipMethod.stored),
+    try ZipWriter.FileSpec(name: "second", data: empty, method: ZipMethod.stored)
 ])
 for offset in [countedZip.size - 14, countedZip.size - 12] {
     countedZip.set(index: offset, value: 1)
@@ -792,14 +829,14 @@ for offset in [countedZip.size - 14, countedZip.size - 12] {
 expectFailure("ZIP directory count", check: { $0 is ArchiveFormatException && $0.message?.contains("count") == true }) {
     _ = try ZipReader(source: ByteArrayRandomAccessSource(data: countedZip)).entries()
 }
-let splitZip = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+let splitZip = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), method: ZipMethod.stored)])
 splitZip.set(index: splitZip.size - 18, value: 1)
 expectFailure("ZIP multi-disk metadata", check: {
     $0 is ArchiveUnsupportedException && $0.offset?.int64Value == Int64(splitZip.size - 18) && $0.message?.contains("multi-disk") == true
 }) {
     _ = try ZipReader(source: ByteArrayRandomAccessSource(data: splitZip)).entries()
 }
-let missingZip64 = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+let missingZip64 = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), method: ZipMethod.stored)])
 let zip64Central = missingZip64.size - 73
 for index in (zip64Central + 24)..<(zip64Central + 28) { missingZip64.set(index: index, value: -1) }
 expectFailure("ZIP64 entry metadata", check: {
@@ -808,7 +845,7 @@ expectFailure("ZIP64 entry metadata", check: {
     _ = try ZipReader(source: ByteArrayRandomAccessSource(data: missingZip64)).entries()
 }
 for (offset, value) in [(Int32(8), Int8(8)), (Int32(30), Int8(98)), (Int32(6), Int8(1))] {
-    let inconsistent = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+    let inconsistent = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), method: ZipMethod.stored)])
     inconsistent.set(index: offset, value: value)
     expectFailure("ZIP local field \(offset)", check: {
         $0 is ArchiveFormatException && $0.entryName == "a.txt" && $0.offset?.int64Value == Int64(offset)
@@ -817,7 +854,7 @@ for (offset, value) in [(Int32(8), Int8(8)), (Int32(30), Int8(98)), (Int32(6), I
         _ = try reader.entries()
     }
 }
-let encrypted = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+let encrypted = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), method: ZipMethod.stored)])
 encrypted.set(index: 6, value: 1)
 encrypted.set(index: 46, value: 1)
 let encryptedReader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: encrypted))
@@ -851,7 +888,7 @@ do {
     precondition(failure.message?.contains("invalid destination slice") == true)
     caught += 1
 }
-let zip = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "bad", data: bytes([65]), codec: CodecId.deflate)])
+let zip = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: "bad", data: bytes([65]), method: ZipMethod.deflated)])
 zip.set(index: 33, value: 7)
 let zipReader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: zip))
 let entry = try zipReader.entries()[0]

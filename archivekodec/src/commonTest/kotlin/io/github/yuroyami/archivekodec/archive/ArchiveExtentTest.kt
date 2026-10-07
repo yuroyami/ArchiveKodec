@@ -1,12 +1,12 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -17,7 +17,7 @@ internal fun putLe(bytes: ByteArray, offset: Int, value: Long, count: Int) {
 }
 
 internal fun zip64WithComment(commentLength: Int): ByteArray {
-    val base = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), CodecId.STORE)))
+    val base = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), ZipMethod.STORED)))
     val eocd = base.copyOfRange(base.size - 22, base.size)
     fun u32(at: Int): Long = (0..3).fold(0L) { v, i -> v or ((eocd[at + i].toLong() and 255) shl (8 * i)) }
     val cdSize = u32(12)
@@ -90,7 +90,7 @@ class ArchiveExtentTest {
 
     @Test
     fun compressedPayloadRangeIsCheckedWhileListing() {
-        val zip = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), CodecId.STORE)))
+        val zip = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), ZipMethod.STORED)))
         val central = zip.size - 22 - 51
         putLe(zip, central + 20, zip.size.toLong(), 4)
         assertFailsWith<ArchiveFormatException> { ZipReader(checkedSource(zip)).entries() }

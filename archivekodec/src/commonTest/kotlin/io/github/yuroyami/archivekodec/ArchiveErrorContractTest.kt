@@ -1,11 +1,11 @@
 package io.github.yuroyami.archivekodec
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.InflateError
 import io.github.yuroyami.archivekodec.codec.deflate.InflateException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -31,16 +31,12 @@ class ArchiveErrorContractTest {
     }
 
     @Test
-    fun unsupportedFormatsAndWriterCodecsHaveASeparateTypedCategory() {
+    fun unsupportedFormatsHaveASeparateTypedCategory() {
         assertFailsWith<ArchiveUnsupportedException> {
             ArchiveKodec.open(ByteArrayRandomAccessSource(byteArrayOf(
                 0x42, 0x5a, 0x68, 0x39, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90.toByte(), 0, 0, 0, 0,
             )))
         }
-        val error = assertFailsWith<ArchiveUnsupportedException> {
-            ZipWriter.write(listOf(ZipWriter.FileSpec("a", byteArrayOf(), CodecId.LZ4)))
-        }
-        assertEquals("a", error.entryName)
     }
 
     @Test
@@ -56,7 +52,7 @@ class ArchiveErrorContractTest {
 
     @Test
     fun corruptDeflatePreservesItsCauseAndRebasesTheOffsetToTheArchive() {
-        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("bad", byteArrayOf(65), CodecId.DEFLATE)))
+        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("bad", byteArrayOf(65), ZipMethod.DEFLATED)))
         val payload = 33
         bytes[payload] = 7 // final block with reserved BTYPE=3
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
@@ -69,7 +65,7 @@ class ArchiveErrorContractTest {
 
     @Test
     fun unsupportedZipMethodsAndBudgetFailuresRetainEntryContext() {
-        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("a", byteArrayOf(65), CodecId.STORE)))
+        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("a", byteArrayOf(65), ZipMethod.STORED)))
         bytes[8] = 9 // Deflate64, consistently unsupported in both headers.
         bytes[ZipFormat.u32(bytes, bytes.size - 6).toInt() + 10] = 9
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
@@ -77,7 +73,7 @@ class ArchiveErrorContractTest {
         assertEquals("a", error.entryName)
         assertEquals(8L, error.offset)
         assertTrue(error.message!!.contains("method 9"))
-        val valid = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(listOf(ZipWriter.FileSpec("b", byteArrayOf(65), CodecId.STORE)))))
+        val valid = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(listOf(ZipWriter.FileSpec("b", byteArrayOf(65), ZipMethod.STORED)))))
         val bomb = assertFailsWith<DecompressionBombException> {
             valid.read(valid.entries().single(), ArchiveLimits { maxUncompressedBytes = 0 })
         }

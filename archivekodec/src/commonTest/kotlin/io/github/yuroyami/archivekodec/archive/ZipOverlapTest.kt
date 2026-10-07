@@ -5,7 +5,7 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
-import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.test.Test
@@ -24,7 +24,7 @@ class ZipOverlapTest {
 
     @Test
     fun storedPayloadContainingAnotherCompleteMemberIsRejected() {
-        overlap(zipOverlappingPair(CodecId.STORE), 31)
+        overlap(zipOverlappingPair(ZipMethod.STORED), 31)
     }
 
     @Test
@@ -34,26 +34,26 @@ class ZipOverlapTest {
 
     @Test
     fun quotedDeflateHeaderAndSharedStreamAreRejected() {
-        overlap(zipOverlappingPair(CodecId.DEFLATE), 36)
+        overlap(zipOverlappingPair(ZipMethod.DEFLATED), 36)
     }
 
     @Test
     fun emptyOuterEntryCannotHideAnotherMemberInItsExtraFields() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
-            overlap(zipOverlappingPair(codec, inExtra = true), 35)
+        for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
+            overlap(zipOverlappingPair(method, inExtra = true), 35)
         }
     }
 
     @Test
     fun physicalBoundariesAreCheckedEvenWithReversedDirectoryOrder() {
-        overlap(zipOverlappingPair(CodecId.STORE, reversed = true), 31)
-        overlap(zipOverlappingPair(CodecId.DEFLATE, reversed = true), 36)
-        overlap(zipOverlappingPair(CodecId.STORE, inExtra = true, reversed = true), 35)
+        overlap(zipOverlappingPair(ZipMethod.STORED, reversed = true), 31)
+        overlap(zipOverlappingPair(ZipMethod.DEFLATED, reversed = true), 36)
+        overlap(zipOverlappingPair(ZipMethod.STORED, inExtra = true, reversed = true), 35)
     }
 
     @Test
     fun readingBeforeListingCannotBypassTheGlobalExtentCheck() {
-        val bytes = zipOverlappingPair(CodecId.STORE)
+        val bytes = zipOverlappingPair(ZipMethod.STORED)
         val requests = mutableListOf<Pair<Long, Int>>()
         val source = object : RandomAccessSource {
             private val backing = ByteArrayRandomAccessSource(bytes)
@@ -110,8 +110,8 @@ class ZipOverlapTest {
 
     @Test
     fun exactAdjacencyAndZeroSizeMembersRemainReadable() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
-            val files = listOf("", "a", "é/文件😀", "dir/").map { ZipWriter.FileSpec(it, byteArrayOf(), codec) }
+        for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
+            val files = listOf("", "a", "é/文件😀", "dir/").map { ZipWriter.FileSpec(it, byteArrayOf(), method) }
             val reader = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(files)))
             assertEquals(files.map { it.name }, reader.entries().map { it.name })
             for (entry in reader.entries()) assertContentEquals(byteArrayOf(), reader.read(entry))
@@ -121,7 +121,7 @@ class ZipOverlapTest {
     @Test
     fun paddingAndDirectoryOrderDoNotRequirePhysicalOrder() {
         val first = zipExtentPiece("a", "ABC".encodeToByteArray())
-        val second = zipExtentPiece("b", "DEF".encodeToByteArray(), CodecId.DEFLATE)
+        val second = zipExtentPiece("b", "DEF".encodeToByteArray(), ZipMethod.DEFLATED)
         val prefix = byteArrayOf(1, 2, 3)
         val padding = ByteArray(20) { 7 }
         putLe(first.directory, 42, prefix.size.toLong(), 4)

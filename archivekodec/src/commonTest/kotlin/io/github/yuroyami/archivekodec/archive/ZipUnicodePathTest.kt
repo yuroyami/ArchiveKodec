@@ -1,11 +1,11 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.security.PathGuard
 import kotlin.test.*
 
@@ -23,7 +23,7 @@ class ZipUnicodePathTest {
         }
 
     private fun zip(localExtra: ByteArray = byteArrayOf(), centralExtra: ByteArray = byteArrayOf(), flags: Int = 0): ByteArray {
-        val original = ZipWriter.write(listOf(ZipWriter.FileSpec("fallback.txt", payload, CodecId.STORE)))
+        val original = ZipWriter.write(listOf(ZipWriter.FileSpec("fallback.txt", payload, ZipMethod.STORED)))
         val central = ZipFormat.u32(original, original.size - 6).toInt()
         val local = original.copyOf(42) + localExtra + original.copyOfRange(42, central)
         le(local, 6, flags.toLong(), 2); le(local, 28, localExtra.size.toLong(), 2)

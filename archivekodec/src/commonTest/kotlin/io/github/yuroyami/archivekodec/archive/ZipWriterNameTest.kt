@@ -4,7 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -13,12 +13,12 @@ import kotlin.test.assertIs
 import kotlin.text.CharacterCodingException
 
 class ZipWriterNameTest {
-    private val codecs = listOf(CodecId.STORE, CodecId.DEFLATE)
+    private val methods = listOf(ZipMethod.STORED, ZipMethod.DEFLATED)
 
     private fun reject(names: List<String>) {
-        for (codec in codecs) for (name in names) {
-            val error = assertFailsWith<ArchiveFormatException>("$codec: $name") {
-                ZipWriter.write(listOf(ZipWriter.FileSpec(name, byteArrayOf(65), codec)))
+        for (method in methods) for (name in names) {
+            val error = assertFailsWith<ArchiveFormatException>("$method: $name") {
+                ZipWriter.write(listOf(ZipWriter.FileSpec(name, byteArrayOf(65), method)))
             }
             assertEquals(name, error.entryName)
         }
@@ -55,9 +55,9 @@ class ZipWriterNameTest {
         assertEquals(0xD800, high.single().code)
         assertEquals(0xDC00, low.single().code)
         assertEquals(0xDFFF, lastLow.single().code)
-        for (codec in codecs) for (name in listOf(high, low, "a$lastLow", "${high}b", low + high, high + high)) {
+        for (method in methods) for (name in listOf(high, low, "a$lastLow", "${high}b", low + high, high + high)) {
             val error = assertFailsWith<ArchiveFormatException> {
-                ZipWriter.write(listOf(ZipWriter.FileSpec(name, byteArrayOf(), codec)))
+                ZipWriter.write(listOf(ZipWriter.FileSpec(name, byteArrayOf(), method)))
             }
             assertEquals(name, error.entryName)
             assertIs<CharacterCodingException>(error.cause)
@@ -69,8 +69,8 @@ class ZipWriterNameTest {
         val names = listOf("", ".", "./", "././/", "a//./b", "dir/", "é/文件😀", "e\u0301.txt", "é.txt",
             " leading /space //", ".../leaf", "dir/report:today.txt", ":colon.txt", "dir/C:leaf.txt")
         val data = byteArrayOf(65, 66, 67)
-        for (codec in codecs) for (name in names) {
-            val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, codec)))
+        for (method in methods) for (name in names) {
+            val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, method)))
             val encoded = name.encodeToByteArray()
             val central = ZipFormat.u32(bytes, bytes.size - 6).toInt()
             assertContentEquals(encoded, bytes.copyOfRange(30, 30 + ZipFormat.u16(bytes, 26)), name)
@@ -92,7 +92,7 @@ class ZipWriterNameTest {
             override fun get(index: Int): ZipWriter.FileSpec {
                 check(index == 0)
                 visits++
-                return ZipWriter.FileSpec(if (visits == 1) "safe/file.txt" else "../unsafe.txt", byteArrayOf(65), CodecId.STORE)
+                return ZipWriter.FileSpec(if (visits == 1) "safe/file.txt" else "../unsafe.txt", byteArrayOf(65), ZipMethod.STORED)
             }
         }
         val bytes = ZipWriter.write(files)

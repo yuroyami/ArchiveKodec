@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
@@ -15,8 +16,8 @@ import kotlin.test.assertTrue
 
 class ZipHeaderConsistencyTest {
     private val payload = "ABC".encodeToByteArray()
-    private fun zip(codec: CodecId = CodecId.STORE, name: String = "a.txt") =
-        ZipWriter.write(listOf(ZipWriter.FileSpec(name, payload, codec)))
+    private fun zip(method: ZipMethod = ZipMethod.STORED, name: String = "a.txt") =
+        ZipWriter.write(listOf(ZipWriter.FileSpec(name, payload, method)))
     private fun central(bytes: ByteArray) = ZipFormat.u32(bytes, bytes.size - 6).toInt()
     private fun flags(bytes: ByteArray, value: Int) {
         putLe(bytes, 6, value.toLong(), 2)
@@ -168,9 +169,9 @@ class ZipHeaderConsistencyTest {
 
     @Test
     fun unchangedValueCopiesAndUtf8OrEmptyNamesRemainReadable() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
+        for (method in ZipMethod.entries) {
             for (name in listOf("", "a.txt", "é/文件😀.txt")) {
-                val reader = ZipReader(ByteArrayRandomAccessSource(zip(codec, name)))
+                val reader = ZipReader(ByteArrayRandomAccessSource(zip(method, name)))
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertFalse(entry.isEncrypted)
@@ -194,7 +195,7 @@ class ZipHeaderConsistencyTest {
     @Test
     fun definedDeflateCompressionOptionsRemainReadable() {
         for (options in listOf(0, 2, 4, 6)) {
-            val bytes = zip(CodecId.DEFLATE)
+            val bytes = zip(ZipMethod.DEFLATED)
             flags(bytes, 0x800 or options)
             val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
             assertContentEquals(payload, reader.read(reader.entries().single()))
@@ -262,8 +263,8 @@ class ZipHeaderConsistencyTest {
 
     @Test
     fun patchedDataIsExplicitlyUnsupported() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
-            val bytes = zip(codec)
+        for (method in ZipMethod.entries) {
+            val bytes = zip(method)
             flags(bytes, 0x820)
             val source = PayloadSource(bytes)
             val reader = ZipReader(source)
@@ -311,9 +312,9 @@ class ZipHeaderConsistencyTest {
 
     @Test
     fun signedAndUnsignedClassicAndZip64DescriptorsRemainReadable() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
+        for (method in ZipMethod.entries) {
             for (signed in listOf(false, true)) for (zip64 in listOf(false, true)) {
-                val bytes = descriptorZip(codec, signed, zip64)
+                val bytes = descriptorZip(method, signed, zip64)
                 val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
                 val entry = reader.entries().single()
                 assertEquals(3L, entry.size)
@@ -322,8 +323,8 @@ class ZipHeaderConsistencyTest {
         }
     }
 
-    private fun descriptorZip(codec: CodecId, signed: Boolean, zip64: Boolean): ByteArray {
-        val original = zip(codec)
+    private fun descriptorZip(method: ZipMethod, signed: Boolean, zip64: Boolean): ByteArray {
+        val original = zip(method)
         val central = central(original)
         val compressed = ZipFormat.u32(original, central + 20)
         val crc = ZipFormat.u32(original, central + 16)

@@ -1,12 +1,12 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveClosedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -71,7 +71,7 @@ class MagicSourceTest {
         }
     }
 
-    private fun zip(): ByteArray = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", payload, CodecId.STORE)))
+    private fun zip(): ByteArray = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", payload, ZipMethod.STORED)))
 
     private fun tarHeader(): ByteArray = ByteArray(512).also {
         "a.txt".encodeToByteArray().copyInto(it)

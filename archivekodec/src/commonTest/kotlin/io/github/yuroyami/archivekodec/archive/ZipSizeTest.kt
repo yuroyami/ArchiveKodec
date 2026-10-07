@@ -4,7 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.test.Test
@@ -14,8 +14,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ZipSizeTest {
-    private fun zip(codec: CodecId, data: ByteArray = "ABCDE".encodeToByteArray(), name: String = "size.txt") =
-        ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, codec)))
+    private fun zip(method: ZipMethod, data: ByteArray = "ABCDE".encodeToByteArray(), name: String = "size.txt") =
+        ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, method)))
 
     private fun central(bytes: ByteArray) = ZipFormat.u32(bytes, bytes.size - 6).toInt()
 
@@ -26,14 +26,14 @@ class ZipSizeTest {
 
     @Test
     fun storedAndDeflatedSizesMustEqualActualOutputEvenWithCorrectCrc() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
+        for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
             for (size in listOf(0L, 1L, 4L, 6L)) {
-                val bytes = zip(codec)
+                val bytes = zip(method)
                 declareSize(bytes, size)
                 val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
                 val entry = reader.entries().single()
                 assertEquals(size, entry.size)
-                val error = assertFailsWith<ArchiveFormatException>("$codec declared $size") { reader.read(entry) }
+                val error = assertFailsWith<ArchiveFormatException>("$method declared $size") { reader.read(entry) }
                 assertEquals(entry.name, error.entryName)
                 assertTrue(error.offset!! >= 30 + entry.name.length, error.toString())
                 assertTrue(error.message!!.contains("size"), error.toString())
@@ -43,7 +43,7 @@ class ZipSizeTest {
 
     @Test
     fun storedSizeMismatchIsRejectedBeforePayloadRead() {
-        val bytes = zip(CodecId.STORE)
+        val bytes = zip(ZipMethod.STORED)
         declareSize(bytes, 1)
         var armed = false
         var payloadReads = 0
@@ -65,7 +65,7 @@ class ZipSizeTest {
 
     @Test
     fun actualInflateWritesStillEnforceCallerBudgets() {
-        val bytes = zip(CodecId.DEFLATE, ByteArray(4096) { 65 })
+        val bytes = zip(ZipMethod.DEFLATED, ByteArray(4096) { 65 })
         declareSize(bytes, 1)
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
         val entry = reader.entries().single()
@@ -89,9 +89,9 @@ class ZipSizeTest {
 
     @Test
     fun zip64DeclaredSizeIsComparedWithoutNarrowingOrPreallocation() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
+        for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
             for (declared in listOf(0L, 1L, 5L, 6L, 0x1_00000000L)) {
-                val bytes = zip(codec)
+                val bytes = zip(method)
                 val start = central(bytes)
                 val record = bytes.copyOfRange(start, bytes.size - 22)
                 putLe(record, 6, 45, 2)
@@ -109,7 +109,7 @@ class ZipSizeTest {
                 if (declared == 5L) {
                     assertContentEquals("ABCDE".encodeToByteArray(), reader.read(entry, ArchiveLimits.UNBOUNDED))
                 } else {
-                    assertFailsWith<ArchiveFormatException>("$codec ZIP64 size $declared") {
+                    assertFailsWith<ArchiveFormatException>("$method ZIP64 size $declared") {
                         reader.read(entry, ArchiveLimits.UNBOUNDED)
                     }
                 }
@@ -119,14 +119,14 @@ class ZipSizeTest {
 
     @Test
     fun directoryNameCannotBypassPayloadIntegrity() {
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
+        for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
             for (data in listOf(ByteArray(0), "ABC".encodeToByteArray())) {
-                val reader = ZipReader(ByteArrayRandomAccessSource(zip(codec, data, "dir/")))
+                val reader = ZipReader(ByteArrayRandomAccessSource(zip(method, data, "dir/")))
                 val entry = reader.entries().single()
                 assertTrue(entry.isDirectory)
                 assertContentEquals(data, reader.read(entry))
             }
-            val bytes = zip(codec, ByteArray(0), "dir/")
+            val bytes = zip(method, ByteArray(0), "dir/")
             declareSize(bytes, 1)
             val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
             assertFailsWith<ArchiveFormatException> { reader.read(reader.entries().single()) }

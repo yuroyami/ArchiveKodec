@@ -1,9 +1,9 @@
 package io.github.yuroyami.archivekodec.security
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -172,7 +172,7 @@ class ArchiveLimitsTest {
 
     @Test
     fun truthfulZipMetadataEnforcesFractionalExcess() {
-        val zip = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", ByteArray(5) { 65 }, CodecId.DEFLATE)))
+        val zip = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", ByteArray(5) { 65 }, ZipMethod.DEFLATED)))
         val reader = ZipReader(ByteArrayRandomAccessSource(zip))
         val entry = reader.entries().single()
         assertEquals(5L, entry.size)

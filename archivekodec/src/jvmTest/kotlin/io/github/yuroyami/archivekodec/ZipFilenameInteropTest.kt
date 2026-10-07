@@ -2,7 +2,7 @@ package io.github.yuroyami.archivekodec
 
 import com.sun.management.ThreadMXBean
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import java.lang.management.ManagementFactory
 import java.nio.charset.Charset
 import java.nio.file.Files
@@ -21,9 +21,9 @@ class ZipFilenameInteropTest {
     @Test
     fun jdkReadsUtf8NamesFromBothHeadersWithLegacyFallbackConfigured() {
         val names = listOf("ascii.txt", "é.txt", "目录/文件.txt", "😀.txt")
-        for (codec in listOf(CodecId.STORE, CodecId.DEFLATE)) {
+        for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
             val data = ByteArray(256) { it.toByte() }
-            val bytes = ZipWriter.write(names.map { ZipWriter.FileSpec(it, data, codec) })
+            val bytes = ZipWriter.write(names.map { ZipWriter.FileSpec(it, data, method) })
             ZipInputStream(bytes.inputStream(), legacy).use { input ->
                 for (name in names) {
                     assertEquals(name, input.nextEntry.name)
@@ -51,7 +51,7 @@ class ZipFilenameInteropTest {
         val names = listOf("x".repeat(65535), "é".repeat(32767) + "x", "中".repeat(21845), "😀".repeat(16383) + "abc")
         val data = byteArrayOf(65)
         for (name in names) {
-            val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, CodecId.STORE)))
+            val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, ZipMethod.STORED)))
             ZipInputStream(bytes.inputStream(), legacy).use { input ->
                 assertEquals(name, input.nextEntry.name)
                 assertContentEquals(data, input.readAllBytes())
@@ -73,8 +73,8 @@ class ZipFilenameInteropTest {
     @Test
     fun preflightRejectsBeforeEncodingHugeNamesOrCompressingEarlierData() {
         val files = listOf(
-            ZipWriter.FileSpec("first", ByteArray(4 * 1024 * 1024) { 65 }, CodecId.DEFLATE),
-            ZipWriter.FileSpec("x".repeat(1024 * 1024), byteArrayOf(), CodecId.STORE),
+            ZipWriter.FileSpec("first", ByteArray(4 * 1024 * 1024) { 65 }, ZipMethod.DEFLATED),
+            ZipWriter.FileSpec("x".repeat(1024 * 1024), byteArrayOf(), ZipMethod.STORED),
         )
         repeat(3) { assertFailsWith<ArchiveFormatException> { ZipWriter.write(files) } }
         val bean = ManagementFactory.getThreadMXBean() as ThreadMXBean
@@ -95,8 +95,8 @@ class ZipFilenameInteropTest {
         val thread = Thread.currentThread().threadId()
         for (name in listOf("a\\b", "/absolute", "./C:/drive", "RAM:device", "a/../b", "a\u0000b", "a\u007fb", "a\uD800b")) {
             val files = listOf(
-                ZipWriter.FileSpec("first", data, CodecId.DEFLATE),
-                ZipWriter.FileSpec(name, byteArrayOf(), CodecId.STORE),
+                ZipWriter.FileSpec("first", data, ZipMethod.DEFLATED),
+                ZipWriter.FileSpec(name, byteArrayOf(), ZipMethod.STORED),
             )
             repeat(3) { assertFailsWith<ArchiveFormatException> { ZipWriter.write(files) } }
             val before = bean.getThreadAllocatedBytes(thread)

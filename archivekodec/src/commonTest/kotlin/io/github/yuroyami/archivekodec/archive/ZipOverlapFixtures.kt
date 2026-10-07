@@ -2,18 +2,18 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 
 internal class ZipExtentPiece(val local: ByteArray, val directory: ByteArray)
 
 internal fun zipExtentPiece(
     name: String,
     data: ByteArray,
-    codec: CodecId = CodecId.STORE,
+    method: ZipMethod = ZipMethod.STORED,
     compressed: ByteArray? = null,
     localExtra: ByteArray = byteArrayOf(),
 ): ZipExtentPiece {
-    val original = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, codec)))
+    val original = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, method)))
     val central = ZipFormat.u32(original, original.size - 6).toInt()
     val headerLength = 30 + name.encodeToByteArray().size
     val header = original.copyOf(headerLength)
@@ -35,9 +35,9 @@ internal fun zipExtentArchive(prefix: ByteArray, records: List<ByteArray>): Byte
 }
 
 /** Small, CRC-valid members sharing an inner header and payload. */
-internal fun zipOverlappingPair(codec: CodecId, inExtra: Boolean = false, reversed: Boolean = false): ByteArray {
+internal fun zipOverlappingPair(method: ZipMethod, inExtra: Boolean = false, reversed: Boolean = false): ByteArray {
     val payload = "SHARED-PAYLOAD".encodeToByteArray()
-    val inner = zipExtentPiece("b", payload, codec)
+    val inner = zipExtentPiece("b", payload, method)
     val outer: ZipExtentPiece
     val innerOffset: Int
     when {
@@ -47,7 +47,7 @@ internal fun zipOverlappingPair(codec: CodecId, inExtra: Boolean = false, revers
             outer = zipExtentPiece("a", byteArrayOf(), localExtra = extra)
             innerOffset = 35
         }
-        codec == CodecId.STORE -> {
+        method == ZipMethod.STORED -> {
             outer = zipExtentPiece("a", inner.local)
             innerOffset = 31
         }
@@ -56,7 +56,7 @@ internal fun zipOverlappingPair(codec: CodecId, inExtra: Boolean = false, revers
             // the inner's final compressed stream supplies the shared payload.
             val quote = ByteArray(5)
             putLe(quote, 1, 31, 2); putLe(quote, 3, 31L xor 0xFFFF, 2)
-            outer = zipExtentPiece("a", inner.local.copyOf(31) + payload, CodecId.DEFLATE, quote + inner.local)
+            outer = zipExtentPiece("a", inner.local.copyOf(31) + payload, ZipMethod.DEFLATED, quote + inner.local)
             innerOffset = 36
         }
     }

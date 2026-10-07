@@ -1,10 +1,10 @@
 package io.github.yuroyami.archivekodec
 
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import java.nio.file.Files
 import java.util.zip.ZipFile
 import kotlin.test.Test
@@ -16,7 +16,7 @@ class ZipWrappedCountInteropTest {
     @Test
     fun exactClassicMaximumAndWrappedCountsAgreeWithJdk() {
         for (count in listOf(65535, 65536, 70000)) {
-            val generated = ZipWriter.write((0 until count).map { ZipWriter.FileSpec("f$it", byteArrayOf((it and 255).toByte()), CodecId.STORE) })
+            val generated = ZipWriter.write((0 until count).map { ZipWriter.FileSpec("f$it", byteArrayOf((it and 255).toByte()), ZipMethod.STORED) })
             val end = generated.copyOfRange(generated.size - 22, generated.size)
             val cdEnd = (ZipFormat.u32(end, 12) + ZipFormat.u32(end, 16)).toInt()
             for (offset in listOf(8, 10)) {

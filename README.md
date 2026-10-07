@@ -40,6 +40,7 @@ import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.security.PathGuard
 
@@ -47,7 +48,7 @@ val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
 val back = ArchiveKodec.gzip.decompress(gz)
 
 val zipBytes = ZipWriter.write(
-    listOf(ZipWriter.FileSpec("hello.txt", "Hello!".encodeToByteArray(), CodecId.STORE)),
+    listOf(ZipWriter.FileSpec("hello.txt", "Hello!".encodeToByteArray(), ZipMethod.STORED)),
 )
 
 ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
@@ -311,11 +312,23 @@ library. The whole archive must therefore be in memory before you can open it.
 ```kotlin
 val bytes = ZipWriter.write(
     listOf(
-        ZipWriter.FileSpec("readme.txt", text, CodecId.STORE),
-        ZipWriter.FileSpec("data.bin", payload, CodecId.DEFLATE),
+        ZipWriter.FileSpec("readme.txt", text, ZipMethod.STORED),
+        ZipWriter.FileSpec("data.bin", payload, ZipMethod.DEFLATED),
     ),
 )
 ```
+
+`FileSpec` accepts `ZipMethod.STORED` or `ZipMethod.DEFLATED`; its two-argument
+constructor defaults to deflated. It owns a payload snapshot, and each access to
+`file.data` returns an independent copy. Reusing input arrays or builders cannot
+change an existing file, its hash, or its written payload. Equality compares name,
+method and byte content; descriptions contain a bounded escaped name and byte
+count. Use `file.copy { ... }` or `FileSpec(name, data) { ... }` for configuration,
+and `ZipWriter.FileSpec.Builder(name, data).build()` from Java. Swift exports the
+builder as `ZipWriter.FileSpecBuilder(name:data:)`; its `build()`, direct file
+constructors and `doCopy(configure:)` require `try`. The old CodecId constructor, codec
+getter, generated field-list copy and destructuring functions are removed for
+the next minor release; rebuild callers and migrate to the typed methods.
 
 `ZipWriter` is the only writer in the library. It is not reachable from the
 `ArchiveKodec` object, so import it directly. It emits ZIP64 records only when
