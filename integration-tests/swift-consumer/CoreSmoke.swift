@@ -242,6 +242,43 @@ expectFailure("LZ4 skippable padding cannot dilute ratio", check: { $0 is Decomp
     _ = try lz4Protocol.decompress(data: bytes(lz4HighRatio + lz4Padding), limits: lz4RatioLimit)
 }
 
+// Linked blocks read frame-local history through the same exported Codec.
+let lz4LinkedOctets = Array(Data(base64Encoded: "BCJNGFxAcBEBAAAAAADjCwEAAB9BAQD/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////51BBQUFBQVlAXzIbAAAADwEA//////////////////////9pUEFBQUFBBy+QJwAAAABIqrJX")!)
+let lz4Linked = try lz4Protocol.decompress(data: bytes(lz4LinkedOctets), limits: limits)
+precondition(lz4Linked.size == 70000)
+for index in 0..<lz4Linked.size { precondition(lz4Linked.get(index: index) == 65) }
+let lz4TaggedLinked = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: "BCJNGF1AIwAAAAAAAACYutz+zAMAAIBhYmP/U9EyCgAAAA8DAAhQMTIzNDW7amqLAAAAAHnsvag=")!)), limits: limits)
+let lz4TaggedExpected = Array((String(repeating: "abc", count: 10) + "12345").utf8)
+precondition(lz4TaggedLinked.size == Int32(lz4TaggedExpected.count))
+for (index, value) in lz4TaggedExpected.enumerated() {
+    precondition(lz4TaggedLinked.get(index: Int32(index)) == Int8(bitPattern: value))
+}
+for (label, encoded, offset, message) in [
+    ("independent block isolation", "BCJNGGBAggMAAIBhYmMKAAAADwMAAFAxMjM0NQAAAAA=", 19, "available history 0"),
+    ("linked history bound", "BCJNGEBAwAMAAIBhYmMKAAAADwQAAFAxMjM0NQAAAAA=", 19, "available history 3"),
+    ("linked zero offset", "BCJNGEBAwAMAAIBhYmMKAAAADwAAAFAxMjM0NQAAAAA=", 19, "invalid match offset 0"),
+    ("linked short final literals", "BCJNGEBAwAMAAIBhYmMJAAAADwMAAEAAAAAAAAAAAA==", 22, "final literal")
+] {
+    expectFailure("LZ4 \(label)", check: {
+        $0 is ArchiveFormatException && $0.offset?.int64Value == Int64(offset) && $0.message?.contains(message) == true
+    }) { _ = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: encoded)!)), limits: limits) }
+}
+expectFailure("LZ4 linked history resets at frame boundary", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 345 && $0.message?.contains("available history 0") == true
+}) {
+    _ = try lz4Protocol.decompress(data: bytes(lz4LinkedOctets + Array(Data(base64Encoded: "BCJNGEBAwAoAAAAPAQAAUDEyMzQ1AAAAAA==")!)), limits: limits)
+}
+expectFailure("LZ4 linked missing dictionary", check: {
+    $0 is ArchiveUnsupportedException && $0.offset?.int64Value == 16 && $0.message?.contains("dictionary ID 4275878552") == true
+}) { _ = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: "BCJNGEFAmLrc/gYKAAAADwEAAFAxMjM0NQAAAAA=")!)), limits: limits) }
+let lz4HistoryOutputLimit = ArchiveLimits(maxUncompressedBytes: 107, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+expectFailure("LZ4 linked output limit", check: { $0 is DecompressionBombException }) {
+    _ = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: "BCJNGEBAwAMAAIBhYmMKAAAADwMAUVAxMjM0NQAAAAA=")!)), limits: lz4HistoryOutputLimit)
+}
+expectFailure("LZ4 linked ratio limit", check: { $0 is DecompressionBombException }) {
+    _ = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: "BCJNGEBAwAMAAIBhYmMZAAAADwMA////////////////////nFAxMjM0NQAAAAA=")!)), limits: lz4RatioLimit)
+}
+
 expectFailure("zlib dictionary", check: { $0 is ArchiveUnsupportedException }) {
     _ = try Zlib.shared.decompress(input: bytes([0x78, 0xbb, 0x35, 0x29, 0x06, 0x6b, 0xcb, 0x00, 0xf1, 0x01, 0x06, 0x2c, 0x02, 0x15]))
 }

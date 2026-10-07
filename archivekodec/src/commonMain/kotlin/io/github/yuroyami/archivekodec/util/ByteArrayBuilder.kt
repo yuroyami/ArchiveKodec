@@ -49,6 +49,14 @@ class ByteArrayBuilder(initialCapacity: Int = 64) {
     /** Snapshot the written bytes into a right-sized array. */
     fun toByteArray(): ByteArray = buf.copyOf(len)
 
+    /** Copy already-written bytes into a destination without taking a snapshot. */
+    internal fun copyTo(destination: ByteArray, destinationOffset: Int, sourceOffset: Int, length: Int) {
+        require(sourceOffset >= 0 && length >= 0 && sourceOffset <= len && length <= len - sourceOffset) {
+            "invalid written slice: offset $sourceOffset, length $length, size $len"
+        }
+        buf.copyInto(destination, destinationOffset, sourceOffset, sourceOffset + length)
+    }
+
     /** Inspect written bytes without copying; [calculate] must not retain or modify storage. */
     internal fun checksum(calculate: (ByteArray, Int) -> Long): Long = calculate(buf, len)
 }

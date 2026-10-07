@@ -499,9 +499,12 @@ artifact and a kotlinx-io dependency.
   Dictionary-tagged self-contained blocks remain readable. A match requiring
   unavailable history names a declared unsigned Dictionary ID in
   `ArchiveUnsupportedException`. Without an ID, a malformed-data error explains
-  that an external dictionary or linked-block history may be required; those
-  causes cannot be distinguished from damaged match bytes. Supplying dictionary
-  bytes and decoding linked-block history are not implemented yet.
+  that an external dictionary may be required; this cannot be distinguished from
+  damaged match bytes. Supplying dictionary bytes is not implemented yet.
+- LZ4 honors the block-independence flag. Linked blocks can refer to the preceding
+  64 KiB of output within the same frame, including stored and compressed blocks.
+  Matches can cross from that history into overlapping current-block output.
+  Independent blocks and subsequent frames start without preceding-block history.
 - A present LZ4 content-size field is checked against the remaining combined
   output limit before decoding and must equal that frame's output. Checksums,
   content sizes, and dictionary metadata are local to each frame. Compressed LZ4

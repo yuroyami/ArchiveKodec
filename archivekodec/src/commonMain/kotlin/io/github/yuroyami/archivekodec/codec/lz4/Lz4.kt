@@ -13,7 +13,8 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
  * `0x184D2204`). Pure-Kotlin, with no entropy stage, so it is fast and cheap.
  *
- * Frame decoding consumes concatenated frames and skippable metadata, verifying each
+ * Frame decoding supports independent and linked blocks, consumes concatenated frames
+ * and skippable metadata, and verifies each
  * frame's declared content size, header and advertised block/content xxHash32 checksums.
  * Encoder writes a minimal frame (block-independent,
  * 4 MiB max block, no optional checksums) with a real greedy hash-chain block compressor and
@@ -29,6 +30,7 @@ object Lz4 {
     private const val MF_LIMIT = 12          // last 12 bytes are never the start of a match
     private const val LAST_LITERALS = 5      // last 5 bytes are always literals
     private const val MAX_BLOCK = 4 * 1024 * 1024
+    private const val HISTORY_WINDOW = 64 * 1024
     private const val HASH_BITS = 16
 
     /* ─── Block format ───────────────────────────────────────────────────── */
@@ -47,6 +49,7 @@ object Lz4 {
         blockMaximum: Int, limits: ArchiveLimits, outputBase: Int, compressedBytes: Int,
         declaredSize: Long? = null, dictionaryId: Long? = null,
         frameOutputBase: Int = outputBase, sizeOffset: Long = 6,
+        history: ByteArrayBuilder? = null,
     ): ByteArray {
         if (sOff < 0 || sEnd < sOff || sEnd > src.size) {
             throw ArchiveFormatException("lz4: invalid block slice [$sOff, $sEnd)", sOff.toLong())
@@ -66,6 +69,7 @@ object Lz4 {
         var o = 0
         var s = sOff
         var hasMatch = false
+        val historySize = if (history != null) minOf(frameOutputBase, HISTORY_WINDOW) else 0
         fun needInput(n: Int) {
             if (n > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
         }
@@ -111,21 +115,30 @@ object Lz4 {
             val offset = (src[s].toInt() and 0xFF) or ((src[s + 1].toInt() and 0xFF) shl 8)
             s += 2
             if (offset == 0) throw ArchiveFormatException("lz4: invalid match offset 0", (s - 2).toLong())
-            if (offset > o) {
-                val message = "lz4: match offset $offset exceeds available history $o"
+            val availableHistory = o.toLong() + historySize
+            if (offset > availableHistory) {
+                val message = "lz4: match offset $offset exceeds available history $availableHistory"
                 if (dictionaryId != null) {
                     throw ArchiveUnsupportedException("$message; dictionary ID $dictionaryId is not supplied", (s - 2).toLong())
                 }
                 // Dictionary IDs are optional. Missing history does not establish
                 // whether an untagged block needs a dictionary or is malformed.
-                throw ArchiveFormatException("$message; an external dictionary or linked-block history may be required", (s - 2).toLong())
+                throw ArchiveFormatException("$message; an external dictionary may be required", (s - 2).toLong())
             }
             val encodedLength = length(token and 0xF)
             if (encodedLength > Int.MAX_VALUE - MIN_MATCH) throw ArchiveFormatException("lz4: match length exceeds ByteArray limit", s.toLong())
             val matchLen = encodedLength + MIN_MATCH
             ensure(matchLen)
             var m = o - offset
-            repeat(matchLen) { out[o++] = out[m++] } // byte-by-byte: overlap-safe
+            val historyLength = minOf(matchLen, maxOf(0, -m))
+            if (historyLength > 0) {
+                // Read only preceding bytes in this frame's bounded history window.
+                // The builder owns the current storage even after its buffer grows.
+                history!!.copyTo(out, o, outputBase + m, historyLength)
+                o += historyLength
+                m += historyLength
+            }
+            repeat(matchLen - historyLength) { out[o++] = out[m++] } // byte-by-byte: overlap-safe
             hasMatch = true
         }
         throw ArchiveFormatException("lz4: missing final literal sequence", sEnd.toLong())
@@ -238,7 +251,9 @@ object Lz4 {
      * standard frame using its encoded length, excluding other frames and metadata.
      * Each optional content size is checked before growth and must match that frame's
      * output. Version and reserved bits are validated. Dictionary-tagged self-contained
-     * blocks remain readable; a match requiring unavailable dictionary history raises
+     * blocks remain readable. Linked blocks can refer to the preceding 64 KiB of
+     * this frame's output; independent blocks have no preceding-block history.
+     * A match requiring unavailable dictionary history raises
      * [ArchiveUnsupportedException] with the declared ID. An untagged missing-history
      * match remains malformed, since an external dictionary cannot be inferred reliably.
      * Legacy frames raise [ArchiveUnsupportedException]. Empty input is malformed.
@@ -291,6 +306,7 @@ object Lz4 {
             }
             if (bd and 0x8F != 0) throw ArchiveFormatException("lz4: reserved BD bits are set", (p - 1).toLong())
             val blockChecksum = (flg and 0x10) != 0
+            val linkedBlocks = (flg and 0x20) == 0
             val contentSize = (flg and 0x08) != 0
             val contentChecksum = (flg and 0x04) != 0
             val dictId = (flg and 0x01) != 0
@@ -361,6 +377,7 @@ object Lz4 {
                     out.append(decodeBlock(
                         input, p, p + blockSize, -1, blockMaximum, limits, out.size,
                         compressedBytes, declaredSize, dictionaryId, frameOutput, sizeOffset,
+                        history = if (linkedBlocks) out else null,
                     ))
                 }
                 p += blockSize
