@@ -80,6 +80,24 @@ expectFailure("gzip header", check: { $0 is ArchiveFormatException }) { _ = try 
 expectFailure("zlib header", check: { $0 is ArchiveFormatException }) { _ = try Zlib.shared.decompress(input: empty, limits: limits) }
 expectFailure("raw deflate", check: { $0 is InflateException }) { _ = try Inflate.shared.inflate(input: bytes([7])) }
 expectFailure("LZ4 header", check: { $0 is ArchiveFormatException }) { _ = try Lz4.shared.frameDecompress(input: empty, limits: limits) }
+for (label, encoded) in [
+    ("large", "04224d186840640000000000000023060000005068656c6c6f00000000"),
+    ("small", "04224d1868400200000000000000a0060000005068656c6c6f00000000")
+] {
+    let octets = stride(from: 0, to: encoded.count, by: 2).map { index -> UInt8 in
+        let start = encoded.index(encoded.startIndex, offsetBy: index)
+        let end = encoded.index(start, offsetBy: 2)
+        return UInt8(encoded[start..<end], radix: 16)!
+    }
+    expectFailure("LZ4 content size \(label)", check: {
+        $0 is ArchiveFormatException && $0.offset?.int64Value == 6 && $0.message?.contains("content size mismatch") == true
+    }) { _ = try Lz4.shared.frameDecompress(input: bytes(octets), limits: limits) }
+}
+expectFailure("LZ4 block terminal sequence", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 11 && $0.message?.contains("final literal") == true
+}) {
+    _ = try Lz4.shared.blockDecompress(src: bytes([0x80, 97, 98, 99, 100, 101, 102, 103, 104, 8, 0]), sOff: 0, sEnd: 11, expectedSize: -1)
+}
 expectFailure("LZ4 content checksum", check: {
     $0 is ArchiveFormatException && $0.offset?.int64Value == 11 && $0.message?.contains("content checksum mismatch") == true
 }) {

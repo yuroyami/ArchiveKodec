@@ -400,6 +400,10 @@ artifact and a kotlinx-io dependency.
   advertised block checksum before decoding/copying, and checks the advertised
   content checksum before returning output. Corrupt or truncated checksum fields
   throw `ArchiveFormatException` with their source offset.
+- A present LZ4 content-size field is checked against configured limits before
+  decoding and must equal the complete output. Compressed LZ4 blocks must end in
+  a literal-only sequence, with at least five final literals after a match.
+  Empty output uses a zero token; an empty compressed byte sequence is invalid.
 - Snappy's encoder emits literals only, with no back-reference matching. The
   output is a valid Snappy block, and slightly larger than the input.
 - The public API is not frozen. There is no explicit API mode and no committed

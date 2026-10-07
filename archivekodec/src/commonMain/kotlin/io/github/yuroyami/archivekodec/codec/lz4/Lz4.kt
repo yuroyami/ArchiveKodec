@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 
@@ -11,8 +12,8 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
  * `0x184D2204`). Pure-Kotlin, with no entropy stage, so it is fast and cheap.
  *
- * Frame decoding verifies the header and any advertised block/content xxHash32
- * checksums. Encoder writes a minimal frame (block-independent,
+ * Frame decoding verifies the declared content size, the header and any advertised
+ * block/content xxHash32 checksums. Encoder writes a minimal frame (block-independent,
  * 4 MiB max block, no optional checksums) with a real greedy hash-chain block compressor and
  * a stored-block fallback when a block doesn't shrink.
  */
@@ -27,7 +28,11 @@ object Lz4 {
 
     /* ─── Block format ───────────────────────────────────────────────────── */
 
-    /** Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint. */
+    /**
+     * Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint.
+     * A final literal sequence is required; after a match it must contain at least five bytes.
+     * Empty output is encoded by a zero token, rather than an empty byte sequence.
+     */
     @Throws(ArchiveException::class)
     fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
         decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0, sEnd - sOff)
@@ -35,6 +40,7 @@ object Lz4 {
     private fun decodeBlock(
         src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int,
         blockMaximum: Int, limits: ArchiveLimits, outputBase: Int, compressedBytes: Int,
+        declaredSize: Long? = null,
     ): ByteArray {
         if (sOff < 0 || sEnd < sOff || sEnd > src.size) {
             throw ArchiveFormatException("lz4: invalid block slice [$sOff, $sEnd)", sOff.toLong())
@@ -50,6 +56,7 @@ object Lz4 {
         var out = ByteArray(minOf(4096, hint, budget))
         var o = 0
         var s = sOff
+        var hasMatch = false
         fun needInput(n: Int) {
             if (n > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
         }
@@ -71,20 +78,25 @@ object Lz4 {
             if (required > blockMaximum) {
                 throw ArchiveFormatException("lz4: decoded block exceeds maximum $blockMaximum", s.toLong())
             }
+            checkContentSize(outputBase.toLong() + required, declaredSize)
             limits.checkOutputSize(outputBase.toLong() + required)
             limits.checkRatio(compressedBytes.toLong(), outputBase.toLong() + required)
             val capacity = byteArrayCapacity(out.size, o, n, budget)
             if (capacity != out.size) out = out.copyOf(capacity)
         }
         while (s < sEnd) {
+            val tokenAt = s
             val token = src[s++].toInt() and 0xFF
             val litLen = length(token ushr 4)
             needInput(litLen)
+            if (litLen == sEnd - s && hasMatch && litLen < LAST_LITERALS) {
+                throw ArchiveFormatException("lz4: final literals after a match must contain at least $LAST_LITERALS bytes", tokenAt.toLong())
+            }
             ensure(litLen)
             src.copyInto(out, o, s, s + litLen)
             o += litLen
             s += litLen
-            if (s == sEnd) break // last sequence: literals only
+            if (s == sEnd) return out.copyOf(o) // last sequence: literals only
 
             needInput(2)
             val offset = (src[s].toInt() and 0xFF) or ((src[s + 1].toInt() and 0xFF) shl 8)
@@ -96,8 +108,9 @@ object Lz4 {
             ensure(matchLen)
             var m = o - offset
             repeat(matchLen) { out[o++] = out[m++] } // byte-by-byte: overlap-safe
+            hasMatch = true
         }
-        return out.copyOf(o)
+        throw ArchiveFormatException("lz4: missing final literal sequence", sEnd.toLong())
     }
 
     /** Greedy LZ4 block compressor. Always produces a conformant block. */
@@ -200,7 +213,10 @@ object Lz4 {
         return out.toByteArray()
     }
 
-    /** Decompress an LZ4 frame, enforcing [limits] before output growth or copying. */
+    /**
+     * Decompress an LZ4 frame, enforcing [limits] and its optional declared content size
+     * before output growth or copying. The complete output must match a present size field.
+     */
     @Throws(ArchiveException::class)
     fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
@@ -231,7 +247,12 @@ object Lz4 {
         val dictId = (flg and 0x01) != 0
         val optional = (if (contentSize) 8 else 0) + (if (dictId) 4 else 0)
         needInput(optional)
-        p += optional
+        val unsignedSize = if (contentSize) {
+            var size = 0uL
+            repeat(8) { size = size or ((input[p++].toInt() and 0xFF).toULong() shl (it * 8)) }
+            size
+        } else null
+        if (dictId) p += 4
         needInput(1)
         val headerChecksum = (XxHash32.hash(input, 4, p - 4) ushr 8).toInt() and 0xFF
         if (headerChecksum != (input[p].toInt() and 0xFF)) {
@@ -241,9 +262,25 @@ object Lz4 {
 
         limits.checkOutputSize(0)
         limits.checkRatio(input.size.toLong(), 0)
+        val declaredSize = unsignedSize?.let { size ->
+            // The configured ceiling is nonnegative after checkOutputSize(0). Comparing
+            // unsigned values first also rejects declarations above Long.MAX_VALUE.
+            if (size > limits.maxUncompressedBytes.toULong()) {
+                throw DecompressionBombException(
+                    "uncompressed output $size B exceeds limit ${limits.maxUncompressedBytes} B", 6, null, null,
+                )
+            }
+            val signedSize = size.toLong()
+            limits.checkRatio(input.size.toLong(), signedSize)
+            if (signedSize > Int.MAX_VALUE) {
+                throw ArchiveFormatException("lz4: declared content size $size exceeds ByteArray limit", 6)
+            }
+            signedSize
+        }
         val maximum = minOf(
             Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes,
             input.size.toLong() * limits.maxCompressionRatio,
+            declaredSize ?: Int.MAX_VALUE.toLong(),
         ).toInt()
         val out = ByteArrayBuilder(minOf(64, maximum), maximum)
         while (true) {
@@ -264,14 +301,18 @@ object Lz4 {
                 }
             }
             if (uncompressed) {
+                checkContentSize(out.size.toLong() + blockSize, declaredSize)
                 limits.checkOutputSize(out.size.toLong() + blockSize)
                 limits.checkRatio(input.size.toLong(), out.size.toLong() + blockSize)
                 out.append(input, p, blockSize)
             } else {
-                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size, input.size))
+                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size, input.size, declaredSize))
             }
             p += blockSize
             if (blockChecksum) p += 4
+        }
+        if (declaredSize != null && out.size.toLong() != declaredSize) {
+            throw contentSizeMismatch(out.size.toLong(), declaredSize)
         }
         val checksumAt = p
         val expectedContent = if (contentChecksum) u32() else null
@@ -280,6 +321,13 @@ object Lz4 {
         }
         return out.toByteArray()
     }
+
+    private fun checkContentSize(required: Long, declared: Long?) {
+        if (declared != null && required > declared) throw contentSizeMismatch(required, declared)
+    }
+
+    private fun contentSizeMismatch(required: Long, declared: Long) =
+        ArchiveFormatException("lz4: content size mismatch: required $required B, declared $declared B", 6)
 
     private fun writeLe32(out: ByteArrayBuilder, v: Long) {
         out.append((v and 0xFF).toByte())
