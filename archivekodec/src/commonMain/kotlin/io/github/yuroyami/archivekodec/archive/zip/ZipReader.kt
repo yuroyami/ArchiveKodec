@@ -14,6 +14,7 @@ import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.Codecs
+import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 
@@ -26,7 +27,7 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  *
  * Security: duplicate local-header offsets (the overlapping-bomb signature) are
  * rejected at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
- * the stored CRC-32. This reader returns entry names raw. Run them through
+ * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
  */
 class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
@@ -42,7 +43,6 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
-        if (entry.isDirectory) return@withEntryContext ByteArray(0)
         val lh = source.readFully(entry.dataOffset, 30)
         if (ZipFormat.u32(lh, 0) != ZipFormat.LOC) throw ArchiveFormatException("ZIP: invalid local file header", entry.dataOffset, entry.name)
         val method = ZipFormat.u16(lh, 8)
@@ -54,15 +54,23 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.compressedSize, entry.size)
 
-        val comp = source.readFullyChecked(dataStart, entry.compressedSize)
         val codecId = ZipFormat.codecForMethod(method)
             ?: throw ArchiveUnsupportedException("ZIP method $method not supported", entry.dataOffset, entry.name)
         val codec = Codecs.byId(codecId)
             ?: throw ArchiveUnsupportedException("ZIP method $method ($codecId) not implemented yet", entry.dataOffset, entry.name)
+        if (codecId == CodecId.STORE && entry.compressedSize != entry.size) {
+            throw ArchiveFormatException("ZIP: stored compressed size ${entry.compressedSize} differs from output size ${entry.size}", dataStart, entry.name)
+        }
+        val comp = source.readFullyChecked(dataStart, entry.compressedSize)
         val out = try {
-            codec.decompress(comp, limits)
+            if (codecId == CodecId.DEFLATE) Inflate.inflateExact(comp, limits, entry.size)
+            else codec.decompress(comp, limits)
         } catch (error: ArchiveException) {
             throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+        }
+
+        if (out.size.toLong() != entry.size) {
+            throw ArchiveFormatException("ZIP: output size ${out.size} differs from declared size ${entry.size}", dataStart, entry.name)
         }
 
         entry.crc32?.let { expected ->

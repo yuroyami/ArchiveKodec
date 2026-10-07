@@ -109,10 +109,19 @@ object Inflate {
      *   if the cumulative output or whole-input compression ratio exceeds [limits].
      */
     @Throws(ArchiveException::class)
-    fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray {
-        val output = Output(limits, input.size)
+    fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null)
+
+    /** ZIP's authoritative size constrains writes as well as the final stream length. */
+    internal fun inflateExact(input: ByteArray, limits: ArchiveLimits, expectedSize: Long): ByteArray =
+        inflateChecked(input, limits, expectedSize)
+
+    private fun inflateChecked(input: ByteArray, limits: ArchiveLimits, expectedSize: Long?): ByteArray {
+        val output = Output(limits, input.size, expectedSize)
         val end = inflateInto(input, 0, input.size, output)
         if (end != input.size) throw ArchiveFormatException("deflate: trailing bytes after stream", end.toLong())
+        if (expectedSize != null && output.size.toLong() != expectedSize) {
+            throw ArchiveFormatException("deflate: output size ${output.size} differs from expected size $expectedSize", end.toLong())
+        }
         return output.toByteArray()
     }
 
@@ -143,17 +152,21 @@ object Inflate {
     }
 
     /** Shared output across gzip members; each State still has a fresh dictionary. */
-    internal class Output(private val limits: ArchiveLimits, private val compressedBytes: Int) {
+    internal class Output(
+        private val limits: ArchiveLimits, private val compressedBytes: Int,
+        private val expectedSize: Long? = null,
+    ) {
         private val maximum: Int
         private var bytes: ByteArray
         var size: Int = 0
             private set
 
         init {
+            if (expectedSize != null && expectedSize < 0) throw ArchiveFormatException("deflate: negative expected size $expectedSize")
             limits.checkOutputSize(0)
             limits.checkRatio(compressedBytes.toLong(), 0)
             maximum = minOf(
-                Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes,
+                Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes, expectedSize ?: Long.MAX_VALUE,
                 if (compressedBytes > 0) compressedBytes.toLong() * limits.maxCompressionRatio else Long.MAX_VALUE,
             ).toInt()
             bytes = ByteArray(minOf(256, maximum))
@@ -163,6 +176,9 @@ object Inflate {
             val required = size.toLong() + extra
             limits.checkOutputSize(required)
             limits.checkRatio(compressedBytes.toLong(), required)
+            if (expectedSize != null && required > expectedSize) {
+                throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
+            }
             val capacity = try {
                 byteArrayCapacity(bytes.size, size, extra, maximum)
             } catch (_: ArchiveSizeException) {
