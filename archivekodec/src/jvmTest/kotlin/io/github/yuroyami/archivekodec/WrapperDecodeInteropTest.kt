@@ -22,18 +22,30 @@ import kotlin.test.assertTrue
 
 class WrapperDecodeInteropTest {
     @Test
-    fun decodesIndependentJdkRawAndZlibStreams() {
-        val samples = listOf(byteArrayOf(), ByteArray(16_384), ByteArray(32_768) { (it * 37).toByte() })
-        for (data in samples) for (level in listOf(0, 1, 6, 9)) {
+    fun decodesIndependentJdkStreamsAtEveryLevelAndStrategy() {
+        val samples = listOf(
+            byteArrayOf(), ByteArray(16_384), ByteArray(32_768) { (it * 37).toByte() },
+            "the quick brown fox jumps over the lazy dog ".repeat(2000).encodeToByteArray(),
+            ByteArray(32_768).also { java.util.Random(0x108L).nextBytes(it) },
+        )
+        val firstBlockCounts = IntArray(3)
+        for ((sample, data) in samples.withIndex()) for (level in 0..9) {
             for (strategy in listOf(Deflater.DEFAULT_STRATEGY, Deflater.FILTERED, Deflater.HUFFMAN_ONLY)) {
-                for (raw in listOf(true, false)) {
-                    val encoded = deflate(data, level, strategy, raw)
-                    val decoded = if (raw) Inflate.inflate(encoded) else Zlib.decompress(encoded)
-                    assertContentEquals(data, decoded)
-                    if (!raw) assertContentEquals(data, Gzip.decompress(encoded))
-                }
+                val label = "sample=$sample level=$level strategy=$strategy"
+                val raw = deflate(data, level, strategy, true)
+                val firstBlock = (raw[0].toInt() ushr 1) and 3
+                assertTrue(firstBlock < 3, label)
+                firstBlockCounts[firstBlock]++
+                assertContentEquals(data, Inflate.inflate(raw), "raw: $label")
+                val zlib = deflate(data, level, strategy, false)
+                assertContentEquals(data, Zlib.decompress(zlib), "zlib: $label")
+                assertContentEquals(data, Gzip.decompress(zlib), "zlib fallback: $label")
+                assertContentEquals(data, Gzip.decompress(gzip(data, level, strategy)), "gzip: $label")
             }
         }
+        println("JDK raw first blocks: stored=${firstBlockCounts[0]}, fixed=${firstBlockCounts[1]}, dynamic=${firstBlockCounts[2]}")
+        assertEquals(150, firstBlockCounts.sum())
+        for (type in firstBlockCounts.indices) assertTrue(firstBlockCounts[type] > 0, "Missing block type $type")
     }
 
     @Test
@@ -138,8 +150,11 @@ class WrapperDecodeInteropTest {
             def.finish()
             val bytes = ByteArrayOutputStream()
             val buffer = ByteArray(8192)
+            var stalled = 0
             while (!def.finished()) {
                 val count = def.deflate(buffer)
+                stalled = if (count == 0 && !def.finished()) stalled + 1 else 0
+                check(stalled < 16) { "JDK Deflater stalled: level=$level strategy=$strategy raw=$raw" }
                 bytes.write(buffer, 0, count)
             }
             return bytes.toByteArray()
@@ -148,8 +163,15 @@ class WrapperDecodeInteropTest {
         }
     }
 
-    private fun gzip(data: ByteArray): ByteArray = ByteArrayOutputStream().also { bytes ->
-        GZIPOutputStream(bytes).use { it.write(data) }
+    private fun gzip(
+        data: ByteArray, level: Int = Deflater.DEFAULT_COMPRESSION, strategy: Int = Deflater.DEFAULT_STRATEGY,
+    ): ByteArray = ByteArrayOutputStream().also { bytes ->
+        object : GZIPOutputStream(bytes) {
+            init {
+                def.setLevel(level)
+                def.setStrategy(strategy)
+            }
+        }.use { it.write(data) }
     }.toByteArray()
 
     private fun hex(s: String): ByteArray = ByteArray(s.length / 2) {

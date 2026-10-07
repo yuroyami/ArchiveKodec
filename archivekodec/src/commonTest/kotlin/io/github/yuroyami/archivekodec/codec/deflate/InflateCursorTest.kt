@@ -23,6 +23,7 @@ class InflateCursorTest {
     @Test
     fun cursorStopsAfterStoredFixedAndDynamicStreams() {
         for (i in streams.indices) {
+            assertEquals(i, (streams[i][0].toInt() ushr 1) and 3, "Independent fixture block type")
             val input = byteArrayOf(99, 98) + streams[i] + byteArrayOf(97, 96)
             val output = Inflate.Output(ArchiveLimits.DEFAULT, streams[i].size)
             val next = Inflate.inflateInto(input, 2, input.size, output)
