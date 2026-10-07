@@ -38,3 +38,8 @@ class ArchiveUnsupportedException(
 class ArchiveIOException(
     message: String, cause: Throwable, offset: Long? = null, entryName: String? = null,
 ) : ArchiveException(message, cause, offset, entryName)
+
+/** Listing or reading was attempted after the reader released its source. */
+class ArchiveClosedException(
+    message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
+) : ArchiveException(message, cause, offset, entryName)

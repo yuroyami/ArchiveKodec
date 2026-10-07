@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchiveClosedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
@@ -20,6 +21,7 @@ internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Lon
     val label = entryName ?: name
     val text = "${message} (entry '$label', source offset $position)"
     return when (this) {
+        is ArchiveClosedException -> ArchiveClosedException(text, position, label, this)
         is DecompressionBombException -> DecompressionBombException(text, position, label, this)
         is ArchiveUnsupportedException -> ArchiveUnsupportedException(text, position, label, this)
         is ArchiveIOException -> ArchiveIOException(text, this, position, label)

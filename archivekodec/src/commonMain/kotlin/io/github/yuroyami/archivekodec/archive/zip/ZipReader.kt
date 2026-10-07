@@ -7,6 +7,7 @@ import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
@@ -30,19 +31,24 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
  */
-class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
+class ZipReader(source: RandomAccessSource) : ArchiveReader {
 
-    override fun toString(): String = "ZipReader(source=$source)"
+    private val ownedSource = ReaderSource(source)
+    private val source: RandomAccessSource get() = ownedSource.source
+
+    override fun toString(): String = "ZipReader(source=$ownedSource)"
 
     override val format = ArchiveFormat.ZIP
 
-    private val cached: List<ArchiveEntry> by lazy { parseCentralDirectory() }
+    @Throws(ArchiveException::class)
+    override fun entries(): List<ArchiveEntry> = ownedSource.entries { parseCentralDirectory() }
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = cached
+    override fun close() = ownedSource.close()
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+        val source = ownedSource.source
         val lh = source.readFully(entry.dataOffset, 30)
         if (ZipFormat.u32(lh, 0) != ZipFormat.LOC) throw ArchiveFormatException("ZIP: invalid local file header", entry.dataOffset, entry.name)
         val method = ZipFormat.u16(lh, 8)

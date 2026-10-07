@@ -38,6 +38,7 @@ names. You must call `PathGuard` yourself before you use a name as a path.
 ```kotlin
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.security.PathGuard
@@ -49,12 +50,13 @@ val zipBytes = ZipWriter.write(
     listOf(ZipWriter.FileSpec("hello.txt", "Hello!".encodeToByteArray(), CodecId.STORE)),
 )
 
-val reader = ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes))
-for (entry in reader.entries()) {
-    // The reader returns names unchanged. Sanitize one before you use it as a path.
-    val safeName = PathGuard.sanitize(entry.name)
-    val content = reader.read(entry)
-    println("$safeName (${content.size} B)")
+ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
+    for (entry in reader.entries()) {
+        // The reader returns names unchanged. Sanitize one before you use it as a path.
+        val safeName = PathGuard.sanitize(entry.name)
+        val content = reader.read(entry)
+        println("$safeName (${content.size} B)")
+    }
 }
 ```
 
@@ -132,7 +134,7 @@ Expected archive failures share the `ArchiveException` base. Its `offset` and
 `entryName` identify source context when known, and `cause` retains the original
 failure. Entry reads rebase codec offsets to the archive source. Categories include
 `ArchiveFormatException`, `ArchiveUnsupportedException`, `ArchiveIOException`,
-`ArchiveSizeException`, `InflateException`, `DecompressionBombException`, and
+`ArchiveClosedException`, `ArchiveSizeException`, `InflateException`, `DecompressionBombException`, and
 `ArchivePathException`. Buffer-slice mistakes on the source/builder APIs retain
 their documented `IllegalArgumentException` contract.
 
@@ -173,6 +175,30 @@ reader.read(entry)        // decode one entry
 does not touch payload bytes. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
+
+Built-in readers own the source supplied to their constructor or returned by a
+successful `open`. Close the reader, including after listing or reading fails;
+those failures leave it open so other entries can still be read. If `open` throws
+before returning a reader, the caller still owns and must close the source.
+Do not share an owned source between readers or close it separately during use.
+
+Import `io.github.yuroyami.archivekodec.archive.use` for scoped Kotlin cleanup.
+It closes on normal return, non-local return, or an exception. If both the block
+and cleanup throw, the block failure remains primary and the close failure is
+suppressed on it. `reader.asAutoCloseable()` provides a standard Kotlin resource
+view and Java `try`-with-resources through `ArchiveReaderKt.asAutoCloseable(reader)`.
+Swift callers use `try reader.close()` in their cleanup handling. The adapter is
+hidden from Objective-C to preserve the reader's catchable NSError close contract.
+
+Closing releases the source and cached metadata before calling the source's
+cleanup hook. That hook is attempted once; repeated close calls are no-ops even
+if cleanup throws. Subsequent `entries()` and `read()` calls throw
+`ArchiveClosedException` without accessing the source, including cached listings
+and empty/directory reads. Previously returned entry values remain usable, and
+`format` and `toString()` remain available. Readers require external serialization
+for concurrent operations or close. Resource-free custom readers can use the
+interface's default close; implementations retaining a handle must override it.
+
 ZIP/ZIP64 supports single-volume archives. Split-volume disk metadata throws
 `ArchiveUnsupportedException`. End-record comments must reach EOF, and missing
 or malformed required ZIP64 fields throw `ArchiveFormatException` with entry

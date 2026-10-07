@@ -100,6 +100,39 @@ expectFailure("ArchiveReader payload", check: { $0 is ArchiveFormatException && 
     _ = try zipReader.read(entry: entry, limits: limits)
 }
 try zipReader.close()
+try zipReader.close()
+expectFailure("closed ZIP entries", check: { $0 is ArchiveClosedException }) { _ = try zipReader.entries() }
+expectFailure("closed ZIP payload", check: {
+    $0 is ArchiveClosedException && $0.entryName == "bad" && $0.offset?.int64Value == entry.dataOffset
+}) { _ = try zipReader.read(entry: entry, limits: limits) }
+
+// Reuse a bridged Kotlin failure to exercise source cleanup through an
+// Objective-C protocol implementation and back through Swift's NSError bridge.
+let closeError: NSError
+do {
+    _ = try Gzip.shared.decompress(input: empty)
+    fatalError("Expected a Kotlin failure for the cleanup probe")
+} catch { closeError = error as NSError }
+let constructors: [(RandomAccessSource) -> ArchiveReader] = [
+    { ZipReader(source: $0) }, { TarReader(source: $0) },
+    { ArReader(source: $0) }, { CpioReader(source: $0) }
+]
+for (index, create) in constructors.enumerated() {
+    let source = ClosingSource(failure: closeError)
+    let reader = create(source)
+    expectFailure("reader \(index) cleanup", check: { $0 is ArchiveFormatException }) { try reader.close() }
+    try reader.close()
+    precondition(source.closes == 1)
+    expectFailure("reader \(index) closed entries", check: { $0 is ArchiveClosedException }) { _ = try reader.entries() }
+    expectFailure("reader \(index) closed payload", check: {
+        $0 is ArchiveClosedException && $0.entryName == "bad" && $0.offset?.int64Value == entry.dataOffset
+    }) { _ = try reader.read(entry: entry, limits: limits) }
+}
+let concreteSource = ClosingSource(failure: closeError)
+let concreteReader = ZipReader(source: concreteSource)
+expectFailure("concrete ZIP cleanup", check: { $0 is ArchiveFormatException }) { try concreteReader.close() }
+try concreteReader.close()
+precondition(concreteSource.closes == 1)
 let zero = ArchiveLimits(maxUncompressedBytes: 0, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
 let compressed = try Gzip.shared.compress(data: bytes([65, 66, 67]))
 expectFailure("output budget", check: { $0 is DecompressionBombException }) { _ = try Gzip.shared.decompress(input: compressed, limits: zero) }

@@ -21,6 +21,8 @@ def run(*args, capture=False, env=None):
 
 def verify_header(path, selectors):
     text = path.read_text()
+    if "asAutoCloseable" in text:
+        raise RuntimeError(f"Kotlin cleanup adapter unexpectedly exported to Objective-C in {path}")
     for selector in selectors:
         methods = [line for line in text.splitlines()
                    if re.match(r"^[-+] \([^)]*\)" + re.escape(selector) + r"(?:\b|:)", line)]
@@ -56,11 +58,16 @@ def main():
     sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path", capture=True).strip()
     output = ROOT / "build/swift-consumer"
     output.mkdir(parents=True, exist_ok=True)
+    closing_source = output / "ClosingSource.o"
+    run("xcrun", "--sdk", "iphonesimulator", "clang", "-isysroot", sdk,
+        "-target", "arm64-apple-ios15.0-simulator", "-fobjc-arc", "-Wall", "-Werror",
+        "-F", core, "-c", HERE / "ClosingSource.m", "-o", closing_source)
     for name, framework in (("CoreSmoke", core), ("IoSmoke", io)):
+        extra = ["-import-objc-header", HERE / "ClosingSource.h", closing_source] if name == "CoreSmoke" else []
         run("xcrun", "--sdk", "iphonesimulator", "swiftc", "-sdk", sdk,
             "-target", "arm64-apple-ios15.0-simulator", "-warnings-as-errors",
             "-F", framework, "-Xlinker", "-rpath", "-Xlinker", framework,
-            HERE / (name + ".swift"), "-o", output / name)
+            *extra, HERE / (name + ".swift"), "-o", output / name)
     runtimes = json.loads(run("xcrun", "simctl", "list", "runtimes", "-j", capture=True))["runtimes"]
     available = [r for r in runtimes if r.get("isAvailable") and ".iOS-" in r["identifier"]]
     if not available:

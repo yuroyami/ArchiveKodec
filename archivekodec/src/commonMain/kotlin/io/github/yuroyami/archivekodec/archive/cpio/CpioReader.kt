@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
@@ -17,19 +18,24 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding). The
  * archive ends at the `TRAILER!!!` entry. Old binary cpio is not handled.
  */
-class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
+class CpioReader(source: RandomAccessSource) : ArchiveReader {
 
-    override fun toString(): String = "CpioReader(source=$source)"
+    private val ownedSource = ReaderSource(source)
+    private val source: RandomAccessSource get() = ownedSource.source
+
+    override fun toString(): String = "CpioReader(source=$ownedSource)"
 
     override val format = ArchiveFormat.CPIO
 
-    private val parsed: List<ArchiveEntry> by lazy { parse() }
+    @Throws(ArchiveException::class)
+    override fun entries(): List<ArchiveEntry> = ownedSource.entries { parse() }
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = parsed
+    override fun close() = ownedSource.close()
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+        val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
         if (entry.isDirectory || entry.size == 0L) return@withEntryContext ByteArray(0)

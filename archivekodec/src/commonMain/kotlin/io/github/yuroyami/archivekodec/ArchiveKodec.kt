@@ -44,6 +44,8 @@ object ArchiveKodec {
     /**
      * Open a container reader for a seekable [source], dispatching on the sniffed
      * format.
+     * Ownership transfers to the returned reader. If detection or opening
+     * throws, the caller still owns [source] and must close it.
      *
      * @throws ArchiveUnsupportedException for a format with no reader yet.
      */

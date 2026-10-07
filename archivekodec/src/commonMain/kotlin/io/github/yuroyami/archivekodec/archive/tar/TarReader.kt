@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
@@ -21,19 +22,24 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * octal and GNU base-256 numeric fields, normal files / directories. The full pax
  * `x`/`g` extended-header and sparse-file handling are not implemented (issue #35).
  */
-class TarReader(private val source: RandomAccessSource) : ArchiveReader {
+class TarReader(source: RandomAccessSource) : ArchiveReader {
 
-    override fun toString(): String = "TarReader(source=$source)"
+    private val ownedSource = ReaderSource(source)
+    private val source: RandomAccessSource get() = ownedSource.source
+
+    override fun toString(): String = "TarReader(source=$ownedSource)"
 
     override val format = ArchiveFormat.TAR
 
-    private val parsed: List<ArchiveEntry> by lazy { parse() }
+    @Throws(ArchiveException::class)
+    override fun entries(): List<ArchiveEntry> = ownedSource.entries { parse() }
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = parsed
+    override fun close() = ownedSource.close()
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+        val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
         if (entry.isDirectory || entry.size == 0L) return@withEntryContext ByteArray(0)

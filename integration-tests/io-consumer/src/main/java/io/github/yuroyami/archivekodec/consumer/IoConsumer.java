@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec.consumer;
 
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource;
+import io.github.yuroyami.archivekodec.archive.ArchiveReader;
+import io.github.yuroyami.archivekodec.archive.ArchiveReaderKt;
 import io.github.yuroyami.archivekodec.io.ArchiveKodecIoKt;
 import kotlinx.io.RawSource;
 
@@ -12,5 +14,11 @@ public final class IoConsumer {
 
     public RandomAccessSource wrap(RawSource source) throws Exception {
         return ArchiveKodecIoKt.toRandomAccessSource(source);
+    }
+
+    public int entriesInScope(ArchiveReader reader) throws Exception {
+        try (AutoCloseable resource = ArchiveReaderKt.asAutoCloseable(reader)) {
+            return reader.entries().size();
+        }
     }
 }

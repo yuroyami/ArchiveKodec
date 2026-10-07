@@ -12,6 +12,10 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
  * [ByteArrayRandomAccessSource] is the only implementation shipped, so an archive
  * has to be fully in memory before a reader can open it. Implement this interface
  * yourself to back a reader with a real file handle.
+ *
+ * Supplying this source to a built-in reader transfers ownership to that reader;
+ * close the reader to release it. Do not share an owned source with another reader
+ * or close it independently while its reader is in use.
  */
 interface RandomAccessSource {
     /** Total size in bytes. */

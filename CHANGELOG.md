@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- ZIP, TAR, ar and cpio readers own and close their supplied source exactly once,
+  clear cached metadata on close, and reject subsequent listing or reads with
+  `ArchiveClosedException`. Cleanup failures leave the reader closed. Kotlin
+  `ArchiveReader.use` and an `asAutoCloseable()` view support scoped cleanup with
+  suppressed secondary errors while preserving the Swift throwing contract.
+
 - ZIP writing uses the valid reproducible default timestamp 1980-01-01 00:00:00
   in both headers. The DOS date field is 0x0021 instead of the invalid zero month
   and day; output remains independent of the clock and timezone.
