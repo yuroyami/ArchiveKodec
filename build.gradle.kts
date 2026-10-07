@@ -20,22 +20,22 @@ plugins {
     alias(libs.plugins.dokka)
 }
 
-// The README install snippets name the release being developed: the Gradle version
-// without -SNAPSHOT. This keeps them on the same number as ArchiveKodec.VERSION.
+// The README and docs install snippets name the release being developed: the Gradle
+// version without -SNAPSHOT. This keeps them on the same number as ArchiveKodec.VERSION.
 val checkReadmeVersion = tasks.register("checkReadmeVersion") {
     group = "verification"
-    description = "Check that the README coordinates name the version in gradle.properties"
+    description = "Check that the README and docs coordinates name the version in gradle.properties"
     val release = providers.gradleProperty("version").map { it.removeSuffix("-SNAPSHOT") }
-    val readme = layout.projectDirectory.file("README.md")
+    val pages = listOf(layout.projectDirectory.file("README.md"), layout.projectDirectory.file("docs/index.md"))
     inputs.property("release", release)
-    inputs.file(readme)
+    inputs.files(pages)
     doLast {
-        val coordinates = Regex("""io\.github\.yuroyami:(archivekodec[a-z-]*):([0-9][^"\s)`]*)""")
-            .findAll(readme.asFile.readText()).map { it.groupValues[1] to it.groupValues[2] }.toList()
-        if (coordinates.isEmpty()) throw GradleException("README.md names no archivekodec coordinates")
-        val stale = coordinates.filter { it.second != release.get() }
-        if (stale.isNotEmpty()) {
-            throw GradleException("README.md coordinates $stale do not name release ${release.get()}")
+        val coordinate = Regex("""io\.github\.yuroyami:(archivekodec[a-z-]*):([0-9][^"\s)`]*)""")
+        for (page in pages.map { it.asFile }) {
+            val found = coordinate.findAll(page.readText()).map { it.groupValues[1] to it.groupValues[2] }.toList()
+            if (found.isEmpty()) throw GradleException("${page.name} names no archivekodec coordinates")
+            val stale = found.filter { it.second != release.get() }
+            if (stale.isNotEmpty()) throw GradleException("${page.name} coordinates $stale do not name release ${release.get()}")
         }
     }
 }

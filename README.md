@@ -12,6 +12,83 @@ shared codebase.
 **[Documentation](https://yuroyami.github.io/ArchiveKodec/)** · an overview with
 examples, plus the generated API reference.
 
+## Install
+
+Both artifacts are on Maven Central under the group `io.github.yuroyami`. Versions
+before 0.2.0 use older coordinates: 0.1.0 is `io.github.yuroyami:kitearchive`.
+
+| Artifact | Coordinates | What it holds |
+| --- | --- | --- |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, the ZIP writer, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
+| IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | Four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
+
+Both build for every target in [Targets](#targets).
+
+Kotlin Multiplatform, in the shared source set:
+
+```kotlin
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation("io.github.yuroyami:archivekodec:0.2.0")
+            // Only if you already use kotlinx-io. See "The -io artifact".
+            implementation("io.github.yuroyami:archivekodec-io:0.2.0")
+        }
+    }
+}
+```
+
+A JVM or Android project that is not multiplatform uses the same coordinates.
+Gradle reads the published module metadata and picks the JVM or Android variant:
+
+```kotlin
+dependencies {
+    implementation("io.github.yuroyami:archivekodec:0.2.0")
+}
+```
+
+Maven does not read Gradle module metadata. The root `archivekodec` POM only
+lists `kotlin-stdlib`, so a Maven project depends on the platform artifact
+instead (`archivekodec-io-jvm` for the adapters):
+
+```xml
+<dependency>
+  <groupId>io.github.yuroyami</groupId>
+  <artifactId>archivekodec-jvm</artifactId>
+  <version>0.2.0</version>
+</dependency>
+```
+
+Requirements:
+
+- **Kotlin 2.1 or newer** in the consuming project. The libraries are compiled with
+  Kotlin 2.4 at language and API version 2.2, so their metadata is readable by a
+  compiler one minor version older and they call no standard-library API newer
+  than 2.2. Kotlin/Native and Kotlin/JS klibs follow Kotlin's own klib rules, which
+  can be stricter.
+- **Java 8 or newer** at run time on the JVM. The jars contain Java 8 class files
+  (major version 52), compiled against the Java 8 API with `-Xjdk-release=1.8`,
+  the same floor as `kotlin-stdlib` and kotlinx-io. Building the libraries
+  themselves needs JDK 21.
+- **Android minSdk 21** or newer.
+- JPMS module names: `io.github.yuroyami.archivekodec` and
+  `io.github.yuroyami.archivekodec.io` (`Automatic-Module-Name`).
+
+Callers outside Kotlin:
+
+- **Java** uses the JVM artifact directly. Kotlin objects are reached through
+  `INSTANCE` (`ArchiveKodec.INSTANCE.getGzip()`), and top-level functions through
+  their `Kt` file classes (`ArchiveKodecIoKt.readAllBytes(source)`). Throwing
+  methods declare their checked archive exceptions.
+- **Swift** has no published framework or XCFramework yet. Build the `ArchiveKodec`
+  or `ArchiveKodecIo` framework from this repository
+  (`./gradlew :archivekodec:linkReleaseFrameworkIosArm64`), or depend on the
+  artifact from a Kotlin Multiplatform module that your app already exports.
+  [Expected failures and Apple consumers](#expected-failures-and-apple-consumers)
+  shows the error bridge.
+- **JavaScript and TypeScript** cannot call the library directly. No declaration
+  is exported with `@JsExport`, so it is usable from Kotlin/JS and Kotlin/Wasm code only.
+
 ## What you get
 
 `java.util.zip` exists on the JVM and Android and nowhere else. A Kotlin
@@ -62,37 +139,6 @@ ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
     }
 }
 ```
-
-## Install
-
-```kotlin
-kotlin {
-    sourceSets {
-        commonMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec:0.2.0")
-        }
-    }
-}
-```
-
-Versions before 0.2.0 use older coordinates. 0.1.0 is `io.github.yuroyami:kitearchive`.
-
-There is a second artifact, `archivekodec-io`. It holds four small adapters over
-kotlinx-io. Read [The `-io` artifact](#the--io-artifact) before you add it.
-
-Requirements:
-
-- **Kotlin 2.1 or newer** in the consuming project. The libraries are compiled with
-  Kotlin 2.4 at language and API version 2.2, so their metadata is readable by a
-  compiler one minor version older and they call no standard-library API newer
-  than 2.2. Kotlin/Native and Kotlin/JS klibs follow Kotlin's own klib rules, which
-  can be stricter.
-- **Java 8 or newer** at run time on the JVM. The jars contain Java 8 class files
-  (major version 52), compiled against the Java 8 API with `-Xjdk-release=1.8`,
-  the same floor as `kotlin-stdlib` and kotlinx-io. Building the libraries
-  themselves needs JDK 21.
-- JPMS module names: `io.github.yuroyami.archivekodec` and
-  `io.github.yuroyami.archivekodec.io` (`Automatic-Module-Name`).
 
 ## Compress and decompress
 
@@ -669,7 +715,8 @@ SDK and no Apple toolchain.
 The version is written once, as `version` in `gradle.properties`. Development
 builds carry a `-SNAPSHOT` suffix. `ArchiveKodec.VERSION` is generated from it,
 and `./gradlew checkReadmeVersion` (part of `check` and the portable CI lane) fails
-unless every coordinate in this README names the same release. To release, drop
+unless every coordinate in this README and on the docs landing page names the
+same release. To release, drop
 the suffix, publish, then set the next `-SNAPSHOT` and update the README snippets
 in the same commit.
 

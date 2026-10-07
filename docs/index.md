@@ -7,7 +7,7 @@ Kotlin Multiplatform. Gunzip a buffer or read a ZIP on iOS and in the browser, a
 well as on the JVM.
 
 <div class="kite-hero-actions" markdown>
-[Get started](#a-first-example){ .kite-primary }
+[Get started](#install){ .kite-primary }
 [API reference](api/)
 [GitHub](https://github.com/yuroyami/ArchiveKodec)
 </div>
@@ -16,6 +16,44 @@ well as on the JVM.
 
 There is no JNI, no cinterop and no native binary. The core artifact depends on
 `kotlin-stdlib` and nothing else, so it builds anywhere Kotlin builds.
+
+## Install
+
+| Artifact | Coordinates |
+| --- | --- |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` |
+| kotlinx-io adapters | `io.github.yuroyami:archivekodec-io:0.2.0` |
+
+```kotlin
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation("io.github.yuroyami:archivekodec:0.2.0")
+            // Only if you already use kotlinx-io:
+            implementation("io.github.yuroyami:archivekodec-io:0.2.0")
+        }
+    }
+}
+```
+
+A JVM or Android project that is not multiplatform uses the same line in its
+`dependencies` block; Gradle picks the platform variant. Maven does not read
+Gradle module metadata, so a Maven project depends on `archivekodec-jvm` (and
+`archivekodec-io-jvm`) instead:
+
+```xml
+<dependency>
+  <groupId>io.github.yuroyami</groupId>
+  <artifactId>archivekodec-jvm</artifactId>
+  <version>0.2.0</version>
+</dependency>
+```
+
+Requirements: Kotlin 2.1 or newer, Java 8 or newer on the JVM, and Android
+minSdk 21. Java calls the JVM artifact directly. Swift has no published framework
+yet, and JavaScript cannot call the library because nothing is exported with
+`@JsExport`. The [README's Install section](https://github.com/yuroyami/ArchiveKodec#install)
+covers these callers and the reasons behind each requirement.
 
 ## A first example
 
