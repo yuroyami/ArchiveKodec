@@ -17,7 +17,7 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Unix `ar` reader (`.a` / `.deb` / `.lib`). No compression: concatenated members
  * with 60-byte ASCII headers. Handles GNU trailing-slash short names and the GNU
  * `//` long-name table (`/offset` references); BSD `#1/len` long names are TODO.
- * The GNU symbol table (`/`) and the name table (`//`) are skipped as entries.
+ * The GNU symbol tables (`/`, `/SYM64/`) and the name table (`//`) are skipped as entries.
  */
 class ArReader(source: RandomAccessSource) : ArchiveReader {
 
@@ -66,7 +66,7 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
 
             when {
                 rawName == "//" -> nameTable = source.readFullyChecked(dataStart, size)
-                rawName == "/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
+                rawName == "/" || rawName == "/SYM64/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
                     val digits = rawName.substring(1)
                     val off = digits.toIntOrNull()

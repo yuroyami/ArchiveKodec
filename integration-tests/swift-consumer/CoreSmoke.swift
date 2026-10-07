@@ -298,6 +298,31 @@ for encoded in rootArchives {
     precondition(source.closes == 1)
 }
 
+// Frozen LLVM GNU64 archive: the internal symbol index is not a user entry.
+let gnu64Archive = Array(Data(base64Encoded: "ITxhcmNoPgovU1lNNjQvICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMCAgICAgICAzMCAgICAgICAgYAoAAAAAAAAAAQAAAAAAAAC6YXJjaGl2ZV9wcm9iZQAvLyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAyOCAgICAgICAgYApmaXJzdC1sb25nLW1lbWJlci1uYW1lLm9iai8KLzAgICAgICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDY0NCAgICAgNjEwICAgICAgIGAKZIYFAJnXxWpGAQAADgAAAAAAAAAudGV4dAAAAAAAAAAAAAAABgAAANwAAAAAAAAAAAAAAAAAAAAgAFBgLmRhdGEAAAAAAAAAAAAAAAAAAADiAAAAAAAAAAAAAAAAAAAAQAAwwC5ic3MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAMMAuZGVidWckUwAAAAAAAAAAZAAAAOIAAAAAAAAAAAAAAAAAAABAADBCLzQAAAAAAAAAAAAAAAAAAAAAAABGAQAAAAAAAAAAAAAAAAAAAAgQALgBAAAAwwQAAADxAAAAWAAAAAoAAREAAAAAAAAAAEoAPBEAAAAA0AAVAAAAAAAAAP//AAAAAAAAQXBwbGUgY2xhbmcgdmVyc2lvbiAyMS4wLjAgKGNsYW5nLTIxMDAuMS4xLjEwMSkAAAAudGV4dAAAAAAAAAABAAAAAwEGAAAAAAAAAKIrlMkBAAAAAAAuZGF0YQAAAAAAAAACAAAAAwEAAAAAAAAAAAAAAAACAAAAAAAuYnNzAAAAAAAAAAADAAAAAwEAAAAAAAAAAAAAAAADAAAAAAAuZGVidWckUwAAAAAEAAAAAwFkAAAAAAAAAG1572UEAAAAAAAAAAAABAAAAAAAAAAFAAAAAwEAAAAAAAAAAAAAAAAFAAAAAABAZmVhdC4wMAAAAAD//wAAAwAAAAAAEgAAAAAAAAABACAAAgAuZmlsZQAAAAAAAAD+/wAAZwFwcm9iZS5jAAAAAAAAAAAAAAAgAAAALmxsdm1fYWRkcnNpZwBhcmNoaXZlX3Byb2JlAA==")!)
+let gnu64Object = Array(Data(base64Encoded: "ZIYFAJnXxWpGAQAADgAAAAAAAAAudGV4dAAAAAAAAAAAAAAABgAAANwAAAAAAAAAAAAAAAAAAAAgAFBgLmRhdGEAAAAAAAAAAAAAAAAAAADiAAAAAAAAAAAAAAAAAAAAQAAwwC5ic3MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAMMAuZGVidWckUwAAAAAAAAAAZAAAAOIAAAAAAAAAAAAAAAAAAABAADBCLzQAAAAAAAAAAAAAAAAAAAAAAABGAQAAAAAAAAAAAAAAAAAAAAgQALgBAAAAwwQAAADxAAAAWAAAAAoAAREAAAAAAAAAAEoAPBEAAAAA0AAVAAAAAAAAAP//AAAAAAAAQXBwbGUgY2xhbmcgdmVyc2lvbiAyMS4wLjAgKGNsYW5nLTIxMDAuMS4xLjEwMSkAAAAudGV4dAAAAAAAAAABAAAAAwEGAAAAAAAAAKIrlMkBAAAAAAAuZGF0YQAAAAAAAAACAAAAAwEAAAAAAAAAAAAAAAACAAAAAAAuYnNzAAAAAAAAAAADAAAAAwEAAAAAAAAAAAAAAAADAAAAAAAuZGVidWckUwAAAAAEAAAAAwFkAAAAAAAAAG1572UEAAAAAAAAAAAABAAAAAAAAAAFAAAAAwEAAAAAAAAAAAAAAAAFAAAAAABAZmVhdC4wMAAAAAD//wAAAwAAAAAAEgAAAAAAAAABACAAAgAuZmlsZQAAAAAAAAD+/wAAZwFwcm9iZS5jAAAAAAAAAAAAAAAgAAAALmxsdm1fYWRkcnNpZwBhcmNoaXZlX3Byb2JlAA==")!)
+let gnu64Source = ShortReadSource(data: bytes(gnu64Archive), chunk: 3)
+let gnu64Reader = try ArchiveKodec.shared.open(source: gnu64Source)
+let gnu64Entries = try gnu64Reader.entries()
+precondition(gnu64Reader.format == ArchiveFormat.ar && gnu64Entries.count == 1)
+let gnu64Entry = gnu64Entries[0]
+precondition(gnu64Entry.name == "first-long-member-name.obj" && !gnu64Entry.isDirectory)
+precondition(gnu64Entry.dataOffset == 246 && gnu64Entry.size == Int64(gnu64Object.count))
+let gnu64Payload = try gnu64Reader.read(entry: gnu64Entry, limits: limits)
+precondition(gnu64Payload.size == Int32(gnu64Object.count))
+for (index, value) in gnu64Object.enumerated() {
+    precondition(gnu64Payload.get(index: Int32(index)) == Int8(bitPattern: value))
+}
+try gnu64Reader.close()
+precondition(gnu64Source.closes == 1)
+let truncatedGnu64Source = ShortReadSource(data: bytes(Array(gnu64Archive.prefix(76))), chunk: 3)
+let truncatedGnu64Reader = try ArchiveKodec.shared.open(source: truncatedGnu64Source)
+expectFailure("truncated GNU64 index", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 68 }) {
+    _ = try truncatedGnu64Reader.entries()
+}
+try truncatedGnu64Reader.close()
+precondition(truncatedGnu64Source.closes == 1)
+
 // Legal short reads cross the Objective-C source and Kotlin reader before
 // returning complete metadata and payloads to Swift.
 let shortEmptyZip = ShortReadSource(data: bytes([0x50, 0x4b, 0x05, 0x06] + Array(repeating: 0, count: 18)), chunk: 1)
