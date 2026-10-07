@@ -22,9 +22,11 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
 /**
  * ZIP reader over a seekable [RandomAccessSource] (+ZIP64). Reads the central
  * directory at the tail (the authoritative record). [entries] also validates local
- * headers and declared payload extents without reading payloads; [read] seeks to one header for
- * partial extract. This reader decodes STORE and DEFLATE. Other methods appear in
- * [entries], but [read] throws for them.
+ * header names, methods, flags and declared payload extents; [read] rechecks the
+ * local fields against the parsed directory before extracting one entry.
+ * Filename comparison uses exact stored bytes. Masked local headers with
+ * central-directory encryption are unsupported. This reader decodes STORE and
+ * DEFLATE. Other methods appear in [entries], but [read] throws for them.
  *
  * Security: duplicate local-header offsets (the overlapping-bomb signature) are
  * rejected at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
@@ -33,7 +35,17 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  */
 class ZipReader(source: RandomAccessSource) : ArchiveReader {
 
-    private val ownedSource = ReaderSource(source)
+    private class Member(
+        val entry: ArchiveEntry,
+        val nameBytes: ByteArray,
+        val method: Int,
+        val flags: Int,
+        val localExtraLength: Int,
+    )
+
+    private class Directory(val entries: List<ArchiveEntry>, val members: Map<Long, Member>)
+
+    private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
     override fun toString(): String = "ZipReader(source=$ownedSource)"
@@ -41,29 +53,40 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
     override val format = ArchiveFormat.ZIP
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = ownedSource.entries { parseCentralDirectory() }
+    override fun entries(): List<ArchiveEntry> = directory().entries
+
+    private fun directory(): Directory = ownedSource.metadata { parseCentralDirectory() }
 
     @Throws(ArchiveException::class)
     override fun close() = ownedSource.close()
 
+    /** Read a directory entry or an unchanged value copy; altered metadata is rejected. */
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source
+        val member = directory().members[entry.dataOffset]
+            ?: throw ArchiveFormatException("ZIP: entry is not in the central directory", entry.dataOffset, entry.name)
+        if (entry != member.entry) {
+            throw ArchiveFormatException("ZIP: supplied entry metadata differs from the central directory", member.entry.dataOffset, member.entry.name)
+        }
         val lh = source.readFully(entry.dataOffset, 30)
-        if (ZipFormat.u32(lh, 0) != ZipFormat.LOC) throw ArchiveFormatException("ZIP: invalid local file header", entry.dataOffset, entry.name)
-        val method = ZipFormat.u16(lh, 8)
-        val nameLen = ZipFormat.u16(lh, 26)
-        val extraLen = ZipFormat.u16(lh, 28)
-        source.requireRange(entry.dataOffset + 30, (nameLen + extraLen).toLong())
-        val dataStart = entry.dataOffset + 30 + nameLen + extraLen
+        val dataStart = validateLocalHeader(member, lh, source)
+        if (entry.isEncrypted) {
+            val field = if (member.method == 99) 8 else 6
+            throw ArchiveUnsupportedException("ZIP encryption is not supported", entry.dataOffset + field, entry.name)
+        }
+        if (member.flags and 0x20 != 0) {
+            throw ArchiveUnsupportedException("ZIP compressed patched data is not supported", entry.dataOffset + 6, entry.name)
+        }
 
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.compressedSize, entry.size)
 
+        val method = member.method
         val codecId = ZipFormat.codecForMethod(method)
-            ?: throw ArchiveUnsupportedException("ZIP method $method not supported", entry.dataOffset, entry.name)
+            ?: throw ArchiveUnsupportedException("ZIP method $method not supported", entry.dataOffset + 8, entry.name)
         val codec = Codecs.byId(codecId)
-            ?: throw ArchiveUnsupportedException("ZIP method $method ($codecId) not implemented yet", entry.dataOffset, entry.name)
+            ?: throw ArchiveUnsupportedException("ZIP method $method ($codecId) not implemented yet", entry.dataOffset + 8, entry.name)
         if (codecId == CodecId.STORE && entry.compressedSize != entry.size) {
             throw ArchiveFormatException("ZIP: stored compressed size ${entry.compressedSize} differs from output size ${entry.size}", dataStart, entry.name)
         }
@@ -87,7 +110,41 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
         return@withEntryContext out
     }
 
-    private fun parseCentralDirectory(): List<ArchiveEntry> {
+    private fun validateLocalHeader(member: Member, local: ByteArray, source: RandomAccessSource): Long =
+        withEntryContext(member.entry.name, member.entry.dataOffset) {
+            val entry = member.entry
+            val offset = entry.dataOffset
+            if (ZipFormat.u32(local, 0) != ZipFormat.LOC) {
+                throw ArchiveFormatException("ZIP: invalid local file header", offset, entry.name)
+            }
+            val flags = ZipFormat.u16(local, 6)
+            if ((flags or member.flags) and 0x2000 != 0) {
+                throw ArchiveUnsupportedException("ZIP masked local headers with central directory encryption are not supported", offset + 6, entry.name)
+            }
+            if (flags != member.flags) {
+                throw ArchiveFormatException("ZIP: local flags differ from the central directory", offset + 6, entry.name)
+            }
+            if (ZipFormat.u16(local, 8) != member.method) {
+                throw ArchiveFormatException("ZIP: local method differs from the central directory", offset + 8, entry.name)
+            }
+            val nameLength = ZipFormat.u16(local, 26)
+            if (nameLength != member.nameBytes.size) {
+                throw ArchiveFormatException("ZIP: local filename length differs from the central directory", offset + 26, entry.name)
+            }
+            val extraLength = ZipFormat.u16(local, 28)
+            if (extraLength != member.localExtraLength) {
+                throw ArchiveFormatException("ZIP: local extra length changed since directory validation", offset + 28, entry.name)
+            }
+            source.requireRange(offset + 30, (nameLength + extraLength).toLong())
+            if (!source.readFully(offset + 30, nameLength).contentEquals(member.nameBytes)) {
+                throw ArchiveFormatException("ZIP: local filename differs from the central directory", offset + 30, entry.name)
+            }
+            val dataStart = offset + 30 + nameLength + extraLength
+            source.requireRange(dataStart, entry.compressedSize)
+            dataStart
+        }
+
+    private fun parseCentralDirectory(): Directory {
         val size = source.size
         if (size < 22) throw ArchiveFormatException("ZIP: file is too small", 0)
 
@@ -168,6 +225,7 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
 
         val cd = source.readFullyChecked(cdOffset, cdSize)
         val entries = ArrayList<ArchiveEntry>()
+        val members = HashMap<Long, Member>()
         val seenOffsets = HashSet<Long>()
         var p = 0
         var n = 0L
@@ -184,6 +242,7 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
                 throw ArchiveFormatException("ZIP: truncated central directory at entry $n of $cdEntries", cdOffset + p)
             }
             if (ZipFormat.u32(cd, p) != ZipFormat.CEN) throw ArchiveFormatException("ZIP: invalid central directory signature", cdOffset + p)
+            val flags = ZipFormat.u16(cd, p + 8)
             val method = ZipFormat.u16(cd, p + 10)
             val crc = ZipFormat.u32(cd, p + 16)
             var compSize = ZipFormat.u32(cd, p + 20)
@@ -198,7 +257,8 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
             if (recordSize > cd.size - p) {
                 throw ArchiveFormatException("ZIP: central directory fields exceed record at entry $n", cdOffset + p)
             }
-            val name = cd.decodeToString(p + 46, p + 46 + nameLen)
+            val nameBytes = cd.copyOfRange(p + 46, p + 46 + nameLen)
+            val name = nameBytes.decodeToString()
 
             val zip64Output = uncompSize == 0xFFFFFFFFL
             val zip64Compressed = compSize == 0xFFFFFFFFL
@@ -246,25 +306,25 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
             if (ZipFormat.u32(local, 0) != ZipFormat.LOC) {
                 throw ArchiveFormatException("ZIP: invalid local file header", localOffset, name)
             }
-            val localFieldsSize = ZipFormat.u16(local, 26) + ZipFormat.u16(local, 28)
-            source.requireRange(localOffset + 30, localFieldsSize.toLong())
-            source.requireRange(localOffset + 30 + localFieldsSize, compSize)
             if (!seenOffsets.add(localOffset)) {
                 throw DecompressionBombException("overlapping local header offset $localOffset (zip-bomb signature)")
             }
 
             val isDir = name.endsWith("/")
-            entries.add(
-                ArchiveEntry(
-                    name = name,
-                    size = uncompSize,
-                    isDirectory = isDir,
-                    compressedSize = compSize,
-                    codec = ZipFormat.codecForMethod(method) ?: CodecId.STORE,
-                    crc32 = crc,
-                    dataOffset = localOffset, // local header offset; resolved to data in read()
-                ),
+            val entry = ArchiveEntry(
+                name = name,
+                size = uncompSize,
+                isDirectory = isDir,
+                compressedSize = compSize,
+                codec = ZipFormat.codecForMethod(method) ?: CodecId.STORE,
+                isEncrypted = flags and 0x41 != 0 || method == 99,
+                crc32 = crc,
+                dataOffset = localOffset, // local header offset; resolved to data in read()
             )
+            val member = Member(entry, nameBytes, method, flags, ZipFormat.u16(local, 28))
+            validateLocalHeader(member, local, source)
+            members[localOffset] = member
+            entries.add(entry)
             p += 46 + nameLen + extraLen + commentLen
             n++
         }
@@ -272,6 +332,6 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
         if (countForComparison != cdEntries) {
             throw ArchiveFormatException("ZIP: central directory count $n differs from declared count $cdEntries", cdOffset)
         }
-        return entries
+        return Directory(entries, members)
     }
 }

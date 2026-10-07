@@ -20,7 +20,7 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  */
 class CpioReader(source: RandomAccessSource) : ArchiveReader {
 
-    private val ownedSource = ReaderSource(source)
+    private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
     override fun toString(): String = "CpioReader(source=$ownedSource)"
@@ -28,7 +28,7 @@ class CpioReader(source: RandomAccessSource) : ArchiveReader {
     override val format = ArchiveFormat.CPIO
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = ownedSource.entries { parse() }
+    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse() }
 
     @Throws(ArchiveException::class)
     override fun close() = ownedSource.close()

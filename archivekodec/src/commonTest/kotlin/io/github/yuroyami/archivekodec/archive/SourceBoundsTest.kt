@@ -5,6 +5,7 @@ import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
+import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -59,23 +60,57 @@ class SourceBoundsTest {
     }
 
     @Test
-    fun everyReaderRejectsLargeWholeArrayEntriesWithoutNarrowing() {
+    fun directPayloadReadersRejectLargeWholeArrayEntriesWithoutNarrowing() {
         val large = 3L * 1024 * 1024 * 1024
         val source = object : RandomAccessSource {
             override val size = large + 100
-            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
-                check(offset == 0L && length == 30) { "large payload must never reach read" }
-                val header = ByteArray(30)
-                putLe(header, 0, 0x04034B50, 4)
-                header.copyInto(into, intoOffset)
-                return length
-            }
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int =
+                error("large payload must never reach read")
         }
         val entry = ArchiveEntry("large", large, false, compressedSize = large, dataOffset = 0)
-        for (reader in listOf(ArReader(source), TarReader(source), CpioReader(source), ZipReader(source))) {
+        for (reader in listOf(ArReader(source), TarReader(source), CpioReader(source))) {
             val e = assertFailsWith<ArchiveFormatException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
             kotlin.test.assertTrue(e.message!!.contains("ByteArray"), e.message)
         }
+    }
+
+    @Test
+    fun zipDirectoryRejectsLargeWholeArrayPayloadWithoutNarrowing() {
+        val large = 3L * 1024 * 1024 * 1024
+        val bytes = zipMetadataBase()
+        val originalCentral = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+        for (field in listOf(18, 22, originalCentral + 20, originalCentral + 24)) {
+            putLe(bytes, field, large, 4)
+        }
+        val payloadStart = 35L
+        val central = payloadStart + large
+        putLe(bytes, bytes.size - 6, central, 4)
+        val regions = listOf(0L to bytes.copyOf(35), central to bytes.copyOfRange(originalCentral, bytes.size))
+        var armed = false
+        var payloadReads = 0
+        val source = object : RandomAccessSource {
+            override val size = central + bytes.size - originalCentral
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                check(length <= 65557) { "large payload must never reach read" }
+                if (armed && offset < central && offset + length > payloadStart) payloadReads++
+                into.fill(0, intoOffset, intoOffset + length)
+                for ((start, data) in regions) {
+                    val from = maxOf(start, offset)
+                    val end = minOf(start + data.size, offset + length)
+                    if (from < end) data.copyInto(into, intoOffset + (from - offset).toInt(), (from - start).toInt(), (end - start).toInt())
+                }
+                return length
+            }
+        }
+        val reader = ZipReader(source)
+        val entry = reader.entries().single()
+        assertEquals(large, entry.compressedSize)
+        armed = true
+        val error = assertFailsWith<ArchiveFormatException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
+        kotlin.test.assertTrue(error.message!!.contains("ByteArray"), error.message)
+        assertEquals("a.txt", error.entryName)
+        assertEquals(payloadStart, error.offset)
+        assertEquals(0, payloadReads)
     }
 
     @Test

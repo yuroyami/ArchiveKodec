@@ -78,6 +78,26 @@ expectFailure("ZIP64 entry metadata", check: {
 }) {
     _ = try ZipReader(source: ByteArrayRandomAccessSource(data: missingZip64)).entries()
 }
+for (offset, value) in [(Int32(8), Int8(8)), (Int32(30), Int8(98)), (Int32(6), Int8(1))] {
+    let inconsistent = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+    inconsistent.set(index: offset, value: value)
+    expectFailure("ZIP local field \(offset)", check: {
+        $0 is ArchiveFormatException && $0.entryName == "a.txt" && $0.offset?.int64Value == Int64(offset)
+    }) {
+        let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: inconsistent))
+        _ = try reader.entries()
+    }
+}
+let encrypted = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "a.txt", data: bytes([65, 66, 67]), codec: CodecId.store)])
+encrypted.set(index: 6, value: 1)
+encrypted.set(index: 46, value: 1)
+let encryptedReader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: encrypted))
+let encryptedEntry = try encryptedReader.entries()[0]
+precondition(encryptedEntry.isEncrypted)
+expectFailure("ZIP encryption", check: {
+    $0 is ArchiveUnsupportedException && $0.entryName == "a.txt" && $0.offset?.int64Value == 6 && $0.message?.contains("encryption") == true
+}) { _ = try encryptedReader.read(entry: encryptedEntry, limits: limits) }
+try encryptedReader.close()
 expectFailure("ar entries", check: { $0 is ArchiveFormatException }) {
     _ = try ArReader(source: ByteArrayRandomAccessSource(data: empty)).entries()
 }

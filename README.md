@@ -178,7 +178,7 @@ reader.read(entry)        // decode one entry
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
 `CpioReader`. Anything else throws `ArchiveUnsupportedException`. `entries()`
-does not touch payload bytes. ZIP listing validates the central directory and
+does not decompress entries. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
 
@@ -209,6 +209,24 @@ ZIP/ZIP64 supports single-volume archives. Split-volume disk metadata throws
 `ArchiveUnsupportedException`. End-record comments must reach EOF, and missing
 or malformed required ZIP64 fields throw `ArchiveFormatException` with entry
 context. ZIP64 disk sentinels that resolve to disk zero are supported.
+
+ZIP listing compares each local filename as bytes, compression method, and
+general-purpose flags with the central directory. Contradictions throw
+`ArchiveFormatException` with the directory entry name and local field offset.
+Extraction uses the parsed directory method and rechecks the local fields and
+extra-field length before reading compressed data. Pass an entry returned by
+that reader, or an unchanged value copy; modified entry metadata is rejected,
+including changes that remove its CRC or alter its sizes. Data descriptors,
+ZIP64 size representations, differing extra fields, timestamps, and comments
+remain supported.
+
+Entries with encryption bit 0, strong-encryption bit 6, or the AES method marker
+99 have `isEncrypted = true`. Reading them throws `ArchiveUnsupportedException`
+before decoding ciphertext. Compressed patched data (bit 5) is likewise
+unsupported. Masked local headers used with central-directory encryption
+(bit 13) throw `ArchiveUnsupportedException` during listing. The public codec
+field still falls back to STORE for an unknown numeric ZIP method; reading that
+entry throws an unsupported-method error.
 
 | Format | Read | Write |
 | --- | --- | --- |
