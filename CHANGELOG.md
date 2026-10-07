@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- ZIP writing rejects names longer than 65535 UTF-8 bytes before output assembly
+  or compression, with `ArchiveFormatException` carrying the entry name. Names
+  at the exact byte limit remain supported. Both local and central headers now
+  declare UTF-8, preserving accented, CJK, and non-BMP names in other ZIP readers.
+
 - LZ4 frames verify the full descriptor checksum and every advertised block and
   content checksum. Block integrity is checked before decoding or copying;
   checksum mismatches and truncated fields throw `ArchiveFormatException` at the

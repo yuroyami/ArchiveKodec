@@ -18,7 +18,7 @@ func expectFailure(_ label: String, check: (ArchiveException) -> Bool = { _ in t
         }
         precondition(check(failure), "Wrong error category/context for \(label): \(failure)")
         caught += 1
-        print("Caught \(label): \(failure)")
+        print("Caught \(label): \(String(describing: failure).prefix(512))")
     }
 }
 
@@ -47,6 +47,10 @@ expectFailure("unsupported container", check: { $0 is ArchiveUnsupportedExceptio
 expectFailure("ZIP entries", check: { $0 is ArchiveFormatException }) {
     let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: empty))
     _ = try reader.entries()
+}
+let oversizedName = String(repeating: "x", count: 65536)
+expectFailure("ZIP filename", check: { $0 is ArchiveFormatException && $0.entryName == oversizedName }) {
+    _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: oversizedName, data: empty, codec: CodecId.store)])
 }
 expectFailure("ar entries", check: { $0 is ArchiveFormatException }) {
     _ = try ArReader(source: ByteArrayRandomAccessSource(data: empty)).entries()

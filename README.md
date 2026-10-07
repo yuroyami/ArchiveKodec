@@ -200,6 +200,10 @@ val bytes = ZipWriter.write(
 `ArchiveKodec` object, so import it directly. It emits ZIP64 records only when
 they are needed, meaning more than 65,535 entries or a size or offset past 4 GiB.
 Ordinary archives therefore stay in the classic ZIP layout.
+Names are encoded as UTF-8 and marked with bit 11 in both ZIP headers. All names
+are validated before payload compression or output assembly. An encoded name
+longer than 65,535 bytes throws `ArchiveFormatException` carrying the entry name;
+ZIP64 does not extend this filename limit.
 
 ## Sanitize entry names before writing them
 

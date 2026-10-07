@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive.zip
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 
 import io.github.yuroyami.archivekodec.checksum.Crc32
@@ -15,6 +16,8 @@ import io.github.yuroyami.archivekodec.util.checkedArraySize
  * form. ZIP64 records are emitted only when the entry count passes 65535 or a size or
  * offset overflows 32 bits, with per-entry ZIP64 extra fields for oversized entries,
  * so ordinary archives stay classic and small.
+ * Names are UTF-8 with bit 11 set in both headers. Their encoded length must fit
+ * the 16-bit filename field, including for ZIP64 archives.
  *
  * This is the only writer in the library, and it is not reachable from the
  * `ArchiveKodec` object.
@@ -39,8 +42,13 @@ object ZipWriter {
     )
 
     private const val MASK32 = 0xFFFFFFFFL
+    private const val UTF8_FLAG = 0x0800
+    private const val MAX_NAME_BYTES = 0xFFFF
 
-    /** @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray. */
+    /**
+     * @throws ArchiveFormatException if an encoded name exceeds 65535 bytes.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     fun write(files: List<FileSpec>): ByteArray {
         // Include both headers and the end records before constructing any output.
@@ -50,7 +58,16 @@ object ZipWriter {
             if (f.codec != CodecId.STORE && f.codec != CodecId.DEFLATE) {
                 throw ArchiveUnsupportedException("ZipWriter supports STORE/DEFLATE, not ${f.codec}", entryName = f.name)
             }
-            plannedSize += f.name.encodeToByteArray().size * 2L
+            // UTF-8 needs at least one byte per UTF-16 code unit. Reject names
+            // that cannot fit before allocating their encoded representation.
+            if (f.name.length > MAX_NAME_BYTES) {
+                throw ArchiveFormatException("ZIP: UTF-8 filename exceeds 65535 bytes", entryName = f.name)
+            }
+            val nameBytes = f.name.encodeToByteArray()
+            if (nameBytes.size > MAX_NAME_BYTES) {
+                throw ArchiveFormatException("ZIP: UTF-8 filename exceeds 65535 bytes", entryName = f.name)
+            }
+            plannedSize += nameBytes.size * 2L
             if (f.codec == CodecId.STORE) plannedSize += f.data.size
             checkedArraySize(plannedSize)
         }
@@ -75,7 +92,7 @@ object ZipWriter {
 
             out.le32(ZipFormat.LOC)
             out.le16(if (needs64) 45 else 20) // version needed
-            out.le16(0)                        // flags
+            out.le16(UTF8_FLAG)                // flags: UTF-8 name
             out.le16(method)
             out.le16(0); out.le16(0)           // mod time, date
             out.le32(crc)
@@ -97,7 +114,7 @@ object ZipWriter {
             out.le32(ZipFormat.CEN)
             out.le16(45)                       // version made by
             out.le16(if (r.zip64) 45 else 20)  // version needed
-            out.le16(0)                        // flags
+            out.le16(UTF8_FLAG)                // flags: UTF-8 name
             out.le16(r.method)
             out.le16(0); out.le16(0)           // time, date
             out.le32(r.crc)
