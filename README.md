@@ -307,6 +307,22 @@ XxHash32.hash(bytes)
 they also work incrementally with `update` / `value` / `reset`. `XxHash32` is
 one-shot only.
 
+Both `Checksum.update` and `XxHash32.hash` accept an `offset` and `length`.
+Omitting `length` selects the suffix beginning at `offset`:
+
+```kotlin
+val checksum = Crc32()
+checksum.update(bytes, offset = 3) // bytes[3] through the end
+checksum.update(bytes, offset = bytes.size, length = 0) // valid empty slice
+val suffixHash = XxHash32.hash(bytes, offset = 3)
+```
+
+Negative or out-of-bounds slices throw `IllegalArgumentException` before reading
+bytes or changing checksum state. A rejected update can be followed by a valid
+one. Swift calls to `update(data:offset:length:)` and `hash(data:offset:length:seed:)`
+now require `try`, including calls through the `Checksum` protocol; invalid slices
+arrive as catchable errors. Valid explicit slices and whole-array digests are unchanged.
+
 ## Sniff a format
 
 ```kotlin

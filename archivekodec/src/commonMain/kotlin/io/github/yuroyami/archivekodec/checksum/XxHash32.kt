@@ -17,10 +17,16 @@ object XxHash32 {
 
     private fun rotl(x: Int, r: Int): Int = (x shl r) or (x ushr (32 - r))
 
-    /** Hash [length] bytes of [data] from [offset], with [seed] (LZ4 uses 0). */
-    fun hash(data: ByteArray, offset: Int = 0, length: Int = data.size, seed: Int = 0): Long {
+    /**
+     * Hash [length] bytes of [data] from [offset], with [seed] (LZ4 uses 0).
+     * Omitting [length] selects the suffix; an empty slice at the end is valid.
+     *
+     * @throws IllegalArgumentException if the slice is outside [data].
+     */
+    @Throws(IllegalArgumentException::class)
+    fun hash(data: ByteArray, offset: Int = 0, length: Int = data.size - offset, seed: Int = 0): Long {
+        val end = checkedChecksumEnd(data.size, offset, length)
         var i = offset
-        val end = offset + length
         var h: Int
 
         if (length >= 16) {
@@ -41,7 +47,7 @@ object XxHash32 {
         }
 
         h += length
-        while (i + 4 <= end) {
+        while (end - i >= 4) {
             h += le32(data, i) * P3
             h = rotl(h, 17) * P4
             i += 4

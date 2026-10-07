@@ -22,6 +22,55 @@ func expectFailure(_ label: String, check: (ArchiveException) -> Bool = { _ in t
     }
 }
 
+func expectArgumentFailure(_ label: String, _ operation: () throws -> Void) {
+    do {
+        try operation()
+        fatalError("Accepted invalid slice: \(label)")
+    } catch {
+        guard let failure = (error as NSError).kotlinException as? KotlinIllegalArgumentException else {
+            fatalError("Unexpected slice error for \(label): \(error)")
+        }
+        precondition(failure.message?.hasPrefix("invalid checksum slice:") == true)
+        caught += 1
+        print("Caught \(label): \(failure)")
+    }
+}
+
+let checksumInput = bytes(Array("123456789".utf8))
+let checksumSuffix = bytes(Array("456789".utf8))
+let checksumFactories: [() -> Checksum] = [{ Crc32() }, { Crc32c() }, { Crc64() }, { Adler32() }]
+let invalidChecksumSlices: [(Int32, Int32)] = [(-1, 0), (0, -1), (1, Int32.max), (0, 10)]
+for (index, create) in checksumFactories.enumerated() {
+    let checksum: Checksum = create()
+    try checksum.update(data: checksumInput, offset: 0, length: 9)
+    let before = checksum.value()
+    for (offset, length) in invalidChecksumSlices {
+        expectArgumentFailure("checksum protocol \(index) slice \(offset),\(length)") {
+            try checksum.update(data: checksumInput, offset: offset, length: length)
+        }
+        precondition(checksum.value() == before)
+    }
+    try checksum.update(data: checksumInput, offset: 9, length: 0)
+    precondition(checksum.value() == before)
+    checksum.reset()
+    try checksum.update(data: checksumInput, offset: 3, length: 6)
+    let expected = create()
+    try expected.update(data: checksumSuffix, offset: 0, length: 6)
+    precondition(checksum.value() == expected.value())
+}
+expectArgumentFailure("concrete CRC32 slice") { try Crc32().update(data: checksumInput, offset: 0, length: -1) }
+expectArgumentFailure("concrete CRC32C slice") { try Crc32c().update(data: checksumInput, offset: 0, length: -1) }
+expectArgumentFailure("concrete CRC64 slice") { try Crc64().update(data: checksumInput, offset: 0, length: -1) }
+expectArgumentFailure("concrete Adler32 slice") { try Adler32().update(data: checksumInput, offset: 0, length: -1) }
+for (offset, length) in invalidChecksumSlices {
+    expectArgumentFailure("xxHash32 slice \(offset),\(length)") {
+        _ = try XxHash32.shared.hash(data: checksumInput, offset: offset, length: length, seed: 0)
+    }
+}
+let suffixHash = try XxHash32.shared.hash(data: checksumInput, offset: 3, length: 6, seed: 0)
+let copiedHash = try XxHash32.shared.hash(data: checksumSuffix, offset: 0, length: 6, seed: 0)
+precondition(suffixHash == copiedHash)
+
 let limits = ArchiveLimits.companion.DEFAULT
 let empty = bytes([])
 expectFailure("unsafe path", check: { $0 is ArchivePathException && $0.entryName == "../escape" }) {

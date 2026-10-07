@@ -10,10 +10,11 @@ package io.github.yuroyami.archivekodec.checksum
 class Crc64 : Checksum {
     private var crc = -1L // 0xFFFFFFFFFFFFFFFF
 
+    @Throws(IllegalArgumentException::class)
     override fun update(data: ByteArray, offset: Int, length: Int) {
+        val end = checkedChecksumEnd(data.size, offset, length)
         var c = crc
         var i = offset
-        val end = offset + length
         while (i < end) {
             c = (c ushr 8) xor TABLE[((c xor data[i].toLong()) and 0xFF).toInt()]
             i++

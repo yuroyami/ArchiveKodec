@@ -12,11 +12,12 @@ class Adler32 : Checksum {
     private var a = 1L
     private var b = 0L
 
+    @Throws(IllegalArgumentException::class)
     override fun update(data: ByteArray, offset: Int, length: Int) {
+        val end = checkedChecksumEnd(data.size, offset, length)
         var s1 = a
         var s2 = b
         var i = offset
-        val end = offset + length
         while (i < end) {
             // Process in NMAX-sized runs to bound how often we take the modulo.
             var n = minOf(end - i, NMAX)
