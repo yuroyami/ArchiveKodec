@@ -871,4 +871,61 @@ for (offset, name) in [(Int32(102), "one.txt"), (Int32(350), "TRAILER!!!")] {
     }) { _ = try CpioReader(source: ByteArrayRandomAccessSource(data: invalid)).entries() }
 }
 
+// Python-produced prefixed ZIPs cover both relative and already absolute offsets.
+let prefixedZipArchives = [
+    "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpQSwMEFAAAAAAAAAAhAEgDg6MDAAAAAwAAAAUAAABhLnR4dEFCQ1BLAQIUAxQAAAAAAAAAIQBIA4OjAwAAAAMAAAAFAAAAAAAAAAAAAACAAQAAAABhLnR4dFBLBQYAAAAAAQABADMAAAAmAAAAAAA=",
+    "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpQSwMEFAAAAAAAAAAhAEgDg6MDAAAAAwAAAAUAAABhLnR4dEFCQ1BLAQIUAxQAAAAAAAAAIQBIA4OjAwAAAAMAAAAFAAAAAAAAAAAAAACAARcAAABhLnR4dFBLBQYAAAAAAQABADMAAAA9AAAAAAA=",
+    "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpQSwMELQAAAAAAAAAhAEgDg6P//////////wUAFABhLnR4dAEAEAADAAAAAAAAAAMAAAAAAAAAQUJDUEsBAi0DLQAAAAAAAAAhAEgDg6P//////////wUAFAAAAAAAAAAAAIABAAAAAGEudHh0AQAQAAMAAAAAAAAAAwAAAAAAAABQSwYGLAAAAAAAAAAtAC0AAAAAAAAAAAABAAAAAAAAAAEAAAAAAAAARwAAAAAAAAA6AAAAAAAAAFBLBgcAAAAAgQAAAAAAAAABAAAAUEsFBgAAAAABAAEARwAAADoAAAAAAA==",
+    "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwpQSwMELQAAAAAAAAAhAEgDg6P//////////wUAFABhLnR4dAEAEAADAAAAAAAAAAMAAAAAAAAAQUJDUEsBAi0DLQAAAAAAAAAhAEgDg6P//////////wUAHAAAAAAAAAAAAIAB/////2EudHh0AQAYAAMAAAAAAAAAAwAAAAAAAAAXAAAAAAAAAFBLBgYsAAAAAAAAAC0ALQAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAABPAAAAAAAAAFEAAAAAAAAAUEsGBwAAAACgAAAAAAAAAAEAAABQSwUGAAAAAAEAAQBPAAAAUQAAAAAA",
+]
+func verifyPrefixedZip(_ data: KotlinByteArray) throws {
+    let readers: [ArchiveReader] = [
+        ZipReader(source: ByteArrayRandomAccessSource(data: data)),
+        try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: data)),
+        try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: data), nameDecoder: ArchiveNameDecoderCompanion.shared.UTF8)
+    ]
+    for reader in readers {
+        let entry = try reader.entries()[0]
+        precondition(entry.name == "a.txt" && entry.dataOffset == 23)
+        let output = try reader.read(entry: entry, limits: limits)
+        precondition(output.size == 3 && output.get(index: 0) == 65 && output.get(index: 1) == 66 && output.get(index: 2) == 67)
+        try reader.close()
+    }
+}
+for encoded in prefixedZipArchives { try verifyPrefixedZip(bytes(Array(Data(base64Encoded: encoded)!))) }
+let prefixedZip64Raw = Array(Data(base64Encoded: prefixedZipArchives[2])!)
+let prefixedZip64Record = prefixedZip64Raw.count - 98
+var extensibleHeader = Array(prefixedZip64Raw[prefixedZip64Record..<(prefixedZip64Record + 56)])
+let extensibleSector: [UInt8] = [255, 255, 0, 0, 1, 0] + Array(repeating: 65, count: 65536)
+let extensibleRecordSize = UInt64(44 + extensibleSector.count)
+for index in 0..<8 { extensibleHeader[4 + index] = UInt8(truncatingIfNeeded: extensibleRecordSize >> (8 * index)) }
+let extensibleZip64 = Array(prefixedZip64Raw[..<prefixedZip64Record]) + extensibleHeader + extensibleSector + Array(prefixedZip64Raw[(prefixedZip64Record + 56)...])
+try verifyPrefixedZip(bytes(extensibleZip64))
+let invalidPrefixLocal = bytes(Array(Data(base64Encoded: prefixedZipArchives[0])!))
+invalidPrefixLocal.set(index: 31, value: 8)
+expectFailure("prefixed ZIP local method", check: {
+    $0 is ArchiveFormatException && $0.entryName == "a.txt" && $0.offset?.int64Value == 31
+}) { _ = try ZipReader(source: ByteArrayRandomAccessSource(data: invalidPrefixLocal)).entries() }
+let invalidPrefixCrc = bytes(Array(Data(base64Encoded: prefixedZipArchives[0])!))
+invalidPrefixCrc.set(index: 58, value: 0)
+let prefixCrcReader: ArchiveReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: invalidPrefixCrc))
+let prefixCrcEntry = try prefixCrcReader.entries()[0]
+expectFailure("prefixed ZIP CRC", check: {
+    $0 is ArchiveFormatException && $0.entryName == "a.txt" && $0.offset?.int64Value == 58
+}) { _ = try prefixCrcReader.read(entry: prefixCrcEntry, limits: limits) }
+try prefixCrcReader.close()
+let invalidPrefixLocator = bytes(prefixedZip64Raw)
+let prefixLocatorField = invalidPrefixLocator.size - 34
+for index in 0..<Int32(8) { invalidPrefixLocator.set(index: prefixLocatorField + index, value: -1) }
+expectFailure("prefixed ZIP64 locator offset", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == Int64(prefixLocatorField)
+}) { _ = try ZipReader(source: ByteArrayRandomAccessSource(data: invalidPrefixLocator)).entries() }
+let boundedPrefixReader: ArchiveReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes(Array(Data(base64Encoded: prefixedZipArchives[0])!))))
+let boundedPrefixEntry = try boundedPrefixReader.entries()[0]
+let prefixBudget = ArchiveLimits(maxUncompressedBytes: 2, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+expectFailure("prefixed ZIP output limit", check: { $0 is DecompressionBombException && $0.entryName == "a.txt" }) {
+    _ = try boundedPrefixReader.read(entry: boundedPrefixEntry, limits: prefixBudget)
+}
+try boundedPrefixReader.close()
+
 print("Core Swift consumer passed: \(caught) catchable failures and valid decode/path calls")

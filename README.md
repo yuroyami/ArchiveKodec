@@ -179,7 +179,11 @@ reader.read(entry)        // decode one entry
 ```
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
-`CpioReader`. Anything else throws `ArchiveUnsupportedException`. `entries()`
+`CpioReader`. When the header is unknown, both `open` overloads search the last
+65,557 bytes for a ZIP end record with a complete EOF-terminated comment. This
+opens zipapps and other prefixed ZIPs; recognized header formats retain priority.
+An unknown source throws `ArchiveFormatException`, and a recognized format
+without a reader throws `ArchiveUnsupportedException`. `entries()`
 does not decompress entries. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
@@ -243,6 +247,14 @@ offset order while the listing retains directory order; adjacent entries, empty
 entries, padding and data-descriptor gaps are valid. These structural checks
 apply even with `ArchiveLimits.UNBOUNDED`. Output and ratio limits still apply
 per entry.
+
+ZIP and ZIP64 support prepended launchers and self-extracting prefixes with
+ZIP-relative or already absolute offsets. Listing resolves stored offsets to
+physical source positions, including `ArchiveEntry.dataOffset` for local headers.
+ZIP64 end records may contain a variable-length extensible sector; searches use
+bounded chunks rather than a fixed 56-byte assumption. Existing absolute-offset
+directory and locator gaps remain readable. Shifted local headers and payloads
+still undergo the same range, overlap, metadata, size, ratio and CRC32 checks.
 
 Entries with encryption bit 0, strong-encryption bit 6, or the AES method marker
 99 have `isEncrypted = true`. Reading them throws `ArchiveUnsupportedException`
@@ -415,6 +427,8 @@ premature EOF, zero progress and invalid returned counts throw
 `ArchiveFormatException`; source I/O errors propagate unchanged. Sniffing does
 not close the source. A successful `open` transfers ownership to the reader;
 when opening fails, the caller retains the source.
+The sniffing overloads remain header-only. `open` additionally uses the bounded
+ZIP-footer fallback for UNKNOWN headers; readers validate the candidate archive.
 
 A complete checksum-valid TAR header takes priority over short signatures,
 including when a member name resembles another format. This recognizes v7,

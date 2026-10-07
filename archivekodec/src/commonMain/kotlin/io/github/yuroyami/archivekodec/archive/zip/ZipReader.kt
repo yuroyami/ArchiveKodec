@@ -27,6 +27,8 @@ import kotlin.text.CharacterCodingException
  * directory at the tail (the authoritative record). [entries] also validates local
  * header names, methods, flags and declared payload extents; [read] rechecks the
  * local fields against the parsed directory before extracting one entry.
+ * Prepended launchers and self-extracting prefixes are supported in ZIP and
+ * ZIP64; stored relative offsets are reconciled with physical source positions.
  * Filename comparison uses exact stored bytes. Bit 11 selects strict UTF-8;
  * otherwise valid Unicode Path metadata takes precedence over [nameDecoder]
  * (CP437 by default). Conflicting valid Unicode names are malformed.
@@ -173,18 +175,11 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
         val size = source.size
         if (size < 22) throw ArchiveFormatException("ZIP: file is too small", 0)
 
-        // Locate EOCD by scanning back over the last 22 + max-comment(65535) bytes.
-        val scan = minOf(size, (22 + 0xFFFF).toLong()).toInt()
-        val tail = source.readFully(size - scan, scan)
-        var eocd = -1
-        for (i in scan - 22 downTo 0) {
-            if (ZipFormat.u32(tail, i) == ZipFormat.EOCD && ZipFormat.u16(tail, i + 20) == scan - i - 22) {
-                eocd = i
-                break
-            }
-        }
-        if (eocd < 0) throw ArchiveFormatException("ZIP: missing end-of-central-directory", size - scan)
-        val eocdOffset = size - scan + eocd
+        val end = ZipEndRecord.find(source)
+            ?: throw ArchiveFormatException("ZIP: missing end-of-central-directory", maxOf(0, size - 65557))
+        val tail = end.bytes
+        val eocd = 0
+        val eocdOffset = end.offset
         fun requireDiskZero(disk: Long, offset: Long, name: String? = null) {
             if (disk != 0L) throw ArchiveUnsupportedException("ZIP: multi-disk archives are not supported (disk $disk)", offset, name)
         }
@@ -193,6 +188,7 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
         var cdSize = ZipFormat.u32(tail, eocd + 12)
         var cdOffset = ZipFormat.u32(tail, eocd + 16)
         var directoryEnd = eocdOffset
+        var prefixSize = 0L
 
         // A present ZIP64 locator is authoritative even without classic sentinels.
         // The classic count 65535 also occurs without ZIP64, including wrapped counts.
@@ -212,14 +208,11 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
             val disks = ZipFormat.u32(locator, 16)
             if (disks == 0L) throw ArchiveFormatException("ZIP: invalid disk count 0 in ZIP64 locator", locPos + 16)
             if (disks != 1L) throw ArchiveUnsupportedException("ZIP: multi-disk archives are not supported ($disks disks)", locPos + 16)
-            val z64Off = ZipFormat.u64(locator, 8)
-            if (z64Off < 0 || z64Off > locPos - 56) {
-                throw ArchiveFormatException("ZIP: ZIP64 end record exceeds locator boundary", z64Off)
-            }
-            val z64 = source.readFully(z64Off, 56)
-            if (ZipFormat.u32(z64, 0) != ZipFormat.Z64_EOCD) {
-                throw ArchiveFormatException("ZIP: invalid ZIP64 end record", z64Off)
-            }
+            val relativeEnd = ZipFormat.u64(locator, 8)
+            val record = ZipEndRecord.zip64(source, relativeEnd, locPos)
+            val z64Off = record.offset
+            val z64 = record.bytes
+            prefixSize = z64Off - relativeEnd
             val recordSize = ZipFormat.u64(z64, 4)
             if (recordSize < 44 || recordSize > locPos - z64Off - 12) {
                 throw ArchiveFormatException("ZIP: invalid ZIP64 end record size $recordSize", z64Off + 4)
@@ -232,7 +225,7 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
                 throw ArchiveFormatException("ZIP: per-disk count $diskEntries differs from total count $cdEntries", z64Off + 24)
             }
             cdSize = ZipFormat.u64(z64, 40)
-            cdOffset = ZipFormat.u64(z64, 48)
+            cdOffset = ZipEndRecord.shift(ZipFormat.u64(z64, 48), prefixSize, z64Off + 48)
             directoryEnd = z64Off
         } else {
             val diskEntries = ZipFormat.u16(tail, eocd + 8).toLong()
@@ -243,6 +236,11 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
         source.requireRange(cdOffset, cdSize)
         if (cdOffset > directoryEnd || cdSize > directoryEnd - cdOffset) {
             throw ArchiveFormatException("ZIP: central directory overlaps end records", cdOffset)
+        }
+        if (!hasZip64) {
+            val stored = cdOffset
+            cdOffset = ZipEndRecord.classicDirectory(source, stored, cdSize, directoryEnd)
+            prefixSize = cdOffset - stored
         }
         if (cdEntries < 0 || cdEntries > Int.MAX_VALUE || cdEntries > cdSize / 46) {
             throw ArchiveFormatException("ZIP: invalid directory count $cdEntries for $cdSize bytes", cdOffset)
@@ -277,6 +275,7 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
             var startDisk = ZipFormat.u16(cd, p + 34).toLong()
             var diskFieldOffset = cdOffset + p + 34
             var localOffset = ZipFormat.u32(cd, p + 42)
+            var localOffsetField = cdOffset + p + 42
             val recordSize = 46 + nameLen + extraLen + commentLen
             if (recordSize > cd.size - p) {
                 throw ArchiveFormatException("ZIP: central directory fields exceed record at entry $n", cdOffset + p)
@@ -318,7 +317,10 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
                         }
                         if (zip64Output) uncompSize = signedValue("uncompressed size")
                         if (zip64Compressed) compSize = signedValue("compressed size")
-                        if (zip64Offset) localOffset = signedValue("local header offset")
+                        if (zip64Offset) {
+                            localOffsetField = cdOffset + dp
+                            localOffset = signedValue("local header offset")
+                        }
                         if (zip64Disk) {
                             diskFieldOffset = cdOffset + dp
                             startDisk = ZipFormat.u32(cd, dp)
@@ -331,6 +333,7 @@ class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveName
 
             requireDiskZero(startDisk, diskFieldOffset, name)
             if (uncompSize < 0) throw ArchiveFormatException("ZIP: uncompressed size exceeds Long", cdOffset + p, name)
+            localOffset = ZipEndRecord.shift(localOffset, prefixSize, localOffsetField, name)
             if (localOffset > cdOffset || cdOffset - localOffset < 30) {
                 throw ArchiveFormatException("ZIP: local header overlaps the central directory", cdOffset, name)
             }
