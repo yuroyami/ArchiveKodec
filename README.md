@@ -245,6 +245,12 @@ entry throws an unsupported-method error.
 | ar (GNU) | yes | no |
 | cpio (newc, odc) | yes | no |
 
+TAR pathname prefixes are read only for headers with the complete six-byte
+`ustar\0` marker. The standard version is `00`; missing or nonstandard version
+bytes do not discard a pathname in that known layout. Old GNU and v7 extension
+bytes are not path prefixes. GNU long-name records override the base name and
+prefix, and the layout is selected separately for each header.
+
 The readers read through the `RandomAccessSource` interface, which supports seek
 and read. `ByteArrayRandomAccessSource` is the only implementation in the
 library. The whole archive must therefore be in memory before you can open it.

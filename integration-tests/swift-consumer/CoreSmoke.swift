@@ -136,6 +136,24 @@ let emptyTarEntries = try emptyTarReader.entries()
 precondition(emptyTarReader.format == ArchiveFormat.tar && emptyTarEntries.isEmpty)
 try emptyTarReader.close()
 
+// Frozen reference headers verify pathname layout through the Swift consumer.
+let layoutPayload: [UInt8] = Array("Archive member payload\0".utf8) + [0xff]
+let layoutHeaders: [(String, String)] = [
+    ("Zm9vLnR4dAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAwMDAwMAAwMDAwMDAwADAwMDAwMDAwMDMwADE0NTI0NzcwNDAwADAxMjM2NQAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhciAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMTQwMDAwMDAwMDAAMTQwMDAwMDAwMDEAMDAwMDAwMDAxMjMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "foo.txt"),
+    ("c2VnbWVudC9zZWdtZW50L3NlZ21lbnQvc2VnbWVudC9zZWdtZW50L3NlZ21lbnQvc2VnbWVudC9zZWdtZW50L3NlZ21lbnQvc2VnbWVudC9sb25nLWZpbGUtbmFtZS50eHQAADAwMDA2NDQAMDAwMDAwMAAwMDAwMDAwADAwMDAwMDAwMDMwADE0NTI0NzcwNDAwADA0MjMxNAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhcgAwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAc2VnbWVudC9zZWdtZW50L3NlZ21lbnQvc2VnbWVudC9zZWdtZW50L3NlZ21lbnQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", String(repeating: "segment/", count: 16) + "long-file-name.txt")
+]
+for (encoded, expectedName) in layoutHeaders {
+    let header = Array(Data(base64Encoded: encoded)!)
+    let source = ByteArrayRandomAccessSource(data: bytes(header + layoutPayload + Array(repeating: 0, count: 1512)))
+    let reader = try ArchiveKodec.shared.open(source: source)
+    let entries = try reader.entries()
+    precondition(reader.format == ArchiveFormat.tar && entries.count == 1 && entries[0].name == expectedName)
+    let payload = try reader.read(entry: entries[0], limits: limits)
+    precondition(payload.size == Int32(layoutPayload.count))
+    for (index, value) in layoutPayload.enumerated() { precondition(payload.get(index: Int32(index)) == Int8(bitPattern: value)) }
+    try reader.close()
+}
+
 // Legal short reads cross the Objective-C source and Kotlin reader before
 // returning complete metadata and payloads to Swift.
 let shortEmptyZip = ShortReadSource(data: bytes([0x50, 0x4b, 0x05, 0x06] + Array(repeating: 0, count: 18)), chunk: 1)

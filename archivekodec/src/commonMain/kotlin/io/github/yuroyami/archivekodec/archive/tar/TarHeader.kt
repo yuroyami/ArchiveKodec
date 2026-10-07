@@ -1,8 +1,15 @@
 package io.github.yuroyami.archivekodec.archive.tar
 
-/** Integrity checks for a complete TAR header record. */
+/** Checks for a complete TAR header record. */
 internal object TarHeader {
     const val SIZE = 512
+
+    // The six-byte POSIX marker selects the prefix layout. Version bytes do not
+    // change that layout; old GNU uses these trailing fields for other metadata.
+    fun usesUstarPrefix(bytes: ByteArray): Boolean = bytes.size >= SIZE &&
+        bytes[257].toInt() == 'u'.code && bytes[258].toInt() == 's'.code &&
+        bytes[259].toInt() == 't'.code && bytes[260].toInt() == 'a'.code &&
+        bytes[261].toInt() == 'r'.code && bytes[262].toInt() == 0
 
     /** A complete first zero record is the end marker of an empty TAR. */
     fun isZeroRecord(bytes: ByteArray): Boolean {

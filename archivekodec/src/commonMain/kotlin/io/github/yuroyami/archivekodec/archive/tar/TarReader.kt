@@ -21,6 +21,7 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Supports: ustar `prefix` + `name` (long-path), GNU `L` long-name pseudo-entries,
  * octal and GNU base-256 numeric fields, normal files / directories. The full pax
  * `x`/`g` extended-header and sparse-file handling are not implemented (issue #35).
+ * Ustar prefixes require the complete `ustar\u0000` marker; old GNU/v7 tails are not paths.
  * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
  * Complete records may end without a trailer; nonempty partial headers are rejected.
  */
@@ -86,7 +87,7 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
                 else -> {
                     val name = pendingLongName ?: run {
                         val base = cString(hdr, 0, 100)
-                        val prefix = cString(hdr, 345, 155)
+                        val prefix = if (TarHeader.usesUstarPrefix(hdr)) cString(hdr, 345, 155) else ""
                         if (prefix.isNotEmpty()) "$prefix/$base" else base
                     }
                     pendingLongName = null
