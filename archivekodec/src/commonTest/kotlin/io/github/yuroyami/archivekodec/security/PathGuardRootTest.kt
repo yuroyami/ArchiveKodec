@@ -4,7 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
-import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.archive.zipForeignStoredName
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -91,7 +91,7 @@ class PathGuardRootTest {
     @Test
     fun documentedLoopStillRejectsUnsafeArchivedDirectories() {
         for (name in listOf("../", "/", "./C:/", ".\\..\\/")) {
-            val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec(name, byteArrayOf())))
+            val bytes = zipForeignStoredName(name)
             ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { reader ->
                 for (entry in reader.entries()) {
                     assertTrue(entry.isDirectory)

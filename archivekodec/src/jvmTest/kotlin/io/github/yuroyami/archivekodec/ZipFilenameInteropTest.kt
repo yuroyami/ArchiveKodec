@@ -86,4 +86,24 @@ class ZipFilenameInteropTest {
         assertEquals(files.last().name, error.entryName)
         assertTrue(allocated < 128 * 1024, "Filename rejection allocated $allocated bytes")
     }
+
+    @Test
+    fun invalidPathsAndUnicodeAreRejectedBeforeEarlierCompression() {
+        val data = ByteArray(4 * 1024 * 1024) { 65 }
+        val bean = ManagementFactory.getThreadMXBean() as ThreadMXBean
+        bean.isThreadAllocatedMemoryEnabled = true
+        val thread = Thread.currentThread().threadId()
+        for (name in listOf("a\\b", "/absolute", "./C:/drive", "RAM:device", "a/../b", "a\u0000b", "a\u007fb", "a\uD800b")) {
+            val files = listOf(
+                ZipWriter.FileSpec("first", data, CodecId.DEFLATE),
+                ZipWriter.FileSpec(name, byteArrayOf(), CodecId.STORE),
+            )
+            repeat(3) { assertFailsWith<ArchiveFormatException> { ZipWriter.write(files) } }
+            val before = bean.getThreadAllocatedBytes(thread)
+            val error = assertFailsWith<ArchiveFormatException> { ZipWriter.write(files) }
+            val allocated = bean.getThreadAllocatedBytes(thread) - before
+            assertEquals(name, error.entryName)
+            assertTrue(allocated < 128 * 1024, "Filename rejection allocated $allocated bytes")
+        }
+    }
 }

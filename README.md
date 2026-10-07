@@ -308,10 +308,16 @@ val bytes = ZipWriter.write(
 `ArchiveKodec` object, so import it directly. It emits ZIP64 records only when
 they are needed, meaning more than 65,535 entries or a size or offset past 4 GiB.
 Ordinary archives therefore stay in the classic ZIP layout.
-Names are encoded as UTF-8 and marked with bit 11 in both ZIP headers. All names
-are validated before payload compression or output assembly. An encoded name
-longer than 65,535 bytes throws `ArchiveFormatException` carrying the entry name;
-ZIP64 does not extend this filename limit.
+Names use strict UTF-8 and bit 11 in both ZIP headers. All names are validated
+before payload compression or output assembly. Backslashes, leading slashes,
+drive/device prefixes, `..` components, ASCII controls (including NUL and DEL),
+malformed Unicode, and encoded names longer than 65,535 bytes throw
+`ArchiveFormatException` carrying the original entry name. ZIP64 does not extend
+this filename limit. A drive/device prefix is a nonempty prefix followed by `:`
+in the first nonempty path component other than `.`; colons in later components
+are supported. Accepted names retain their exact bytes, including relative dot
+components, repeated forward slashes, trailing directory slashes, and empty
+anonymous names. The caller chooses the mapping from filesystem names.
 Both headers use the reproducible default timestamp 1980-01-01 00:00:00.
 
 ## Sanitize entry names before writing them

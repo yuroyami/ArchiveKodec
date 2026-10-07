@@ -9,6 +9,7 @@ import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.checkedArraySize
+import kotlin.text.CharacterCodingException
 
 /**
  * ZIP writer for STORE and DEFLATE entries, with ZIP64 where it is needed. The whole
@@ -17,7 +18,12 @@ import io.github.yuroyami.archivekodec.util.checkedArraySize
  * offset overflows 32 bits, with per-entry ZIP64 extra fields for oversized entries,
  * so ordinary archives stay classic and small.
  * Names are UTF-8 with bit 11 set in both headers. Their encoded length must fit
- * the 16-bit filename field, including for ZIP64 archives.
+ * the 16-bit filename field, including for ZIP64 archives. Accepted names retain
+ * their exact spelling. Backslashes, leading slashes, drive/device prefixes in
+ * the first nonempty, non-dot component, parent (`..`) components, ASCII controls
+ * (including NUL and DEL), and malformed Unicode are rejected before compression.
+ * Relative dot components, repeated forward slashes, trailing directory slashes,
+ * and empty anonymous names are supported; filesystem mapping is the caller's job.
  * Entries use the reproducible default timestamp 1980-01-01 00:00:00.
  *
  * This is the only writer in the library, and it is not reachable from the
@@ -25,12 +31,14 @@ import io.github.yuroyami.archivekodec.util.checkedArraySize
  */
 object ZipWriter {
 
-    /** One file to add: its archive [name], raw [data], and compression [codec]. */
+    /** One file to add: its exact archive [name], raw [data], and compression [codec]. */
     data class FileSpec(
         val name: String,
         val data: ByteArray,
         val codec: CodecId = CodecId.DEFLATE,
     )
+
+    private class PreparedFile(val spec: FileSpec, val nameBytes: ByteArray)
 
     private class Rec(
         val nameBytes: ByteArray,
@@ -47,8 +55,64 @@ object ZipWriter {
     private const val MAX_NAME_BYTES = 0xFFFF
     private const val DEFAULT_DOS_DATE = 0x0021 // 1980-01-01
 
+    private fun encodeName(name: String): ByteArray {
+        // UTF-8 needs at least one byte per valid UTF-16 code unit. Reject
+        // names that cannot fit before allocating their encoded representation.
+        if (name.length > MAX_NAME_BYTES) {
+            throw ArchiveFormatException("ZIP: UTF-8 filename exceeds 65535 bytes", entryName = name)
+        }
+        if (name.startsWith('/')) {
+            throw ArchiveFormatException("ZIP: filename has a leading slash", entryName = name)
+        }
+        var start = 0
+        var colon = -1
+        var firstComponent = true
+        for (at in 0..name.length) {
+            if (at < name.length) {
+                val char = name[at]
+                if (char == '\\') {
+                    throw ArchiveFormatException("ZIP: filename contains a backslash", entryName = name)
+                }
+                if (char.code <= 0x1F || char.code == 0x7F) {
+                    throw ArchiveFormatException("ZIP: filename contains an ASCII control character", entryName = name)
+                }
+                if (char != '/') {
+                    if (char == ':' && colon < 0) colon = at
+                    continue
+                }
+            }
+            val length = at - start
+            if (length == 2 && name[start] == '.' && name[start + 1] == '.') {
+                throw ArchiveFormatException("ZIP: filename contains a parent path component", entryName = name)
+            }
+            if (firstComponent && length > 0 && !(length == 1 && name[start] == '.')) {
+                if (colon > start) {
+                    throw ArchiveFormatException("ZIP: filename has a drive or device prefix", entryName = name)
+                }
+                firstComponent = false
+            }
+            start = at + 1
+            colon = -1
+        }
+        val bytes = try {
+            name.encodeToByteArray(throwOnInvalidSequence = true)
+        } catch (error: CharacterCodingException) {
+            throw ArchiveFormatException("ZIP: filename is not valid Unicode", entryName = name, cause = error)
+        }
+        if (bytes.size > MAX_NAME_BYTES) {
+            throw ArchiveFormatException("ZIP: UTF-8 filename exceeds 65535 bytes", entryName = name)
+        }
+        return bytes
+    }
+
     /**
-     * @throws ArchiveFormatException if an encoded name exceeds 65535 bytes.
+     * Validates every name before compressing data or constructing output. Accepted
+     * names are written unchanged; invalid paths are never silently normalized.
+     * A drive/device prefix is a nonempty prefix followed by `:` in the first
+     * nonempty component other than `.`. Colons in later components are supported.
+     *
+     * @throws ArchiveFormatException if a name violates the path or Unicode rules
+     * documented above, or its UTF-8 encoding exceeds 65535 bytes.
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
@@ -56,29 +120,24 @@ object ZipWriter {
         // Include both headers and the end records before constructing any output.
         var plannedSize = 22L + (if (files.size > 0xFFFF) 76 else 0) + files.size.toLong() * 76
         checkedArraySize(plannedSize)
+        val prepared = ArrayList<PreparedFile>(files.size)
         for (f in files) {
             if (f.codec != CodecId.STORE && f.codec != CodecId.DEFLATE) {
                 throw ArchiveUnsupportedException("ZipWriter supports STORE/DEFLATE, not ${f.codec}", entryName = f.name)
             }
-            // UTF-8 needs at least one byte per UTF-16 code unit. Reject names
-            // that cannot fit before allocating their encoded representation.
-            if (f.name.length > MAX_NAME_BYTES) {
-                throw ArchiveFormatException("ZIP: UTF-8 filename exceeds 65535 bytes", entryName = f.name)
-            }
-            val nameBytes = f.name.encodeToByteArray()
-            if (nameBytes.size > MAX_NAME_BYTES) {
-                throw ArchiveFormatException("ZIP: UTF-8 filename exceeds 65535 bytes", entryName = f.name)
-            }
+            val nameBytes = encodeName(f.name)
             plannedSize += nameBytes.size * 2L
             if (f.codec == CodecId.STORE) plannedSize += f.data.size
             checkedArraySize(plannedSize)
+            prepared.add(PreparedFile(f, nameBytes))
         }
         val out = ByteArrayBuilder(1024)
-        val recs = ArrayList<Rec>(files.size)
+        val recs = ArrayList<Rec>(prepared.size)
 
-        for (f in files) {
+        for (file in prepared) {
+            val f = file.spec
             val offset = out.size.toLong()
-            val nameBytes = f.name.encodeToByteArray()
+            val nameBytes = file.nameBytes
             val crc = Crc32.of(f.data)
             val method = ZipFormat.methodCode(f.codec)
             val comp = when (f.codec) {

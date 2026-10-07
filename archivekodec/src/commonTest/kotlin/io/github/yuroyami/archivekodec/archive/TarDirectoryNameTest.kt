@@ -1,8 +1,6 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveKodec
-import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.codec.CodecId
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -42,7 +40,7 @@ class TarDirectoryNameTest {
     fun tarAndZipDirectoryNamesMatchTheirStoredSpellings() {
         val names = listOf("d/", "e//", "../up/", "./", "/", "///", " leading /space //", "é/雪//")
         val tar = names.fold(byteArrayOf()) { bytes, name -> bytes + header(name) } + ByteArray(1024)
-        val zip = ZipWriter.write(names.map { ZipWriter.FileSpec(it, byteArrayOf(), CodecId.STORE) })
+        val zip = zipForeignStoredNames(names)
         assertDirectories(tar, names)
         assertDirectories(zip, names)
     }

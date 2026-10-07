@@ -705,6 +705,23 @@ let oversizedName = String(repeating: "x", count: 65536)
 expectFailure("ZIP filename", check: { $0 is ArchiveFormatException && $0.entryName == oversizedName }) {
     _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: oversizedName, data: empty, codec: CodecId.store)])
 }
+let invalidWriterNames = ["a\\b.txt", "/abs.txt", "C:relative.txt", "./C:/file.txt", "RAM:file.txt", "dir/../up.txt", "a\u{0}b", "a\u{7f}b"]
+for codec in [CodecId.store, CodecId.deflate] {
+    for name in invalidWriterNames {
+        expectFailure("ZIP writer path \(name)", check: { $0 is ArchiveFormatException && $0.entryName == name }) {
+            _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: name, data: empty, codec: codec)])
+        }
+    }
+    for name in ["", "./", "a//./b", "é/文件😀", "dir/report:today.txt"] {
+        let archive = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: name, data: bytes([65, 66, 67]), codec: codec)])
+        let reader = ZipReader(source: ByteArrayRandomAccessSource(data: archive))
+        let entries = try reader.entries()
+        precondition(entries.count == 1 && entries[0].name == name)
+        let restored = try reader.read(entry: entries[0], limits: limits)
+        precondition(restored.size == 3 && restored.get(index: 1) == 66)
+        try reader.close()
+    }
+}
 let countedZip = try ZipWriter.shared.write(files: [
     ZipWriter.FileSpec(name: "first", data: empty, codec: CodecId.store),
     ZipWriter.FileSpec(name: "second", data: empty, codec: CodecId.store)
