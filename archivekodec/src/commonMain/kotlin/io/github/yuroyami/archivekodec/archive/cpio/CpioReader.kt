@@ -84,7 +84,7 @@ class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
         if (length < 1) throw ArchiveFormatException("cpio: empty name field", offset)
         val bytes = source.readFullyChecked(offset, length)
         if (bytes.last().toInt() != 0) throw ArchiveFormatException("cpio: missing name terminator", offset)
-        return bytes.decodeToString(0, bytes.size - 1)
+        return bytes.decodeToString(0, bytes.indexOf(0))
     }
 
     private fun align4(v: Long): Long {
