@@ -16,8 +16,9 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
 /**
  * Unix `ar` reader (`.a` / `.deb` / `.lib`). No compression: concatenated members
  * with 60-byte ASCII headers. Handles trailing-slash short names and GNU/COFF
- * `//` long-name tables (`/offset` references); BSD `#1/len` long names are TODO.
- * The GNU symbol tables (`/`, `/SYM64/`) and the name table (`//`) are skipped as entries.
+ * `//` long-name tables (`/offset` references) and BSD `#1/len` inline names.
+ * GNU indices (`/`, `/SYM64/`), the name table (`//`) and a leading BSD ranlib
+ * index are skipped as entries.
  */
 class ArReader(source: RandomAccessSource) : ArchiveReader {
 
@@ -54,7 +55,7 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
         while (pos <= total && total - pos >= 60) {
             val h = source.readFully(pos, 60)
             if ((h[58].toInt() and 0xFF) != 0x60 || (h[59].toInt() and 0xFF) != 0x0A) break
-            val rawName = h.decodeToString(0, 16).trimEnd()
+            val rawName = h.decodeToString(0, 16).trimEnd(' ')
             val sizeText = h.decodeToString(48, 58).trim()
             if (sizeText.isEmpty() || sizeText.any { it !in '0'..'9' }) {
                 throw ArchiveFormatException("ar: invalid member size '$sizeText'", pos + 48, rawName)
@@ -73,6 +74,27 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
                     nulDelimitedNames = 0.toByte() in table
                 }
                 rawName == "/" || rawName == "/SYM64/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
+                pos == 8L && isBsdSymbolTable(rawName.removeSuffix("/")) -> { /* leading BSD ranlib index */ }
+                rawName.startsWith("#1/") -> {
+                    val digits = rawName.substring(3)
+                    val nameLength = digits.toLongOrNull()
+                    if (nameLength == null || digits.isEmpty() || digits.any { it !in '0'..'9' }) {
+                        throw ArchiveFormatException("ar: invalid BSD name length '$rawName'", pos, rawName)
+                    }
+                    if (nameLength > size) {
+                        throw ArchiveFormatException("ar: BSD name length $nameLength exceeds member size $size", pos, rawName)
+                    }
+                    if (nameLength > Int.MAX_VALUE) {
+                        throw ArchiveFormatException("ar: BSD name length $nameLength cannot fit in a ByteArray", pos, rawName)
+                    }
+                    val storedName = withEntryContext(rawName, dataStart) { source.readFullyChecked(dataStart, nameLength) }
+                    var end = storedName.size
+                    while (end > 0 && storedName[end - 1].toInt() == 0) end--
+                    val name = storedName.decodeToString(0, end)
+                    if (pos != 8L || !isBsdSymbolTable(name)) {
+                        out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false, dataOffset = dataStart + nameLength))
+                    }
+                }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
                     val digits = rawName.substring(1)
                     val off = digits.toIntOrNull()
@@ -92,6 +114,9 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
         }
         return out
     }
+
+    private fun isBsdSymbolTable(name: String): Boolean = name == "__.SYMDEF" ||
+        name == "__.SYMDEF SORTED" || name == "__.SYMDEF_64" || name == "__.SYMDEF_64 SORTED"
 
     private fun extractLongName(table: ByteArray, offset: Int, nulDelimited: Boolean, memberOffset: Long, reference: String): String {
         val terminator = if (nulDelimited) 0 else 0x0A

@@ -191,6 +191,11 @@ embedded LF characters remain in the raw name for path validation. A referenced
 name without a terminator inside the table throws `ArchiveFormatException`, as
 do invalid or outside-table offsets.
 
+BSD `#1/n` names occupy the first `n` bytes of a member; the reader excludes all
+of those bytes from its payload, removing only trailing NUL name padding. The
+leading BSD ranlib index (`__.SYMDEF`, `__.SYMDEF SORTED`, `__.SYMDEF_64` or
+`__.SYMDEF_64 SORTED`) is skipped. Later members with those names remain files.
+
 Built-in readers own the source supplied to their constructor or returned by a
 successful `open`. Close the reader, including after listing or reading fails;
 those failures leave it open so other entries can still be read. If `open` throws
@@ -442,9 +447,8 @@ artifact and a kotlinx-io dependency.
   sum and the legacy signed-byte sum. Complete records may end without the EOF
   trailer; a partial header or invalid checksum throws `ArchiveFormatException`
   at that record's offset. An empty source is accepted as an empty archive.
-- TAR skips pax `x` and `g` extended headers and does not handle sparse files. ar
-  does not handle BSD `#1/len` long names. cpio does not handle the old binary
-  dialect.
+- TAR skips pax `x` and `g` extended headers and does not handle sparse files.
+  cpio does not handle the old binary dialect.
 - The LZ4 frame decoder verifies the full descriptor checksum, checks each
   advertised block checksum before decoding/copying, and checks the advertised
   content checksum before returning output. Corrupt or truncated checksum fields
