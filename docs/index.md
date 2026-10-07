@@ -22,6 +22,7 @@ There is no JNI, no cinterop and no native binary. The core artifact depends on
 ```kotlin
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.security.PathGuard
 
 val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
@@ -29,10 +30,13 @@ val back = ArchiveKodec.gzip.decompress(gz)
 
 ArchiveKodec.sniff(bytes)                            // -> ArchiveFormat.ZIP / TAR / GZIP / ...
 
-val reader = ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes))
-for (entry in reader.entries()) {
-    // The reader returns names unchanged. Sanitize one before you join it to a path.
-    println(PathGuard.sanitize(entry.name))
+ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
+    for (entry in reader.entries()) {
+        // Archives of the current directory may contain a root directory entry.
+        if (PathGuard.isRootDirectory(entry)) continue
+        // The reader returns names unchanged. Sanitize one before you join it to a path.
+        println(PathGuard.sanitize(entry.name))
+    }
 }
 ```
 
@@ -46,6 +50,13 @@ reader returns the entry name exactly as the archive stored it, including a name
 such as `../../etc/passwd`. Joining that to an output directory is the Zip-Slip
 vulnerability, where an archive entry escapes the folder you meant to extract
 into. Call `PathGuard.sanitize` on every name before you use it as a path.
+
+For archives of the current directory, `PathGuard.isRootDirectory(entry)` lets
+the loop skip directory entries such as `.` or `./`. It returns false for files,
+empty names and unsafe names. Sanitize every remaining name: a false result is
+not a safety check. The strict sanitizer still rejects names that resolve to the
+root, and skipping a root directory entry does not change the output directory
+or apply archive metadata to it.
 
 ## Modules
 

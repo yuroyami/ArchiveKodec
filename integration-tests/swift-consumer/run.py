@@ -19,7 +19,7 @@ def run(*args, capture=False, env=None):
                           stdout=subprocess.PIPE if capture else None, env=env).stdout
 
 
-def verify_header(path, selectors):
+def verify_header(path, selectors, boolean_selectors=()):
     text = path.read_text()
     if "asAutoCloseable" in text:
         raise RuntimeError(f"Kotlin cleanup adapter unexpectedly exported to Objective-C in {path}")
@@ -28,7 +28,14 @@ def verify_header(path, selectors):
                    if re.match(r"^[-+] \([^)]*\)" + re.escape(selector) + r"(?:\b|:)", line)]
         if not methods or any("(NSError *" not in line for line in methods):
             raise RuntimeError(f"Missing NSError bridge for {selector} in {path}")
+    for selector in boolean_selectors:
+        methods = [line for line in text.splitlines()
+                   if re.match(r"^[-+] \(BOOL\)" + re.escape(selector) + r"(?:\b|:)", line)]
+        if not methods or any("NSError" in line for line in methods):
+            raise RuntimeError(f"Missing non-throwing Boolean bridge for {selector} in {path}")
     print(f"Verified {len(selectors)} throwing selector groups in {path.name}", flush=True)
+    if boolean_selectors:
+        print(f"Verified {len(boolean_selectors)} non-throwing Boolean selectors in {path.name}", flush=True)
 
 
 def main():
@@ -53,7 +60,8 @@ def main():
     ]
     io_selectors = ["readAllBytes", "toRandomAccessSource", "compress", "decompress"]
     for target in ("iosSimulatorArm64", "iosArm64", "iosX64"):
-        verify_header(ROOT / f"archivekodec/build/bin/{target}/debugFramework/ArchiveKodec.framework/Headers/ArchiveKodec.h", core_selectors)
+        verify_header(ROOT / f"archivekodec/build/bin/{target}/debugFramework/ArchiveKodec.framework/Headers/ArchiveKodec.h", core_selectors,
+                      boolean_selectors=("isRootDirectoryEntry",))
         verify_header(ROOT / f"archivekodec-io/build/bin/{target}/debugFramework/ArchiveKodecIo.framework/Headers/ArchiveKodecIo.h", io_selectors)
     sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path", capture=True).strip()
     output = ROOT / "build/swift-consumer"

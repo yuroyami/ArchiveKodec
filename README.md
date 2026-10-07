@@ -52,6 +52,8 @@ val zipBytes = ZipWriter.write(
 
 ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
     for (entry in reader.entries()) {
+        // Archives of the current directory may contain a root directory entry.
+        if (PathGuard.isRootDirectory(entry)) continue
         // The reader returns names unchanged. Sanitize one before you use it as a path.
         val safeName = PathGuard.sanitize(entry.name)
         val content = reader.read(entry)
@@ -294,6 +296,15 @@ overwrites a file somewhere else on disk. The library will not stop you.
 val safe = PathGuard.sanitize(entry.name)     // throws ArchivePathException
 if (PathGuard.isSafe(entry.name)) { /* ... */ }
 ```
+
+Archives made from the current directory can contain a directory entry named
+`.` or `./`. Skip it with `PathGuard.isRootDirectory(entry)` before calling
+`sanitize`, as in the first example. This helper checks the directory flag and
+recognizes only nonempty, relative names made of dot and separator segments.
+It returns false for unsafe names and for files; you must still sanitize every
+remaining name. `sanitize` and `isSafe` keep rejecting root names such as `.`,
+`./` and `./.`, so they cannot become file destinations. Skipping the entry does
+not create a directory or apply its metadata to your output root.
 
 `sanitize` rejects empty names, control characters and NUL, absolute paths,
 Windows drive-letter paths and any `..` segment. It normalizes backslashes to
