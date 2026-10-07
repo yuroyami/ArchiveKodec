@@ -257,13 +257,25 @@ entry throws an unsupported-method error.
 | ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU) | yes | no |
 | ar (GNU) | yes | no |
-| cpio (newc, odc) | yes | no |
+| cpio (newc, crc, odc) | yes | no |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version
 bytes do not discard a pathname in that known layout. Old GNU and v7 extension
 bytes are not path prefixes. GNU long-name records override the base name and
 prefix, and the layout is selected separately for each header.
+
+CPIO hard links share their group's last nonempty stored payload. Each alias
+reports the logical size and payload offset, including when its own record has
+no body. A group containing only empty records stays empty; directories and
+members with a single link do not join groups. Listing reads headers and names
+without fetching payloads, and its cached list is read-only.
+Reading checks every `crc` record in the group using its physical body's unsigned
+byte sum modulo 2^32, including overwritten bodies. That sum is not exposed as
+`ArchiveEntry.crc32`. Empty-body sums are validated during listing. Checksum
+mismatches throw `ArchiveFormatException` with the physical record's name and
+check-field offset. Checks are repeated on every read; overwritten bodies use
+an 8 KiB buffer, while output limits apply to the logical bytes returned.
 
 The readers read through the `RandomAccessSource` interface, which supports seek
 and read. `ByteArrayRandomAccessSource` is the only implementation in the
@@ -481,7 +493,7 @@ artifact and a kotlinx-io dependency.
   trailer; a partial header or invalid checksum throws `ArchiveFormatException`
   at that record's offset. An empty source is accepted as an empty archive.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files.
-  cpio does not handle the old binary dialect.
+  cpio stops at the first trailer and does not handle the old binary dialect.
 - The LZ4 frame decoder consumes the complete sequence of concatenated standard
   frames and all 16 skippable-frame types, including a skippable-only sequence.
   Skippable payloads are ignored. Invalid or truncated trailing data throws

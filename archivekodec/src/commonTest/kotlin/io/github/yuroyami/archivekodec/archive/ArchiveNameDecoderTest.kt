@@ -48,7 +48,8 @@ class ArchiveNameDecoderTest {
             data.size.toString(8).padStart(11, '0').encodeToByteArray().copyInto(h, 65)
             return h + stored + data
         }
-        val fields = longArrayOf(1, 0x81a4, 0, 0, 1, 0, data.size.toLong(), 0, 0, 0, 0, stored.size.toLong(), 0)
+        val checksum = if (magic == "070702") data.sumOf { it.toLong() and 255 } and 0xffffffffL else 0
+        val fields = longArrayOf(1, 0x81a4, 0, 0, 1, 0, data.size.toLong(), 0, 0, 0, 0, stored.size.toLong(), checksum)
         val h = (magic + fields.joinToString("") { it.toString(16).padStart(8, '0') }).encodeToByteArray()
         val named = h + stored
         return named + ByteArray((4 - named.size % 4) % 4) + data + ByteArray((4 - data.size % 4) % 4)

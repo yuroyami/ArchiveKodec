@@ -824,4 +824,51 @@ let valid = try Gzip.shared.decompress(input: compressed, limits: limits)
 precondition(valid.size == 3)
 let safe = try PathGuard.shared.sanitize(entryName: "safe/file")
 precondition(safe == "safe/file")
+// Real bsdcpio hard links expose the same logical bytes through each name.
+let cpioLinkArchives = [
+    "MDcwNzAxMDkxMjBmNDIwMDAwODFhNDAwMDAwMWY1MDAwMDAwMDAwMDAwMDAwMjZhYzVmNzYyMDAwMDAwMDAwMDAwMDAwMTAwMDAwMDBkMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA4MDAwMDAwMDBvbmUudHh0AAAAMDcwNzAxMDkxMjBmNDIwMDAwODFhNDAwMDAwMWY1MDAwMDAwMDAwMDAwMDAwMjZhYzVmNzYyMDAwMDAwMDgwMDAwMDAwMTAwMDAwMDBkMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA4MDAwMDAwMDB0d28udHh0AAAAREFUQS0xMjMwNzA3MDEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMGIwMDAwMDAwMFRSQUlMRVIhISEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "MDcwNzA3Nzc3Nzc3MDAwMDAxMTAwNjQ0MDAwNzY1MDAwMDAwMDAwMDAyMDAwMDAwMTUyNjEzNzM1NDIwMDAwMTAwMDAwMDAwMDAxMG9uZS50eHQAREFUQS0xMjMwNzA3MDc3Nzc3NzcwMDAwMDExMDA2NDQwMDA3NjUwMDAwMDAwMDAwMDIwMDAwMDAxNTI2MTM3MzU0MjAwMDAxMDAwMDAwMDAwMDEwdHdvLnR4dABEQVRBLTEyMzA3MDcwNzAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMTAwMDAwMDAwMDAwMDAwMDAwMDAwMDEzMDAwMDAwMDAwMDBUUkFJTEVSISEhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "MDcwNzAyMDkxMjBmNDIwMDAwODFhNDAwMDAwMWY1MDAwMDAwMDAwMDAwMDAwMjZhYzVmNzYyMDAwMDAwMDAwMDAwMDAwMTAwMDAwMDBkMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA4MDAwMDAwMDBvbmUudHh0AAAAMDcwNzAyMDkxMjBmNDIwMDAwODFhNDAwMDAwMWY1MDAwMDAwMDAwMDAwMDAwMjZhYzVmNzYyMDAwMDAwMDgwMDAwMDAwMTAwMDAwMDBkMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA4MDAwMDAxZGR0d28udHh0AAAAREFUQS0xMjMwNzA3MDIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMGIwMDAwMDAwMFRSQUlMRVIhISEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+]
+for encoded in cpioLinkArchives {
+    let data = bytes(Array(Data(base64Encoded: encoded)!))
+    let reader: ArchiveReader = CpioReader(source: ByteArrayRandomAccessSource(data: data))
+    let entries = try reader.entries()
+    precondition(entries.map { $0.name } == ["one.txt", "two.txt"])
+    for entry in entries {
+        precondition(entry.size == 8 && entry.compressedSize == 8 && entry.crc32 == nil)
+        let result = try reader.read(entry: entry, limits: limits)
+        precondition(result.size == 8)
+        for (index, value) in Array("DATA-123".utf8).enumerated() {
+            precondition(result.get(index: Int32(index)) == Int8(bitPattern: value))
+        }
+    }
+    try reader.close()
+}
+let crcLinkBytes = bytes(Array(Data(base64Encoded: cpioLinkArchives[2])!))
+let crcLinkReader: ArchiveReader = CpioReader(source: ByteArrayRandomAccessSource(data: crcLinkBytes))
+let crcLinkEntries = try crcLinkReader.entries()
+let cpioLimit = ArchiveLimits(maxUncompressedBytes: 7, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+for entry in crcLinkEntries {
+    expectFailure("cpio logical alias limit", check: { $0 is DecompressionBombException && $0.entryName == entry.name }) {
+        _ = try crcLinkReader.read(entry: entry, limits: cpioLimit)
+    }
+}
+// A successful earlier read cannot cache integrity for a changed source.
+_ = try crcLinkReader.read(entry: crcLinkEntries[0], limits: limits)
+crcLinkBytes.set(index: 240, value: 0)
+for entry in crcLinkEntries {
+    expectFailure("cpio changed carrier checksum", check: {
+        $0 is ArchiveFormatException && $0.entryName == "two.txt" && $0.offset?.int64Value == 222
+    }) { _ = try crcLinkReader.read(entry: entry, limits: limits) }
+}
+try crcLinkReader.close()
+for (offset, name) in [(Int32(102), "one.txt"), (Int32(350), "TRAILER!!!")] {
+    let invalid = bytes(Array(Data(base64Encoded: cpioLinkArchives[2])!))
+    invalid.set(index: offset + 7, value: 49)
+    expectFailure("cpio empty checksum \(name)", check: {
+        $0 is ArchiveFormatException && $0.entryName == name && $0.offset?.int64Value == Int64(offset)
+    }) { _ = try CpioReader(source: ByteArrayRandomAccessSource(data: invalid)).entries() }
+}
+
 print("Core Swift consumer passed: \(caught) catchable failures and valid decode/path calls")
