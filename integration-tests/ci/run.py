@@ -7,21 +7,42 @@ import sys
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
+MODULES = ("archivekodec", "archivekodec-io")
+
+
+def tests(*tasks):
+    """Test tasks for both modules, and the report directories they must fill."""
+    return ([f":{module}:{task}" for module in MODULES for task in tasks],
+            [(module, task) for module in MODULES for task in tasks])
+
+
+def compiles(*targets):
+    """Main compilations for targets this host can build but not execute."""
+    return [f":{module}:compileKotlin{target}" for module in MODULES for target in targets]
+
+
+PORTABLE_TESTS = tests("jvmTest", "jsNodeTest", "wasmJsNodeTest", "wasmWasiNodeTest", "linuxX64Test",
+                       "testAndroidHostTest")
+APPLE_TESTS = tests("iosSimulatorArm64Test", "macosArm64Test", "tvosSimulatorArm64Test",
+                    "watchosSimulatorArm64Test")
+WINDOWS_TESTS = tests("mingwX64Test")
 LANES = {
     "portable": (
-        [":checkPortableAbi", ":archivekodec:jvmTest", ":archivekodec-io:jvmTest", ":archivekodec:jsNodeTest",
-         ":archivekodec:testAndroidHostTest", ":archivekodec-io:testAndroidHostTest",
+        [":checkKotlinAbi", *PORTABLE_TESTS[0],
+         *compiles("LinuxArm64", "AndroidNativeArm32", "AndroidNativeArm64", "AndroidNativeX86",
+                   "AndroidNativeX64"),
          ":archivekodec:jvmJar", ":archivekodec-io:jvmJar",
          ":archivekodec:bundleAndroidMainAar", ":archivekodec-io:bundleAndroidMainAar",
          ":archivekodec:jsNodeProductionLibraryDistribution", ":io-consumer-test:compileJava"],
-        [("archivekodec", "jvmTest"), ("archivekodec-io", "jvmTest"), ("archivekodec", "jsNodeTest"),
-         ("archivekodec", "testAndroidHostTest"), ("archivekodec-io", "testAndroidHostTest")],
+        PORTABLE_TESTS[1],
     ),
     "apple": (
-        [":checkLegacyAbi", ":archivekodec:iosSimulatorArm64Test", ":archivekodec-io:iosSimulatorArm64Test",
+        [":checkLegacyAbi", *APPLE_TESTS[0],
+         *compiles("IosArm64", "TvosArm64", "WatchosArm32", "WatchosArm64", "WatchosDeviceArm64"),
          "swiftConsumerTest"],
-        [("archivekodec", "iosSimulatorArm64Test"), ("archivekodec-io", "iosSimulatorArm64Test")],
+        APPLE_TESTS[1],
     ),
+    "windows": (WINDOWS_TESTS[0], WINDOWS_TESTS[1]),
 }
 CANARY = ROOT / "archivekodec/src/jvmTest/kotlin/io/github/yuroyami/archivekodec/CiFailureCanaryTest.kt"
 CANARY_SOURCE = """package io.github.yuroyami.archivekodec
@@ -61,8 +82,9 @@ def main():
             with CANARY.open("x") as output:
                 inserted = True
                 output.write(CANARY_SOURCE)
+        gradlew = ROOT / ("gradlew.bat" if sys.platform == "win32" else "gradlew")
         subprocess.run([
-            str(ROOT / "gradlew"), "--console=plain", "--no-daemon", "--no-parallel", "--max-workers=2",
+            str(gradlew), "--console=plain", "--no-daemon", "--no-parallel", "--max-workers=2",
             "-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8 -XX:+UseParallelGC",
             "-Pkotlin.compiler.execution.strategy=in-process", *tasks,
         ], cwd=ROOT, check=True)

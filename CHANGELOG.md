@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Both artifacts now build for `wasmJs`, `wasmWasi`, `macosArm64`, `tvosArm64`,
+  `tvosSimulatorArm64`, `watchosArm32`, `watchosArm64`, `watchosDeviceArm64`,
+  `watchosSimulatorArm64`, `linuxX64`, `linuxArm64`, `mingwX64` and the four
+  androidNative targets. `archivekodec-io` also gains `js`, so the two artifacts
+  share one target matrix and can go in the same `commonMain`. That matrix covers
+  every target KitePDF and ImageKodec declare. `macosX64` and `tvosX64` are not
+  added, because Kotlin 2.4 deprecates them. No public API changes; the klib ABI
+  references list the new targets.
+
 - Breaking ZIP file model change for the next minor release: `ZipWriter.FileSpec`
   is an ordinary immutable class with fixed two/three-argument constructors, a
   builder action factory and `copy { ... }`. Use `ZipMethod.STORED` or `DEFLATED`

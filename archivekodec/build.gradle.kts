@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -16,8 +17,11 @@ plugins {
  * the path-traversal / decompression-bomb guards, and the seekable-source contract.
  *
  * The kotlinx-io adapters live in a separate :archivekodec-io module so the
- * kotlinx-io dependency never reaches consumers who don't want it. That module has
- * no JS target; this one does. Neither builds for wasmJs, macOS, Linux or mingw.
+ * kotlinx-io dependency never reaches consumers who don't want it. Both modules
+ * declare the same target matrix, so a consumer can put both in one commonMain.
+ * That matrix covers every target :kitepdf-core and :imagekodec declare. Nothing
+ * here is expect/actual, so the default hierarchy template supplies the shared
+ * native, Apple and web source sets without extra configuration.
  */
 kotlin {
     explicitApi()
@@ -45,13 +49,55 @@ kotlin {
         }
     }
 
+    macosArm64()
+    tvosArm64()
+    tvosSimulatorArm64()
+    watchosArm32()
+    watchosArm64()
+    watchosDeviceArm64()
+    watchosSimulatorArm64()
+
+    linuxX64()
+    linuxArm64()
+    mingwX64()
+
+    androidNativeArm32()
+    androidNativeArm64()
+    androidNativeX86()
+    androidNativeX64()
+
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
-    js(IR) {
+    js {
         browser()
         nodejs {
             testTask {
                 useMocha {
                     // Whole-array boundary tests intentionally decode several MiB.
+                    timeout = "30s"
+                }
+            }
+        }
+        binaries.library()
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        nodejs {
+            testTask {
+                useMocha {
+                    timeout = "30s"
+                }
+            }
+        }
+        binaries.library()
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmWasi {
+        nodejs {
+            testTask {
+                useMocha {
                     timeout = "30s"
                 }
             }

@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -14,8 +15,8 @@ plugins {
  * run a Codec over a source. There is no RawSink bridge and no seekable file handle
  * yet — toRandomAccessSource() reads the whole source into memory.
  *
- * This module deliberately has no JS target, so it does not match :archivekodec's
- * target set. A consumer that builds for JS cannot put both in one commonMain.
+ * The target matrix is the same as :archivekodec's, so a consumer can put both in
+ * one commonMain. kotlinx-io publishes a variant for every one of these targets.
  *
  * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's problem —
  * this module only adapts whatever Source the app already holds.
@@ -46,6 +47,42 @@ kotlin {
             export(project(":archivekodec"))
             export(libs.kotlinx.io.core)
         }
+    }
+
+    macosArm64()
+    tvosArm64()
+    tvosSimulatorArm64()
+    watchosArm32()
+    watchosArm64()
+    watchosDeviceArm64()
+    watchosSimulatorArm64()
+
+    linuxX64()
+    linuxArm64()
+    mingwX64()
+
+    androidNativeArm32()
+    androidNativeArm64()
+    androidNativeX86()
+    androidNativeX64()
+
+    js {
+        browser()
+        nodejs()
+        binaries.library()
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        nodejs()
+        binaries.library()
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmWasi {
+        nodejs()
+        binaries.library()
     }
 
     jvm()

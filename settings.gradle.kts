@@ -23,12 +23,13 @@ rootProject.name = "ArchiveKodec-KMP"
 
 // :archivekodec — the pure-Kotlin compression + archive core (stdlib only). Codecs
 // (store, DEFLATE, gzip/zlib, LZ4, Snappy), the ZIP reader/writer and the TAR/ar/cpio
-// readers, checksums, the magic sniffer and the security checks. Android, iOS, JVM, JS.
+// readers, checksums, the magic sniffer and the security checks. Builds for every target
+// KitePDF and ImageKodec use: Android, JVM, JS, Wasm, Apple, Linux, mingw, androidNative.
 include(":archivekodec")
 
 // :archivekodec-io — the kotlinx-io adapter: four convenience functions over RawSource.
 // No RawSink bridge and no seekable file handle yet. Keeps the kotlinx-io dependency
-// off the core and off consumers that don't want it. Android, iOS, JVM — no JS.
+// off the core and off consumers that don't want it. The same targets as :archivekodec.
 include(":archivekodec-io")
 
 // Compile a downstream JVM consumer against only the IO module's public dependencies.

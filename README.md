@@ -6,7 +6,7 @@ shared codebase.
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.yuroyami/archivekodec)](https://central.sonatype.com/artifact/io.github.yuroyami/archivekodec)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Targets](https://img.shields.io/badge/targets-Android%20%7C%20iOS%20%7C%20JVM%20%7C%20JS-blue)](#targets)
+[![Targets](https://img.shields.io/badge/targets-Android%20%7C%20Apple%20%7C%20JVM%20%7C%20JS%20%7C%20Wasm%20%7C%20Linux%20%7C%20Windows-blue)](#targets)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 **[Documentation](https://yuroyami.github.io/ArchiveKodec/)** · an overview with
@@ -480,17 +480,27 @@ bzip2, 7z and RAR, and ArchiveKodec cannot decode any of those five formats.
 
 ## Targets
 
-The two artifacts do not build for the same targets. `archivekodec-io` has no JS
-target, so adding both to one `commonMain` breaks a project that builds for JS.
+Both artifacts build for the same targets, so both can go in one `commonMain`.
+The matrix covers every target KitePDF and ImageKodec declare. Neither artifact has
+platform-specific code, so each target compiles the same common sources.
 
-| Target | `archivekodec` | `archivekodec-io` |
-| --- | --- | --- |
-| Android, minSdk 21, compileSdk 36 | yes | yes |
-| `jvm`, JDK 21 toolchain | yes | yes |
-| `iosArm64`, `iosSimulatorArm64`, `iosX64` | yes | yes |
-| `js(IR)`, browser and Node | yes | no |
+| Target | Both artifacts |
+| --- | --- |
+| Android, minSdk 21, compileSdk 36 | yes |
+| `jvm`, JDK 21 toolchain | yes |
+| `js`, browser and Node | yes |
+| `wasmJs`, browser and Node | yes |
+| `wasmWasi`, Node | yes |
+| `iosArm64`, `iosSimulatorArm64`, `iosX64` | yes |
+| `macosArm64` | yes |
+| `tvosArm64`, `tvosSimulatorArm64` | yes |
+| `watchosArm32`, `watchosArm64`, `watchosDeviceArm64`, `watchosSimulatorArm64` | yes |
+| `linuxX64`, `linuxArm64` | yes |
+| `mingwX64` | yes |
+| `androidNativeArm32`, `androidNativeArm64`, `androidNativeX86`, `androidNativeX64` | yes |
 
-Neither artifact builds for `wasmJs`, macOS, Linux or mingw.
+There is no `macosX64` or `tvosX64`. Kotlin 2.4 deprecates both and plans to remove
+them ([target tiers](https://kotlinlang.org/docs/native-target-support.html)).
 
 ## The `-io` artifact
 
@@ -630,11 +640,11 @@ values are independent of the Kotlin implementation.
 ## Building
 
 The ABI references in each module's `api/` directory cover JVM classes, the
-actual Android AAR classes and the merged JS/iOS klib declarations. Both modules'
-`check` tasks require ABI checks. The portable CI lane checks the JVM and Android
-artifacts; the Apple lane checks the complete target matrix without inferring
-unsupported targets. A complete ABI check therefore requires a macOS host with
-the Apple toolchain and Android SDK.
+actual Android AAR classes and the merged klib declarations of every other target.
+Both modules' `check` tasks require ABI checks. The Linux and Apple CI lanes both
+check the complete target matrix without inferring unsupported targets. Kotlin/Native
+cross-compiles the Apple klibs on Linux, so a complete ABI check needs the Android
+SDK and no Apple toolchain.
 
 ```bash
 ./gradlew checkPortableAbi            # JVM JARs and Android AARs
@@ -662,10 +672,13 @@ You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
 your SDK install.
 
 Pull requests and main pushes run the `CI` workflow without path filters. Its
-`Verification` check requires both platform lanes to succeed, including JVM,
-Android host and Node tests, both Android AARs/JVM JARs, the core JS distribution,
-the downstream Java compile check, both iOS simulator suites and the independent
-Swift consumers.
+`Verification` check requires all three platform lanes to succeed. The Linux lane
+runs the JVM, Android host, JS Node, wasmJs Node, wasmWasi Node and `linuxX64`
+suites of both modules. It compiles `linuxArm64` and the four androidNative
+targets, and builds both Android AARs/JVM JARs, the core JS distribution and the
+downstream Java compile check. The macOS lane runs the iOS, macOS, tvOS and
+watchOS simulator suites, compiles the Apple device targets and runs the
+independent Swift consumers. The Windows lane runs both `mingwX64` suites.
 All six Apple frameworks are built; device and x64 checks cover compilation and
 exported headers, while runtime checks use the arm64 iOS simulator. Android
 verification includes both host-test suites, compilation and packaging. Android
@@ -678,7 +691,8 @@ Run the identical commands locally with JDK 21 and Android SDK 36 installed:
 
 ```bash
 python3 integration-tests/ci/run.py portable
-python3 integration-tests/ci/run.py apple # macOS arm64, Xcode and an iOS simulator runtime
+python3 integration-tests/ci/run.py apple # macOS arm64, Xcode and the simulator runtimes
+python integration-tests/ci/run.py windows # Windows x64
 ```
 
 The workflow's manual `failure_canary` input inserts a deliberately failing JVM

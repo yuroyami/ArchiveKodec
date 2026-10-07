@@ -1,8 +1,9 @@
 # API baseline records
 
 Each library module has three current reference files: `api/jvm/<module>.api`,
-`api/android/<module>.api` and `api/<module>.klib.api`. The core klib dump covers
-JS and all three iOS targets; the IO dump covers all three iOS targets. These
+`api/android/<module>.api` and `api/<module>.klib.api`. Each klib dump covers
+every non-JVM target of its module: JS, Wasm, Apple, Linux, mingw and androidNative.
+Both modules declare the same targets. These
 references were first recorded before the visibility cleanup in #79, in commit
 `5fe7144`. That baseline includes `ByteArrayBuilder`, `InflateError.fromPuff`,
 `SPACE_EXHAUSTED` and the raw LZ4 block functions. The next commit removes those
@@ -18,7 +19,7 @@ JVM/JS/iOS checks. `checkLegacyAbi` is an aggregate command retained for the pla
 in #78; it checks the current references, rather than comparing the renamed
 library against an incompatible old namespace.
 
-The portable CI lane requires `checkPortableAbi`. The Apple lane requires
+The portable CI lane requires `checkKotlinAbi`. The Apple lane requires
 `checkLegacyAbi`; unsupported-target inference is disabled. No CI command updates
 reference files. A public addition or removal requires a reviewed reference
 change in the same commit and corresponding release notes.
@@ -29,8 +30,9 @@ change in the same commit and corresponding release notes.
 ./gradlew updateKotlinAbi
 ```
 
-The complete check/update requires macOS with the Apple toolchain and Android
-SDK. Module `check` tasks also require their ABI checks, and root `check` runs
+The complete check/update requires the Android SDK. It runs on Linux too:
+Kotlin/Native cross-compiles the Apple klibs, so the Apple toolchain is needed
+only to link and run Apple binaries. Module `check` tasks also require their ABI checks, and root `check` runs
 both module checks and the complete matrix.
 
 ## Released 0.1.0

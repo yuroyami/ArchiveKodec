@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   portable:
-    name: JVM, Node, Android and Java consumer
+    name: JVM, Node, Wasm, Linux, Android and Java consumer
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -54,7 +54,7 @@ jobs:
           retention-days: 14
 
   apple:
-    name: iOS simulator and Swift consumers
+    name: Apple simulators, macOS and Swift consumers
     runs-on: macos-26
     timeout-minutes: 60
     env:
@@ -89,9 +89,39 @@ jobs:
             archivekodec-io/build/reports/tests/
           retention-days: 14
 
+  windows:
+    name: mingwX64 tests
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Install the required Android SDK
+        shell: bash
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager.bat" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Run verification
+        run: python integration-tests/ci/run.py windows
+      - name: Retain test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-test-reports
+          path: |
+            archivekodec/build/test-results/
+            archivekodec/build/reports/tests/
+            archivekodec-io/build/test-results/
+            archivekodec-io/build/reports/tests/
+          retention-days: 14
+
   verification:
     name: Verification
-    needs: [portable, apple]
+    needs: [portable, apple, windows]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -100,9 +130,11 @@ jobs:
         env:
           PORTABLE_RESULT: ${{ needs.portable.result }}
           APPLE_RESULT: ${{ needs.apple.result }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
         run: |
           test "$PORTABLE_RESULT" = success
           test "$APPLE_RESULT" = success
+          test "$WINDOWS_RESULT" = success
 
   docs:
     name: Build documentation

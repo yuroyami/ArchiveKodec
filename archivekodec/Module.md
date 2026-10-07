@@ -7,3 +7,6 @@ ZIP (with ZIP64), TAR, ar and cpio behind `ArchiveReader`; CRC-32, CRC-32C,
 Adler-32, CRC-64/XZ and xxHash32; and a magic-byte format sniffer. Everything is
 `ByteArray` in, `ByteArray` out, with no I/O and no dependency beyond
 `kotlin-stdlib`.
+
+Builds for Android, JVM, JS, wasmJs, wasmWasi, iOS, macOS (arm64), tvOS, watchOS,
+Linux, mingwX64 and androidNative. Both modules share this target list.

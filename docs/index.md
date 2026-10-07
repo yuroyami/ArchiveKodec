@@ -62,8 +62,8 @@ or apply archive metadata to it.
 
 | Module | What it holds | Targets |
 | --- | --- | --- |
-| `archivekodec` | Codecs, archive readers, a ZIP writer, checksums, a sniffer and the safety checks. See the table below | Android, iOS, JVM, JS |
-| `archivekodec-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | Android, iOS, JVM |
+| `archivekodec` | Codecs, archive readers, a ZIP writer, checksums, a sniffer and the safety checks. See the table below | All, see below |
+| `archivekodec-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | All, see below |
 
 What `archivekodec` contains:
 
@@ -74,8 +74,9 @@ What `archivekodec` contains:
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Safety | A magic sniffer, plus the opt-in `PathGuard` and `ArchiveLimits` checks |
 
-`archivekodec-io` has **no JS target**. It cannot go in the same `commonMain` as
-the core in a project that builds for JS.
+Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
+`wasmWasi`, iOS, `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`,
+`mingwX64` and the four androidNative targets. The README lists them in full.
 
 ## Not implemented
 
