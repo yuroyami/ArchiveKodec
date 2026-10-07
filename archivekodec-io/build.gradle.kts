@@ -36,6 +36,8 @@ kotlin {
         target.binaries.framework {
             baseName = "ArchiveKodecIo"
             isStatic = false
+            export(project(":archivekodec"))
+            export(libs.kotlinx.io.core)
         }
     }
 

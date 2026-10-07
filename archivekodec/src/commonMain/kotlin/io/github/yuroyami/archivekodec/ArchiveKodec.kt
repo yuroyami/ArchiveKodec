@@ -27,6 +27,7 @@ object ArchiveKodec {
     fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
 
     /** Detect the format of a seekable source (reads up to the first 512 bytes). */
+    @Throws(ArchiveException::class)
     fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
 
     /** The codec for [id], or null if not yet implemented. */
@@ -44,15 +45,17 @@ object ArchiveKodec {
      * Open a container reader for a seekable [source], dispatching on the sniffed
      * format.
      *
-     * @throws UnsupportedOperationException for a format with no reader yet.
+     * @throws ArchiveUnsupportedException for a format with no reader yet.
      */
+    @Throws(ArchiveException::class)
     fun open(source: RandomAccessSource): ArchiveReader = when (val format = sniff(source)) {
         ArchiveFormat.TAR -> TarReader(source)
         ArchiveFormat.ZIP -> ZipReader(source)
         ArchiveFormat.AR -> ArReader(source)
         ArchiveFormat.CPIO -> CpioReader(source)
-        else -> throw UnsupportedOperationException(
-            "no container reader for $format",
+        ArchiveFormat.UNKNOWN -> throw ArchiveFormatException("unrecognized archive format", 0)
+        else -> throw ArchiveUnsupportedException(
+            "no container reader for $format", offset = 0,
         )
     }
 }

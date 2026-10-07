@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -12,11 +13,14 @@ interface ArchiveReader {
     val format: ArchiveFormat
 
     /** List members from the header/directory only. */
+    @Throws(ArchiveException::class)
     fun entries(): List<ArchiveEntry>
 
     /** Read one entry's uncompressed bytes, enforcing [limits]. */
+    @Throws(ArchiveException::class)
     fun read(entry: ArchiveEntry, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 
     /** Release the underlying source. */
+    @Throws(ArchiveException::class)
     fun close() {}
 }

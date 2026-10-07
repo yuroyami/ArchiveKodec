@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec.archive.cpio
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -17,17 +19,21 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  */
 class CpioReader(private val source: RandomAccessSource) : ArchiveReader {
 
+    override fun toString(): String = "CpioReader(source=$source)"
+
     override val format = ArchiveFormat.CPIO
 
     private val parsed: List<ArchiveEntry> by lazy { parse() }
 
+    @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = parsed
 
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
+    @Throws(ArchiveException::class)
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
-        if (entry.isDirectory || entry.size == 0L) return ByteArray(0)
-        return source.readFullyChecked(entry.dataOffset, entry.size)
+        if (entry.isDirectory || entry.size == 0L) return@withEntryContext ByteArray(0)
+        return@withEntryContext source.readFullyChecked(entry.dataOffset, entry.size)
     }
 
     private fun parse(): List<ArchiveEntry> {

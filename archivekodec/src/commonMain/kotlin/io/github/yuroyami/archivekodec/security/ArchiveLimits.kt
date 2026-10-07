@@ -22,6 +22,7 @@ data class ArchiveLimits(
     val maxNestingDepth: Int = 8,
 ) {
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
+    @Throws(ArchiveException::class)
     fun checkOutputSize(bytes: Long) {
         if (bytes > maxUncompressedBytes) {
             throw DecompressionBombException(
@@ -31,6 +32,7 @@ data class ArchiveLimits(
     }
 
     /** @throws DecompressionBombException if the ratio exceeds [maxCompressionRatio]. */
+    @Throws(ArchiveException::class)
     fun checkRatio(compressedBytes: Long, uncompressedBytes: Long) {
         if (compressedBytes <= 0) return
         val quotient = uncompressedBytes / compressedBytes
@@ -43,6 +45,7 @@ data class ArchiveLimits(
     }
 
     /** @throws DecompressionBombException if an entry count exceeds [maxEntries]. */
+    @Throws(ArchiveException::class)
     fun checkEntryCount(count: Int) {
         if (count > maxEntries) {
             throw DecompressionBombException("entry count $count exceeds limit $maxEntries")
@@ -64,4 +67,8 @@ data class ArchiveLimits(
 }
 
 /** Thrown when input trips a decompression-bomb guard. */
-class DecompressionBombException(message: String) : ArchiveException(message)
+class DecompressionBombException : ArchiveException {
+    constructor(message: String) : super(message)
+    constructor(message: String, offset: Long?, entryName: String?, cause: Throwable?) :
+        super(message, cause, offset, entryName)
+}

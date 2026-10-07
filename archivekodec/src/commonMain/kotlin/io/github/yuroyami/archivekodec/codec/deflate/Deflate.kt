@@ -27,6 +27,7 @@ Copyright notice:
 
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -48,6 +49,7 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 object Deflate {
 
     /** Compress [data] to a bare DEFLATE stream (no zlib/gzip wrapper). */
+    @Throws(ArchiveException::class)
     fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
 }
 
@@ -65,6 +67,7 @@ private class Deflater(private val data: ByteArray) {
     private val llFreq = IntArray(286)   // literals 0..255, EOB 256, length codes 257..285
     private val dFreq = IntArray(30)     // distance codes
 
+    @Throws(ArchiveException::class)
     fun encode(): ByteArray {
         lz77()
         llFreq[END_OF_BLOCK]++           // every block ends with one EOB

@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 
 /**
@@ -24,10 +25,11 @@ interface RandomAccessSource {
      * @throws ArchiveFormatException for a negative source offset.
      * @throws IllegalArgumentException for an invalid destination slice.
      */
-    @Throws(ArchiveFormatException::class, IllegalArgumentException::class)
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
     fun read(offset: Long, into: ByteArray, intoOffset: Int = 0, length: Int = into.size): Int
 
     /** Release any underlying handle. No-op for in-memory sources. */
+    @Throws(ArchiveException::class)
     fun close() {}
 }
 
@@ -36,7 +38,7 @@ interface RandomAccessSource {
  *
  * @throws ArchiveFormatException for an invalid range or a premature end of source.
  */
-@Throws(ArchiveFormatException::class)
+@Throws(ArchiveException::class)
 fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray =
     readFullyChecked(offset, length.toLong())
 
@@ -69,7 +71,9 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
 class ByteArrayRandomAccessSource(private val data: ByteArray) : RandomAccessSource {
     override val size: Long get() = data.size.toLong()
 
-    @Throws(ArchiveFormatException::class, IllegalArgumentException::class)
+    override fun toString(): String = "ByteArrayRandomAccessSource(size=${data.size})"
+
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
     override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
         if (offset < 0) throw ArchiveFormatException("negative source offset $offset", offset)
         require(intoOffset >= 0 && length >= 0 && intoOffset <= into.size && length <= into.size - intoOffset) {

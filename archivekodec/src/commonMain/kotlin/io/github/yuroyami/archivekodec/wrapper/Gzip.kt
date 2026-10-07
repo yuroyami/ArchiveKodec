@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -30,6 +31,7 @@ object Gzip {
     const val DEFAULT_MAXIMUM_SIZE: Long = 4L * 1024 * 1024
 
     /** Compress [data] into a complete gzip member. */
+    @Throws(ArchiveException::class)
     fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 32)
         out.append(MAGIC0.toByte())
@@ -46,6 +48,7 @@ object Gzip {
     }
 
     /** Decode all gzip members with [ArchiveLimits.DEFAULT]. Also accepts one zlib stream. */
+    @Throws(ArchiveException::class)
     fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
     /**
@@ -60,6 +63,7 @@ object Gzip {
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
      *   before output growth if the output or whole-input ratio exceeds [limits].
      */
+    @Throws(ArchiveException::class)
     fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) {
             return Zlib.decompress(input, limits)
@@ -88,6 +92,7 @@ object Gzip {
         "Pass ArchiveLimits to configure the complete decompression policy",
         ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
+    @Throws(ArchiveException::class)
     fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
 

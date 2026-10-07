@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Adler32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -15,6 +17,7 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 object Zlib {
 
     /** Compress [data] into a zlib stream. */
+    @Throws(ArchiveException::class)
     fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 16)
         // CMF = 0x78 (CM=8, CINFO=7 → 32 KiB window), FLG = 0x9C so that
@@ -31,6 +34,7 @@ object Zlib {
     }
 
     /** Decode exactly one complete zlib stream with [ArchiveLimits.DEFAULT]. */
+    @Throws(ArchiveException::class)
     fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
     /**
@@ -39,10 +43,12 @@ object Zlib {
      * Output and whole-input ratio budgets are checked before allocating or copying.
      *
      * @throws ArchiveFormatException for an invalid header, trailer or checksum.
+     * @throws ArchiveUnsupportedException if a preset dictionary is required.
      * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
      *   if the output or whole-input ratio exceeds [limits].
      */
+    @Throws(ArchiveException::class)
     fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
         val cmf = input[0].toInt() and 0xff
@@ -50,7 +56,12 @@ object Zlib {
         if (cmf and 0x0f != 8 || cmf ushr 4 > 7 || ((cmf shl 8) or flg) % 31 != 0) {
             throw ArchiveFormatException("zlib: invalid header", 0)
         }
-        if (flg and 0x20 != 0) throw ArchiveFormatException("zlib: preset dictionaries are unsupported", 1)
+        if (flg and 0x20 != 0) {
+            if (input.size < 6) throw ArchiveFormatException("zlib: truncated dictionary ID", 2)
+            var dictionary = 0L
+            repeat(4) { dictionary = (dictionary shl 8) or (input[2 + it].toLong() and 0xff) }
+            throw ArchiveUnsupportedException("zlib: preset dictionary ${dictionary.toString(16)} is required but unsupported", 2)
+        }
         val output = Inflate.Output(limits, input.size)
         val trailer = Inflate.inflateInto(input, 2, input.size, output)
         if (input.size - trailer < 4) throw ArchiveFormatException("zlib: truncated Adler-32 trailer", trailer.toLong())
@@ -66,6 +77,7 @@ object Zlib {
         "Pass ArchiveLimits to configure the complete decompression policy",
         ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
+    @Throws(ArchiveException::class)
     fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
 }

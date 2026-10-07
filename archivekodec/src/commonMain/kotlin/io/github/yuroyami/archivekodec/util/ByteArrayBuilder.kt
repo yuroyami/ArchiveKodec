@@ -23,12 +23,14 @@ class ByteArrayBuilder(initialCapacity: Int = 64) {
     val size: Int get() = len
 
     /** Append a single byte. */
+    @Throws(io.github.yuroyami.archivekodec.ArchiveException::class)
     fun append(b: Byte) {
         ensure(1)
         buf[len++] = b
     }
 
     /** Append a slice of [bytes]. */
+    @Throws(io.github.yuroyami.archivekodec.ArchiveException::class, IllegalArgumentException::class)
     fun append(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size) {
         require(offset >= 0 && length >= 0 && offset <= bytes.size && length <= bytes.size - offset) {
             "invalid source slice: offset $offset, length $length, size ${bytes.size}"

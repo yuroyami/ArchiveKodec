@@ -126,6 +126,40 @@ trailing bytes. zlib validates Adler-32 and requires exactly one complete stream
 raw DEFLATE also rejects bytes after its final block. Wrapper integrity failures
 throw `ArchiveFormatException`. The gzip-to-zlib fallback uses the same checks.
 
+## Expected failures and Apple consumers
+
+Expected archive failures share the `ArchiveException` base. Its `offset` and
+`entryName` identify source context when known, and `cause` retains the original
+failure. Entry reads rebase codec offsets to the archive source. Categories include
+`ArchiveFormatException`, `ArchiveUnsupportedException`, `ArchiveIOException`,
+`ArchiveSizeException`, `InflateException`, `DecompressionBombException`, and
+`ArchivePathException`. Buffer-slice mistakes on the source/builder APIs retain
+their documented `IllegalArgumentException` contract.
+
+Throwing core and adapter entry points export `NSError` parameters to Objective-C
+and `throws` to Swift. Java methods declare the same checked archive exception
+contract, so Java callers must catch or declare those failures. The IO framework exports the core and kotlinx-io types
+needed by its public methods; import `ArchiveKodecIo` when using that framework.
+
+```swift
+import Foundation
+import ArchiveKodec
+
+do {
+    let output = try Gzip.shared.decompress(input: payload)
+    print(output.size)
+} catch {
+    let failure = (error as NSError).kotlinException as? ArchiveException
+    print(failure?.message ?? String(describing: error))
+    print(failure?.entryName as Any, failure?.offset as Any)
+}
+```
+
+Custom `RandomAccessSource` and `Codec` implementations must report expected
+failures as `ArchiveException` subclasses. Recoverable source IO failures in the
+kotlinx-io adapter become `ArchiveIOException`. The bridge covers expected errors;
+resource exhaustion and implementation bugs are outside that contract.
+
 ## Read an archive
 
 ```kotlin
@@ -135,7 +169,7 @@ reader.read(entry)        // decode one entry
 ```
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
-`CpioReader`. Anything else throws `UnsupportedOperationException`. `entries()`
+`CpioReader`. Anything else throws `ArchiveUnsupportedException`. `entries()`
 does not touch payload bytes. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
@@ -313,6 +347,7 @@ LZ4 frame header byte.
 
 ```bash
 ./gradlew :archivekodec:jvmTest         # core test suite
+./gradlew swiftConsumerTest             # macOS arm64: compile and run core/IO Swift consumers
 ./gradlew :archivekodec-io:jvmTest      # kotlinx-io adapter tests
 ./gradlew :io-consumer-test:compileJava # downstream IO API compile check
 ./gradlew build                        # all modules, all targets

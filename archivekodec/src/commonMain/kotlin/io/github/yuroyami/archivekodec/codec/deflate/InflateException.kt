@@ -83,4 +83,8 @@ enum class InflateError(val code: Int, val message: String) {
  * Thrown by [Inflate] and the gzip/zlib framers when decompression fails. Carries
  * the specific [error] so callers can branch on the exact failure mode.
  */
-class InflateException(val error: InflateError) : ArchiveException(error.message)
+class InflateException(
+    val error: InflateError, offset: Long?, entryName: String?, cause: Throwable?,
+) : ArchiveException(error.message, cause, offset, entryName) {
+    constructor(error: InflateError) : this(error, null, null, null)
+}

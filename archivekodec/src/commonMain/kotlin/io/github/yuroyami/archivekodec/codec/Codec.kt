@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.codec
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -13,8 +14,10 @@ interface Codec {
     val id: CodecId
 
     /** Compress [data] fully in memory. */
+    @Throws(ArchiveException::class)
     fun compress(data: ByteArray): ByteArray
 
     /** Decompress [data] fully in memory, enforcing [limits]. */
+    @Throws(ArchiveException::class)
     fun decompress(data: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 }

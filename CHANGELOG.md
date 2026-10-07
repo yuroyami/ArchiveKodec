@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Expected core and adapter failures export through NSError/Swift throws with
+  `ArchiveException` as the shared contract. Reader/codec interfaces, direct
+  engines, wrappers, guards, writers, and source helpers declare their throwing
+  behavior. This changes the Objective-C selectors and Swift signatures of
+  formerly non-throwing operations; Apple consumers must rebuild and use `try`.
+  JVM method descriptors remain compatible, while Java source callers must handle
+  the now-declared checked archive exceptions.
+- Unsupported readers/writer codecs use `ArchiveUnsupportedException`. Remaining
+  generic ZIP/ar parser failures use typed format errors. Entry reads retain their
+  original cause and attach source offset/name context, including rebasing codec
+  offsets into the archive. IO adapters wrap source IO failures in
+  `ArchiveIOException` while preserving the original cause.
+- The IO framework explicitly exports its core and kotlinx-io API dependencies,
+  giving standalone Swift consumers usable public types. `swiftConsumerTest`
+  compiles and runs independent core/IO consumers and verifies NSError signatures.
+
 - ZIP validates every non-null CRC-32, including zero. Mismatches report the
   entry name and payload offset through `ArchiveFormatException`.
 

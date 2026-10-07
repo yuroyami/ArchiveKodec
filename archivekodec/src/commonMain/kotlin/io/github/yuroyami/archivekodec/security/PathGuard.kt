@@ -23,30 +23,31 @@ object PathGuard {
      *
      * @throws ArchivePathException if the name is unsafe.
      */
+    @Throws(ArchiveException::class)
     fun sanitize(entryName: String): String {
-        if (entryName.isEmpty()) throw ArchivePathException("empty entry name")
+        if (entryName.isEmpty()) throw ArchivePathException("empty entry name", entryName)
         for (ch in entryName) {
             if (ch.code < 0x20 || ch.code == 0x7f) {
-                throw ArchivePathException("control/NUL character in entry name: '$entryName'")
+                throw ArchivePathException("control/NUL character in entry name: '$entryName'", entryName)
             }
         }
 
         val normalized = entryName.replace('\\', '/')
-        if (normalized.startsWith("/")) throw ArchivePathException("absolute path: '$entryName'")
+        if (normalized.startsWith("/")) throw ArchivePathException("absolute path: '$entryName'", entryName)
 
         val stack = ArrayList<String>()
         for (part in normalized.split('/')) {
             when (part) {
                 "", "." -> {} // collapse empty + current-dir segments
-                ".." -> throw ArchivePathException("path traversal ('..') in: '$entryName'")
+                ".." -> throw ArchivePathException("path traversal ('..') in: '$entryName'", entryName)
                 else -> stack.add(part)
             }
         }
-        if (stack.isEmpty()) throw ArchivePathException("entry resolves to nothing: '$entryName'")
+        if (stack.isEmpty()) throw ArchivePathException("entry resolves to nothing: '$entryName'", entryName)
         val result = stack.joinToString("/")
         // Collapsing a leading ./ can expose a Windows drive prefix.
         if (result.length >= 2 && result[1] == ':') {
-            throw ArchivePathException("drive-letter path: '$entryName'")
+            throw ArchivePathException("drive-letter path: '$entryName'", entryName)
         }
         return result
     }
@@ -57,4 +58,7 @@ object PathGuard {
 }
 
 /** Thrown when an archive entry name fails the [PathGuard] checks. */
-class ArchivePathException(message: String) : ArchiveException(message)
+class ArchivePathException : ArchiveException {
+    constructor(message: String) : super(message)
+    constructor(message: String, entryName: String) : super(message, entryName = entryName)
+}

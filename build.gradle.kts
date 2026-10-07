@@ -58,3 +58,13 @@ allprojects {
     }
 }
 
+
+// Compile and execute downstream Swift consumers against the actual simulator frameworks.
+tasks.register<Exec>("swiftConsumerTest") {
+    group = "verification"
+    description = "Verify NSError bridges and run core/IO Swift consumers on an iOS simulator"
+    for (target in listOf("IosSimulatorArm64", "IosArm64", "IosX64")) {
+        dependsOn(":archivekodec:linkDebugFramework$target", ":archivekodec-io:linkDebugFramework$target")
+    }
+    commandLine("python3", rootProject.file("integration-tests/swift-consumer/run.py").absolutePath, "--skip-build")
+}

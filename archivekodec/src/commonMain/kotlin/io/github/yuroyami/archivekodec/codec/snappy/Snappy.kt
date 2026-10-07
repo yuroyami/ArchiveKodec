@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.codec.snappy
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
@@ -14,6 +15,7 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 object Snappy {
 
     /** Decompress a Snappy block, validating its complete structure before output allocation. */
+    @Throws(ArchiveException::class)
     fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
         var length = 0L
@@ -95,6 +97,7 @@ object Snappy {
     }
 
     /** Compress [data] into a valid (all-literal) Snappy block. */
+    @Throws(ArchiveException::class)
     fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size + 8)
         var v = data.size

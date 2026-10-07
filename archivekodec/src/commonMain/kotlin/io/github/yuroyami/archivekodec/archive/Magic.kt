@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.ArchiveException
+
 /**
  * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
  * [RandomAccessSource], and returns the matching [ArchiveFormat]. Brotli has no
@@ -39,6 +41,7 @@ object Magic {
     }
 
     /** Sniff the first bytes of a seekable source. */
+    @Throws(ArchiveException::class)
     fun sniff(source: RandomAccessSource): ArchiveFormat {
         val n = minOf(source.size, 512L).toInt()
         if (n <= 0) return ArchiveFormat.UNKNOWN

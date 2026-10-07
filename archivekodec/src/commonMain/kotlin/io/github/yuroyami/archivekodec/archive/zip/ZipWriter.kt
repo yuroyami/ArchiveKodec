@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.archive.zip
 
+import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
@@ -38,11 +41,15 @@ object ZipWriter {
     private const val MASK32 = 0xFFFFFFFFL
 
     /** @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray. */
+    @Throws(ArchiveException::class)
     fun write(files: List<FileSpec>): ByteArray {
         // Include both headers and the end records before constructing any output.
         var plannedSize = 22L + (if (files.size > 0xFFFF) 76 else 0) + files.size.toLong() * 76
         checkedArraySize(plannedSize)
         for (f in files) {
+            if (f.codec != CodecId.STORE && f.codec != CodecId.DEFLATE) {
+                throw ArchiveUnsupportedException("ZipWriter supports STORE/DEFLATE, not ${f.codec}", entryName = f.name)
+            }
             plannedSize += f.name.encodeToByteArray().size * 2L
             if (f.codec == CodecId.STORE) plannedSize += f.data.size
             checkedArraySize(plannedSize)
@@ -58,7 +65,7 @@ object ZipWriter {
             val comp = when (f.codec) {
                 CodecId.STORE -> f.data
                 CodecId.DEFLATE -> Deflate.encode(f.data)
-                else -> throw IllegalArgumentException("ZipWriter supports STORE/DEFLATE, not ${f.codec}")
+                else -> throw ArchiveUnsupportedException("ZipWriter supports STORE/DEFLATE, not ${f.codec}", entryName = f.name)
             }
             if (f.codec != CodecId.STORE) {
                 plannedSize += comp.size

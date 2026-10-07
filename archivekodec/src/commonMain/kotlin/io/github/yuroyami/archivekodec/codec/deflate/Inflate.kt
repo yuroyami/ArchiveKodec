@@ -25,6 +25,7 @@
 
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.checksum.Checksum
@@ -94,6 +95,7 @@ object Inflate {
     )
 
     /** Inflate exactly one complete raw DEFLATE stream with [ArchiveLimits.DEFAULT]. */
+    @Throws(ArchiveException::class)
     fun inflate(input: ByteArray): ByteArray = inflate(input, ArchiveLimits.DEFAULT)
 
     /**
@@ -106,6 +108,7 @@ object Inflate {
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
      *   if the cumulative output or whole-input compression ratio exceeds [limits].
      */
+    @Throws(ArchiveException::class)
     fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray {
         val output = Output(limits, input.size)
         val end = inflateInto(input, 0, input.size, output)
@@ -128,10 +131,13 @@ object Inflate {
                     2 -> dynamic(s)
                     else -> InflateError.INVALID_BLOCK_TYPE.code
                 }
-                if (err != 0) throw InflateException(InflateError.fromPuff(err))
+                if (err != 0) throw InflateException(InflateError.fromPuff(err), s.position.toLong(), null, null)
             } while (last == 0)
         } catch (_: OutOfInput) {
-            throw InflateException(InflateError.DATA_DID_NOT_TERMINATE)
+            throw InflateException(InflateError.DATA_DID_NOT_TERMINATE, s.position.toLong(), null, null)
+        } catch (error: InflateException) {
+            if (error.offset != null) throw error
+            throw InflateException(error.error, s.position.toLong(), null, error)
         }
         return s.position
     }

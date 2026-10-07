@@ -1,6 +1,9 @@
 package io.github.yuroyami.archivekodec.archive.zip
 
+import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -28,16 +31,20 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  */
 class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
 
+    override fun toString(): String = "ZipReader(source=$source)"
+
     override val format = ArchiveFormat.ZIP
 
     private val cached: List<ArchiveEntry> by lazy { parseCentralDirectory() }
 
+    @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = cached
 
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
-        if (entry.isDirectory) return ByteArray(0)
+    @Throws(ArchiveException::class)
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+        if (entry.isDirectory) return@withEntryContext ByteArray(0)
         val lh = source.readFully(entry.dataOffset, 30)
-        if (ZipFormat.u32(lh, 0) != ZipFormat.LOC) error("bad local file header at ${entry.dataOffset}")
+        if (ZipFormat.u32(lh, 0) != ZipFormat.LOC) throw ArchiveFormatException("ZIP: invalid local file header", entry.dataOffset, entry.name)
         val method = ZipFormat.u16(lh, 8)
         val nameLen = ZipFormat.u16(lh, 26)
         val extraLen = ZipFormat.u16(lh, 28)
@@ -49,22 +56,26 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
 
         val comp = source.readFullyChecked(dataStart, entry.compressedSize)
         val codecId = ZipFormat.codecForMethod(method)
-            ?: throw UnsupportedOperationException("ZIP method $method not supported")
+            ?: throw ArchiveUnsupportedException("ZIP method $method not supported", entry.dataOffset, entry.name)
         val codec = Codecs.byId(codecId)
-            ?: throw UnsupportedOperationException("ZIP method $method ($codecId) not implemented yet")
-        val out = codec.decompress(comp, limits)
+            ?: throw ArchiveUnsupportedException("ZIP method $method ($codecId) not implemented yet", entry.dataOffset, entry.name)
+        val out = try {
+            codec.decompress(comp, limits)
+        } catch (error: ArchiveException) {
+            throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+        }
 
         entry.crc32?.let { expected ->
             if (Crc32.of(out) != expected) {
                 throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
             }
         }
-        return out
+        return@withEntryContext out
     }
 
     private fun parseCentralDirectory(): List<ArchiveEntry> {
         val size = source.size
-        if (size < 22) error("not a ZIP file (too small)")
+        if (size < 22) throw ArchiveFormatException("ZIP: file is too small", 0)
 
         // Locate EOCD by scanning back over the last 22 + max-comment(65535) bytes.
         val scan = minOf(size, (22 + 0xFFFF).toLong()).toInt()
@@ -73,7 +84,7 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
         for (i in scan - 22 downTo 0) {
             if (ZipFormat.u32(tail, i) == ZipFormat.EOCD) { eocd = i; break }
         }
-        if (eocd < 0) error("not a ZIP file (no end-of-central-directory)")
+        if (eocd < 0) throw ArchiveFormatException("ZIP: missing end-of-central-directory", size - scan)
 
         var cdEntries = ZipFormat.u16(tail, eocd + 10).toLong()
         var cdSize = ZipFormat.u32(tail, eocd + 12)
@@ -109,7 +120,7 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
             if (p > cd.size - 46) {
                 throw ArchiveFormatException("ZIP: truncated central directory at entry $n of $cdEntries", cdOffset + p)
             }
-            if (ZipFormat.u32(cd, p) != ZipFormat.CEN) error("bad central directory signature")
+            if (ZipFormat.u32(cd, p) != ZipFormat.CEN) throw ArchiveFormatException("ZIP: invalid central directory signature", cdOffset + p)
             val method = ZipFormat.u16(cd, p + 10)
             val crc = ZipFormat.u32(cd, p + 16)
             var compSize = ZipFormat.u32(cd, p + 20)

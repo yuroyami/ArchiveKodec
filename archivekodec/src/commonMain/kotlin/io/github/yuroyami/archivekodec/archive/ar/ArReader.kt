@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec.archive.ar
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -18,21 +20,25 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  */
 class ArReader(private val source: RandomAccessSource) : ArchiveReader {
 
+    override fun toString(): String = "ArReader(source=$source)"
+
     override val format = ArchiveFormat.AR
 
     private val parsed: List<ArchiveEntry> by lazy { parse() }
 
+    @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = parsed
 
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
+    @Throws(ArchiveException::class)
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
-        return source.readFullyChecked(entry.dataOffset, entry.size)
+        return@withEntryContext source.readFullyChecked(entry.dataOffset, entry.size)
     }
 
     private fun parse(): List<ArchiveEntry> {
         val total = source.size
-        if (total < 8 || source.readFully(0, 8).decodeToString() != MAGIC) error("not an ar archive")
+        if (total < 8 || source.readFully(0, 8).decodeToString() != MAGIC) throw ArchiveFormatException("ar: invalid archive magic", 0)
 
         // First pass picks up the GNU long-name table ("//") so "/offset" names resolve.
         var nameTable: ByteArray? = null
@@ -56,8 +62,14 @@ class ArReader(private val source: RandomAccessSource) : ArchiveReader {
                 rawName == "//" -> nameTable = source.readFullyChecked(dataStart, size)
                 rawName == "/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
-                    val off = rawName.substring(1).toInt()
-                    val name = nameTable?.let { extractLongName(it, off) } ?: rawName
+                    val digits = rawName.substring(1)
+                    val off = digits.toIntOrNull()
+                    if (off == null || digits.any { it !in '0'..'9' }) {
+                        throw ArchiveFormatException("ar: invalid GNU name offset '$rawName'", pos, rawName)
+                    }
+                    val table = nameTable ?: throw ArchiveFormatException("ar: missing GNU name table", pos, rawName)
+                    if (off !in table.indices) throw ArchiveFormatException("ar: GNU name offset $off exceeds table", pos, rawName)
+                    val name = extractLongName(table, off)
                     out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart))
                 }
                 else -> {

@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.codec.lz4
 
+import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -27,6 +28,7 @@ object Lz4 {
     /* ─── Block format ───────────────────────────────────────────────────── */
 
     /** Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint. */
+    @Throws(ArchiveException::class)
     fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
         decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0, sEnd - sOff)
 
@@ -99,6 +101,7 @@ object Lz4 {
     }
 
     /** Greedy LZ4 block compressor. Always produces a conformant block. */
+    @Throws(ArchiveException::class)
     fun blockCompress(data: ByteArray): ByteArray {
         val n = data.size
         val out = ByteArrayBuilder(maxOf(16, n / 2))
@@ -168,6 +171,7 @@ object Lz4 {
     /* ─── Frame format (.lz4) ────────────────────────────────────────────── */
 
     /** Compress [data] into a complete LZ4 frame (no checksums, 4 MiB blocks). */
+    @Throws(ArchiveException::class)
     fun frameCompress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
         out.append(0x04.toByte()); out.append(0x22.toByte()); out.append(0x4D.toByte()); out.append(0x18.toByte())
@@ -197,6 +201,7 @@ object Lz4 {
     }
 
     /** Decompress an LZ4 frame, enforcing [limits] before output growth or copying. */
+    @Throws(ArchiveException::class)
     fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
         fun needInput(n: Int) {
