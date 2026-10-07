@@ -47,7 +47,15 @@ class ZipWriterNameTest {
 
     @Test
     fun malformedUtf16IsRejectedWithItsEncodingCause() {
-        for (codec in codecs) for (name in listOf("\uD800", "\uDC00", "a\uDFFF", "\uD800b", "\uDC00\uD800", "\uD800\uD800")) {
+        // Cached JS string literals can replace isolated surrogates with '?'.
+        // Construct the actual UTF-16 units at runtime and verify fixture fidelity.
+        val high = charArrayOf(0xD800.toChar()).concatToString()
+        val low = charArrayOf(0xDC00.toChar()).concatToString()
+        val lastLow = charArrayOf(0xDFFF.toChar()).concatToString()
+        assertEquals(0xD800, high.single().code)
+        assertEquals(0xDC00, low.single().code)
+        assertEquals(0xDFFF, lastLow.single().code)
+        for (codec in codecs) for (name in listOf(high, low, "a$lastLow", "${high}b", low + high, high + high)) {
             val error = assertFailsWith<ArchiveFormatException> {
                 ZipWriter.write(listOf(ZipWriter.FileSpec(name, byteArrayOf(), codec)))
             }

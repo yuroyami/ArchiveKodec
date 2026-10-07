@@ -57,6 +57,26 @@ class SnappyBoundsTest {
     }
 
     @Test
+    fun oneByteCopyOffsetsRetainAllElevenBitsAtEveryLength() {
+        // All 128 streams were independently decoded by libsnappy 1.2.2.
+        val offsets = listOf(1, 255, 256, 511, 512, 767, 768, 1023, 1024, 1279, 1280, 1535, 1536, 1791, 1792, 2047)
+        for (offset in offsets) {
+            val prefix = ByteArray(offset) { ((it * 13 xor (it ushr 8)) + 17).toByte() }
+            val literal = when {
+                offset <= 60 -> byteArrayOf(((offset - 1) shl 2).toByte())
+                offset <= 256 -> byteArrayOf(0xF0.toByte(), (offset - 1).toByte())
+                else -> byteArrayOf(0xF4.toByte(), (offset - 1).toByte(), ((offset - 1) ushr 8).toByte())
+            }
+            for (length in 4..11) {
+                val tag = ((offset ushr 8) shl 5) or ((length - 4) shl 2) or 1
+                val bytes = varint((offset + length).toLong()) + literal + prefix + byteArrayOf(tag.toByte(), offset.toByte())
+                val expected = prefix + ByteArray(length) { prefix[it % offset] }
+                assertContentEquals(expected, Snappy.decompress(bytes), "offset $offset, length $length")
+            }
+        }
+    }
+
+    @Test
     fun fourByteCopyOffsetsAreNotRestrictedToTheEncoderWindow() {
         val prefix = ByteArray(65_536) { (it % 251).toByte() }
         val bytes = varint(65_537) + byteArrayOf(0xF4.toByte(), -1, -1) + prefix + byteArrayOf(3, 0, 0, 1, 0)

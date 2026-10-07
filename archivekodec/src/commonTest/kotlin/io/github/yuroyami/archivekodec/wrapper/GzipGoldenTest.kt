@@ -4,8 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 
 /**
- * Decode-conformance against bytes produced by the real `zlib`/`gzip` (CPython,
- * level 6 → dynamic Huffman), plus our own round-trips. The golden vectors below
+ * Decode conformance against fixed-Huffman streams from CPython `zlib`/`gzip`,
+ * plus our own round-trips. The original vectors below
  * were emitted by `gzip.GzipFile(mtime=0)` and `zlib.compress(level=6)` over the
  * message `"ArchiveKodec golden vector\n"`.
  */
@@ -26,6 +26,26 @@ class GzipGoldenTest {
 
     @Test
     fun decodesRealZlib() = assertContentEquals(message, Zlib.decompress(zlibVector))
+
+    @Test
+    fun decodesCommandLineGzipWithOriginalFilename() {
+        // Apple gzip 479: gzip -c h.txt, mtime=0. Verified with CPython gzip and zlib.
+        val vector = hex("1f8b0808000000000003682e74787400cb48cdc9c9e7020020303a3606000000")
+        assertContentEquals("hello\n".encodeToByteArray(), Gzip.decompress(vector))
+    }
+
+    @Test
+    fun decodesForeignGzipOptionalHeaderFields() {
+        // Verified with independent gzip/zlib readers. Individual fields expose
+        // skipped bytes that a later NUL-terminated field could otherwise absorb.
+        val vectors = listOf(
+            "1f8b08040000000000030600414202003132cb48cdc9c9e7020020303a3606000000", // FEXTRA
+            "1f8b08100000000000036300cb48cdc9c9e7020020303a3606000000", // FCOMMENT
+            "1f8b0802000000000003a777cb48cdc9c9e7020020303a3606000000", // FHCRC
+            "1f8b081e00000000000306004142020031326e0063000f00cb48cdc9c9e7020020303a3606000000", // all four
+        )
+        for (vector in vectors) assertContentEquals("hello\n".encodeToByteArray(), Gzip.decompress(hex(vector)))
+    }
 
     @Test
     fun gzipRoundTrip() {
