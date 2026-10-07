@@ -43,8 +43,12 @@ class TarReader(private val source: RandomAccessSource) : ArchiveReader {
             val hdr = source.readFully(pos, BLOCK)
             if (isZeroBlock(hdr)) break // two zero blocks mark EOF; one is enough to stop
 
-            val size = numeric(hdr, 124, 12, pos)
             val typeFlag = hdr[156].toInt().toChar()
+            // Device, directory and FIFO headers have no stored payload records.
+            val size = when (typeFlag) {
+                '3', '4', '5', '6' -> 0L
+                else -> numeric(hdr, 124, 12, pos)
+            }
             val dataStart = pos + BLOCK
             source.requireRange(dataStart, size)
             val padding = (BLOCK - size % BLOCK) % BLOCK
