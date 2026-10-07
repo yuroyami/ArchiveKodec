@@ -333,6 +333,13 @@ ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSou
 The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z
 and RAR. Snappy and brotli have no magic bytes, so it never detects them.
 
+Source sniffing fills `min(source.size, 512)` bytes through repeated reads, so
+one-byte and other partial positive reads are supported. Negative source sizes,
+premature EOF, zero progress and invalid returned counts throw
+`ArchiveFormatException`; source I/O errors propagate unchanged. Sniffing does
+not close the source. A successful `open` transfers ownership to the reader;
+when opening fails, the caller retains the source.
+
 A complete checksum-valid TAR header takes priority over short signatures,
 including when a member name resembles another format. This recognizes v7,
 ustar, GNU and legacy signed-checksum headers. A complete first zero record also

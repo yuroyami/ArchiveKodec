@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.tar.TarHeader
 
 /**
@@ -46,14 +47,17 @@ object Magic {
         }
     }
 
-    /** Sniff the first bytes of a seekable source. */
+    /**
+     * Sniff up to 512 bytes, filling partial reads without taking source ownership.
+     * Inconsistent sizes, premature EOF and invalid read counts are format errors.
+     */
     @Throws(ArchiveException::class)
     fun sniff(source: RandomAccessSource): ArchiveFormat {
-        val n = minOf(source.size, 512L).toInt()
-        if (n <= 0) return ArchiveFormat.UNKNOWN
-        val buf = ByteArray(n)
-        source.read(0, buf, 0, n)
-        return sniff(buf)
+        val size = source.size
+        if (size < 0) throw ArchiveFormatException("negative source size $size", 0)
+        if (size == 0L) return ArchiveFormat.UNKNOWN
+        val n = minOf(size, 512L).toInt()
+        return sniff(source.readFully(0, n))
     }
 
     private fun isBzip2(header: ByteArray): Boolean {

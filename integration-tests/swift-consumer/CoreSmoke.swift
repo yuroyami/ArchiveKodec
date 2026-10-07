@@ -135,6 +135,62 @@ let emptyTarReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessS
 let emptyTarEntries = try emptyTarReader.entries()
 precondition(emptyTarReader.format == ArchiveFormat.tar && emptyTarEntries.isEmpty)
 try emptyTarReader.close()
+
+// Legal short reads cross the Objective-C source and Kotlin reader before
+// returning complete metadata and payloads to Swift.
+let shortEmptyZip = ShortReadSource(data: bytes([0x50, 0x4b, 0x05, 0x06] + Array(repeating: 0, count: 18)), chunk: 1)
+let shortEmptyZipReader = try ArchiveKodec.shared.open(source: shortEmptyZip)
+precondition(shortEmptyZipReader.format == ArchiveFormat.zip && shortEmptyZip.calls == 22)
+let shortEmptyZipEntries = try shortEmptyZipReader.entries()
+precondition(shortEmptyZipEntries.isEmpty && shortEmptyZip.closes == 0)
+try shortEmptyZipReader.close()
+try shortEmptyZipReader.close()
+precondition(shortEmptyZip.closes == 1)
+for chunk in [Int32(1), Int32(3)] {
+    let source = ShortReadSource(data: bytes(v7Header + [97] + Array(repeating: 0, count: 1535)), chunk: chunk)
+    let reader = try ArchiveKodec.shared.open(source: source)
+    precondition(reader.format == ArchiveFormat.tar && source.calls == (512 + chunk - 1) / chunk)
+    let entries = try reader.entries()
+    precondition(entries.count == 1)
+    let entry = entries[0]
+    precondition(entry.name == "f.txt" && entry.size == 1)
+    let payload = try reader.read(entry: entry, limits: limits)
+    precondition(payload.size == 1 && payload.get(index: 0) == 97 && source.closes == 0)
+    try reader.close()
+    precondition(source.closes == 1)
+}
+let shortEmptyTar = ShortReadSource(data: KotlinByteArray(size: 512), chunk: 1)
+let shortEmptyTarReader = try ArchiveKodec.shared.open(source: shortEmptyTar)
+precondition(shortEmptyTarReader.format == ArchiveFormat.tar && shortEmptyTar.calls == 512)
+let shortEmptyTarEntries = try shortEmptyTarReader.entries()
+precondition(shortEmptyTarEntries.isEmpty && shortEmptyTar.closes == 0)
+try shortEmptyTarReader.close()
+precondition(shortEmptyTar.closes == 1)
+
+let nonprogressSource = ShortReadSource(data: KotlinByteArray(size: 512), chunk: 0)
+expectFailure("nonprogress source read", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 0 }) {
+    _ = try ArchiveKodec.shared.open(source: nonprogressSource)
+}
+precondition(nonprogressSource.calls == 1 && nonprogressSource.closes == 0)
+try nonprogressSource.close()
+precondition(nonprogressSource.closes == 1)
+let negativeSizeSource = ShortReadSource(data: KotlinByteArray(size: 512), chunk: 1)
+negativeSizeSource.reportedSize = -1
+expectFailure("negative source size", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 0 }) {
+    _ = try ArchiveKodec.shared.sniff(source: negativeSizeSource)
+}
+precondition(negativeSizeSource.calls == 0 && negativeSizeSource.closes == 0)
+try negativeSizeSource.close()
+precondition(negativeSizeSource.closes == 1)
+let shortZeroSource = ShortReadSource(data: KotlinByteArray(size: 511), chunk: 1)
+shortZeroSource.reportedSize = 512
+expectFailure("premature source EOF", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 511 }) {
+    _ = try ArchiveKodec.shared.open(source: shortZeroSource)
+}
+precondition(shortZeroSource.calls == 512 && shortZeroSource.closes == 0)
+try shortZeroSource.close()
+precondition(shortZeroSource.closes == 1)
+
 expectFailure("ZIP entries", check: { $0 is ArchiveFormatException }) {
     let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: empty))
     _ = try reader.entries()
