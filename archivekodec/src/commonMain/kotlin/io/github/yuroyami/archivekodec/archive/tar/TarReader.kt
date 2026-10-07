@@ -58,7 +58,7 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
         while (pos < total) {
             if (total - pos < BLOCK) throw ArchiveFormatException("TAR: truncated header", pos)
             val hdr = source.readFully(pos, BLOCK)
-            if (isZeroBlock(hdr)) break // two zero blocks mark EOF; one is enough to stop
+            if (TarHeader.isZeroRecord(hdr)) break // two zero blocks mark EOF; one is enough to stop
             if (!TarHeader.hasValidChecksum(hdr)) {
                 throw ArchiveFormatException("TAR: bad header checksum", pos)
             }
@@ -111,11 +111,6 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
             pos = dataStart + size + padding
         }
         return out
-    }
-
-    private fun isZeroBlock(b: ByteArray): Boolean {
-        for (x in b) if (x.toInt() != 0) return false
-        return true
     }
 
     /** Read a NUL/space-terminated ASCII string field. */

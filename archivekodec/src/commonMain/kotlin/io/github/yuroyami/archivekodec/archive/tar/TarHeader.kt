@@ -4,6 +4,13 @@ package io.github.yuroyami.archivekodec.archive.tar
 internal object TarHeader {
     const val SIZE = 512
 
+    /** A complete first zero record is the end marker of an empty TAR. */
+    fun isZeroRecord(bytes: ByteArray): Boolean {
+        if (bytes.size < SIZE) return false
+        for (i in 0 until SIZE) if (bytes[i].toInt() != 0) return false
+        return true
+    }
+
     /** Check the first complete record, including legacy signed-byte checksums. */
     fun hasValidChecksum(bytes: ByteArray): Boolean {
         if (bytes.size < SIZE) return false

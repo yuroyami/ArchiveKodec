@@ -18,7 +18,7 @@ class MagicTest {
         assertEquals(ArchiveFormat.ZSTD, Magic.sniff(byteArrayOf(0x28, 0xb5.toByte(), 0x2f, 0xfd.toByte())))
 
     @Test fun bzip2() =
-        assertEquals(ArchiveFormat.BZIP2, Magic.sniff(byteArrayOf(0x42, 0x5a, 0x68, 0x39)))
+        assertEquals(ArchiveFormat.BZIP2, Magic.sniff(byteArrayOf(0x42, 0x5a, 0x68, 0x39, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90.toByte())))
 
     @Test fun lz4() =
         assertEquals(ArchiveFormat.LZ4, Magic.sniff(byteArrayOf(0x04, 0x22, 0x4d, 0x18)))
@@ -34,7 +34,12 @@ class MagicTest {
 
     @Test fun tar() {
         val b = ByteArray(512)
+        "a.txt".encodeToByteArray().copyInto(b)
+        b[156] = '0'.code.toByte()
         "ustar".encodeToByteArray().copyInto(b, 257)
+        b.fill(32, 148, 156)
+        b.sumOf { it.toInt() and 255 }.toString(8).padStart(6, '0').encodeToByteArray().copyInto(b, 148)
+        b[154] = 0
         assertEquals(ArchiveFormat.TAR, Magic.sniff(b))
     }
 

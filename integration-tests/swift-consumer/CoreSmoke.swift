@@ -109,8 +109,32 @@ expectFailure("zlib dictionary", check: { $0 is ArchiveUnsupportedException }) {
 }
 expectFailure("Codec protocol", check: { $0 is ArchiveFormatException }) { _ = try ArchiveKodec.shared.gzip.decompress(data: empty, limits: limits) }
 expectFailure("unsupported container", check: { $0 is ArchiveUnsupportedException }) {
-    _ = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes([66, 90, 104, 57])))
+    _ = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes([66, 90, 104, 57, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90])))
 }
+for octets in [Array("x = 1\n".utf8), Array("BZh is a name".utf8), [0x50, 0x4b, 0x05, 0xff]] {
+    let source = ByteArrayRandomAccessSource(data: bytes(octets))
+    precondition(ArchiveKodec.shared.sniff(header: bytes(octets)) == ArchiveFormat.unknown)
+    expectFailure("unrecognized format", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 0 }) {
+        _ = try ArchiveKodec.shared.open(source: source)
+    }
+    try source.close()
+}
+let dictionaryPrefix = bytes([0x78, 0x20, 0x2e, 0x59, 0x05, 0xce, 0x03, 0, 0, 0, 0, 1])
+precondition(ArchiveKodec.shared.sniff(header: dictionaryPrefix) == ArchiveFormat.zlib)
+precondition(ArchiveKodec.shared.sniff(header: bytes([0x78, 0x9c])) == ArchiveFormat.zlib)
+// Frozen first v7 record from an independently verified TAR archive.
+let v7Header = Array(Data(base64Encoded: "Zi50eHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAwMDAwMAAwMDAwMDAwADAwMDAwMDAwMDAxADAwMDAwMDAwMDAwADAwNTUwMwAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")!)
+let v7Reader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes(v7Header + [97] + Array(repeating: 0, count: 1535))))
+precondition(v7Reader.format == ArchiveFormat.tar)
+let v7Entry = try v7Reader.entries()[0]
+precondition(v7Entry.name == "f.txt")
+let v7Payload = try v7Reader.read(entry: v7Entry, limits: limits)
+precondition(v7Payload.size == 1 && v7Payload.get(index: 0) == 97)
+try v7Reader.close()
+let emptyTarReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: KotlinByteArray(size: 512)))
+let emptyTarEntries = try emptyTarReader.entries()
+precondition(emptyTarReader.format == ArchiveFormat.tar && emptyTarEntries.isEmpty)
+try emptyTarReader.close()
 expectFailure("ZIP entries", check: { $0 is ArchiveFormatException }) {
     let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: empty))
     _ = try reader.entries()

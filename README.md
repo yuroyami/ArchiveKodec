@@ -330,12 +330,24 @@ ArchiveKodec.sniff(header)     // ArchiveFormat.ZIP, TAR, GZIP, ...
 ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSource
 ```
 
-The sniffer recognizes ZIP, TAR (ustar magic at offset 257), ar, cpio, gzip,
-zlib, bzip2, xz, zstd, LZ4, 7z and RAR. Snappy and brotli have no magic bytes, so
-it never detects them.
+The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z
+and RAR. Snappy and brotli have no magic bytes, so it never detects them.
 
-Sniffing is not decoding. The sniffer names xz, zstd, bzip2, 7z and RAR, and
-ArchiveKodec cannot decode any of those five formats.
+A complete checksum-valid TAR header takes priority over short signatures,
+including when a member name resembles another format. This recognizes v7,
+ustar, GNU and legacy signed-checksum headers. A complete first zero record also
+identifies an empty TAR; empty input and shorter zero prefixes remain unknown.
+ZIP requires a complete recognized four-byte signature, including supported
+empty archives beginning with a digital-signature or ZIP64 end record. Bzip2
+requires a level digit and a complete first block or end marker (ten bytes).
+Zlib checks the header and rejects a reserved first DEFLATE block type when
+available. Dictionary-based zlib candidates require the four-byte dictionary
+identifier and first block byte; explicit decompression still reports a typed
+unsupported-dictionary error.
+
+A match is format evidence, not full archive or stream validation. Readers and
+codecs validate the remaining structure and payload. The sniffer names xz, zstd,
+bzip2, 7z and RAR, and ArchiveKodec cannot decode any of those five formats.
 
 ## Targets
 

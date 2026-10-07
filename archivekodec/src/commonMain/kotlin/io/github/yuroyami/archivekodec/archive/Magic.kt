@@ -1,25 +1,34 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.archive.tar.TarHeader
 
 /**
  * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
  * [RandomAccessSource], and returns the matching [ArchiveFormat]. Brotli has no
- * magic bytes, so this object never detects it.
+ * magic bytes, so this object never detects it. A match identifies a format
+ * candidate; readers and codecs validate its complete structure and payload.
  */
 object Magic {
 
     fun sniff(header: ByteArray): ArchiveFormat {
         fun at(i: Int): Int = if (i < header.size) header[i].toInt() and 0xFF else -1
         return when {
+            // A TAR filename can begin with any of the shorter format signatures.
+            TarHeader.hasValidChecksum(header) || TarHeader.isZeroRecord(header) -> ArchiveFormat.TAR
             at(0) == 0x1F && at(1) == 0x8B -> ArchiveFormat.GZIP
-            at(0) == 0x50 && at(1) == 0x4B && (at(2) == 0x03 || at(2) == 0x05 || at(2) == 0x07) ->
+            at(0) == 0x50 && at(1) == 0x4B && (
+                (at(2) == 0x03 && at(3) == 0x04) || // local file header
+                (at(2) == 0x05 && (at(3) == 0x05 || at(3) == 0x06)) || // digital signature / EOCD
+                (at(2) == 0x06 && at(3) == 0x06) || // empty ZIP64 starts with ZIP64 EOCD
+                (at(2) == 0x07 && at(3) == 0x08) // descriptor / spanning marker
+            ) ->
                 ArchiveFormat.ZIP
             at(0) == 0xFD && at(1) == 0x37 && at(2) == 0x7A && at(3) == 0x58 && at(4) == 0x5A && at(5) == 0x00 ->
                 ArchiveFormat.XZ
             at(0) == 0x28 && at(1) == 0xB5 && at(2) == 0x2F && at(3) == 0xFD -> ArchiveFormat.ZSTD
             at(0) == 0x04 && at(1) == 0x22 && at(2) == 0x4D && at(3) == 0x18 -> ArchiveFormat.LZ4
-            at(0) == 0x42 && at(1) == 0x5A && at(2) == 0x68 -> ArchiveFormat.BZIP2 // "BZh"
+            isBzip2(header) -> ArchiveFormat.BZIP2
             at(0) == 0x37 && at(1) == 0x7A && at(2) == 0xBC && at(3) == 0xAF && at(4) == 0x27 && at(5) == 0x1C ->
                 ArchiveFormat.SEVEN_ZIP
             // ar: "!<arch>\n"
@@ -32,10 +41,7 @@ object Magic {
                 ArchiveFormat.RAR
             // .lzma-alone: properties byte (<=0xE0 for valid lc/lp/pb) then 4-byte dict size.
             // Too weak to sniff reliably from magic alone, so it needs explicit selection.
-            // TAR: "ustar" at offset 257.
-            at(257) == 0x75 && at(258) == 0x73 && at(259) == 0x74 && at(260) == 0x61 && at(261) == 0x72 ->
-                ArchiveFormat.TAR
-            isZlib(at(0), at(1)) -> ArchiveFormat.ZLIB
+            isZlib(header) -> ArchiveFormat.ZLIB
             else -> ArchiveFormat.UNKNOWN
         }
     }
@@ -50,10 +56,24 @@ object Magic {
         return sniff(buf)
     }
 
-    private fun isZlib(cmf: Int, flg: Int): Boolean {
-        if (cmf < 0 || flg < 0) return false
+    private fun isBzip2(header: ByteArray): Boolean {
+        if (header.size < 10 || header[0] != 0x42.toByte() || header[1] != 0x5A.toByte() ||
+            header[2] != 0x68.toByte() || header[3].toInt() !in '1'.code..'9'.code) return false
+        var marker = 0L
+        for (i in 4..9) marker = (marker shl 8) or (header[i].toLong() and 0xFF)
+        return marker == 0x314159265359L || marker == 0x177245385090L
+    }
+
+    private fun isZlib(header: ByteArray): Boolean {
+        if (header.size < 2) return false
+        val cmf = header[0].toInt() and 0xFF
+        val flg = header[1].toInt() and 0xFF
         if ((cmf and 0x0F) != 8) return false              // CM must be DEFLATE
-        if (((cmf ushr 4) and 0x0F) > 7) return false      // CINFO window <= 32 KiB
-        return ((cmf shl 8) or flg) % 31 == 0              // header checksum
+        if ((cmf ushr 4) > 7) return false                 // CINFO window <= 32 KiB
+        if (((cmf shl 8) or flg) % 31 != 0) return false   // header checksum
+        // FDICT inserts four DICTID bytes before the first DEFLATE block.
+        val blockOffset = if ((flg and 0x20) != 0) 6 else 2
+        if (header.size <= blockOffset) return blockOffset == 2
+        return ((header[blockOffset].toInt() ushr 1) and 3) != 3
     }
 }

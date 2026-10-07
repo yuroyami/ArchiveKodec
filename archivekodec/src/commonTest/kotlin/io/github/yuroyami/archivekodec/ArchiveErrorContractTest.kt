@@ -33,7 +33,9 @@ class ArchiveErrorContractTest {
     @Test
     fun unsupportedFormatsAndWriterCodecsHaveASeparateTypedCategory() {
         assertFailsWith<ArchiveUnsupportedException> {
-            ArchiveKodec.open(ByteArrayRandomAccessSource("BZh9".encodeToByteArray()))
+            ArchiveKodec.open(ByteArrayRandomAccessSource(byteArrayOf(
+                0x42, 0x5a, 0x68, 0x39, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90.toByte(), 0, 0, 0, 0,
+            )))
         }
         val error = assertFailsWith<ArchiveUnsupportedException> {
             ZipWriter.write(listOf(ZipWriter.FileSpec("a", byteArrayOf(), CodecId.LZ4)))
