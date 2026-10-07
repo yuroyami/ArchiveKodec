@@ -1,0 +1,8 @@
+public final class io/github/yuroyami/kitearchive/io/KiteArchiveIoKt {
+	public static final fun compress (Lio/github/yuroyami/kitearchive/codec/Codec;Lkotlinx/io/RawSource;)[B
+	public static final fun decompress (Lio/github/yuroyami/kitearchive/codec/Codec;Lkotlinx/io/RawSource;Lio/github/yuroyami/kitearchive/security/ArchiveLimits;)[B
+	public static synthetic fun decompress$default (Lio/github/yuroyami/kitearchive/codec/Codec;Lkotlinx/io/RawSource;Lio/github/yuroyami/kitearchive/security/ArchiveLimits;ILjava/lang/Object;)[B
+	public static final fun readAllBytes (Lkotlinx/io/RawSource;)[B
+	public static final fun toRandomAccessSource (Lkotlinx/io/RawSource;)Lio/github/yuroyami/kitearchive/archive/RandomAccessSource;
+}
+

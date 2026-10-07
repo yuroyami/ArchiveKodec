@@ -1,0 +1,116 @@
+{
+  "version": "0.1.0",
+  "compiler": "2.4.10",
+  "artifacts": [
+    {
+      "module": "kitearchive",
+      "target": "android",
+      "coordinate": "io.github.yuroyami:kitearchive-android:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-android/0.1.0/kitearchive-android-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-android/0.1.0/kitearchive-android-0.1.0.aar",
+      "filename": "kitearchive.aar",
+      "bytes": 112176,
+      "sha256": "df1199c8f4ab25f5f84c0769a21cd2b7bc696e48e84ae53eedf5453681646e21"
+    },
+    {
+      "module": "kitearchive",
+      "target": "iosarm64",
+      "coordinate": "io.github.yuroyami:kitearchive-iosarm64:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-iosarm64/0.1.0/kitearchive-iosarm64-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-iosarm64/0.1.0/kitearchive-iosarm64-0.1.0.klib",
+      "filename": "kitearchive-iosArm64Main-0.1.0.klib",
+      "bytes": 162039,
+      "sha256": "10fa3ef23036a10e1461eb3e9ffe485bf4bbbbad76628762d59f7053249844ec"
+    },
+    {
+      "module": "kitearchive",
+      "target": "iossimulatorarm64",
+      "coordinate": "io.github.yuroyami:kitearchive-iossimulatorarm64:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-iossimulatorarm64/0.1.0/kitearchive-iossimulatorarm64-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-iossimulatorarm64/0.1.0/kitearchive-iossimulatorarm64-0.1.0.klib",
+      "filename": "kitearchive-iosSimulatorArm64Main-0.1.0.klib",
+      "bytes": 162105,
+      "sha256": "36c34e3fd4f8af4c93ef94bd55a4fce6e15c5211257070564b2a76070f08beee"
+    },
+    {
+      "module": "kitearchive",
+      "target": "iosx64",
+      "coordinate": "io.github.yuroyami:kitearchive-iosx64:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-iosx64/0.1.0/kitearchive-iosx64-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-iosx64/0.1.0/kitearchive-iosx64-0.1.0.klib",
+      "filename": "kitearchive-iosX64Main-0.1.0.klib",
+      "bytes": 162027,
+      "sha256": "8a2bf4e8a16802e279c0dd67d5759c28590ca8bfef94388bd2a2d4c594468fda"
+    },
+    {
+      "module": "kitearchive",
+      "target": "js",
+      "coordinate": "io.github.yuroyami:kitearchive-js:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-js/0.1.0/kitearchive-js-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-js/0.1.0/kitearchive-js-0.1.0.klib",
+      "filename": "kitearchive-js-0.1.0.klib",
+      "bytes": 150586,
+      "sha256": "25ba7a665e755a33e25f7d1d78e408289e95df9a843f04647821347683020dc2"
+    },
+    {
+      "module": "kitearchive",
+      "target": "jvm",
+      "coordinate": "io.github.yuroyami:kitearchive-jvm:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-jvm/0.1.0/kitearchive-jvm-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-jvm/0.1.0/kitearchive-jvm-0.1.0.jar",
+      "filename": "kitearchive-jvm-0.1.0.jar",
+      "bytes": 123187,
+      "sha256": "114a3797b703feb26656dec9213b9f4744357c0cda8d19ab751e3abdff95e93e"
+    },
+    {
+      "module": "kitearchive-io",
+      "target": "android",
+      "coordinate": "io.github.yuroyami:kitearchive-io-android:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-android/0.1.0/kitearchive-io-android-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-android/0.1.0/kitearchive-io-android-0.1.0.aar",
+      "filename": "kitearchive-io.aar",
+      "bytes": 2530,
+      "sha256": "e2cdb6c1bee8326b6329d31f286df473c494038d77a468fbe498e552b884e44a"
+    },
+    {
+      "module": "kitearchive-io",
+      "target": "iosarm64",
+      "coordinate": "io.github.yuroyami:kitearchive-io-iosarm64:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-iosarm64/0.1.0/kitearchive-io-iosarm64-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-iosarm64/0.1.0/kitearchive-io-iosarm64-0.1.0.klib",
+      "filename": "kitearchive-io-iosArm64Main-0.1.0.klib",
+      "bytes": 6893,
+      "sha256": "4623f93f3e696d7302e2ba5d2554a958106ab771642f04ad0a56a76b01fd1c6e"
+    },
+    {
+      "module": "kitearchive-io",
+      "target": "iossimulatorarm64",
+      "coordinate": "io.github.yuroyami:kitearchive-io-iossimulatorarm64:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-iossimulatorarm64/0.1.0/kitearchive-io-iossimulatorarm64-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-iossimulatorarm64/0.1.0/kitearchive-io-iossimulatorarm64-0.1.0.klib",
+      "filename": "kitearchive-io-iosSimulatorArm64Main-0.1.0.klib",
+      "bytes": 6959,
+      "sha256": "ce939bb6a05926378e7a563b2a7617f6b1b67119b8e0c257fbf1d9f8aa5580ef"
+    },
+    {
+      "module": "kitearchive-io",
+      "target": "iosx64",
+      "coordinate": "io.github.yuroyami:kitearchive-io-iosx64:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-iosx64/0.1.0/kitearchive-io-iosx64-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-iosx64/0.1.0/kitearchive-io-iosx64-0.1.0.klib",
+      "filename": "kitearchive-io-iosX64Main-0.1.0.klib",
+      "bytes": 6880,
+      "sha256": "b93af1ee499531f7a073620619cb870a41a245f58744bdc7ebb435a9ee4a2d38"
+    },
+    {
+      "module": "kitearchive-io",
+      "target": "jvm",
+      "coordinate": "io.github.yuroyami:kitearchive-io-jvm:0.1.0",
+      "metadataUrl": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-jvm/0.1.0/kitearchive-io-jvm-0.1.0.module",
+      "url": "https://repo.maven.apache.org/maven2/io/github/yuroyami/kitearchive-io-jvm/0.1.0/kitearchive-io-jvm-0.1.0.jar",
+      "filename": "kitearchive-io-jvm-0.1.0.jar",
+      "bytes": 2621,
+      "sha256": "5bc20e706cdecb1850c9e24006329b1b7b70c8f8cd804f18f5d702dd79e4906a"
+    }
+  ]
+}

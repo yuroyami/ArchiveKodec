@@ -545,8 +545,10 @@ artifact and a kotlinx-io dependency.
   Empty output uses a zero token; an empty compressed byte sequence is invalid.
 - Snappy's encoder emits literals only, with no back-reference matching. The
   output is a valid Snappy block, and slightly larger than the input.
-- The public API is not frozen. There is no explicit API mode and no committed
-  ABI dump. `Codec` and `ArchiveReader` will change when a streaming API arrives.
+- The public API is not frozen. Committed ABI dumps record the current surface
+  and detect changes; strict explicit API mode and the planned visibility cleanup
+  are still being implemented in #79. `Codec` and `ArchiveReader` will change when
+  a streaming API arrives.
 
 ## Testing
 
@@ -601,6 +603,26 @@ boundaries, unsigned results, nonzero seeds and unaligned slices. The expected
 values are independent of the Kotlin implementation.
 
 ## Building
+
+The ABI references in each module's `api/` directory cover JVM classes, the
+actual Android AAR classes and the merged JS/iOS klib declarations. Both modules'
+`check` tasks require ABI checks. The portable CI lane checks the JVM and Android
+artifacts; the Apple lane checks the complete target matrix without inferring
+unsupported targets. A complete ABI check therefore requires a macOS host with
+the Apple toolchain and Android SDK.
+
+```bash
+./gradlew checkPortableAbi            # JVM JARs and Android AARs
+./gradlew checkKotlinAbi              # complete current ABI matrix
+./gradlew checkLegacyAbi              # compatibility name for the complete check
+./gradlew updateKotlinAbi             # deliberate reference update; review and commit its diff
+```
+
+Update a reference only alongside an intentional API change, with that change
+named in the commit and release notes. See [the API baseline records](api/README.md)
+for the frozen, checksum-verified 0.1.0 artifacts under the original `kitearchive`
+coordinates. Those historical dumps use the old namespace; the current references
+record ArchiveKodec after its rename and fixes.
 
 ```bash
 ./gradlew :archivekodec:jvmTest         # core test suite

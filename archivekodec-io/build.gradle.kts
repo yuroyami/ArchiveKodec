@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -20,6 +21,10 @@ plugins {
  * this module only adapts whatever Source the app already holds.
  */
 kotlin {
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        keepLocallyUnsupportedTargets.set(false)
+    }
     jvmToolchain(21)
 
     android {

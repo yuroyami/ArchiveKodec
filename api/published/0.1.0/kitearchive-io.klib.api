@@ -1,0 +1,12 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, iosX64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.yuroyami:kitearchive-io>
+final fun (io.github.yuroyami.kitearchive.codec/Codec).io.github.yuroyami.kitearchive.io/compress(kotlinx.io/RawSource): kotlin/ByteArray // io.github.yuroyami.kitearchive.io/compress|compress@io.github.yuroyami.kitearchive.codec.Codec(kotlinx.io.RawSource){}[0]
+final fun (io.github.yuroyami.kitearchive.codec/Codec).io.github.yuroyami.kitearchive.io/decompress(kotlinx.io/RawSource, io.github.yuroyami.kitearchive.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.kitearchive.io/decompress|decompress@io.github.yuroyami.kitearchive.codec.Codec(kotlinx.io.RawSource;io.github.yuroyami.kitearchive.security.ArchiveLimits){}[0]
+final fun (kotlinx.io/RawSource).io.github.yuroyami.kitearchive.io/readAllBytes(): kotlin/ByteArray // io.github.yuroyami.kitearchive.io/readAllBytes|readAllBytes@kotlinx.io.RawSource(){}[0]
+final fun (kotlinx.io/RawSource).io.github.yuroyami.kitearchive.io/toRandomAccessSource(): io.github.yuroyami.kitearchive.archive/RandomAccessSource // io.github.yuroyami.kitearchive.io/toRandomAccessSource|toRandomAccessSource@kotlinx.io.RawSource(){}[0]

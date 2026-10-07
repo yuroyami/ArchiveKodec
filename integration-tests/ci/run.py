@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 LANES = {
     "portable": (
-        [":archivekodec:jvmTest", ":archivekodec-io:jvmTest", ":archivekodec:jsNodeTest",
+        [":checkPortableAbi", ":archivekodec:jvmTest", ":archivekodec-io:jvmTest", ":archivekodec:jsNodeTest",
          ":archivekodec:testAndroidHostTest", ":archivekodec-io:testAndroidHostTest",
          ":archivekodec:jvmJar", ":archivekodec-io:jvmJar",
          ":archivekodec:bundleAndroidMainAar", ":archivekodec-io:bundleAndroidMainAar",
@@ -18,7 +18,7 @@ LANES = {
          ("archivekodec", "testAndroidHostTest"), ("archivekodec-io", "testAndroidHostTest")],
     ),
     "apple": (
-        [":archivekodec:iosSimulatorArm64Test", ":archivekodec-io:iosSimulatorArm64Test",
+        [":checkLegacyAbi", ":archivekodec:iosSimulatorArm64Test", ":archivekodec-io:iosSimulatorArm64Test",
          "swiftConsumerTest"],
         [("archivekodec", "iosSimulatorArm64Test"), ("archivekodec-io", "iosSimulatorArm64Test")],
     ),

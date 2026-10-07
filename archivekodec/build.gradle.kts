@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -19,6 +20,10 @@ plugins {
  * no JS target; this one does. Neither builds for wasmJs, macOS, Linux or mingw.
  */
 kotlin {
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        keepLocallyUnsupportedTargets.set(false)
+    }
     jvmToolchain(21)
 
     android {

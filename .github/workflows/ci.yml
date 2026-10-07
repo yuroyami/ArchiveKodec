@@ -73,6 +73,8 @@ jobs:
           test "$(uname -m)" = arm64
           xcodebuild -version
           xcrun simctl list runtimes
+      - name: Install the Android SDK for the complete ABI check
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Run verification
         run: python3 integration-tests/ci/run.py apple
       - name: Retain test reports
