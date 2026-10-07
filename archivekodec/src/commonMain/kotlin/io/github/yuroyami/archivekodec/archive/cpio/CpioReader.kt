@@ -4,6 +4,8 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.ReaderSource
@@ -18,7 +20,8 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding). The
  * archive ends at the `TRAILER!!!` entry. Old binary cpio is not handled.
  */
-class CpioReader(source: RandomAccessSource) : ArchiveReader {
+class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -65,11 +68,11 @@ class CpioReader(source: RandomAccessSource) : ArchiveReader {
         val fileSize = field(6)
         val nameSize = field(11)
         val nameStart = pos + 110
-        val name = readName(nameStart, nameSize) // strip NUL
+        val nameBytes = readName(nameStart, nameSize)
         val dataStart = align4(nameStart + nameSize)
         source.requireRange(dataStart, fileSize)
-        if (name == TRAILER) return null
-        addEntry(out, name, fileSize, mode, dataStart)
+        if (nameBytes.contentEquals(TRAILER_BYTES)) return null
+        addEntry(out, nameBytes, nameStart, fileSize, mode, dataStart)
         return align4(dataStart + fileSize)
     }
 
@@ -80,24 +83,25 @@ class CpioReader(source: RandomAccessSource) : ArchiveReader {
         val nameSize = oct(h, 59, 6)
         val fileSize = oct(h, 65, 11)
         val nameStart = pos + 76
-        val name = readName(nameStart, nameSize)
+        val nameBytes = readName(nameStart, nameSize)
         val dataStart = nameStart + nameSize
         source.requireRange(dataStart, fileSize)
-        if (name == TRAILER) return null
-        addEntry(out, name, fileSize, mode, dataStart)
+        if (nameBytes.contentEquals(TRAILER_BYTES)) return null
+        addEntry(out, nameBytes, nameStart, fileSize, mode, dataStart)
         return dataStart + fileSize
     }
 
-    private fun addEntry(out: ArrayList<ArchiveEntry>, name: String, size: Long, mode: Long, dataStart: Long) {
+    private fun addEntry(out: ArrayList<ArchiveEntry>, nameBytes: ByteArray, nameStart: Long, size: Long, mode: Long, dataStart: Long) {
+        val name = nameDecoder.decodeStoredName(nameBytes, nameStart)
         val isDir = (mode and 0xF000L) == 0x4000L // S_IFDIR
-        out.add(ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir, dataOffset = dataStart))
+        out.add(ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir, dataOffset = dataStart).withNameBytes(nameBytes))
     }
 
-    private fun readName(offset: Long, length: Long): String {
+    private fun readName(offset: Long, length: Long): ByteArray {
         if (length < 1) throw ArchiveFormatException("cpio: empty name field", offset)
         val bytes = source.readFullyChecked(offset, length)
         if (bytes.last().toInt() != 0) throw ArchiveFormatException("cpio: missing name terminator", offset)
-        return bytes.decodeToString(0, bytes.indexOf(0))
+        return bytes.copyOf(bytes.indexOf(0))
     }
 
     private fun align4(v: Long): Long {
@@ -132,6 +136,6 @@ class CpioReader(source: RandomAccessSource) : ArchiveReader {
     }
 
     companion object {
-        private const val TRAILER = "TRAILER!!!"
+        private val TRAILER_BYTES = "TRAILER!!!".encodeToByteArray()
     }
 }

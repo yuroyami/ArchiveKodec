@@ -4,6 +4,8 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.ReaderSource
@@ -25,7 +27,8 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
  * Complete records may end without a trailer; nonempty partial headers are rejected.
  */
-class TarReader(source: RandomAccessSource) : ArchiveReader {
+class TarReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -54,7 +57,8 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
         var pos = 0L
         val total = source.size
         if (total < 0) throw ArchiveFormatException("TAR: negative source size", 0)
-        var pendingLongName: String? = null
+        var pendingLongName: ByteArray? = null
+        var pendingNameOffset = 0L
 
         while (pos < total) {
             if (total - pos < BLOCK) throw ArchiveFormatException("TAR: truncated header", pos)
@@ -79,23 +83,28 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
                 'L' -> {
                     // GNU long name: the full path is stored as this entry's data.
                     val nameBytes = source.readFullyChecked(dataStart, size)
-                    pendingLongName = nameBytes.decodeToString().trimEnd('\u0000')
+                    var end = nameBytes.size
+                    while (end > 0 && nameBytes[end - 1].toInt() == 0) end--
+                    pendingLongName = nameBytes.copyOf(end)
+                    pendingNameOffset = dataStart
                 }
                 'x', 'g' -> {
                     // pax extended headers — not parsed yet; skip the data block.
                 }
                 else -> {
-                    val name = pendingLongName ?: run {
+                    val nameOffset = if (pendingLongName != null) pendingNameOffset else pos
+                    val nameBytes = pendingLongName ?: run {
                         val base = cString(hdr, 0, 100)
-                        val prefix = if (TarHeader.usesUstarPrefix(hdr)) cString(hdr, 345, 155) else ""
-                        if (prefix.isNotEmpty()) "$prefix/$base" else base
+                        val prefix = if (TarHeader.usesUstarPrefix(hdr)) cString(hdr, 345, 155) else byteArrayOf()
+                        if (prefix.isNotEmpty()) prefix + byteArrayOf(47) + base else base
                     }
                     pendingLongName = null
 
-                    val isDir = typeFlag == '5' || name.endsWith("/")
                     val isFileLike = typeFlag == '0' || typeFlag == '\u0000' ||
                         typeFlag == '5' || typeFlag == '7'
-                    if (isFileLike && name.isNotEmpty()) {
+                    if (isFileLike && nameBytes.isNotEmpty()) {
+                        val name = nameDecoder.decodeStoredName(nameBytes, nameOffset)
+                        val isDir = typeFlag == '5' || name.endsWith("/")
                         out.add(
                             ArchiveEntry(
                                 name = name,
@@ -103,7 +112,7 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
                                 isDirectory = isDir,
                                 lastModifiedEpochSeconds = numeric(hdr, 136, 12, pos),
                                 dataOffset = dataStart,
-                            ),
+                            ).withNameBytes(nameBytes),
                         )
                     }
                 }
@@ -114,12 +123,12 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
         return out
     }
 
-    /** Read a NUL/space-terminated ASCII string field. */
-    private fun cString(b: ByteArray, off: Int, len: Int): String {
+    /** Remove NUL framing while preserving all stored filename bytes. */
+    private fun cString(b: ByteArray, off: Int, len: Int): ByteArray {
         var end = off
         val max = off + len
         while (end < max && b[end].toInt() != 0) end++
-        return b.decodeToString(off, end)
+        return b.copyOfRange(off, end)
     }
 
     /**

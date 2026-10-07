@@ -4,6 +4,8 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.ReaderSource
@@ -20,7 +22,8 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * GNU indices (`/`, `/SYM64/`), the name table (`//`) and a leading BSD ranlib
  * index are skipped as entries.
  */
-class ArReader(source: RandomAccessSource) : ArchiveReader {
+class ArReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -55,7 +58,10 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
         while (pos <= total && total - pos >= 60) {
             val h = source.readFully(pos, 60)
             if ((h[58].toInt() and 0xFF) != 0x60 || (h[59].toInt() and 0xFF) != 0x0A) break
-            val rawName = h.decodeToString(0, 16).trimEnd(' ')
+            var nameEnd = 16
+            while (nameEnd > 0 && h[nameEnd - 1].toInt() == 32) nameEnd--
+            val nameField = h.copyOf(nameEnd)
+            val rawName = nameField.decodeToString() // ASCII format markers, never the configured decoder
             val sizeText = h.decodeToString(48, 58).trim()
             if (sizeText.isEmpty() || sizeText.any { it !in '0'..'9' }) {
                 throw ArchiveFormatException("ar: invalid member size '$sizeText'", pos + 48, rawName)
@@ -90,9 +96,10 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
                     val storedName = withEntryContext(rawName, dataStart) { source.readFullyChecked(dataStart, nameLength) }
                     var end = storedName.size
                     while (end > 0 && storedName[end - 1].toInt() == 0) end--
-                    val name = storedName.decodeToString(0, end)
-                    if (pos != 8L || !isBsdSymbolTable(name)) {
-                        out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false, dataOffset = dataStart + nameLength))
+                    val nameBytes = storedName.copyOf(end)
+                    if (pos != 8L || !isBsdSymbolTable(nameBytes.decodeToString())) {
+                        val name = nameDecoder.decodeStoredName(nameBytes, dataStart)
+                        out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false, dataOffset = dataStart + nameLength).withNameBytes(nameBytes))
                     }
                 }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
@@ -103,11 +110,14 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
                     }
                     val table = nameTable ?: throw ArchiveFormatException("ar: missing long-name table", pos, rawName)
                     if (off !in table.indices) throw ArchiveFormatException("ar: long-name offset $off exceeds table", pos, rawName)
-                    val name = extractLongName(table, off, nulDelimitedNames, pos, rawName)
-                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart))
+                    val nameBytes = extractLongName(table, off, nulDelimitedNames, pos, rawName)
+                    val name = nameDecoder.decodeStoredName(nameBytes, pos)
+                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart).withNameBytes(nameBytes))
                 }
                 else -> {
-                    out.add(ArchiveEntry(name = rawName.removeSuffix("/"), size = size, isDirectory = false, dataOffset = dataStart))
+                    val nameBytes = if (nameField.lastOrNull()?.toInt() == 47) nameField.copyOf(nameField.size - 1) else nameField
+                    val name = nameDecoder.decodeStoredName(nameBytes, pos)
+                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart).withNameBytes(nameBytes))
                 }
             }
             pos = dataStart + size + (size and 1L) // members are 2-byte aligned
@@ -118,7 +128,7 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
     private fun isBsdSymbolTable(name: String): Boolean = name == "__.SYMDEF" ||
         name == "__.SYMDEF SORTED" || name == "__.SYMDEF_64" || name == "__.SYMDEF_64 SORTED"
 
-    private fun extractLongName(table: ByteArray, offset: Int, nulDelimited: Boolean, memberOffset: Long, reference: String): String {
+    private fun extractLongName(table: ByteArray, offset: Int, nulDelimited: Boolean, memberOffset: Long, reference: String): ByteArray {
         val terminator = if (nulDelimited) 0 else 0x0A
         var end = offset
         while (end < table.size && table[end].toInt() != terminator) end++
@@ -127,7 +137,7 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
         }
         // GNU's final slash frames the LF delimiter. Before a COFF NUL it is name data.
         val nameEnd = if (!nulDelimited && end > offset && table[end - 1].toInt() == 0x2F) end - 1 else end
-        return table.decodeToString(offset, nameEnd)
+        return table.copyOfRange(offset, nameEnd)
     }
 
     companion object {

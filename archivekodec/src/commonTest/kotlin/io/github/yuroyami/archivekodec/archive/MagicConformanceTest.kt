@@ -44,8 +44,10 @@ class MagicConformanceTest {
             checksum(it, signed)
         }
 
-    private fun openTar(bytes: ByteArray, expectedName: String) {
-        ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { reader ->
+    private fun openTar(bytes: ByteArray, expectedName: String, decoder: ArchiveNameDecoder? = null) {
+        val source = ByteArrayRandomAccessSource(bytes)
+        val opened = if (decoder == null) ArchiveKodec.open(source) else ArchiveKodec.open(source, decoder)
+        opened.use { reader ->
             assertEquals(ArchiveFormat.TAR, reader.format)
             val entry = reader.entries().single()
             assertEquals(expectedName, entry.name)
@@ -151,9 +153,9 @@ class MagicConformanceTest {
                 val name = prefix + ".txt".encodeToByteArray()
                 val header = tarHeader(name, magic)
                 val firstNul = name.indexOf(0).let { if (it < 0) name.size else it }
-                val expectedName = name.decodeToString(0, firstNul)
+                val expectedName = ArchiveNameDecoder.CP437.decode(name.copyOf(firstNul))
                 assertFormat(ArchiveFormat.TAR, header)
-                openTar(header + byteArrayOf(97) + ByteArray(511 + 1024), expectedName)
+                openTar(header + byteArrayOf(97) + ByteArray(511 + 1024), expectedName, ArchiveNameDecoder.CP437)
             }
         }
         for (magic in listOf("", "ustar\u000000", "ustar  \u0000")) {

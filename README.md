@@ -292,11 +292,44 @@ Both headers use the reproducible default timestamp 1980-01-01 00:00:00.
 
 ## Sanitize entry names before writing them
 
-`ZipReader`, `TarReader`, `ArReader` and `CpioReader` return `ArchiveEntry.name`
-exactly as the archive stored it, and none of them validates it. A name of
+`ZipReader`, `TarReader`, `ArReader` and `CpioReader` return decoded
+`ArchiveEntry.name` without path sanitization. A name of
 `../../etc/passwd` or `/etc/passwd` arrives unchanged. Directory names retain
 every stored trailing slash, including `e//` and `./`. Use `isDirectory` to
 identify directories; a type-5 TAR directory need not end in a slash.
+
+ZIP uses strict UTF-8 when bit 11 is set. Otherwise a valid version-1 Unicode
+Path extra field (`0x7075`, matching the stored name's CRC32) takes precedence
+over CP437. Both central and local fields are supported; conflicting valid
+Unicode names are rejected. Unknown versions, stale CRCs and malformed optional
+UTF-8 payloads fall back to the stored name. TAR, ar and CPIO default to strict
+UTF-8. Invalid UTF-8 in a required filename raises `ArchiveFormatException`.
+
+For another legacy encoding, supply an `ArchiveNameDecoder` to a concrete reader
+or to `ArchiveKodec.open(source, nameDecoder)`. For example, JVM callers can use:
+
+```kotlin
+import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import java.nio.charset.Charset
+
+val charset = Charset.forName("GBK")
+val decoder = ArchiveNameDecoder { bytes -> String(bytes, charset) }
+ArchiveKodec.open(source, decoder).use { reader -> /* list and read entries */ }
+```
+
+ZIP's UTF-8 flag and valid Unicode Path metadata take precedence over this
+legacy decoder. There is no automatic charset guessing. `ArchiveNameDecoder.UTF8`
+and `.CP437` are available on every target. Callback inputs are defensive copies;
+callback exceptions are translated to contextual archive failures.
+
+`ArchiveEntry.nameBytes` returns a defensive copy of the stored filename without
+container padding or terminators. TAR prefixes and base names are joined with
+the stored slash; GNU long names retain their full path bytes. ZIP retains the
+header bytes even when a Unicode Path field supplies the displayed name.
+The property is null on manually constructed entries. `ArchiveEntry` is an
+ordinary class retaining its original constructor, `copy`, destructuring,
+equality, hash and string representation; copies preserve the stored-byte
+snapshot. Stored bytes do not participate in the original value equality.
 
 Joining such a name to an output directory is the Zip-Slip vulnerability.
 Zip-Slip means an archive entry escapes the folder you meant to extract into, and

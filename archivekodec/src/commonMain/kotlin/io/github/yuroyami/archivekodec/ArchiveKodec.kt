@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec
 
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
+import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.Magic
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
@@ -59,5 +60,16 @@ object ArchiveKodec {
         else -> throw ArchiveUnsupportedException(
             "no container reader for $format", offset = 0,
         )
+    }
+
+    /** Open with explicit filename decoding; ZIP Unicode metadata still takes precedence. */
+    @Throws(ArchiveException::class)
+    fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader = when (val format = sniff(source)) {
+        ArchiveFormat.TAR -> TarReader(source, nameDecoder)
+        ArchiveFormat.ZIP -> ZipReader(source, nameDecoder)
+        ArchiveFormat.AR -> ArReader(source, nameDecoder)
+        ArchiveFormat.CPIO -> CpioReader(source, nameDecoder)
+        ArchiveFormat.UNKNOWN -> throw ArchiveFormatException("unrecognized archive format", 0)
+        else -> throw ArchiveUnsupportedException("no container reader for $format", offset = 0)
     }
 }

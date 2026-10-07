@@ -56,7 +56,7 @@ def main():
         "compressData", "decompressData", "decompressInput", "inflateInput", "encodeData",
         "blockDecompressSrc", "blockCompressData", "frameDecompressInput", "frameCompressData",
         "decompressSrc", "sanitizeEntryName", "checkOutputSizeBytes", "checkRatioCompressedBytes",
-        "checkEntryCountCount", "writeFiles", "appendB", "appendBytes", "updateData", "hashData",
+        "checkEntryCountCount", "writeFiles", "appendB", "appendBytes", "updateData", "hashData", "decodeBytes",
     ]
     io_selectors = ["readAllBytes", "toRandomAccessSource", "compress", "decompress"]
     for target in ("iosSimulatorArm64", "iosArm64", "iosX64"):

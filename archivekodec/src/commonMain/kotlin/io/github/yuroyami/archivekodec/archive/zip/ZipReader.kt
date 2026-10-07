@@ -5,6 +5,8 @@ import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.ReaderSource
@@ -18,13 +20,17 @@ import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import kotlin.text.CharacterCodingException
 
 /**
  * ZIP reader over a seekable [RandomAccessSource] (+ZIP64). Reads the central
  * directory at the tail (the authoritative record). [entries] also validates local
  * header names, methods, flags and declared payload extents; [read] rechecks the
  * local fields against the parsed directory before extracting one entry.
- * Filename comparison uses exact stored bytes. Masked local headers with
+ * Filename comparison uses exact stored bytes. Bit 11 selects strict UTF-8;
+ * otherwise valid Unicode Path metadata takes precedence over [nameDecoder]
+ * (CP437 by default). Conflicting valid Unicode names are malformed.
+ * Masked local headers with
  * central-directory encryption are unsupported. This reader decodes STORE and
  * DEFLATE. Other methods appear in [entries], but [read] throws for them.
  *
@@ -34,7 +40,8 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
  */
-class ZipReader(source: RandomAccessSource) : ArchiveReader {
+class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+    constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.CP437)
 
     private class Member(
         val entry: ArchiveEntry,
@@ -275,7 +282,12 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
                 throw ArchiveFormatException("ZIP: central directory fields exceed record at entry $n", cdOffset + p)
             }
             val nameBytes = cd.copyOfRange(p + 46, p + 46 + nameLen)
-            val name = nameBytes.decodeToString()
+            val nameOffset = cdOffset + p + 46
+            val utf8 = flags and 0x0800 != 0
+            var name = nameBytes.decodeToString() // diagnostics until decoding is resolved
+            val centralUnicode = if (!utf8) {
+                unicodeName(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen, nameBytes, cdOffset, name)
+            } else null
 
             val zip64Output = uncompSize == 0xFFFFFFFFL
             val zip64Compressed = compSize == 0xFFFFFFFFL
@@ -330,19 +342,30 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
                 throw DecompressionBombException("ZIP: multiple entries reference local header offset $localOffset", localOffset, name, null)
             }
 
-            val isDir = name.endsWith("/")
-            val entry = ArchiveEntry(
+            val provisional = ArchiveEntry(
                 name = name,
                 size = uncompSize,
-                isDirectory = isDir,
+                isDirectory = false,
                 compressedSize = compSize,
                 codec = ZipFormat.codecForMethod(method) ?: CodecId.STORE,
                 isEncrypted = flags and 0x41 != 0 || method == 99,
                 crc32 = crc,
                 dataOffset = localOffset, // local header offset; resolved to data in read()
             )
-            val member = Member(entry, nameBytes, method, flags, ZipFormat.u16(local, 28))
-            validateLocalHeader(member, local, source)
+            val localExtraLength = ZipFormat.u16(local, 28)
+            validateLocalHeader(Member(provisional, nameBytes, method, flags, localExtraLength), local, source)
+            val localUnicode = if (!utf8 && localExtraLength > 0) {
+                val extraOffset = localOffset + 30 + nameLen
+                val extra = source.readFully(extraOffset, localExtraLength)
+                unicodeName(extra, 0, extra.size, nameBytes, extraOffset, name)
+            } else null
+            if (centralUnicode != null && localUnicode != null && centralUnicode != localUnicode) {
+                throw ArchiveFormatException("ZIP: conflicting local and central Unicode Path names", nameOffset, name)
+            }
+            name = if (utf8) ArchiveNameDecoder.UTF8.decodeStoredName(nameBytes, nameOffset)
+                else centralUnicode ?: localUnicode ?: nameDecoder.decodeStoredName(nameBytes, nameOffset)
+            val entry = provisional.copy(name = name, isDirectory = name.endsWith("/")).withNameBytes(nameBytes)
+            val member = Member(entry, nameBytes, method, flags, localExtraLength)
             members[localOffset] = member
             entries.add(entry)
             p += 46 + nameLen + extraLen + commentLen
@@ -354,5 +377,37 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
         }
         validateMemberExtents(members.values, cdOffset)
         return Directory(entries, members)
+    }
+
+    /** Optional Unicode payload failures fall back; broken framing and ambiguity do not. */
+    private fun unicodeName(
+        bytes: ByteArray, start: Int, end: Int, storedName: ByteArray, sourceOffset: Long, diagnosticName: String,
+    ): String? {
+        var pos = start
+        var result: String? = null
+        var nameCrc: Long? = null
+        while (pos < end) {
+            if (end - pos < 4) throw ArchiveFormatException("ZIP: truncated extra field header", sourceOffset + pos, diagnosticName)
+            val id = ZipFormat.u16(bytes, pos)
+            val length = ZipFormat.u16(bytes, pos + 2)
+            val data = pos + 4
+            if (length > end - data) throw ArchiveFormatException("ZIP: truncated extra field", sourceOffset + pos, diagnosticName)
+            if (id == 0x7075 && length >= 5 && bytes[data].toInt() == 1) {
+                val crc = nameCrc ?: Crc32.of(storedName).also { nameCrc = it }
+                if (ZipFormat.u32(bytes, data + 1) == crc) {
+                    val candidate = try {
+                        bytes.decodeToString(data + 5, data + length, throwOnInvalidSequence = true)
+                    } catch (_: CharacterCodingException) { null }
+                    if (candidate != null) {
+                        if (result != null && result != candidate) {
+                            throw ArchiveFormatException("ZIP: conflicting Unicode Path extra fields", sourceOffset + pos, diagnosticName)
+                        }
+                        result = candidate
+                    }
+                }
+            }
+            pos = data + length
+        }
+        return result
     }
 }

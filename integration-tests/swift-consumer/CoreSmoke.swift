@@ -72,6 +72,67 @@ let copiedHash = try XxHash32.shared.hash(data: checksumSuffix, offset: 0, lengt
 precondition(suffixHash == copiedHash)
 
 let limits = ArchiveLimits.companion.DEFAULT
+
+// Filename callbacks receive copies; public snapshots cannot change ZIP integrity bytes.
+final class LatinNameDecoder: NSObject, ArchiveNameDecoder {
+    var calls = 0
+    func decode(bytes: KotlinByteArray) throws -> String {
+        calls += 1
+        var values: [UInt8] = []
+        for index in 0..<bytes.size { values.append(UInt8(bitPattern: bytes.get(index: index))) }
+        let name = String(bytes: values, encoding: .isoLatin1)!
+        for index in 0..<bytes.size { bytes.set(index: index, value: 0) }
+        return name
+    }
+}
+final class FailingNameDecoder: NSObject, ArchiveNameDecoder {
+    func decode(bytes: KotlinByteArray) throws -> String {
+        throw NSError(domain: "NameDecoder", code: 7)
+    }
+}
+let cp437NameZip = bytes(Array(Data(base64Encoded: "UEsDBAoAAAAAAAAAIQDnx9u+AwAAAAMAAAAIAAkAY2Fmgi50eHRVVAUAAQCmzhIABwhQSwMECgAAAAAAAAAhANCtGb8DAAAAAwAAAAgACQCBYmVyLnR4dFVUBQABAKbOEgEHCFBLAwQKAAAAAAAAACEAiRNfvQMAAAADAAAACQAJAOMt5C3sLnR4dFVUBQABAKbOEgIHCFBLAwQKAAAAAAAAACEAvnmdvAMAAAADAAAAiAAJAGFsbC2AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/y5iaW5VVAUAAQCmzhIDBwhQSwECCgAKAAAAAAAAACEA58fbvgMAAAADAAAACAAJAAAAAAAAAAAAAAAAAAAAY2Fmgi50eHRVVAUAAQCmzhJQSwECCgAKAAAAAAAAACEA0K0ZvwMAAAADAAAACAAJAAAAAAAAAAAAAAAyAAAAgWJlci50eHRVVAUAAQCmzhJQSwECCgAKAAAAAAAAACEAiRNfvQMAAAADAAAACQAJAAAAAAAAAAAAAABkAAAA4y3kLewudHh0VVQFAAEAps4SUEsBAgoACgAAAAAAAAAhAL55nbwDAAAAAwAAAIgACQAAAAAAAAAAAAAAlwAAAGFsbC2AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbX2Nna29zd3t/g4eLj5OXm5+jp6uvs7e7v8PHy8/T19vf4+fr7/P3+/y5iaW5VVAUAAQCmzhJQSwUGAAAAAAQABAB9AQAASQEAAAAA")!))
+let unicodeNameZip = bytes(Array(Data(base64Encoded: "UEsDBAoAAAAAAAAAIQDRBAGLAwAAAAMAAAAMAB4AZmFsbGJhY2sudHh0VVQFAAEAps4SdXARAAFUVXog6ZuqL/CfmoAudHh0KgcIUEsBAgoACgAAAAAAAAAhANEEAYsDAAAAAwAAAAwAHgAAAAAAAAAAAAAAAAAAAGZhbGxiYWNrLnR4dFVUBQABAKbOEnVwEQABVFV6IOmbqi/wn5qALnR4dFBLBQYAAAAAAQABAFgAAABLAAAAAAA=")!))
+let cp437NameReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: cp437NameZip))
+let cp437NameEntries = try cp437NameReader.entries()
+precondition(cp437NameEntries.count == 4 && cp437NameEntries[0].name == "café.txt" && cp437NameEntries[2].name == "π-Σ-∞.txt")
+let rawNameSnapshot = cp437NameEntries[0].nameBytes!
+precondition(rawNameSnapshot.get(index: 3) == Int8(bitPattern: 0x82))
+rawNameSnapshot.set(index: 3, value: 0)
+precondition(cp437NameEntries[0].nameBytes!.get(index: 3) == Int8(bitPattern: 0x82))
+let copiedNameEntry = cp437NameEntries[0].doCopy(name: cp437NameEntries[0].name, size: cp437NameEntries[0].size,
+    isDirectory: false, lastModifiedEpochSeconds: cp437NameEntries[0].lastModifiedEpochSeconds,
+    compressedSize: cp437NameEntries[0].compressedSize, codec: cp437NameEntries[0].codec, isEncrypted: false,
+    crc32: cp437NameEntries[0].crc32, dataOffset: cp437NameEntries[0].dataOffset)
+precondition(copiedNameEntry.nameBytes!.get(index: 3) == Int8(bitPattern: 0x82))
+let copiedNamePayload = try cp437NameReader.read(entry: copiedNameEntry, limits: limits)
+precondition(copiedNamePayload.size == 3 && copiedNamePayload.get(index: 1) == 7)
+try cp437NameReader.close()
+let latinNameDecoder = LatinNameDecoder()
+let latinNameReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: cp437NameZip), nameDecoder: latinNameDecoder)
+let latinNameEntries = try latinNameReader.entries()
+precondition(latinNameEntries[1].name == "\u{81}ber.txt" && latinNameDecoder.calls == 4)
+let latinNamePayload = try latinNameReader.read(entry: latinNameEntries[0], limits: limits)
+precondition(latinNamePayload.size == 3 && latinNameEntries[0].nameBytes!.get(index: 3) == Int8(bitPattern: 0x82))
+try latinNameReader.close()
+let unicodeNameReader = ZipReader(source: ByteArrayRandomAccessSource(data: unicodeNameZip), nameDecoder: FailingNameDecoder())
+let unicodeNameEntries = try unicodeNameReader.entries()
+precondition(unicodeNameEntries[0].name == "雪/🚀.txt")
+try unicodeNameReader.close()
+let invalidUtf8NameZip = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: "ab", data: bytes([42]), codec: CodecId.store)])
+invalidUtf8NameZip.set(index: 30, value: Int8(bitPattern: 0xc0))
+invalidUtf8NameZip.set(index: 31, value: Int8(bitPattern: 0xaf))
+invalidUtf8NameZip.set(index: invalidUtf8NameZip.size - 24, value: Int8(bitPattern: 0xc0))
+invalidUtf8NameZip.set(index: invalidUtf8NameZip.size - 23, value: Int8(bitPattern: 0xaf))
+let invalidUtf8NameReader = ZipReader(source: ByteArrayRandomAccessSource(data: invalidUtf8NameZip))
+expectFailure("strict UTF-8 filename decoder", check: { $0 is ArchiveFormatException }) {
+    _ = try invalidUtf8NameReader.entries()
+}
+try invalidUtf8NameReader.close()
+let failedNameReader = ZipReader(source: ByteArrayRandomAccessSource(data: cp437NameZip), nameDecoder: FailingNameDecoder())
+expectFailure("Swift filename callback", check: { $0 is ArchiveFormatException && $0.offset != nil && $0.cause != nil }) {
+    _ = try failedNameReader.entries()
+}
+try failedNameReader.close()
 let empty = bytes([])
 expectFailure("unsafe path", check: { $0 is ArchivePathException && $0.entryName == "../escape" }) {
     _ = try PathGuard.shared.sanitize(entryName: "../escape")
