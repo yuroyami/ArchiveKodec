@@ -297,8 +297,8 @@ artifact and a kotlinx-io dependency.
 
 Two JVM-only suites test interoperability. `ZlibInteropTest` feeds our raw
 DEFLATE, zlib and gzip output to `java.util.zip.Inflater` and `GZIPInputStream`.
-Those two classes validate the Adler-32 and CRC-32/ISIZE trailers that our own
-decoder skips. `ZipInteropTest` round-trips ZIPs in both directions against
+The Inflater helper requires stream completion and full input consumption;
+the JDK also validates the wrapper checksums and gzip size. `ZipInteropTest` round-trips ZIPs in both directions against
 `java.util.zip`, including a 70,000-entry ZIP64 archive.
 
 Not covered: xxHash32 has no check-value test. The suite exercises it only as the
