@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.codec.lz4
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
@@ -40,7 +41,7 @@ object Lz4 {
     private fun decodeBlock(
         src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int,
         blockMaximum: Int, limits: ArchiveLimits, outputBase: Int, compressedBytes: Int,
-        declaredSize: Long? = null,
+        declaredSize: Long? = null, dictionaryId: Long? = null,
     ): ByteArray {
         if (sOff < 0 || sEnd < sOff || sEnd > src.size) {
             throw ArchiveFormatException("lz4: invalid block slice [$sOff, $sEnd)", sOff.toLong())
@@ -101,7 +102,16 @@ object Lz4 {
             needInput(2)
             val offset = (src[s].toInt() and 0xFF) or ((src[s + 1].toInt() and 0xFF) shl 8)
             s += 2
-            if (offset == 0 || offset > o) throw ArchiveFormatException("lz4: invalid match offset $offset", (s - 2).toLong())
+            if (offset == 0) throw ArchiveFormatException("lz4: invalid match offset 0", (s - 2).toLong())
+            if (offset > o) {
+                val message = "lz4: match offset $offset exceeds available history $o"
+                if (dictionaryId != null) {
+                    throw ArchiveUnsupportedException("$message; dictionary ID $dictionaryId is not supplied", (s - 2).toLong())
+                }
+                // Dictionary IDs are optional. Missing history does not establish
+                // whether an untagged block needs a dictionary or is malformed.
+                throw ArchiveFormatException("$message; an external dictionary or linked-block history may be required", (s - 2).toLong())
+            }
             val encodedLength = length(token and 0xF)
             if (encodedLength > Int.MAX_VALUE - MIN_MATCH) throw ArchiveFormatException("lz4: match length exceeds ByteArray limit", s.toLong())
             val matchLen = encodedLength + MIN_MATCH
@@ -216,6 +226,10 @@ object Lz4 {
     /**
      * Decompress an LZ4 frame, enforcing [limits] and its optional declared content size
      * before output growth or copying. The complete output must match a present size field.
+     * Version and reserved bits are validated. Dictionary-tagged self-contained blocks
+     * remain readable; a match requiring unavailable dictionary history raises
+     * [ArchiveUnsupportedException] with the declared ID. An untagged missing-history
+     * match remains malformed, since an external dictionary cannot be inferred reliably.
      */
     @Throws(ArchiveException::class)
     fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
@@ -233,6 +247,8 @@ object Lz4 {
         needInput(2)
         val flg = input[p++].toInt() and 0xFF
         val bd = input[p++].toInt() and 0xFF
+        if (flg ushr 6 != 1) throw ArchiveFormatException("lz4: invalid frame version ${flg ushr 6}", 4)
+        if (flg and 0x02 != 0) throw ArchiveFormatException("lz4: reserved FLG bit is set", 4)
         val blockMaximum = when ((bd ushr 4) and 7) {
             4 -> 64 * 1024
             5 -> 256 * 1024
@@ -252,7 +268,7 @@ object Lz4 {
             repeat(8) { size = size or ((input[p++].toInt() and 0xFF).toULong() shl (it * 8)) }
             size
         } else null
-        if (dictId) p += 4
+        val dictionaryId = if (dictId) u32() else null
         needInput(1)
         val headerChecksum = (XxHash32.hash(input, 4, p - 4) ushr 8).toInt() and 0xFF
         if (headerChecksum != (input[p].toInt() and 0xFF)) {
@@ -306,7 +322,7 @@ object Lz4 {
                 limits.checkRatio(input.size.toLong(), out.size.toLong() + blockSize)
                 out.append(input, p, blockSize)
             } else {
-                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size, input.size, declaredSize))
+                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size, input.size, declaredSize, dictionaryId))
             }
             p += blockSize
             if (blockChecksum) p += 4

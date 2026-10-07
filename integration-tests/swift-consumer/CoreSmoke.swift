@@ -165,6 +165,41 @@ expectFailure("LZ4 content checksum", check: {
     _ = try Lz4.shared.frameDecompress(input: bytes([4, 0x22, 0x4d, 0x18, 0x64, 0x40, 0xa7, 0, 0, 0, 0, 4, 0x5d, 0xcc, 2]), limits: limits)
 }
 expectFailure("Snappy preamble", check: { $0 is ArchiveFormatException }) { _ = try Snappy.shared.decompress(src: bytes([128]), limits: limits) }
+// Descriptor semantics and optional Dictionary IDs remain distinct from checksum validation.
+let invalidLz4Descriptors: [(String, String)] = [
+    ("version-0", "BCJNGCRArQYAAIBmaXJzdC0AAAAA6RkwFQ=="),
+    ("version-2", "BCJNGKRA8gYAAIBmaXJzdC0AAAAA6RkwFQ=="),
+    ("version-3", "BCJNGORAXAYAAIBmaXJzdC0AAAAA6RkwFQ=="),
+    ("flg-reserved", "BCJNGGZAdwYAAIBmaXJzdC0AAAAA6RkwFQ=="),
+]
+for (label, encoded) in invalidLz4Descriptors {
+    expectFailure("LZ4 descriptor \(label)", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 4 }) {
+        _ = try Lz4.shared.frameDecompress(input: bytes(Array(Data(base64Encoded: encoded)!)), limits: limits)
+    }
+}
+let declaredLz4Dictionary = bytes(Array(Data(base64Encoded: "BCJNGG1AVAAAAAAAAACYutz+4hQAAAAPNgAjQSBhbmRSAAxxAFBhZ2FpbgAAAADSu40A")!))
+let undeclaredLz4Dictionary = bytes(Array(Data(base64Encoded: "BCJNGGxAVAAAAAAAAACfFAAAAA82ACNBIGFuZFIADHEAUGFnYWluAAAAANK7jQA=")!))
+let lz4Protocol: Codec = ArchiveKodec.shared.codec(id: CodecId.lz4)!
+expectFailure("LZ4 declared dictionary through Codec", check: {
+    $0 is ArchiveUnsupportedException && $0.offset?.int64Value == 24 && $0.message?.contains("dictionary ID 4275878552") == true
+}) { _ = try lz4Protocol.decompress(data: declaredLz4Dictionary, limits: limits) }
+expectFailure("LZ4 undeclared dictionary", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 20 && $0.message?.contains("may be required") == true
+}) { _ = try Lz4.shared.frameDecompress(input: undeclaredLz4Dictionary, limits: limits) }
+declaredLz4Dictionary.set(index: 24, value: 0)
+declaredLz4Dictionary.set(index: 25, value: 0)
+expectFailure("LZ4 zero offset with Dictionary ID", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 24 && $0.message?.contains("invalid match offset 0") == true
+}) { _ = try Lz4.shared.frameDecompress(input: declaredLz4Dictionary, limits: limits) }
+let corruptLz4DictionaryHeader = bytes(Array(Data(base64Encoded: "BCJNGG1AVAAAAAAAAACYutz+4hQAAAAPNgAjQSBhbmRSAAxxAFBhZ2FpbgAAAADSu40A")!))
+corruptLz4DictionaryHeader.set(index: 18, value: 0)
+expectFailure("LZ4 dictionary header checksum", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 18 && $0.message?.contains("header checksum") == true
+}) { _ = try Lz4.shared.frameDecompress(input: corruptLz4DictionaryHeader, limits: limits) }
+let selfContainedLz4Dictionary = bytes(Array(Data(base64Encoded: "BCJNGGFAmLrc/tEGAACAZmlyc3QtAAAAAA==")!))
+let selfContainedLz4Output = try Lz4.shared.frameDecompress(input: selfContainedLz4Dictionary, limits: limits)
+precondition(selfContainedLz4Output.size == 6 && selfContainedLz4Output.get(index: 0) == 102)
+
 expectFailure("zlib dictionary", check: { $0 is ArchiveUnsupportedException }) {
     _ = try Zlib.shared.decompress(input: bytes([0x78, 0xbb, 0x35, 0x29, 0x06, 0x6b, 0xcb, 0x00, 0xf1, 0x01, 0x06, 0x2c, 0x02, 0x15]))
 }

@@ -486,6 +486,13 @@ artifact and a kotlinx-io dependency.
   advertised block checksum before decoding/copying, and checks the advertised
   content checksum before returning output. Corrupt or truncated checksum fields
   throw `ArchiveFormatException` with their source offset.
+- LZ4 frame version bits must be `01`; reserved FLG/BD bits must be zero.
+  Dictionary-tagged self-contained blocks remain readable. A match requiring
+  unavailable history names a declared unsigned Dictionary ID in
+  `ArchiveUnsupportedException`. Without an ID, a malformed-data error explains
+  that an external dictionary or linked-block history may be required; those
+  causes cannot be distinguished from damaged match bytes. Supplying dictionary
+  bytes and decoding linked-block history are not implemented yet.
 - A present LZ4 content-size field is checked against configured limits before
   decoding and must equal the complete output. Compressed LZ4 blocks must end in
   a literal-only sequence, with at least five final literals after a match.
