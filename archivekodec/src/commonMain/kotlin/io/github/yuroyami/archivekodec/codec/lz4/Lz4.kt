@@ -1,8 +1,10 @@
 package io.github.yuroyami.archivekodec.codec.lz4
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 
 /**
  * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
@@ -24,41 +26,68 @@ object Lz4 {
 
     /* ─── Block format ───────────────────────────────────────────────────── */
 
-    /** Decompress one LZ4 block in `src[sOff, sEnd)`. */
-    fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray {
-        var out = ByteArray(if (expectedSize > 0) expectedSize else maxOf(64, (sEnd - sOff) * 3))
-        var o = 0
-        fun ensure(n: Int) {
-            if (o + n > out.size) {
-                var c = out.size
-                while (c < o + n) c = c shl 1
-                out = out.copyOf(c)
-            }
+    /** Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint. */
+    fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
+        decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0)
+
+    private fun decodeBlock(
+        src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int,
+        blockMaximum: Int, limits: ArchiveLimits, outputBase: Int,
+    ): ByteArray {
+        if (sOff < 0 || sEnd < sOff || sEnd > src.size) {
+            throw ArchiveFormatException("lz4: invalid block slice [$sOff, $sEnd)", sOff.toLong())
         }
+        limits.checkOutputSize(outputBase.toLong())
+        val budget = minOf(blockMaximum.toLong(), limits.maxUncompressedBytes - outputBase).toInt()
+        // A size hint never triggers a large reservation before decoding any input.
+        val hint = if (expectedSize > 0) expectedSize else 64
+        var out = ByteArray(minOf(4096, hint, budget))
+        var o = 0
         var s = sOff
+        fun needInput(n: Int) {
+            if (n > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
+        }
+        fun length(base: Int): Int {
+            var n = base.toLong()
+            if (base == 15) {
+                var b: Int
+                do {
+                    needInput(1)
+                    b = src[s++].toInt() and 0xFF
+                    n += b
+                    if (n > Int.MAX_VALUE) throw ArchiveFormatException("lz4: length exceeds ByteArray limit", s.toLong())
+                } while (b == 255)
+            }
+            return n.toInt()
+        }
+        fun ensure(n: Int) {
+            val required = o.toLong() + n
+            if (required > blockMaximum) {
+                throw ArchiveFormatException("lz4: decoded block exceeds maximum $blockMaximum", s.toLong())
+            }
+            limits.checkOutputSize(outputBase.toLong() + required)
+            val capacity = byteArrayCapacity(out.size, o, n, budget)
+            if (capacity != out.size) out = out.copyOf(capacity)
+        }
         while (s < sEnd) {
             val token = src[s++].toInt() and 0xFF
-            var litLen = token ushr 4
-            if (litLen == 15) {
-                var b = 255
-                while (b == 255) { b = src[s++].toInt() and 0xFF; litLen += b }
-            }
+            val litLen = length(token ushr 4)
+            needInput(litLen)
             ensure(litLen)
-            for (k in 0 until litLen) out[o++] = src[s++]
-            if (s >= sEnd) break // last sequence: literals only
+            src.copyInto(out, o, s, s + litLen)
+            o += litLen
+            s += litLen
+            if (s == sEnd) break // last sequence: literals only
 
+            needInput(2)
             val offset = (src[s].toInt() and 0xFF) or ((src[s + 1].toInt() and 0xFF) shl 8)
             s += 2
-            if (offset == 0) error("lz4: invalid zero offset")
-            var matchLen = token and 0xF
-            if (matchLen == 15) {
-                var b = 255
-                while (b == 255) { b = src[s++].toInt() and 0xFF; matchLen += b }
-            }
-            matchLen += MIN_MATCH
+            if (offset == 0 || offset > o) throw ArchiveFormatException("lz4: invalid match offset $offset", (s - 2).toLong())
+            val encodedLength = length(token and 0xF)
+            if (encodedLength > Int.MAX_VALUE - MIN_MATCH) throw ArchiveFormatException("lz4: match length exceeds ByteArray limit", s.toLong())
+            val matchLen = encodedLength + MIN_MATCH
             ensure(matchLen)
             var m = o - offset
-            if (m < 0) error("lz4: offset before start of output")
             repeat(matchLen) { out[o++] = out[m++] } // byte-by-byte: overlap-safe
         }
         return out.copyOf(o)
@@ -162,42 +191,59 @@ object Lz4 {
         return out.toByteArray()
     }
 
-    /** Decompress an LZ4 frame, enforcing [limits]. */
+    /** Decompress an LZ4 frame, enforcing [limits] before output growth or copying. */
     fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
+        fun needInput(n: Int) {
+            if (n > input.size - p) throw ArchiveFormatException("lz4: truncated frame", p.toLong())
+        }
         fun u32(): Long {
+            needInput(4)
             val v = (input[p].toLong() and 0xFF) or ((input[p + 1].toLong() and 0xFF) shl 8) or
                 ((input[p + 2].toLong() and 0xFF) shl 16) or ((input[p + 3].toLong() and 0xFF) shl 24)
             p += 4
             return v
         }
-        if (u32() != MAGIC) error("lz4: bad frame magic")
+        if (u32() != MAGIC) throw ArchiveFormatException("lz4: bad frame magic", 0)
+        needInput(2)
         val flg = input[p++].toInt() and 0xFF
-        p++ // BD
+        val bd = input[p++].toInt() and 0xFF
+        val blockMaximum = when ((bd ushr 4) and 7) {
+            4 -> 64 * 1024
+            5 -> 256 * 1024
+            6 -> 1024 * 1024
+            7 -> MAX_BLOCK
+            else -> throw ArchiveFormatException("lz4: invalid block maximum descriptor", (p - 1).toLong())
+        }
+        if (bd and 0x8F != 0) throw ArchiveFormatException("lz4: reserved BD bits are set", (p - 1).toLong())
         val blockChecksum = (flg and 0x10) != 0
         val contentSize = (flg and 0x08) != 0
         val contentChecksum = (flg and 0x04) != 0
         val dictId = (flg and 0x01) != 0
-        if (contentSize) p += 8
-        if (dictId) p += 4
-        p++ // HC header checksum byte
+        val optional = (if (contentSize) 8 else 0) + (if (dictId) 4 else 0) + 1
+        needInput(optional)
+        p += optional // optional content size, dictionary ID, header checksum
 
-        val out = ByteArrayBuilder(maxOf(64, input.size))
+        limits.checkOutputSize(0)
+        val maximum = minOf(Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes).toInt()
+        val out = ByteArrayBuilder(minOf(64, maximum), maximum)
         while (true) {
             val raw = u32()
             if (raw == 0L) break // end mark
             val uncompressed = (raw and 0x80000000L) != 0L
             val blockSize = (raw and 0x7FFFFFFFL).toInt()
+            if (blockSize > blockMaximum) throw ArchiveFormatException("lz4: block size $blockSize exceeds maximum $blockMaximum", (p - 4).toLong())
+            needInput(blockSize)
             if (uncompressed) {
+                limits.checkOutputSize(out.size.toLong() + blockSize)
                 out.append(input, p, blockSize)
             } else {
-                out.append(blockDecompress(input, p, p + blockSize))
+                out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size))
             }
             p += blockSize
-            if (blockChecksum) p += 4
-            limits.checkOutputSize(out.size.toLong())
+            if (blockChecksum) { needInput(4); p += 4 }
         }
-        if (contentChecksum) p += 4
+        if (contentChecksum) { needInput(4); p += 4 }
         return out.toByteArray()
     }
 

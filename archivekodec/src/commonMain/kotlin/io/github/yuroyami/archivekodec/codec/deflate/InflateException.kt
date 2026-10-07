@@ -12,7 +12,7 @@ enum class InflateError(val code: Int, val message: String) {
     /** puff 2: `bits()`/`decode()` read past the end of the input (longjmp path). */
     DATA_DID_NOT_TERMINATE(2, "available inflate data did not terminate"),
 
-    /** puff 1: only reachable with a bounded output buffer. This decoder grows instead. */
+    /** puff 1: the output cannot fit in a single ByteArray. */
     SPACE_EXHAUSTED(1, "output space exhausted before completing inflate"),
 
     /** puff -1: block type field was 3 (reserved). */

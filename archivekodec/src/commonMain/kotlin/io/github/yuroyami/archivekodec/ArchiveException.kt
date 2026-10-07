@@ -18,3 +18,6 @@ class ArchiveFormatException(
     entryName: String? = null,
     cause: Throwable? = null,
 ) : ArchiveException(message, cause, offset, entryName)
+
+/** An in-memory archive or codec result cannot be represented by a single ByteArray. */
+class ArchiveSizeException(message: String) : ArchiveException(message)

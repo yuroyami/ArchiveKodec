@@ -25,6 +25,9 @@
 
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import io.github.yuroyami.archivekodec.ArchiveSizeException
+import io.github.yuroyami.archivekodec.util.byteArrayCapacity
+
 /**
  * Raw DEFLATE (RFC 1951) decompressor. It is a pure-Kotlin translation of Mark
  * Adler's `puff()`, the deliberately simple reference inflate that ships with zlib
@@ -34,7 +37,8 @@ package io.github.yuroyami.archivekodec.codec.deflate
  *
  *  - puff writes into a caller-supplied fixed-size buffer and returns `1`
  *    ("output space exhausted") when it's too small; we grow the output array on
- *    demand instead, so error code `1` never occurs here.
+ *    demand instead, and report error code `1` if the result cannot fit in a
+ *    single ByteArray.
  *
  *  - puff signals "ran past the end of input" via `setjmp`/`longjmp`; we model
  *    that non-local exit with a private [OutOfInput] throwable caught at the top
@@ -120,7 +124,7 @@ object Inflate {
     /**
      * Per-call inflate state. Holds the input cursor + bit buffer and the growable
      * output. Mirrors puff's `struct state`, except [out] grows instead of being a
-     * fixed buffer, so there is no `outlen` overflow path.
+     * fixed buffer. Growth rejects a result above the ByteArray size limit.
      */
     private class State(private val inBuf: ByteArray) {
         private var incnt = 0           // bytes read so far
@@ -157,12 +161,12 @@ object Inflate {
         }
 
         fun ensure(extra: Int) {
-            val needed = outcnt + extra
-            if (needed > out.size) {
-                var cap = if (out.size == 0) 256 else out.size
-                while (cap < needed) cap = cap shl 1
-                out = out.copyOf(cap)
+            val capacity = try {
+                byteArrayCapacity(out.size, outcnt, extra)
+            } catch (_: ArchiveSizeException) {
+                throw InflateException(InflateError.SPACE_EXHAUSTED)
             }
+            if (capacity != out.size) out = out.copyOf(capacity)
         }
 
         fun writeByte(b: Int) {

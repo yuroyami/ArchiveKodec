@@ -5,10 +5,19 @@ package io.github.yuroyami.archivekodec.util
  * `ByteArrayOutputStream`, with no `java.io` dependency, so it lives in `commonMain`.
  * Amortised O(1) append by doubling. Used by the DEFLATE encoder and the gzip and
  * zlib framers.
+ * Appends throw [io.github.yuroyami.archivekodec.ArchiveSizeException] when the
+ * result cannot fit in one ByteArray.
  */
 class ByteArrayBuilder(initialCapacity: Int = 64) {
     private var buf = ByteArray(if (initialCapacity < 16) 16 else initialCapacity)
     private var len = 0
+    private var maximum = Int.MAX_VALUE
+
+    internal constructor(initialCapacity: Int, maximum: Int) : this(minOf(initialCapacity, maximum)) {
+        require(maximum >= 0)
+        this.maximum = maximum
+        if (buf.size > maximum) buf = ByteArray(maximum)
+    }
 
     /** Number of bytes written so far. */
     val size: Int get() = len
@@ -21,6 +30,9 @@ class ByteArrayBuilder(initialCapacity: Int = 64) {
 
     /** Append a slice of [bytes]. */
     fun append(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size) {
+        require(offset >= 0 && length >= 0 && offset <= bytes.size && length <= bytes.size - offset) {
+            "invalid source slice: offset $offset, length $length, size ${bytes.size}"
+        }
         if (length == 0) return
         ensure(length)
         bytes.copyInto(buf, len, offset, offset + length)
@@ -28,12 +40,8 @@ class ByteArrayBuilder(initialCapacity: Int = 64) {
     }
 
     private fun ensure(extra: Int) {
-        val needed = len + extra
-        if (needed > buf.size) {
-            var cap = buf.size
-            while (cap < needed) cap = cap shl 1
-            buf = buf.copyOf(cap)
-        }
+        val capacity = byteArrayCapacity(buf.size, len, extra, maximum)
+        if (capacity != buf.size) buf = buf.copyOf(capacity)
     }
 
     /** Snapshot the written bytes into a right-sized array. */
