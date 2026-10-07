@@ -55,8 +55,8 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
         val out = codec.decompress(comp, limits)
 
         entry.crc32?.let { expected ->
-            if (expected != 0L && Crc32.of(out) != expected) {
-                error("CRC-32 mismatch for '${entry.name}'")
+            if (Crc32.of(out) != expected) {
+                throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
             }
         }
         return out

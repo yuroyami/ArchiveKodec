@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- ZIP validates every non-null CRC-32, including zero. Mismatches report the
+  entry name and payload offset through `ArchiveFormatException`.
+
 - All implemented codecs enforce `maxCompressionRatio`, including stored and
   compressed LZ4 blocks under a cumulative frame policy. STORE and uncompressed
   TAR/ar/cpio payloads honor their 1:1 ratio before copying or reading data.

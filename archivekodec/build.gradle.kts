@@ -41,7 +41,14 @@ kotlin {
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     js(IR) {
         browser()
-        nodejs()
+        nodejs {
+            testTask {
+                useMocha {
+                    // Whole-array boundary tests intentionally decode several MiB.
+                    timeout = "30s"
+                }
+            }
+        }
         binaries.library()
     }
 
@@ -64,4 +71,3 @@ kotlin {
         }
     }
 }
-
