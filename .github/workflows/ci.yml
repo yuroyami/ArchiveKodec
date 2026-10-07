@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      failure_canary:
+        description: Insert a deliberately failing JVM test to verify the gate (never deploys Pages)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  portable:
+    name: JVM, Node, Android and Java consumer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Install the required Android SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Run verification
+        env:
+          FAILURE_CANARY: ${{ inputs.failure_canary || false }}
+        run: |
+          args=()
+          if [[ "$FAILURE_CANARY" == true ]]; then args+=(--failure-canary); fi
+          python3 integration-tests/ci/run.py portable "${args[@]}"
+      - name: Retain test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: portable-test-reports
+          path: |
+            archivekodec/build/test-results/
+            archivekodec/build/reports/tests/
+            archivekodec-io/build/test-results/
+            archivekodec-io/build/reports/tests/
+          retention-days: 14
+
+  apple:
+    name: iOS simulator and Swift consumers
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Check the Apple toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - name: Run verification
+        run: python3 integration-tests/ci/run.py apple
+      - name: Retain test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: apple-test-reports
+          path: |
+            archivekodec/build/test-results/
+            archivekodec/build/reports/tests/
+            archivekodec-io/build/test-results/
+            archivekodec-io/build/reports/tests/
+          retention-days: 14
+
+  verification:
+    name: Verification
+    needs: [portable, apple]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require both platform lanes to pass
+        env:
+          PORTABLE_RESULT: ${{ needs.portable.result }}
+          APPLE_RESULT: ${{ needs.apple.result }}
+        run: |
+          test "$PORTABLE_RESULT" = success
+          test "$APPLE_RESULT" = success
+
+  docs:
+    name: Build documentation
+    needs: verification
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !inputs.failure_canary }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Build the docs site
+        run: |
+          python -m pip install -r docs/requirements.txt
+          mkdocs build --strict --site-dir site
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Generate and merge the Dokka API reference
+        run: |
+          ./gradlew dokkaGenerate --no-configuration-cache --no-daemon --no-parallel --max-workers=2 \
+            '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8 -XX:+UseParallelGC' \
+            -Pkotlin.compiler.execution.strategy=in-process
+          mkdir -p site/api
+          cp -r build/dokka/html/. site/api/
+          touch site/.nojekyll
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy documentation
+    needs: docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

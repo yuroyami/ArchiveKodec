@@ -320,7 +320,7 @@ artifact and a kotlinx-io dependency.
 
 ## Testing
 
-58 tests. `commonTest` runs on every target, and covers:
+`commonTest` runs on the JVM, Node.js and iOS simulator, and covers:
 
 - DEFLATE round-trips.
 - Dynamic Huffman on skewed alphabets.
@@ -355,6 +355,32 @@ LZ4 frame header byte.
 
 You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
 your SDK install.
+
+Pull requests and main pushes run the `CI` workflow without path filters. Its
+`Verification` check requires both platform lanes to succeed, including JVM and
+Node tests, both Android AARs/JVM JARs, the core JS distribution, the downstream
+Java compile check, both iOS simulator suites and the independent Swift consumers.
+All three Apple frameworks are built; device and x64 checks cover compilation and
+exported headers, while runtime checks use the arm64 iOS simulator. Android
+verification currently covers compilation and packaging. Pages builds and deploys
+only after verification succeeds for the same main commit. `Verification` is the
+stable check to select in branch protection.
+
+Run the identical commands locally with JDK 21 and Android SDK 36 installed:
+
+```bash
+python3 integration-tests/ci/run.py portable
+python3 integration-tests/ci/run.py apple # macOS arm64, Xcode and an iOS simulator runtime
+```
+
+The workflow's manual `failure_canary` input inserts a deliberately failing JVM
+test into the checkout and must produce a failed portable lane and `Verification`
+check. It always disables Pages deployment. The fixture is removed after execution
+and is never committed. To check the failure path locally, run
+`python3 integration-tests/ci/run.py portable --failure-canary`, expect a nonzero
+exit with `CiFailureCanaryTest.deliberateFailure`, then run the normal portable
+command to restore passing reports. Hosted run results remain separate evidence
+from local command validation.
 
 ## What is planned
 
