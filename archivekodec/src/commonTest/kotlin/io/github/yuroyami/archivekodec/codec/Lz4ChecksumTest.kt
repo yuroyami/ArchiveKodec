@@ -153,7 +153,7 @@ class Lz4ChecksumTest {
             val extent = frame.blockExtents().single()
             val changed = frame.bytes.copyOf()
             changed[extent.first] = (changed[extent.first].toInt() xor 0x80).toByte()
-            val limits = ArchiveLimits(maxUncompressedBytes = 0)
+            val limits = ArchiveLimits { maxUncompressedBytes = 0 }
             mismatch(changed, "block", extent.last + 1, limits)
             assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(frame.bytes, limits) }
         }

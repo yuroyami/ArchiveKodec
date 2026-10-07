@@ -22,7 +22,11 @@ import kotlin.test.assertTrue
 import kotlin.time.TimeSource
 
 class MalformedMutationTest {
-    private val limits = ArchiveLimits(maxUncompressedBytes = 4096, maxCompressionRatio = 4096, maxEntries = 16)
+    private val limits = ArchiveLimits {
+        maxUncompressedBytes = 4096
+        maxCompressionRatio = 4096
+        maxEntries = 16
+    }
     private val payload = "foreign mutation payload\n".repeat(8).encodeToByteArray()
 
     @Test
@@ -31,14 +35,17 @@ class MalformedMutationTest {
         for (id in Codecs.implemented) {
             val codec = Codecs.byId(id)!!
             val encoded = codec.compress(data)
-            assertContentEquals(data, codec.decompress(encoded, ArchiveLimits(maxUncompressedBytes = data.size.toLong())), "$id exact budget")
+            assertContentEquals(data, codec.decompress(encoded, ArchiveLimits { maxUncompressedBytes = data.size.toLong() }), "$id exact budget")
             assertFailsWith<DecompressionBombException>("$id output limit") {
-                codec.decompress(encoded, ArchiveLimits(maxUncompressedBytes = data.size - 1L))
+                codec.decompress(encoded, ArchiveLimits { maxUncompressedBytes = data.size - 1L })
             }
             assertFailsWith<DecompressionBombException>("$id ratio limit") {
-                codec.decompress(encoded, ArchiveLimits(maxCompressionRatio = 0))
+                codec.decompress(encoded, ArchiveLimits { maxCompressionRatio = 0 })
             }
-            val zero = ArchiveLimits(maxUncompressedBytes = 0, maxCompressionRatio = 0)
+            val zero = ArchiveLimits {
+                maxUncompressedBytes = 0
+                maxCompressionRatio = 0
+            }
             assertContentEquals(byteArrayOf(), codec.decompress(codec.compress(byteArrayOf()), zero), "$id empty output")
             assertFailsWith<DecompressionBombException>("$id zero budget") { codec.decompress(encoded, zero) }
         }

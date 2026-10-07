@@ -123,9 +123,22 @@ enforces less than the field list suggests. Direct `Inflate.inflate`,
 compatibility delegates; their default also comes from `ArchiveLimits.DEFAULT`.
 
 ```kotlin
-val limits = ArchiveLimits(maxUncompressedBytes = 8L * 1024 * 1024, maxCompressionRatio = 100)
+val limits = ArchiveLimits {
+    maxUncompressedBytes = 8L * 1024 * 1024
+    maxCompressionRatio = 100
+}
 val decoded = Gzip.decompress(bytes, limits)
+val tighter = limits.copy { maxUncompressedBytes = 1024 }
 ```
+
+Policies are immutable snapshots. Configuration uses a fresh mutable builder;
+reusing or retaining that builder cannot change a built policy. Each setting must
+be nonnegative. Invalid settings throw `IllegalArgumentException` at build time;
+zero keeps its existing meaning. Java and Swift can construct a zero-argument
+`ArchiveLimits.Builder`, set its properties and call `build()` (`try` in Swift).
+Kotlin callers can also use `ArchiveLimits()` for the defaults. The old field-list
+constructor, data-class copy and destructuring functions have been removed for
+the next minor release; rebuild callers and migrate to the builder or lambda API.
 
 DEFLATE writes check the cumulative byte budget and whole-input compression ratio
 before output growth or copying. A zero-byte cap accepts valid empty output.

@@ -200,8 +200,8 @@ class Lz4HistoryTest {
     fun outputLimitsCountOnlyNewBytesAndApplyBeforeHistoryBasedGrowth() {
         val expected = seed + expanded(seed, 3, 100)
         val bytes = frame(listOf(true to seed, false to match(3, 100)))
-        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(bytes, ArchiveLimits(maxUncompressedBytes = expected.size - 1L)) }
-        assertContentEquals(expected, Lz4.frameDecompress(bytes, ArchiveLimits(maxUncompressedBytes = expected.size.toLong())))
+        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(bytes, ArchiveLimits { maxUncompressedBytes = expected.size - 1L }) }
+        assertContentEquals(expected, Lz4.frameDecompress(bytes, ArchiveLimits { maxUncompressedBytes = expected.size.toLong() }))
     }
 
     @Test
@@ -220,9 +220,9 @@ class Lz4HistoryTest {
     fun ratioLimitsApplyToMatchesUsingFrameHistory() {
         val expected = seed + expanded(seed, 3, 4000)
         val bytes = frame(listOf(true to seed, false to match(3, 4000)))
-        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(bytes, ArchiveLimits(maxCompressionRatio = 2)) }
+        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(bytes, ArchiveLimits { maxCompressionRatio = 2 }) }
         val ceiling = (expected.size + bytes.size - 1) / bytes.size
-        assertContentEquals(expected, Lz4.frameDecompress(bytes, ArchiveLimits(maxCompressionRatio = ceiling)))
+        assertContentEquals(expected, Lz4.frameDecompress(bytes, ArchiveLimits { maxCompressionRatio = ceiling }))
     }
 
     @Test

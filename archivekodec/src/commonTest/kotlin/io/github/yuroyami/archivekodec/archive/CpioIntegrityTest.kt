@@ -189,11 +189,11 @@ class CpioIntegrityTest {
         val s = ObservedSource(fixture(Spec("alias", magic = "070702"), Spec("carrier", payload, "070702")))
         CpioReader(s).use { r ->
             val e = r.entries().first(); s.forbidPayload = true
-            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits(maxUncompressedBytes = 7)) }
-            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits(maxCompressionRatio = 0)) }
+            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits { maxUncompressedBytes = 7 }) }
+            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits { maxCompressionRatio = 0 }) }
             assertEquals(0, s.payloadReads)
             s.forbidPayload = false
-            assertContentEquals(payload, r.read(e, ArchiveLimits(maxUncompressedBytes = 8)))
+            assertContentEquals(payload, r.read(e, ArchiveLimits { maxUncompressedBytes = 8 }))
         }
     }
 
@@ -336,7 +336,7 @@ class CpioIntegrityTest {
         CpioReader(s).use { r ->
             val e = r.entries().first(); assertEquals(1L, e.size); assertEquals(0, s.largestPayloadRead)
             s.forbidPayload = false
-            assertContentEquals(byteArrayOf(9), r.read(e, ArchiveLimits(maxUncompressedBytes = 1)))
+            assertContentEquals(byteArrayOf(9), r.read(e, ArchiveLimits { maxUncompressedBytes = 1 }))
             assertTrue(s.largestPayloadRead in 1..8192)
         }
     }
@@ -349,7 +349,7 @@ class CpioIntegrityTest {
         val s = SparseSource(body + size + trailer.size, listOf(0L to alias, alias.size.toLong() to carrier, body + size to trailer), body, size)
         CpioReader(s).use { r ->
             val e = r.entries().first(); assertEquals(size, e.size)
-            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits(maxUncompressedBytes = 8)) }
+            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits { maxUncompressedBytes = 8 }) }
             assertTrue(assertFailsWith<ArchiveFormatException> { r.read(e, ArchiveLimits.UNBOUNDED) }.message!!.contains("ByteArray"))
             assertEquals(0, s.largestPayloadRead)
         }

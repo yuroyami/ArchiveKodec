@@ -297,8 +297,8 @@ class ZipPrefixTest {
     @Test fun outputLimitsStillApplyToPrefixedPayloads() {
         ArchiveKodec.open(ByteArrayRandomAccessSource(prefix + zipMetadataBase())).use { r ->
             val e = r.entries().single()
-            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits(maxUncompressedBytes = 2)) }
-            assertContentEquals(payload, r.read(e, ArchiveLimits(maxUncompressedBytes = 3)))
+            assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits { maxUncompressedBytes = 2 }) }
+            assertContentEquals(payload, r.read(e, ArchiveLimits { maxUncompressedBytes = 3 }))
         }
     }
 }

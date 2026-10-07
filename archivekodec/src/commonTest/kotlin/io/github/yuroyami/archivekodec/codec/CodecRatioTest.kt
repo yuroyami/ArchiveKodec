@@ -13,7 +13,7 @@ class CodecRatioTest {
 
     @Test
     fun allCodecsHonorZeroRatioWithoutRejectingEmptyOutput() {
-        val limits = ArchiveLimits(maxCompressionRatio = 0)
+        val limits = ArchiveLimits { maxCompressionRatio = 0 }
         for (codec in codecs) {
             assertContentEquals(byteArrayOf(), codec.decompress(codec.compress(byteArrayOf()), limits))
             assertFailsWith<DecompressionBombException> { codec.decompress(codec.compress(byteArrayOf(65)), limits) }
@@ -26,9 +26,9 @@ class CodecRatioTest {
         for (codec in codecs) {
             val input = if (codec.id == CodecId.SNAPPY) snappyZeros(data.size) else codec.compress(data)
             val ceiling = (data.size + input.size - 1) / input.size
-            assertContentEquals(data, codec.decompress(input, ArchiveLimits(maxCompressionRatio = ceiling)))
+            assertContentEquals(data, codec.decompress(input, ArchiveLimits { maxCompressionRatio = ceiling }))
             assertFailsWith<DecompressionBombException> {
-                codec.decompress(input, ArchiveLimits(maxCompressionRatio = ceiling - 1))
+                codec.decompress(input, ArchiveLimits { maxCompressionRatio = ceiling - 1 })
             }
         }
     }
@@ -36,11 +36,11 @@ class CodecRatioTest {
     @Test
     fun lz4ChecksStoredBlocksAndTheTotalAcrossMixedBlocks() {
         val stored = frame(listOf(true to byteArrayOf(65)))
-        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(stored, ArchiveLimits(maxCompressionRatio = 0)) }
+        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(stored, ArchiveLimits { maxCompressionRatio = 0 }) }
         val zeros = ByteArray(4096)
         val mixed = frame(listOf(true to byteArrayOf(65), false to Lz4.blockCompress(zeros)))
-        assertContentEquals(byteArrayOf(65) + zeros, Lz4.frameDecompress(mixed, ArchiveLimits(maxCompressionRatio = 1000)))
-        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(mixed, ArchiveLimits(maxCompressionRatio = 1)) }
+        assertContentEquals(byteArrayOf(65) + zeros, Lz4.frameDecompress(mixed, ArchiveLimits { maxCompressionRatio = 1000 }))
+        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(mixed, ArchiveLimits { maxCompressionRatio = 1 }) }
     }
 
     private fun snappyZeros(size: Int): ByteArray {

@@ -79,7 +79,7 @@ class ArchiveErrorContractTest {
         assertTrue(error.message!!.contains("method 9"))
         val valid = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(listOf(ZipWriter.FileSpec("b", byteArrayOf(65), CodecId.STORE)))))
         val bomb = assertFailsWith<DecompressionBombException> {
-            valid.read(valid.entries().single(), ArchiveLimits(maxUncompressedBytes = 0))
+            valid.read(valid.entries().single(), ArchiveLimits { maxUncompressedBytes = 0 })
         }
         assertEquals("b", bomb.entryName)
         assertIs<DecompressionBombException>(bomb.cause)

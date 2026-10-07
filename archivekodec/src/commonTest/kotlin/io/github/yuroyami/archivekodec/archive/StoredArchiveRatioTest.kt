@@ -26,9 +26,9 @@ class StoredArchiveRatioTest {
             val reader = factory(source)
             val entry = reader.entries().single()
             val before = reads
-            assertFailsWith<DecompressionBombException> { reader.read(entry, ArchiveLimits(maxCompressionRatio = 0)) }
+            assertFailsWith<DecompressionBombException> { reader.read(entry, ArchiveLimits { maxCompressionRatio = 0 }) }
             kotlin.test.assertEquals(before, reads, "ratio rejection must precede payload reads")
-            assertContentEquals(data, reader.read(entry, ArchiveLimits(maxCompressionRatio = 1)))
+            assertContentEquals(data, reader.read(entry, ArchiveLimits { maxCompressionRatio = 1 }))
         }
     }
 
@@ -36,7 +36,7 @@ class StoredArchiveRatioTest {
     fun emptyStoredEntriesAreValidUnderZeroRatio() {
         for ((bytes, factory) in archives(byteArrayOf())) {
             val reader = factory(ByteArrayRandomAccessSource(bytes))
-            assertContentEquals(byteArrayOf(), reader.read(reader.entries().single(), ArchiveLimits(maxCompressionRatio = 0)))
+            assertContentEquals(byteArrayOf(), reader.read(reader.entries().single(), ArchiveLimits { maxCompressionRatio = 0 }))
         }
     }
 

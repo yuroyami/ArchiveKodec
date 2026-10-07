@@ -20,9 +20,9 @@ class WrapperLimitsTest {
         for (data in listOf("literal".encodeToByteArray(), ByteArray(16_384))) {
             for (codec in codecs) {
                 val input = codec.compress(data)
-                assertContentEquals(data, codec.decompress(input, ArchiveLimits(maxUncompressedBytes = data.size.toLong())))
+                assertContentEquals(data, codec.decompress(input, ArchiveLimits { maxUncompressedBytes = data.size.toLong() }))
                 assertFailsWith<DecompressionBombException> {
-                    codec.decompress(input, ArchiveLimits(maxUncompressedBytes = data.size.toLong() - 1))
+                    codec.decompress(input, ArchiveLimits { maxUncompressedBytes = data.size.toLong() - 1 })
                 }
             }
         }
@@ -31,19 +31,30 @@ class WrapperLimitsTest {
     @Test
     fun storedBlocksAreBoundedBeforeCopying() {
         val input = byteArrayOf(1, 3, 0, -4, -1, 65, 66, 67)
-        assertContentEquals("ABC".encodeToByteArray(), Inflate.inflate(input, ArchiveLimits(maxUncompressedBytes = 3)))
-        assertFailsWith<DecompressionBombException> { Inflate.inflate(input, ArchiveLimits(maxUncompressedBytes = 2)) }
+        assertContentEquals("ABC".encodeToByteArray(), Inflate.inflate(input, ArchiveLimits { maxUncompressedBytes = 3 }))
+        assertFailsWith<DecompressionBombException> { Inflate.inflate(input, ArchiveLimits { maxUncompressedBytes = 2 }) }
     }
 
     @Test
     fun zeroBudgetsAcceptOnlyEmptyOutput() {
-        val limits = ArchiveLimits(maxUncompressedBytes = 0, maxCompressionRatio = 0)
+        val limits = ArchiveLimits {
+            maxUncompressedBytes = 0
+            maxCompressionRatio = 0
+        }
         for (codec in codecs) {
             assertContentEquals(byteArrayOf(), codec.decompress(codec.compress(byteArrayOf()), limits))
             assertFailsWith<DecompressionBombException> { codec.decompress(codec.compress(byteArrayOf(1)), limits) }
         }
         assertContentEquals(byteArrayOf(), Gzip.decompress(Gzip.compress(byteArrayOf()), maximumSize = 0L))
         assertContentEquals(byteArrayOf(), Zlib.decompress(Zlib.compress(byteArrayOf()), maximumSize = 0L))
+    }
+
+    @Test
+    fun compatibilityOverloadsRejectNegativeConfiguration() {
+        for (invalid in listOf(-1L, Long.MIN_VALUE)) {
+            assertFailsWith<IllegalArgumentException> { Gzip.decompress(byteArrayOf(), maximumSize = invalid) }
+            assertFailsWith<IllegalArgumentException> { Zlib.decompress(byteArrayOf(), maximumSize = invalid) }
+        }
     }
 
     @Test
@@ -63,19 +74,19 @@ class WrapperLimitsTest {
     fun gzipBudgetIsSharedAcrossMembersAndFallbackUsesTheSamePolicy() {
         val data = "hello".encodeToByteArray()
         val concatenated = Gzip.compress(data) + Gzip.compress(data)
-        assertContentEquals(data + data, Gzip.decompress(concatenated, ArchiveLimits(maxUncompressedBytes = 10)))
+        assertContentEquals(data + data, Gzip.decompress(concatenated, ArchiveLimits { maxUncompressedBytes = 10 }))
         assertFailsWith<DecompressionBombException> {
-            Gzip.decompress(concatenated, ArchiveLimits(maxUncompressedBytes = 9))
+            Gzip.decompress(concatenated, ArchiveLimits { maxUncompressedBytes = 9 })
         }
         assertFailsWith<DecompressionBombException> {
-            Gzip.decompress(Zlib.compress(data), ArchiveLimits(maxUncompressedBytes = 4))
+            Gzip.decompress(Zlib.compress(data), ArchiveLimits { maxUncompressedBytes = 4 })
         }
     }
 
     @Test
     fun completeRatioPolicyReachesEveryDeflateEntryPoint() {
         val data = ByteArray(16_384)
-        val limits = ArchiveLimits(maxCompressionRatio = 1)
+        val limits = ArchiveLimits { maxCompressionRatio = 1 }
         for (codec in codecs) assertFailsWith<DecompressionBombException> { codec.decompress(codec.compress(data), limits) }
         assertFailsWith<DecompressionBombException> { Gzip.decompress(Gzip.compress(data), limits) }
         assertFailsWith<DecompressionBombException> { Zlib.decompress(Zlib.compress(data), limits) }

@@ -77,12 +77,15 @@ public object Zlib {
         return output.toByteArray()
     }
 
-    /** Compatibility overload. A zero cap accepts only empty output, as [ArchiveLimits] does. */
+    /**
+     * Compatibility overload. A zero cap accepts only empty output, as [ArchiveLimits] does.
+     * @throws IllegalArgumentException if [maximumSize] is negative.
+     */
     @Deprecated(
         "Pass ArchiveLimits to configure the complete decompression policy",
-        ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
+        ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
-    @Throws(ArchiveException::class)
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
     public fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
-        decompress(input, ArchiveLimits.DEFAULT.copy(maxUncompressedBytes = maximumSize))
+        decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })
 }

@@ -1,5 +1,19 @@
 #import "ClosingSource.h"
 
+NSError * _Nullable NegativeLegacyLimitError(BOOL gzip) {
+    NSError *error = nil;
+    ArchiveKodecKotlinByteArray *empty = [ArchiveKodecKotlinByteArray arrayWithSize:0];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if (gzip) {
+        [ArchiveKodecGzip.shared decompressInput:empty maximumSize:-1 error:&error];
+    } else {
+        [ArchiveKodecZlib.shared decompressInput:empty maximumSize:-1 error:&error];
+    }
+#pragma clang diagnostic pop
+    return error;
+}
+
 @implementation ClosingSource {
     NSError *_failure;
     int32_t _closes;

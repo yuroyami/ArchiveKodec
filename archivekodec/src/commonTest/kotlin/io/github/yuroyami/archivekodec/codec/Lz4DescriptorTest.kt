@@ -37,7 +37,7 @@ class Lz4DescriptorTest {
     @Test
     fun reservedFlgBitFailsBeforeLimitsOrPayloadDecoding() {
         val frame = checksum(first.copyOf().also { it[4] = (it[4].toInt() or 2).toByte() })
-        for (limits in listOf(ArchiveLimits.DEFAULT, ArchiveLimits(maxUncompressedBytes = 0))) {
+        for (limits in listOf(ArchiveLimits.DEFAULT, ArchiveLimits { maxUncompressedBytes = 0 })) {
             val error = assertFailsWith<ArchiveFormatException> { Lz4.frameDecompress(frame, limits) }
             assertEquals(4L, error.offset)
             assertTrue(error.message!!.contains("reserved FLG"), error.toString())

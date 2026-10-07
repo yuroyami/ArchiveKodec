@@ -53,18 +53,18 @@ class Lz4BoundsTest {
         val data = ByteArray(128 * 1024)
         val compressed = Lz4.frameCompress(data)
         assertFailsWith<DecompressionBombException> {
-            Lz4.frameDecompress(compressed, ArchiveLimits(maxUncompressedBytes = 1024))
+            Lz4.frameDecompress(compressed, ArchiveLimits { maxUncompressedBytes = 1024 })
         }
         val tiny = "ABCD".encodeToByteArray()
         for (stored in listOf(false, true)) {
             val block = if (stored) tiny else Lz4.blockCompress(tiny)
             val bytes = frame(blocks = listOf(stored to block, stored to block))
             assertFailsWith<DecompressionBombException> {
-                Lz4.frameDecompress(bytes, ArchiveLimits(maxUncompressedBytes = 7))
+                Lz4.frameDecompress(bytes, ArchiveLimits { maxUncompressedBytes = 7 })
             }
-            assertContentEquals(tiny + tiny, Lz4.frameDecompress(bytes, ArchiveLimits(maxUncompressedBytes = 8)))
+            assertContentEquals(tiny + tiny, Lz4.frameDecompress(bytes, ArchiveLimits { maxUncompressedBytes = 8 }))
         }
-        assertContentEquals(byteArrayOf(), Lz4.frameDecompress(frame(blocks = listOf(true to byteArrayOf())), ArchiveLimits(maxUncompressedBytes = 0)))
+        assertContentEquals(byteArrayOf(), Lz4.frameDecompress(frame(blocks = listOf(true to byteArrayOf())), ArchiveLimits { maxUncompressedBytes = 0 }))
     }
 
     @Test

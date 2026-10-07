@@ -90,9 +90,12 @@ class SnappyBoundsTest {
             assertFailsWith<DecompressionBombException> { Snappy.decompress(varint(size), ArchiveLimits.UNBOUNDED) }
         }
         val repeated = byteArrayOf(65, 0, 65, 0xFE.toByte(), 1, 0) // one literal + copy-2 of 64 bytes
-        assertFailsWith<DecompressionBombException> { Snappy.decompress(repeated, ArchiveLimits(maxUncompressedBytes = 64)) }
-        assertFailsWith<DecompressionBombException> { Snappy.decompress(repeated, ArchiveLimits(maxCompressionRatio = 10)) }
-        assertContentEquals(ByteArray(65) { 65 }, Snappy.decompress(repeated, ArchiveLimits(maxUncompressedBytes = 65, maxCompressionRatio = 11)))
+        assertFailsWith<DecompressionBombException> { Snappy.decompress(repeated, ArchiveLimits { maxUncompressedBytes = 64 }) }
+        assertFailsWith<DecompressionBombException> { Snappy.decompress(repeated, ArchiveLimits { maxCompressionRatio = 10 }) }
+        assertContentEquals(ByteArray(65) { 65 }, Snappy.decompress(repeated, ArchiveLimits {
+            maxUncompressedBytes = 65
+            maxCompressionRatio = 11
+        }))
     }
 
     @Test

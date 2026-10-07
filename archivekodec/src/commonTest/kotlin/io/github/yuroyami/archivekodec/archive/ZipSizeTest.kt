@@ -70,7 +70,7 @@ class ZipSizeTest {
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
         val entry = reader.entries().single()
         assertTrue(entry.compressedSize < 258)
-        for (limits in listOf(ArchiveLimits(maxCompressionRatio = 1), ArchiveLimits(maxUncompressedBytes = 5))) {
+        for (limits in listOf(ArchiveLimits { maxCompressionRatio = 1 }, ArchiveLimits { maxUncompressedBytes = 5 })) {
             val error = assertFailsWith<DecompressionBombException> { reader.read(entry, limits) }
             assertEquals(entry.name, error.entryName)
             assertTrue(error.offset != null)

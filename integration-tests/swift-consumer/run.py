@@ -24,6 +24,9 @@ def verify_header(path, selectors, boolean_selectors=()):
     for helper in ("asAutoCloseable", "ByteArrayBuilder", "fromPuff", "spaceExhausted", "blockCompress", "blockDecompress"):
         if helper in text:
             raise RuntimeError(f"Internal Kotlin helper {helper} unexpectedly exported to Objective-C in {path}")
+    policy = re.search(r"@interface \w+ArchiveLimits : [^\n]+\n(.*?)\n@end", text, re.S)
+    if policy and re.search(r"^[-+] .*\b(?:init\w*|component\d+|doCopyMax\w*)\b", policy.group(1), re.M):
+        raise RuntimeError(f"Field-list policy construction or data-class methods exported in {path}")
     for selector in selectors:
         methods = [line for line in text.splitlines()
                    if re.match(r"^[-+] \([^)]*\)" + re.escape(selector) + r"(?:\b|:)", line)]
@@ -58,6 +61,7 @@ def main():
         "frameDecompressInput", "frameCompressData",
         "decompressSrc", "sanitizeEntryName", "checkOutputSizeBytes", "checkRatioCompressedBytes",
         "checkEntryCountCount", "writeFiles", "updateData", "hashData", "decodeBytes",
+        "doCopyAndReturnError", "buildAndReturnError", "invokeAndReturnError",
     ]
     io_selectors = ["readAllBytes", "toRandomAccessSource", "compress", "decompress"]
     for target in ("iosSimulatorArm64", "iosArm64", "iosX64"):

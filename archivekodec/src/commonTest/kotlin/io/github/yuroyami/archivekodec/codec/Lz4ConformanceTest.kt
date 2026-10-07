@@ -87,10 +87,10 @@ class Lz4ConformanceTest {
     fun declaredSizeAppliesOutputAndRatioLimitsBeforeDecode() {
         val headerOnly = frame(100uL).copyOf(15)
         assertFailsWith<DecompressionBombException> {
-            Lz4.frameDecompress(headerOnly, ArchiveLimits(maxUncompressedBytes = 99))
+            Lz4.frameDecompress(headerOnly, ArchiveLimits { maxUncompressedBytes = 99 })
         }
         assertFailsWith<DecompressionBombException> {
-            Lz4.frameDecompress(headerOnly, ArchiveLimits(maxCompressionRatio = 1))
+            Lz4.frameDecompress(headerOnly, ArchiveLimits { maxCompressionRatio = 1 })
         }
     }
 
@@ -121,7 +121,7 @@ class Lz4ConformanceTest {
         val bytes = frame(ULong.MAX_VALUE)
         bytes[14] = (bytes[14].toInt() xor 1).toByte()
         val error = assertFailsWith<ArchiveFormatException> {
-            Lz4.frameDecompress(bytes, ArchiveLimits(maxUncompressedBytes = 0))
+            Lz4.frameDecompress(bytes, ArchiveLimits { maxUncompressedBytes = 0 })
         }
         assertEquals(14L, error.offset)
         assertTrue(error.message!!.contains("header checksum mismatch"))

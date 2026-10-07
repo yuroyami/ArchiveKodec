@@ -403,18 +403,11 @@ public final class io/github/yuroyami/archivekodec/codec/snappy/Snappy {
 
 public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public static final field Companion Lio/github/yuroyami/archivekodec/security/ArchiveLimits$Companion;
-	public fun <init> ()V
-	public fun <init> (JIII)V
-	public synthetic fun <init> (JIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun checkEntryCount (I)V
 	public final fun checkOutputSize (J)V
 	public final fun checkRatio (JJ)V
-	public final fun component1 ()J
-	public final fun component2 ()I
-	public final fun component3 ()I
-	public final fun component4 ()I
-	public final fun copy (JIII)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
-	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;JIIIILjava/lang/Object;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getMaxCompressionRatio ()I
 	public final fun getMaxEntries ()I
@@ -424,9 +417,24 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Builder {
+	public fun <init> ()V
+	public final fun build ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun getMaxCompressionRatio ()I
+	public final fun getMaxEntries ()I
+	public final fun getMaxNestingDepth ()I
+	public final fun getMaxUncompressedBytes ()J
+	public final fun setMaxCompressionRatio (I)V
+	public final fun setMaxEntries (I)V
+	public final fun setMaxNestingDepth (I)V
+	public final fun setMaxUncompressedBytes (J)V
+}
+
 public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Companion {
 	public final fun getDEFAULT ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getUNBOUNDED ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public static synthetic fun invoke$default (Lio/github/yuroyami/archivekodec/security/ArchiveLimits$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 }
 
 public final class io/github/yuroyami/archivekodec/security/ArchivePathException : io/github/yuroyami/archivekodec/ArchiveException {

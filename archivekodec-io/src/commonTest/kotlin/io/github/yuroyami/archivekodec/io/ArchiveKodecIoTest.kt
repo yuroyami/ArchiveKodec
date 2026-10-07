@@ -102,7 +102,7 @@ class ArchiveKodecIoTest {
             val capped = ShortSource(encoded)
             try {
                 assertFailsWith<DecompressionBombException> {
-                    codec.decompress(capped, ArchiveLimits(maxUncompressedBytes = data.size.toLong() - 1))
+                    codec.decompress(capped, ArchiveLimits { maxUncompressedBytes = data.size.toLong() - 1 })
                 }
                 assertFalse(capped.closed)
             } finally {

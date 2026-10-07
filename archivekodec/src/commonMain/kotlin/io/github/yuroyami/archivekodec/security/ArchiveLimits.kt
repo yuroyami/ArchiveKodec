@@ -3,24 +3,100 @@ package io.github.yuroyami.archivekodec.security
 import io.github.yuroyami.archivekodec.ArchiveException
 
 /**
- * Decompression-bomb defences, applied **during** decode (never trust a declared
- * size for allocation). Passed into every `decompress`/`read` call; the defaults are
- * deliberately safe so a caller cannot forget them.
+ * Immutable decompression policy. Create one with `ArchiveLimits { ... }`, or
+ * configure a [Builder] and call [Builder.build]. [copy] configures a fresh builder
+ * from this policy. Results never retain the mutable builder and can be shared.
  *
- * See the classic 42.zip (42 KB → 4.5 PB) and Fifield's non-recursive overlapping
- * bombs (~10 MB → 281 TB in one pass). The only universal defence is a hard cap on
- * bytes written, which [checkOutputSize] enforces.
+ * Output and ratio checks apply during each buffered decode/read, before output
+ * growth. Separate calls do not share an archive-wide byte budget. Built-in reader
+ * listings do not yet apply [maxEntries], and current buffered APIs do not recurse
+ * into nested archives or apply [maxNestingDepth].
+ *
+ * Every setting is nonnegative. Zero permits only zero output, a zero ratio,
+ * zero entries or zero nesting depth respectively. [DEFAULT] preserves the default
+ * values; [UNBOUNDED] raises every ceiling for trusted input.
+ *
+ * Public construction and copy signatures contain a builder action rather than
+ * the settings themselves, so adding a setting does not replace those signatures.
  */
-public data class ArchiveLimits(
-    /** Hard ceiling on total uncompressed bytes produced. Default 2 GiB. */
-    val maxUncompressedBytes: Long = 2L * 1024 * 1024 * 1024,
-    /** Per-entry compression-ratio ceiling. Default 10000:1. */
-    val maxCompressionRatio: Int = 10_000,
-    /** Maximum number of entries in a container. Default 100k. */
-    val maxEntries: Int = 100_000,
-    /** Maximum auto-extract nesting depth (archive-in-archive). Default 8. */
-    val maxNestingDepth: Int = 8,
-) {
+public class ArchiveLimits private constructor(builder: Builder) {
+    /** Output ceiling for one decode/read call, in bytes. Default 2 GiB. */
+    public val maxUncompressedBytes: Long = builder.maxUncompressedBytes
+
+    /** Uncompressed/compressed ratio ceiling, checked during decode. Default 10000:1. */
+    public val maxCompressionRatio: Int = builder.maxCompressionRatio
+
+    /** Entry ceiling used by [checkEntryCount]; reader listing enforcement is pending. Default 100k. */
+    public val maxEntries: Int = builder.maxEntries
+
+    /** Reserved nested-archive depth ceiling; buffered APIs do not enforce it. Default 8. */
+    public val maxNestingDepth: Int = builder.maxNestingDepth
+
+    init {
+        require(maxUncompressedBytes >= 0) { "archive limits: maxUncompressedBytes must be nonnegative" }
+        require(maxCompressionRatio >= 0) { "archive limits: maxCompressionRatio must be nonnegative" }
+        require(maxEntries >= 0) { "archive limits: maxEntries must be nonnegative" }
+        require(maxNestingDepth >= 0) { "archive limits: maxNestingDepth must be nonnegative" }
+    }
+
+    /**
+     * Mutable configuration for a single thread. Settings start at the same values
+     * as [DEFAULT]. Validation is deferred until [build]; a failed build does not
+     * consume the builder. Each successful build takes an independent snapshot.
+     *
+     * The zero-argument constructor is also usable from Java and Swift.
+     */
+    public class Builder public constructor() {
+        /** See [ArchiveLimits.maxUncompressedBytes]. Must be nonnegative at build time. */
+        public var maxUncompressedBytes: Long = 2L * 1024 * 1024 * 1024
+
+        /** See [ArchiveLimits.maxCompressionRatio]. Must be nonnegative at build time. */
+        public var maxCompressionRatio: Int = 10_000
+
+        /** See [ArchiveLimits.maxEntries]. Must be nonnegative at build time. */
+        public var maxEntries: Int = 100_000
+
+        /** See [ArchiveLimits.maxNestingDepth]. Must be nonnegative at build time. */
+        public var maxNestingDepth: Int = 8
+
+        internal constructor(source: ArchiveLimits) : this() {
+            maxUncompressedBytes = source.maxUncompressedBytes
+            maxCompressionRatio = source.maxCompressionRatio
+            maxEntries = source.maxEntries
+            maxNestingDepth = source.maxNestingDepth
+        }
+
+        /**
+         * Snapshot the current settings into an immutable policy.
+         * @throws IllegalArgumentException if any setting is negative; the message names it.
+         */
+        @Throws(IllegalArgumentException::class)
+        public fun build(): ArchiveLimits = ArchiveLimits(this)
+    }
+
+    /**
+     * Copy this policy and apply [configure] to a fresh builder before validation.
+     * Omitting the action creates an equal independent policy.
+     * @throws IllegalArgumentException if a resulting setting is negative.
+     */
+    @Throws(IllegalArgumentException::class)
+    public fun copy(configure: Builder.() -> Unit = {}): ArchiveLimits =
+        Builder(this).apply(configure).build()
+
+    override fun equals(other: Any?): Boolean = other is ArchiveLimits &&
+        maxUncompressedBytes == other.maxUncompressedBytes && maxCompressionRatio == other.maxCompressionRatio &&
+        maxEntries == other.maxEntries && maxNestingDepth == other.maxNestingDepth
+
+    override fun hashCode(): Int {
+        var result = maxUncompressedBytes.hashCode()
+        result = 31 * result + maxCompressionRatio
+        result = 31 * result + maxEntries
+        return 31 * result + maxNestingDepth
+    }
+
+    override fun toString(): String = "ArchiveLimits(maxUncompressedBytes=$maxUncompressedBytes, " +
+        "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxNestingDepth=$maxNestingDepth)"
+
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
     @Throws(ArchiveException::class)
     public fun checkOutputSize(bytes: Long) {
@@ -53,16 +129,24 @@ public data class ArchiveLimits(
     }
 
     public companion object {
+        /**
+         * Build a policy from default settings, for example `ArchiveLimits { maxEntries = 5 }`.
+         * @throws IllegalArgumentException if a configured setting is negative.
+         */
+        @Throws(IllegalArgumentException::class)
+        public operator fun invoke(configure: Builder.() -> Unit = {}): ArchiveLimits =
+            Builder().apply(configure).build()
+
         /** The safe default applied when a caller doesn't pass its own. */
         public val DEFAULT: ArchiveLimits = ArchiveLimits()
 
         /** Opt-out for trusted input: every guard relaxed to its maximum. */
-        public val UNBOUNDED: ArchiveLimits = ArchiveLimits(
-            maxUncompressedBytes = Long.MAX_VALUE,
-            maxCompressionRatio = Int.MAX_VALUE,
-            maxEntries = Int.MAX_VALUE,
-            maxNestingDepth = Int.MAX_VALUE,
-        )
+        public val UNBOUNDED: ArchiveLimits = ArchiveLimits {
+            maxUncompressedBytes = Long.MAX_VALUE
+            maxCompressionRatio = Int.MAX_VALUE
+            maxEntries = Int.MAX_VALUE
+            maxNestingDepth = Int.MAX_VALUE
+        }
     }
 }
 

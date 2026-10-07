@@ -3,6 +3,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Exercise deprecated caps without weakening warnings for the Swift consumer.
+FOUNDATION_EXPORT NSError * _Nullable NegativeLegacyLimitError(BOOL gzip) NS_SWIFT_NAME(negativeLegacyLimitError(gzip:));
+
 // Swift cannot implement the protocol's throwing primitive-returning read method.
 // Use an Objective-C source to test cleanup errors through the Swift consumer.
 @interface ClosingSource : NSObject <ArchiveKodecRandomAccessSource>

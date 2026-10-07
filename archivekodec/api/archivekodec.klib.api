@@ -293,8 +293,6 @@ final class io.github.yuroyami.archivekodec.codec.deflate/InflateException : io.
 }
 
 final class io.github.yuroyami.archivekodec.security/ArchiveLimits { // io.github.yuroyami.archivekodec.security/ArchiveLimits|null[0]
-    constructor <init>(kotlin/Long = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...) // io.github.yuroyami.archivekodec.security/ArchiveLimits.<init>|<init>(kotlin.Long;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
-
     final val maxCompressionRatio // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxCompressionRatio|{}maxCompressionRatio[0]
         final fun <get-maxCompressionRatio>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxCompressionRatio.<get-maxCompressionRatio>|<get-maxCompressionRatio>(){}[0]
     final val maxEntries // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxEntries|{}maxEntries[0]
@@ -307,20 +305,37 @@ final class io.github.yuroyami.archivekodec.security/ArchiveLimits { // io.githu
     final fun checkEntryCount(kotlin/Int) // io.github.yuroyami.archivekodec.security/ArchiveLimits.checkEntryCount|checkEntryCount(kotlin.Int){}[0]
     final fun checkOutputSize(kotlin/Long) // io.github.yuroyami.archivekodec.security/ArchiveLimits.checkOutputSize|checkOutputSize(kotlin.Long){}[0]
     final fun checkRatio(kotlin/Long, kotlin/Long) // io.github.yuroyami.archivekodec.security/ArchiveLimits.checkRatio|checkRatio(kotlin.Long;kotlin.Long){}[0]
-    final fun component1(): kotlin/Long // io.github.yuroyami.archivekodec.security/ArchiveLimits.component1|component1(){}[0]
-    final fun component2(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.component2|component2(){}[0]
-    final fun component3(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.component3|component3(){}[0]
-    final fun component4(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.component4|component4(){}[0]
-    final fun copy(kotlin/Long = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.security/ArchiveLimits.copy|copy(kotlin.Long;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.security/ArchiveLimits.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.security.ArchiveLimits.Builder,kotlin.Unit>){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.security/ArchiveLimits.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.security/ArchiveLimits.toString|toString(){}[0]
+
+    final class Builder { // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder|null[0]
+        constructor <init>() // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.<init>|<init>(){}[0]
+
+        final var maxCompressionRatio // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxCompressionRatio|{}maxCompressionRatio[0]
+            final fun <get-maxCompressionRatio>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxCompressionRatio.<get-maxCompressionRatio>|<get-maxCompressionRatio>(){}[0]
+            final fun <set-maxCompressionRatio>(kotlin/Int) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxCompressionRatio.<set-maxCompressionRatio>|<set-maxCompressionRatio>(kotlin.Int){}[0]
+        final var maxEntries // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxEntries|{}maxEntries[0]
+            final fun <get-maxEntries>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxEntries.<get-maxEntries>|<get-maxEntries>(){}[0]
+            final fun <set-maxEntries>(kotlin/Int) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxEntries.<set-maxEntries>|<set-maxEntries>(kotlin.Int){}[0]
+        final var maxNestingDepth // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxNestingDepth|{}maxNestingDepth[0]
+            final fun <get-maxNestingDepth>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxNestingDepth.<get-maxNestingDepth>|<get-maxNestingDepth>(){}[0]
+            final fun <set-maxNestingDepth>(kotlin/Int) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxNestingDepth.<set-maxNestingDepth>|<set-maxNestingDepth>(kotlin.Int){}[0]
+        final var maxUncompressedBytes // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes|{}maxUncompressedBytes[0]
+            final fun <get-maxUncompressedBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes.<get-maxUncompressedBytes>|<get-maxUncompressedBytes>(){}[0]
+            final fun <set-maxUncompressedBytes>(kotlin/Long) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes.<set-maxUncompressedBytes>|<set-maxUncompressedBytes>(kotlin.Long){}[0]
+
+        final fun build(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.build|build(){}[0]
+    }
 
     final object Companion { // io.github.yuroyami.archivekodec.security/ArchiveLimits.Companion|null[0]
         final val DEFAULT // io.github.yuroyami.archivekodec.security/ArchiveLimits.Companion.DEFAULT|{}DEFAULT[0]
             final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.security/ArchiveLimits.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
         final val UNBOUNDED // io.github.yuroyami.archivekodec.security/ArchiveLimits.Companion.UNBOUNDED|{}UNBOUNDED[0]
             final fun <get-UNBOUNDED>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.security/ArchiveLimits.Companion.UNBOUNDED.<get-UNBOUNDED>|<get-UNBOUNDED>(){}[0]
+
+        final fun invoke(kotlin/Function1<io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.security/ArchiveLimits.Companion.invoke|invoke(kotlin.Function1<io.github.yuroyami.archivekodec.security.ArchiveLimits.Builder,kotlin.Unit>){}[0]
     }
 }
 

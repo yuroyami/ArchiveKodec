@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Breaking policy API change for the next minor release: `ArchiveLimits` is an
+  ordinary immutable class with a private constructor. Use `ArchiveLimits { ... }`
+  and `limits.copy { ... }` in Kotlin, or configure `ArchiveLimits.Builder` and call
+  `build()` from Java/Swift. The field-list constructor, data-class copy and
+  component functions are removed. Builder/factory/copy signatures remain fixed
+  when settings are added. Every build takes an independent snapshot and rejects
+  negative settings with a named `IllegalArgumentException`, exported through
+  Swift throws. Default values and zero budgets keep their existing meaning.
+  Deprecated gzip/zlib `maximumSize` overloads reject negative caps with the same
+  catchable argument error.
+
 - Breaking API changes for the next minor release: `ByteArrayBuilder`,
   `InflateError.fromPuff` and the raw `Lz4.blockCompress` / `blockDecompress`
   helpers are internal. Use a registered codec or the public LZ4 frame operations.

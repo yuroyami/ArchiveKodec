@@ -152,7 +152,7 @@ class Lz4SequenceTest {
         // Remove the size declaration so the block checksum is the first failing guard.
         val noSize = hex("04224d187440bd") + changed.copyOfRange(15, changed.size)
         val error = assertFailsWith<ArchiveFormatException> {
-            Lz4.frameDecompress(first + noSize, ArchiveLimits(maxUncompressedBytes = 6))
+            Lz4.frameDecompress(first + noSize, ArchiveLimits { maxUncompressedBytes = 6 })
         }
         assertEquals((first.size + 17).toLong(), error.offset)
         assertTrue(error.message!!.contains("block checksum"))
@@ -181,17 +181,17 @@ class Lz4SequenceTest {
     fun combinedOutputLimitCoversStoredAndCompressedFrames() {
         for (stored in listOf(false, true)) {
             val flow = frame("first-".encodeToByteArray(), stored) + skip(0) + frame("second".encodeToByteArray(), stored)
-            assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(flow, ArchiveLimits(maxUncompressedBytes = 11)) }
-            assertContentEquals(expected, Lz4.frameDecompress(flow, ArchiveLimits(maxUncompressedBytes = 12)))
+            assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(flow, ArchiveLimits { maxUncompressedBytes = 11 }) }
+            assertContentEquals(expected, Lz4.frameDecompress(flow, ArchiveLimits { maxUncompressedBytes = 12 }))
         }
-        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(firstSized + secondSized, ArchiveLimits(maxUncompressedBytes = 11)) }
+        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(firstSized + secondSized, ArchiveLimits { maxUncompressedBytes = 11 }) }
     }
 
     @Test
     fun laterDeclaredSizesAreCheckedAgainstTheRemainingBudgetBeforeBlocks() {
         for (size in listOf(7uL, ULong.MAX_VALUE)) {
             val error = assertFailsWith<DecompressionBombException> {
-                Lz4.frameDecompress(first + header(size), ArchiveLimits(maxUncompressedBytes = 12))
+                Lz4.frameDecompress(first + header(size), ArchiveLimits { maxUncompressedBytes = 12 })
             }
             assertEquals((first.size + 6).toLong(), error.offset)
         }
@@ -210,7 +210,7 @@ class Lz4SequenceTest {
         val noSize = hex("04224d187440bd") + compressed.copyOfRange(15, compressed.size)
         for (highRatio in listOf(compressed, noSize)) {
             for (flow in listOf(padding + highRatio, highRatio + padding, large + highRatio, highRatio + large)) {
-                assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(flow, ArchiveLimits(maxCompressionRatio = 2)) }
+                assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(flow, ArchiveLimits { maxCompressionRatio = 2 }) }
             }
         }
     }
@@ -220,17 +220,20 @@ class Lz4SequenceTest {
         val ceiling = (expanded.size + compressed.size - 1) / compressed.size
         for (prefix in listOf(byteArrayOf(), first, skip(0, ByteArray(4096)))) {
             assertFailsWith<DecompressionBombException> {
-                Lz4.frameDecompress(prefix + compressed, ArchiveLimits(maxCompressionRatio = ceiling - 1))
+                Lz4.frameDecompress(prefix + compressed, ArchiveLimits { maxCompressionRatio = ceiling - 1 })
             }
             val outputPrefix = if (prefix.contentEquals(first)) "first-".encodeToByteArray() else byteArrayOf()
-            assertContentEquals(outputPrefix + expanded, Lz4.frameDecompress(prefix + compressed, ArchiveLimits(maxCompressionRatio = ceiling)))
+            assertContentEquals(outputPrefix + expanded, Lz4.frameDecompress(prefix + compressed, ArchiveLimits { maxCompressionRatio = ceiling }))
         }
     }
 
     @Test
     fun zeroOutputBudgetStillAllowsEmptyFramesAndSkippableData() {
         val empty = hex("04224d1860408200000000")
-        val limits = ArchiveLimits(maxUncompressedBytes = 0, maxCompressionRatio = 0)
+        val limits = ArchiveLimits {
+            maxUncompressedBytes = 0
+            maxCompressionRatio = 0
+        }
         assertContentEquals(byteArrayOf(), Lz4.frameDecompress(skip(0, first) + empty + skip(15) + empty, limits))
         assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(empty + first, limits) }
     }

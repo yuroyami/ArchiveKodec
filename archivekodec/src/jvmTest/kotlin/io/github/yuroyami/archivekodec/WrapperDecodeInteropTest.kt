@@ -110,7 +110,7 @@ class WrapperDecodeInteropTest {
         if (!bean.isThreadAllocatedMemorySupported) return
         bean.isThreadAllocatedMemoryEnabled = true
         val data = ByteArray(4 * 1024 * 1024)
-        val limits = ArchiveLimits(maxUncompressedBytes = 1024)
+        val limits = ArchiveLimits { maxUncompressedBytes = 1024 }
         for (codec in listOf(Codecs.DEFLATE, Codecs.GZIP, Codecs.ZLIB)) {
             val input = codec.compress(data)
             repeat(20) { assertFailsWith<DecompressionBombException> { codec.decompress(input, limits) } }
@@ -129,7 +129,7 @@ class WrapperDecodeInteropTest {
         if (!bean.isThreadAllocatedMemorySupported) return
         bean.isThreadAllocatedMemoryEnabled = true
         val data = ByteArray(4 * 1024 * 1024)
-        val limits = ArchiveLimits(maxCompressionRatio = 1)
+        val limits = ArchiveLimits { maxCompressionRatio = 1 }
         for (codec in listOf(Codecs.DEFLATE, Codecs.GZIP, Codecs.ZLIB, Codecs.LZ4)) {
             val input = codec.compress(data)
             repeat(20) { assertFailsWith<DecompressionBombException> { codec.decompress(input, limits) } }
