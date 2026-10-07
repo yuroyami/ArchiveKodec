@@ -393,6 +393,10 @@ artifact and a kotlinx-io dependency.
   Configured output limits apply first; a whole-array read above `Int.MAX_VALUE`
   then throws `ArchiveFormatException`. Larger valid entries can be listed from
   a seekable source, but extracting them to a stream is still planned.
+- TAR validates every nonzero header checksum, accepting the standard unsigned
+  sum and the legacy signed-byte sum. Complete records may end without the EOF
+  trailer; a partial header or invalid checksum throws `ArchiveFormatException`
+  at that record's offset. An empty source is accepted as an empty archive.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files. ar
   does not handle BSD `#1/len` long names. cpio does not handle the old binary
   dialect.

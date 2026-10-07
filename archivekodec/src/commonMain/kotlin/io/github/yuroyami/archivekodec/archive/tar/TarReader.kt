@@ -21,6 +21,8 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Supports: ustar `prefix` + `name` (long-path), GNU `L` long-name pseudo-entries,
  * octal and GNU base-256 numeric fields, normal files / directories. The full pax
  * `x`/`g` extended-header and sparse-file handling are not implemented (issue #35).
+ * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
+ * Complete records may end without a trailer; nonempty partial headers are rejected.
  */
 class TarReader(source: RandomAccessSource) : ArchiveReader {
 
@@ -50,11 +52,16 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
         val out = ArrayList<ArchiveEntry>()
         var pos = 0L
         val total = source.size
+        if (total < 0) throw ArchiveFormatException("TAR: negative source size", 0)
         var pendingLongName: String? = null
 
-        while (pos <= total && total - pos >= BLOCK) {
+        while (pos < total) {
+            if (total - pos < BLOCK) throw ArchiveFormatException("TAR: truncated header", pos)
             val hdr = source.readFully(pos, BLOCK)
             if (isZeroBlock(hdr)) break // two zero blocks mark EOF; one is enough to stop
+            if (!TarHeader.hasValidChecksum(hdr)) {
+                throw ArchiveFormatException("TAR: bad header checksum", pos)
+            }
 
             val typeFlag = hdr[156].toInt().toChar()
             // Device, directory and FIFO headers have no stored payload records.
@@ -149,7 +156,7 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
     }
 
     companion object {
-        private const val BLOCK = 512
+        private const val BLOCK = TarHeader.SIZE
         private const val SPACE = ' '.code
         private const val ZERO = '0'.code
         private const val SEVEN = '7'.code

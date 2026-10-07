@@ -115,6 +115,15 @@ expectFailure("ZIP entries", check: { $0 is ArchiveFormatException }) {
     let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: empty))
     _ = try reader.entries()
 }
+let badTar = KotlinByteArray(size: 512)
+for index in 0..<Int32(512) { badTar.set(index: index, value: 65) }
+badTar.set(index: 156, value: 48)
+expectFailure("TAR header checksum", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 0 && $0.entryName == nil && $0.message?.contains("checksum") == true
+}) { _ = try TarReader(source: ByteArrayRandomAccessSource(data: badTar)).entries() }
+expectFailure("TAR partial header", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 0 && $0.message?.contains("truncated header") == true
+}) { _ = try TarReader(source: ByteArrayRandomAccessSource(data: bytes([65, 66]))).entries() }
 let oversizedName = String(repeating: "x", count: 65536)
 expectFailure("ZIP filename", check: { $0 is ArchiveFormatException && $0.entryName == oversizedName }) {
     _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: oversizedName, data: empty, codec: CodecId.store)])
