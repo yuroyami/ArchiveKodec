@@ -482,6 +482,15 @@ artifact and a kotlinx-io dependency.
   at that record's offset. An empty source is accepted as an empty archive.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files.
   cpio does not handle the old binary dialect.
+- The LZ4 frame decoder consumes the complete sequence of concatenated standard
+  frames and all 16 skippable-frame types, including a skippable-only sequence.
+  Skippable payloads are ignored. Invalid or truncated trailing data throws
+  `ArchiveFormatException`; the legacy frame magic throws
+  `ArchiveUnsupportedException`. Empty input is malformed.
+  The output limit covers the combined result; the compression-ratio limit applies
+  separately to each standard frame's encoded length, excluding metadata and other
+  frames. Skippable magics are shared with zstd, so a skippable prefix alone does
+  not identify the format to the sniffer; choose the codec explicitly.
 - The LZ4 frame decoder verifies the full descriptor checksum, checks each
   advertised block checksum before decoding/copying, and checks the advertised
   content checksum before returning output. Corrupt or truncated checksum fields
@@ -493,8 +502,10 @@ artifact and a kotlinx-io dependency.
   that an external dictionary or linked-block history may be required; those
   causes cannot be distinguished from damaged match bytes. Supplying dictionary
   bytes and decoding linked-block history are not implemented yet.
-- A present LZ4 content-size field is checked against configured limits before
-  decoding and must equal the complete output. Compressed LZ4 blocks must end in
+- A present LZ4 content-size field is checked against the remaining combined
+  output limit before decoding and must equal that frame's output. Checksums,
+  content sizes, and dictionary metadata are local to each frame. Compressed LZ4
+  blocks must end in
   a literal-only sequence, with at least five final literals after a match.
   Empty output uses a zero token; an empty compressed byte sequence is invalid.
 - Snappy's encoder emits literals only, with no back-reference matching. The

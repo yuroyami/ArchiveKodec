@@ -200,6 +200,48 @@ let selfContainedLz4Dictionary = bytes(Array(Data(base64Encoded: "BCJNGGFAmLrc/t
 let selfContainedLz4Output = try Lz4.shared.frameDecompress(input: selfContainedLz4Dictionary, limits: limits)
 precondition(selfContainedLz4Output.size == 6 && selfContainedLz4Output.get(index: 0) == 102)
 
+// Reference CLI frames and sequence-boundary failures through the exported Codec.
+let lz4First: [UInt8] = [4, 0x22, 0x4d, 0x18, 0x64, 0x40, 0xa7, 6, 0, 0, 0x80, 102, 105, 114, 115, 116, 45, 0, 0, 0, 0, 0xe9, 0x19, 0x30, 0x15]
+let lz4Second: [UInt8] = [4, 0x22, 0x4d, 0x18, 0x64, 0x40, 0xa7, 6, 0, 0, 0x80, 115, 101, 99, 111, 110, 100, 0, 0, 0, 0, 0xdd, 0x5d, 0xd6, 0xef]
+let lz4Skip: [UInt8] = [0x5f, 0x2a, 0x4d, 0x18, 4, 0, 0, 0, 97, 98, 99, 100]
+let lz4Sequence = try lz4Protocol.decompress(data: bytes(lz4Skip + lz4First + lz4Skip + lz4Second + lz4Skip), limits: limits)
+precondition(lz4Sequence.size == 12)
+for (index, value) in Array("first-second".utf8).enumerated() {
+    precondition(lz4Sequence.get(index: Int32(index)) == Int8(bitPattern: value))
+}
+let lz4Skipped = try lz4Protocol.decompress(data: bytes(lz4Skip), limits: limits)
+precondition(lz4Skipped.size == 0)
+for (label, suffix, offset) in [
+    ("trailing byte", [UInt8(0)], 25),
+    ("truncated next header", Array(lz4Second.prefix(4)), 29),
+    ("truncated skippable payload", [0x50, 0x2a, 0x4d, 0x18, 4, 0, 0, 0, 1], 33)
+] {
+    expectFailure("LZ4 sequence \(label)", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == Int64(offset) }) {
+        _ = try lz4Protocol.decompress(data: bytes(lz4First + suffix), limits: limits)
+    }
+}
+expectFailure("LZ4 unsigned skippable length", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 8 }) {
+    _ = try lz4Protocol.decompress(data: bytes([0x50, 0x2a, 0x4d, 0x18, 255, 255, 255, 255]), limits: limits)
+}
+expectFailure("LZ4 legacy second frame", check: {
+    $0 is ArchiveUnsupportedException && $0.offset?.int64Value == 25 && $0.message?.contains("legacy") == true
+}) { _ = try lz4Protocol.decompress(data: bytes(lz4First + [2, 0x21, 0x4c, 0x18]), limits: limits) }
+var lz4CorruptSecond = lz4Second
+lz4CorruptSecond[24] ^= 1
+expectFailure("LZ4 second content checksum", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 46 }) {
+    _ = try lz4Protocol.decompress(data: bytes(lz4First + lz4CorruptSecond), limits: limits)
+}
+let lz4CombinedLimit = ArchiveLimits(maxUncompressedBytes: 11, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+expectFailure("LZ4 combined output limit", check: { $0 is DecompressionBombException }) {
+    _ = try lz4Protocol.decompress(data: bytes(lz4First + lz4Second), limits: lz4CombinedLimit)
+}
+let lz4RatioLimit = ArchiveLimits(maxUncompressedBytes: 10000, maxCompressionRatio: 2, maxEntries: 100000, maxNestingDepth: 8)
+let lz4HighRatio = Array(Data(base64Encoded: "BCJNGHxA6AMAAAAAAAA9IQAAANdoZWxsbyB3b3JsZCwgDQAXCgwADxkA////r1BvcmxkClB+pm0AAAAAjnmROQ==")!)
+let lz4Padding: [UInt8] = [0x50, 0x2a, 0x4d, 0x18, 0, 0x10, 0, 0] + [UInt8](repeating: 0, count: 4096)
+expectFailure("LZ4 skippable padding cannot dilute ratio", check: { $0 is DecompressionBombException }) {
+    _ = try lz4Protocol.decompress(data: bytes(lz4HighRatio + lz4Padding), limits: lz4RatioLimit)
+}
+
 expectFailure("zlib dictionary", check: { $0 is ArchiveUnsupportedException }) {
     _ = try Zlib.shared.decompress(input: bytes([0x78, 0xbb, 0x35, 0x29, 0x06, 0x6b, 0xcb, 0x00, 0xf1, 0x01, 0x06, 0x2c, 0x02, 0x15]))
 }
