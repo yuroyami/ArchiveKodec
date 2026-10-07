@@ -311,8 +311,10 @@ artifact and a kotlinx-io dependency.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files. ar
   does not handle BSD `#1/len` long names. cpio does not handle the old binary
   dialect.
-- The LZ4 frame decoder skips the optional block and content xxHash32 checksums
-  instead of verifying them.
+- The LZ4 frame decoder verifies the full descriptor checksum, checks each
+  advertised block checksum before decoding/copying, and checks the advertised
+  content checksum before returning output. Corrupt or truncated checksum fields
+  throw `ArchiveFormatException` with their source offset.
 - Snappy's encoder emits literals only, with no back-reference matching. The
   output is a valid Snappy block, and slightly larger than the input.
 - The public API is not frozen. There is no explicit API mode and no committed

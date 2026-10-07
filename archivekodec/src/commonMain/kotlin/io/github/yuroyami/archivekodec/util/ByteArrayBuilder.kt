@@ -48,4 +48,7 @@ class ByteArrayBuilder(initialCapacity: Int = 64) {
 
     /** Snapshot the written bytes into a right-sized array. */
     fun toByteArray(): ByteArray = buf.copyOf(len)
+
+    /** Inspect written bytes without copying; [calculate] must not retain or modify storage. */
+    internal fun checksum(calculate: (ByteArray, Int) -> Long): Long = calculate(buf, len)
 }

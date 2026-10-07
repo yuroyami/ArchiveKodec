@@ -11,9 +11,9 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
  * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
  * `0x184D2204`). Pure-Kotlin, with no entropy stage, so it is fast and cheap.
  *
- * Decoder reads any conformant frame (skipping/honoring the optional block and
- * content xxHash32 checks). Encoder writes a minimal frame (block-independent,
- * 4 MiB max block, no checksums) with a real greedy hash-chain block compressor and
+ * Frame decoding verifies the header and any advertised block/content xxHash32
+ * checksums. Encoder writes a minimal frame (block-independent,
+ * 4 MiB max block, no optional checksums) with a real greedy hash-chain block compressor and
  * a stored-block fallback when a block doesn't shrink.
  */
 object Lz4 {
@@ -170,7 +170,7 @@ object Lz4 {
 
     /* ─── Frame format (.lz4) ────────────────────────────────────────────── */
 
-    /** Compress [data] into a complete LZ4 frame (no checksums, 4 MiB blocks). */
+    /** Compress [data] into a complete LZ4 frame (no optional checksums, 4 MiB blocks). */
     @Throws(ArchiveException::class)
     fun frameCompress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
@@ -209,8 +209,7 @@ object Lz4 {
         }
         fun u32(): Long {
             needInput(4)
-            val v = (input[p].toLong() and 0xFF) or ((input[p + 1].toLong() and 0xFF) shl 8) or
-                ((input[p + 2].toLong() and 0xFF) shl 16) or ((input[p + 3].toLong() and 0xFF) shl 24)
+            val v = read4(input, p).toLong() and 0xFFFFFFFFL
             p += 4
             return v
         }
@@ -230,9 +229,15 @@ object Lz4 {
         val contentSize = (flg and 0x08) != 0
         val contentChecksum = (flg and 0x04) != 0
         val dictId = (flg and 0x01) != 0
-        val optional = (if (contentSize) 8 else 0) + (if (dictId) 4 else 0) + 1
+        val optional = (if (contentSize) 8 else 0) + (if (dictId) 4 else 0)
         needInput(optional)
-        p += optional // optional content size, dictionary ID, header checksum
+        p += optional
+        needInput(1)
+        val headerChecksum = (XxHash32.hash(input, 4, p - 4) ushr 8).toInt() and 0xFF
+        if (headerChecksum != (input[p].toInt() and 0xFF)) {
+            throw ArchiveFormatException("lz4: header checksum mismatch", p.toLong())
+        }
+        p++
 
         limits.checkOutputSize(0)
         limits.checkRatio(input.size.toLong(), 0)
@@ -248,6 +253,16 @@ object Lz4 {
             val blockSize = (raw and 0x7FFFFFFFL).toInt()
             if (blockSize > blockMaximum) throw ArchiveFormatException("lz4: block size $blockSize exceeds maximum $blockMaximum", (p - 4).toLong())
             needInput(blockSize)
+            if (blockChecksum) {
+                val checksumAt = p + blockSize
+                if (input.size - checksumAt < 4) {
+                    throw ArchiveFormatException("lz4: truncated block checksum", checksumAt.toLong())
+                }
+                val expected = read4(input, checksumAt).toLong() and 0xFFFFFFFFL
+                if (XxHash32.hash(input, p, blockSize) != expected) {
+                    throw ArchiveFormatException("lz4: block checksum mismatch", checksumAt.toLong())
+                }
+            }
             if (uncompressed) {
                 limits.checkOutputSize(out.size.toLong() + blockSize)
                 limits.checkRatio(input.size.toLong(), out.size.toLong() + blockSize)
@@ -256,9 +271,13 @@ object Lz4 {
                 out.append(decodeBlock(input, p, p + blockSize, -1, blockMaximum, limits, out.size, input.size))
             }
             p += blockSize
-            if (blockChecksum) { needInput(4); p += 4 }
+            if (blockChecksum) p += 4
         }
-        if (contentChecksum) { needInput(4); p += 4 }
+        val checksumAt = p
+        val expectedContent = if (contentChecksum) u32() else null
+        if (expectedContent != null && out.checksum { bytes, size -> XxHash32.hash(bytes, length = size) } != expectedContent) {
+            throw ArchiveFormatException("lz4: content checksum mismatch", checksumAt.toLong())
+        }
         return out.toByteArray()
     }
 

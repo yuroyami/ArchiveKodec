@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- LZ4 frames verify the full descriptor checksum and every advertised block and
+  content checksum. Block integrity is checked before decoding or copying;
+  checksum mismatches and truncated fields throw `ArchiveFormatException` at the
+  checksum field. Content integrity is checked before allocating the final output
+  copy, reducing allocation when corrupted content is rejected.
+
 - Expected core and adapter failures export through NSError/Swift throws with
   `ArchiveException` as the shared contract. Reader/codec interfaces, direct
   engines, wrappers, guards, writers, and source helpers declare their throwing
