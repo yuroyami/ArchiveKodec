@@ -97,24 +97,39 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
         var cdEntries = ZipFormat.u16(tail, eocd + 10).toLong()
         var cdSize = ZipFormat.u32(tail, eocd + 12)
         var cdOffset = ZipFormat.u32(tail, eocd + 16)
+        var directoryEnd = size - scan + eocd
 
-        // ZIP64: any sentinel field means read the real values from the ZIP64 EOCD.
-        if (cdEntries == 0xFFFFL || cdSize == 0xFFFFFFFFL || cdOffset == 0xFFFFFFFFL) {
-            val locPos = size - scan + eocd - 20
-            val locator = source.readFully(locPos, 20)
-            if (ZipFormat.u32(locator, 0) != ZipFormat.Z64_LOC) {
-                throw ArchiveFormatException("ZIP: missing ZIP64 locator", locPos)
-            }
+        // A present ZIP64 locator is authoritative even without classic sentinels.
+        // The classic count 65535 also occurs without ZIP64, including wrapped counts.
+        val locPos = directoryEnd - 20
+        val locator = if (locPos >= 0) source.readFully(locPos, 20) else null
+        val hasZip64 = locator != null && ZipFormat.u32(locator, 0) == ZipFormat.Z64_LOC
+        if (!hasZip64 && (cdSize == 0xFFFFFFFFL || cdOffset == 0xFFFFFFFFL)) {
+            throw ArchiveFormatException("ZIP: missing ZIP64 locator", locPos)
+        }
+        if (hasZip64) {
+            checkNotNull(locator)
             val z64Off = ZipFormat.u64(locator, 8)
+            if (z64Off < 0 || z64Off > locPos - 56) {
+                throw ArchiveFormatException("ZIP: ZIP64 end record exceeds locator boundary", z64Off)
+            }
             val z64 = source.readFully(z64Off, 56)
             if (ZipFormat.u32(z64, 0) != ZipFormat.Z64_EOCD) {
                 throw ArchiveFormatException("ZIP: invalid ZIP64 end record", z64Off)
             }
+            val recordSize = ZipFormat.u64(z64, 4)
+            if (recordSize < 44 || recordSize > locPos - z64Off - 12) {
+                throw ArchiveFormatException("ZIP: invalid ZIP64 end record size $recordSize", z64Off + 4)
+            }
             cdEntries = ZipFormat.u64(z64, 32)
             cdSize = ZipFormat.u64(z64, 40)
             cdOffset = ZipFormat.u64(z64, 48)
+            directoryEnd = z64Off
         }
         source.requireRange(cdOffset, cdSize)
+        if (cdOffset > directoryEnd || cdSize > directoryEnd - cdOffset) {
+            throw ArchiveFormatException("ZIP: central directory overlaps end records", cdOffset)
+        }
         if (cdEntries < 0 || cdEntries > Int.MAX_VALUE || cdEntries > cdSize / 46) {
             throw ArchiveFormatException("ZIP: invalid directory count $cdEntries for $cdSize bytes", cdOffset)
         }
@@ -124,7 +139,15 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
         val seenOffsets = HashSet<Long>()
         var p = 0
         var n = 0L
-        while (n < cdEntries) {
+        while (p < cd.size) {
+            if (cd.size - p >= 4 && ZipFormat.u32(cd, p) == ZipFormat.CEN_SIGNATURE) {
+                if (cd.size - p < 6 || ZipFormat.u16(cd, p + 4) != cd.size - p - 6) {
+                    throw ArchiveFormatException("ZIP: invalid central directory digital signature length", cdOffset + p)
+                }
+                // Recognize and bound the optional record; this does not authenticate it.
+                p = cd.size
+                break
+            }
             if (p > cd.size - 46) {
                 throw ArchiveFormatException("ZIP: truncated central directory at entry $n of $cdEntries", cdOffset + p)
             }
@@ -189,6 +212,10 @@ class ZipReader(private val source: RandomAccessSource) : ArchiveReader {
             )
             p += 46 + nameLen + extraLen + commentLen
             n++
+        }
+        val countForComparison = if (hasZip64) n else n and 0xFFFFL
+        if (countForComparison != cdEntries) {
+            throw ArchiveFormatException("ZIP: central directory count $n differs from declared count $cdEntries", cdOffset)
         }
         return entries
     }

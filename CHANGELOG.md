@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- ZIP listing parses the whole central directory and rejects mismatched counts,
+  incomplete records, unexplained trailing bytes, and overlap with end records.
+  Classic counts may wrap modulo 65536; ZIP64 counts must match exactly. The exact
+  classic maximum count is supported without ZIP64. Optional directory signature
+  records are bounds-checked, and a present ZIP64 locator supplies the authoritative
+  fields even when the classic fields are not sentinels.
+
 - ZIP writing rejects names longer than 65535 UTF-8 bytes before output assembly
   or compression, with `ArchiveFormatException` carrying the entry name. Names
   at the exact byte limit remain supported. Both local and central headers now

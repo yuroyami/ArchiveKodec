@@ -52,6 +52,17 @@ let oversizedName = String(repeating: "x", count: 65536)
 expectFailure("ZIP filename", check: { $0 is ArchiveFormatException && $0.entryName == oversizedName }) {
     _ = try ZipWriter.shared.write(files: [ZipWriter.FileSpec(name: oversizedName, data: empty, codec: CodecId.store)])
 }
+let countedZip = try ZipWriter.shared.write(files: [
+    ZipWriter.FileSpec(name: "first", data: empty, codec: CodecId.store),
+    ZipWriter.FileSpec(name: "second", data: empty, codec: CodecId.store)
+])
+for offset in [countedZip.size - 14, countedZip.size - 12] {
+    countedZip.set(index: offset, value: 1)
+    countedZip.set(index: offset + 1, value: 0)
+}
+expectFailure("ZIP directory count", check: { $0 is ArchiveFormatException && $0.message?.contains("count") == true }) {
+    _ = try ZipReader(source: ByteArrayRandomAccessSource(data: countedZip)).entries()
+}
 expectFailure("ar entries", check: { $0 is ArchiveFormatException }) {
     _ = try ArReader(source: ByteArrayRandomAccessSource(data: empty)).entries()
 }
