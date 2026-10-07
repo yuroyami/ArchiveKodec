@@ -220,6 +220,16 @@ including changes that remove its CRC or alter its sizes. Data descriptors,
 ZIP64 size representations, differing extra fields, timestamps, and comments
 remain supported.
 
+Each ZIP member's local header, filename, extra fields and compressed data must
+occupy a separate range before the central directory. Listing rejects an extent
+that crosses the next local header or the directory with `ArchiveFormatException`,
+the earlier entry's name, and the conflicting boundary offset. Duplicate local
+offsets retain the `DecompressionBombException` category. Checks use physical
+offset order while the listing retains directory order; adjacent entries, empty
+entries, padding and data-descriptor gaps are valid. These structural checks
+apply even with `ArchiveLimits.UNBOUNDED`. Output and ratio limits still apply
+per entry.
+
 Entries with encryption bit 0, strong-encryption bit 6, or the AES method marker
 99 have `isEncrypted = true`. Reading them throws `ArchiveUnsupportedException`
 before decoding ciphertext. Compressed patched data (bit 5) is likewise

@@ -28,8 +28,9 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  * central-directory encryption are unsupported. This reader decodes STORE and
  * DEFLATE. Other methods appear in [entries], but [read] throws for them.
  *
- * Security: duplicate local-header offsets (the overlapping-bomb signature) are
- * rejected at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
+ * Security: local-header and compressed-data extents must be disjoint and end
+ * before the central directory. Duplicate local-header offsets are also rejected
+ * at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
  * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
  */
@@ -144,6 +145,23 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
             dataStart
         }
 
+    private fun validateMemberExtents(members: Collection<Member>, directoryOffset: Long) {
+        val ordered = members.sortedBy { it.entry.dataOffset }
+        for (index in ordered.indices) {
+            val member = ordered[index]
+            val next = ordered.getOrNull(index + 1)
+            val boundary = next?.entry?.dataOffset ?: directoryOffset
+            // validateLocalHeader bounded the fixed header, variable fields and
+            // compressed range against the source; their sum cannot overflow.
+            val end = member.entry.dataOffset + 30 + member.nameBytes.size +
+                member.localExtraLength + member.entry.compressedSize
+            if (end > boundary) {
+                val target = if (next == null) "central directory" else "next local header"
+                throw ArchiveFormatException("ZIP: entry extent ending at $end overlaps $target at $boundary", boundary, member.entry.name)
+            }
+        }
+    }
+
     private fun parseCentralDirectory(): Directory {
         val size = source.size
         if (size < 22) throw ArchiveFormatException("ZIP: file is too small", 0)
@@ -226,7 +244,6 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
         val cd = source.readFullyChecked(cdOffset, cdSize)
         val entries = ArrayList<ArchiveEntry>()
         val members = HashMap<Long, Member>()
-        val seenOffsets = HashSet<Long>()
         var p = 0
         var n = 0L
         while (p < cd.size) {
@@ -302,12 +319,15 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
 
             requireDiskZero(startDisk, diskFieldOffset, name)
             if (uncompSize < 0) throw ArchiveFormatException("ZIP: uncompressed size exceeds Long", cdOffset + p, name)
+            if (localOffset > cdOffset || cdOffset - localOffset < 30) {
+                throw ArchiveFormatException("ZIP: local header overlaps the central directory", cdOffset, name)
+            }
             val local = source.readFully(localOffset, 30)
             if (ZipFormat.u32(local, 0) != ZipFormat.LOC) {
                 throw ArchiveFormatException("ZIP: invalid local file header", localOffset, name)
             }
-            if (!seenOffsets.add(localOffset)) {
-                throw DecompressionBombException("overlapping local header offset $localOffset (zip-bomb signature)")
+            if (members.containsKey(localOffset)) {
+                throw DecompressionBombException("ZIP: multiple entries reference local header offset $localOffset", localOffset, name, null)
             }
 
             val isDir = name.endsWith("/")
@@ -332,6 +352,7 @@ class ZipReader(source: RandomAccessSource) : ArchiveReader {
         if (countForComparison != cdEntries) {
             throw ArchiveFormatException("ZIP: central directory count $n differs from declared count $cdEntries", cdOffset)
         }
+        validateMemberExtents(members.values, cdOffset)
         return Directory(entries, members)
     }
 }

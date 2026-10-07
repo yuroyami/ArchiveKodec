@@ -98,6 +98,16 @@ expectFailure("ZIP encryption", check: {
     $0 is ArchiveUnsupportedException && $0.entryName == "a.txt" && $0.offset?.int64Value == 6 && $0.message?.contains("encryption") == true
 }) { _ = try encryptedReader.read(entry: encryptedEntry, limits: limits) }
 try encryptedReader.close()
+let overlapHex = "504b03041400000000000000210021f8f5ad2d0000002d0000000100000061504b03041400000000000000210024e8d09f0e0000000e00000001000000625348415245442d5041594c4f4144504b010214001400000000000000210021f8f5ad2d0000002d00000001000000000000000000000000000000000061504b010214001400000000000000210024e8d09f0e0000000e00000001000000000000000000000000001f00000062504b050600000000020002005e0000004c0000000000"
+let overlappingZip = bytes(stride(from: 0, to: overlapHex.count, by: 2).map {
+    UInt8(String(overlapHex.dropFirst($0).prefix(2)), radix: 16)!
+})
+expectFailure("ZIP overlapping extents", check: {
+    $0 is ArchiveFormatException && $0.entryName == "a" && $0.offset?.int64Value == 31 && $0.message?.contains("overlap") == true
+}) {
+    let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: overlappingZip))
+    _ = try reader.entries()
+}
 expectFailure("ar entries", check: { $0 is ArchiveFormatException }) {
     _ = try ArReader(source: ByteArrayRandomAccessSource(data: empty)).entries()
 }
