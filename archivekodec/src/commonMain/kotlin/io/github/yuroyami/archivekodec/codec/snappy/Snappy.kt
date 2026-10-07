@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec.codec.snappy
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -11,62 +13,85 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  */
 object Snappy {
 
-    /** Decompress a Snappy block, enforcing [limits]. */
+    /** Decompress a Snappy block, validating its complete structure before output allocation. */
     fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
         var length = 0L
-        var shift = 0
-        while (true) {
+        var terminated = false
+        for (i in 0 until 5) {
+            if (p == src.size) throw ArchiveFormatException("snappy: truncated length preamble", p.toLong())
             val b = src[p++].toInt() and 0xFF
-            length = length or ((b and 0x7F).toLong() shl shift)
-            if (b < 0x80) break
-            shift += 7
+            if (i == 4 && b > 0x0F) throw ArchiveFormatException("snappy: length preamble exceeds u32", (p - 1).toLong())
+            length = length or ((b and 0x7F).toLong() shl (7 * i))
+            if (b < 0x80) { terminated = true; break }
         }
+        if (!terminated) throw ArchiveFormatException("snappy: unterminated length preamble", p.toLong())
         limits.checkOutputSize(length)
-        var out = ByteArray(length.toInt())
-        var o = 0
-
-        while (p < src.size) {
-            val tag = src[p++].toInt() and 0xFF
-            when (tag and 0x03) {
-                0 -> { // literal
-                    var litLen = tag ushr 2
-                    if (litLen >= 60) {
-                        val n = litLen - 59
-                        litLen = 0
-                        for (k in 0 until n) litLen = litLen or ((src[p++].toInt() and 0xFF) shl (8 * k))
-                    }
-                    litLen += 1
-                    for (k in 0 until litLen) out[o++] = src[p++]
-                }
-                1 -> { // copy, 1-byte offset
-                    val len = ((tag ushr 2) and 0x07) + 4
-                    val offset = ((tag ushr 5) shl 8) or (src[p++].toInt() and 0xFF)
-                    o = copyMatch(out, o, offset, len)
-                }
-                2 -> { // copy, 2-byte offset
-                    val len = (tag ushr 2) + 1
-                    val offset = (src[p].toInt() and 0xFF) or ((src[p + 1].toInt() and 0xFF) shl 8)
-                    p += 2
-                    o = copyMatch(out, o, offset, len)
-                }
-                else -> { // copy, 4-byte offset
-                    val len = (tag ushr 2) + 1
-                    val offset = (src[p].toInt() and 0xFF) or ((src[p + 1].toInt() and 0xFF) shl 8) or
-                        ((src[p + 2].toInt() and 0xFF) shl 16) or ((src[p + 3].toInt() and 0xFF) shl 24)
-                    p += 4
-                    o = copyMatch(out, o, offset, len)
-                }
-            }
+        if (length > Int.MAX_VALUE) {
+            throw DecompressionBombException("snappy: declared output $length exceeds ByteArray maximum ${Int.MAX_VALUE}")
         }
+        limits.checkRatio(src.size.toLong(), length)
+        val size = length.toInt()
+        decode(src, p, size, null)
+        val out = ByteArray(size)
+        decode(src, p, size, out)
         return out
     }
 
-    private fun copyMatch(out: ByteArray, o: Int, offset: Int, len: Int): Int {
-        var oo = o
-        var m = o - offset
-        repeat(len) { out[oo++] = out[m++] } // byte-by-byte: overlap-safe
-        return oo
+    /** Scan once without writes, then decode using exactly the same validated tag rules. */
+    private fun decode(src: ByteArray, start: Int, size: Int, out: ByteArray?) {
+        var p = start
+        var o = 0
+        fun needInput(n: Int) {
+            if (n > src.size - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
+        }
+        fun littleEndian(n: Int): Long {
+            needInput(n)
+            var value = 0L
+            repeat(n) { i -> value = value or ((src[p++].toLong() and 0xFF) shl (8 * i)) }
+            return value
+        }
+        fun needOutput(n: Long) {
+            if (n > size.toLong() - o) throw ArchiveFormatException("snappy: tag exceeds declared output size $size", p.toLong())
+        }
+        while (p < src.size) {
+            val tagOffset = p
+            val tag = src[p++].toInt() and 0xFF
+            when (tag and 3) {
+                0 -> {
+                    val encoded = tag ushr 2
+                    val length = (if (encoded < 60) encoded.toLong() else littleEndian(encoded - 59)) + 1
+                    if (length > src.size - p) throw ArchiveFormatException("snappy: truncated literal", p.toLong())
+                    needOutput(length)
+                    val count = length.toInt()
+                    if (out != null) src.copyInto(out, o, p, p + count)
+                    p += count
+                    o += count
+                }
+                else -> {
+                    val count: Int
+                    val offset: Long
+                    if (tag and 3 == 1) {
+                        count = ((tag ushr 2) and 7) + 4
+                        offset = ((tag ushr 5).toLong() shl 8) or littleEndian(1)
+                    } else {
+                        count = (tag ushr 2) + 1
+                        offset = littleEndian(if (tag and 3 == 2) 2 else 4)
+                    }
+                    if (offset == 0L || offset > o) {
+                        throw ArchiveFormatException("snappy: invalid copy offset $offset at output $o", tagOffset.toLong())
+                    }
+                    needOutput(count.toLong())
+                    if (out != null) {
+                        var from = o - offset.toInt()
+                        repeat(count) { out[o++] = out[from++] } // overlapping copies are intentional
+                    } else {
+                        o += count
+                    }
+                }
+            }
+        }
+        if (o != size) throw ArchiveFormatException("snappy: decoded $o bytes, expected $size", p.toLong())
     }
 
     /** Compress [data] into a valid (all-literal) Snappy block. */
