@@ -32,9 +32,12 @@ data class ArchiveLimits(
 
     /** @throws DecompressionBombException if the ratio exceeds [maxCompressionRatio]. */
     fun checkRatio(compressedBytes: Long, uncompressedBytes: Long) {
-        if (compressedBytes > 0 && uncompressedBytes / compressedBytes > maxCompressionRatio) {
+        if (compressedBytes <= 0) return
+        val quotient = uncompressedBytes / compressedBytes
+        val remainder = uncompressedBytes % compressedBytes
+        if (quotient > maxCompressionRatio || (quotient == maxCompressionRatio.toLong() && remainder > 0)) {
             throw DecompressionBombException(
-                "compression ratio ${uncompressedBytes / compressedBytes}:1 exceeds ${maxCompressionRatio}:1",
+                "compression ratio $uncompressedBytes/$compressedBytes exceeds ${maxCompressionRatio}:1",
             )
         }
     }
