@@ -323,6 +323,65 @@ expectFailure("truncated GNU64 index", check: { $0 is ArchiveFormatException && 
 try truncatedGnu64Reader.close()
 precondition(truncatedGnu64Source.closes == 1)
 
+// Frozen LLVM COFF library: NUL-terminated names remain separate from their neighbors.
+let coffArchive = Array(Data(base64Encoded: "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")!)
+let coffObjects: [[UInt8]] = [
+    Array(Data(base64Encoded: "ZIYFAO/axWpGAQAADgAAAAAAAAAudGV4dAAAAAAAAAAAAAAABgAAANwAAAAAAAAAAAAAAAAAAAAgAFBgLmRhdGEAAAAAAAAAAAAAAAAAAADiAAAAAAAAAAAAAAAAAAAAQAAwwC5ic3MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAMMAuZGVidWckUwAAAAAAAAAAZAAAAOIAAAAAAAAAAAAAAAAAAABAADBCLzQAAAAAAAAAAAAAAAAAAAAAAABGAQAAAAAAAAAAAAAAAAAAAAgQALgBAAAAwwQAAADxAAAAWAAAAAoAAREAAAAAAAAAAEoAPBEAAAAA0AAVAAAAAAAAAP//AAAAAAAAQXBwbGUgY2xhbmcgdmVyc2lvbiAyMS4wLjAgKGNsYW5nLTIxMDAuMS4xLjEwMSkAAAAudGV4dAAAAAAAAAABAAAAAwEGAAAAAAAAAKIrlMkBAAAAAAAuZGF0YQAAAAAAAAACAAAAAwEAAAAAAAAAAAAAAAACAAAAAAAuYnNzAAAAAAAAAAADAAAAAwEAAAAAAAAAAAAAAAADAAAAAAAuZGVidWckUwAAAAAEAAAAAwFkAAAAAAAAAG1572UEAAAAAAAAAAAABAAAAAAAAAAFAAAAAwEAAAAAAAAAAAAAAAAFAAAAAABAZmVhdC4wMAAAAAD//wAAAwAAAAAAEgAAAAAAAAABACAAAgAuZmlsZQAAAAAAAAD+/wAAZwFmaXJzdC5jAAAAAAAAAAAAAAAeAAAALmxsdm1fYWRkcnNpZwBmaXJzdF9wcm9iZQA=")!),
+    Array(Data(base64Encoded: "ZIYFAO/axWpGAQAADgAAAAAAAAAudGV4dAAAAAAAAAAAAAAABgAAANwAAAAAAAAAAAAAAAAAAAAgAFBgLmRhdGEAAAAAAAAAAAAAAAAAAADiAAAAAAAAAAAAAAAAAAAAQAAwwC5ic3MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAMMAuZGVidWckUwAAAAAAAAAAZAAAAOIAAAAAAAAAAAAAAAAAAABAADBCLzQAAAAAAAAAAAAAAAAAAAAAAABGAQAAAAAAAAAAAAAAAAAAAAgQALgCAAAAwwQAAADxAAAAWAAAAAoAAREAAAAAAAAAAEoAPBEAAAAA0AAVAAAAAAAAAP//AAAAAAAAQXBwbGUgY2xhbmcgdmVyc2lvbiAyMS4wLjAgKGNsYW5nLTIxMDAuMS4xLjEwMSkAAAAudGV4dAAAAAAAAAABAAAAAwEGAAAAAAAAAHJRNI4BAAAAAAAuZGF0YQAAAAAAAAACAAAAAwEAAAAAAAAAAAAAAAACAAAAAAAuYnNzAAAAAAAAAAADAAAAAwEAAAAAAAAAAAAAAAADAAAAAAAuZGVidWckUwAAAAAEAAAAAwFkAAAAAAAAAG1572UEAAAAAAAAAAAABAAAAAAAAAAFAAAAAwEAAAAAAAAAAAAAAAAFAAAAAABAZmVhdC4wMAAAAAD//wAAAwAAAAAAEgAAAAAAAAABACAAAgAuZmlsZQAAAAAAAAD+/wAAZwFzZWNvbmQuYwAAAAAAAAAAAAAfAAAALmxsdm1fYWRkcnNpZwBzZWNvbmRfcHJvYmUA")!),
+]
+let coffSource = ShortReadSource(data: bytes(coffArchive), chunk: 3)
+let coffReader = try ArchiveKodec.shared.open(source: coffSource)
+let coffEntries = try coffReader.entries()
+precondition(coffReader.format == ArchiveFormat.ar)
+precondition(coffEntries.map { $0.name } == ["first-long-member-name.obj", "second-long-member-name.obj"])
+precondition(coffEntries.map { $0.dataOffset } == [388, 1056])
+for (index, entry) in coffEntries.enumerated() {
+    let expected = coffObjects[index]
+    precondition(!entry.isDirectory && entry.size == Int64(expected.count))
+    let payload = try coffReader.read(entry: entry, limits: limits)
+    precondition(payload.size == Int32(expected.count))
+    for (offset, value) in expected.enumerated() {
+        precondition(payload.get(index: Int32(offset)) == Int8(bitPattern: value))
+    }
+}
+try coffReader.close()
+precondition(coffSource.closes == 1)
+var unterminatedCoff = coffArchive
+for offset in 272..<328 where unterminatedCoff[offset] == 0 || unterminatedCoff[offset] == 10 {
+    unterminatedCoff[offset] = 88
+}
+let unterminatedCoffSource = ShortReadSource(data: bytes(unterminatedCoff), chunk: 3)
+let unterminatedCoffReader = try ArchiveKodec.shared.open(source: unterminatedCoffSource)
+expectFailure("unterminated COFF long name", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 328 && $0.entryName == "/0" && $0.message?.contains("unterminated") == true
+}) { _ = try unterminatedCoffReader.entries() }
+try unterminatedCoffReader.close()
+precondition(unterminatedCoffSource.closes == 1)
+var outsideCoff = coffArchive
+outsideCoff.replaceSubrange(328..<344, with: Array("/56             ".utf8))
+let outsideCoffSource = ShortReadSource(data: bytes(outsideCoff), chunk: 3)
+let outsideCoffReader = try ArchiveKodec.shared.open(source: outsideCoffSource)
+expectFailure("outside COFF long-name offset", check: {
+    $0 is ArchiveFormatException && $0.offset?.int64Value == 328 && $0.entryName == "/56"
+}) { _ = try outsideCoffReader.entries() }
+try outsideCoffReader.close()
+precondition(outsideCoffSource.closes == 1)
+
+// A COFF NUL delimiter preserves an embedded LF for strict path validation.
+let coffControlArchive = Array(Data(base64Encoded: "ITxhcmNoPgovICAgICAgICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMTAwNjQ0ICA0ICAgICAgICAgYAoAAAAALyAgICAgICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDEwMDY0NCAgOCAgICAgICAgIGAKAAAAAAAAAAAvLyAgICAgICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMTAwNjQ0ICA1MSAgICAgICAgYApmaXJzdApsb25nLW1lbWJlci1uYW1lLm8Ac2Vjb25kLWxvbmctbWVtYmVyLW5hbWUubwAKLzAgICAgICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDEwMDY0NCAgMSAgICAgICAgIGAKeAo=")!)
+let coffControlSource = ShortReadSource(data: bytes(coffControlArchive), chunk: 3)
+let coffControlReader = try ArchiveKodec.shared.open(source: coffControlSource)
+let coffControlEntries = try coffControlReader.entries()
+precondition(coffControlEntries.count == 1 && coffControlEntries[0].name == "first\nlong-member-name.o")
+let coffControlPayload = try coffControlReader.read(entry: coffControlEntries[0], limits: limits)
+precondition(coffControlPayload.size == 1 && coffControlPayload.get(index: 0) == 120)
+precondition(!PathGuard.shared.isSafe(entryName: coffControlEntries[0].name))
+expectFailure("COFF control path", check: { $0 is ArchivePathException && $0.entryName == "first\nlong-member-name.o" }) {
+    _ = try PathGuard.shared.sanitize(entryName: coffControlEntries[0].name)
+}
+try coffControlReader.close()
+precondition(coffControlSource.closes == 1)
+
 // Legal short reads cross the Objective-C source and Kotlin reader before
 // returning complete metadata and payloads to Swift.
 let shortEmptyZip = ShortReadSource(data: bytes([0x50, 0x4b, 0x05, 0x06] + Array(repeating: 0, count: 18)), chunk: 1)

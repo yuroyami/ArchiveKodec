@@ -15,8 +15,8 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
  * Unix `ar` reader (`.a` / `.deb` / `.lib`). No compression: concatenated members
- * with 60-byte ASCII headers. Handles GNU trailing-slash short names and the GNU
- * `//` long-name table (`/offset` references); BSD `#1/len` long names are TODO.
+ * with 60-byte ASCII headers. Handles trailing-slash short names and GNU/COFF
+ * `//` long-name tables (`/offset` references); BSD `#1/len` long names are TODO.
  * The GNU symbol tables (`/`, `/SYM64/`) and the name table (`//`) are skipped as entries.
  */
 class ArReader(source: RandomAccessSource) : ArchiveReader {
@@ -46,8 +46,9 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
         val total = source.size
         if (total < 8 || source.readFully(0, 8).decodeToString() != MAGIC) throw ArchiveFormatException("ar: invalid archive magic", 0)
 
-        // First pass picks up the GNU long-name table ("//") so "/offset" names resolve.
+        // Remember the GNU/COFF long-name table ("//") for later "/offset" references.
         var nameTable: ByteArray? = null
+        var nulDelimitedNames = false
         val out = ArrayList<ArchiveEntry>()
         var pos = 8L
         while (pos <= total && total - pos >= 60) {
@@ -65,17 +66,22 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
             source.requireRange(dataStart + size, size and 1L)
 
             when {
-                rawName == "//" -> nameTable = source.readFullyChecked(dataStart, size)
+                rawName == "//" -> {
+                    val table = source.readFullyChecked(dataStart, size)
+                    nameTable = table
+                    // COFF strings end at NUL; an LF inside one remains filename data.
+                    nulDelimitedNames = 0.toByte() in table
+                }
                 rawName == "/" || rawName == "/SYM64/" || rawName.isEmpty() -> { /* symbol table, skipped */ }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
                     val digits = rawName.substring(1)
                     val off = digits.toIntOrNull()
                     if (off == null || digits.any { it !in '0'..'9' }) {
-                        throw ArchiveFormatException("ar: invalid GNU name offset '$rawName'", pos, rawName)
+                        throw ArchiveFormatException("ar: invalid long-name offset '$rawName'", pos, rawName)
                     }
-                    val table = nameTable ?: throw ArchiveFormatException("ar: missing GNU name table", pos, rawName)
-                    if (off !in table.indices) throw ArchiveFormatException("ar: GNU name offset $off exceeds table", pos, rawName)
-                    val name = extractLongName(table, off)
+                    val table = nameTable ?: throw ArchiveFormatException("ar: missing long-name table", pos, rawName)
+                    if (off !in table.indices) throw ArchiveFormatException("ar: long-name offset $off exceeds table", pos, rawName)
+                    val name = extractLongName(table, off, nulDelimitedNames, pos, rawName)
                     out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart))
                 }
                 else -> {
@@ -87,10 +93,16 @@ class ArReader(source: RandomAccessSource) : ArchiveReader {
         return out
     }
 
-    private fun extractLongName(table: ByteArray, offset: Int): String {
+    private fun extractLongName(table: ByteArray, offset: Int, nulDelimited: Boolean, memberOffset: Long, reference: String): String {
+        val terminator = if (nulDelimited) 0 else 0x0A
         var end = offset
-        while (end < table.size && table[end].toInt() != 0x0A) end++ // names end with '\n'
-        return table.decodeToString(offset, end).removeSuffix("/")
+        while (end < table.size && table[end].toInt() != terminator) end++
+        if (end == table.size) {
+            throw ArchiveFormatException("ar: unterminated long name at table offset $offset", memberOffset, reference)
+        }
+        // GNU's final slash frames the LF delimiter. Before a COFF NUL it is name data.
+        val nameEnd = if (!nulDelimited && end > offset && table[end - 1].toInt() == 0x2F) end - 1 else end
+        return table.decodeToString(offset, nameEnd)
     }
 
     companion object {

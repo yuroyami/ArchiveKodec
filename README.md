@@ -184,6 +184,13 @@ does not decompress entries. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
 
+ar resolves GNU and COFF long-name references from the `//` table. GNU names end
+with `/\n` (LF-only names are also accepted); COFF names end with NUL and retain
+any stored trailing slash. A table containing NUL uses the COFF delimiter, so
+embedded LF characters remain in the raw name for path validation. A referenced
+name without a terminator inside the table throws `ArchiveFormatException`, as
+do invalid or outside-table offsets.
+
 Built-in readers own the source supplied to their constructor or returned by a
 successful `open`. Close the reader, including after listing or reading fails;
 those failures leave it open so other entries can still be read. If `open` throws
