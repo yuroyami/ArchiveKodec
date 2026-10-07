@@ -17,6 +17,7 @@ original notice in the ported `.kt` header (the Kite-lineage convention).
 |---|---|---|---|
 | **DEFLATE / inflate** (RFC 1951) | `zlib/contrib/puff` | `puff.c`, `puff.h` — canonical, deliberately-simple inflate reference (already the basis of the ported `Inflate.kt`) | zlib |
 | DEFLATE encoder, gzip, zlib | `zlib` | `deflate.c`, `trees.c`, `gzlib.c`, `adler32.c`, `crc32.c` | zlib |
+| DEFLATE length-limited coding | [Zopfli](https://github.com/google/zopfli/blob/df1517dd8518113a245e4d203a04b8a0e02ab493/src/zopfli/katajainen.c) (remote reference) | `katajainen.c` — bounded package-merge and independent weighted-cost answers; the Kotlin list-based builder is an independent implementation | Apache-2.0 |
 | **LZMA / LZMA2 / .xz** | `xz-java/src/org/tukaani/xz` | `lzma/LZMADecoder.java`, `lzma/LZMAEncoder*.java`, `rangecoder/*`, `lzma/Optimum.java`, `BlockInputStream.java`, `XZInputStream.java`, `DeltaCoder.java`, BCJ `*Options.java` | **0BSD / public domain** (frictionless) |
 | **bzip2** (BWT) | `commons-compress/.../compressors/bzip2` | `BZip2CompressorInputStream.java` (decode), `BZip2CompressorOutputStream.java` + `BlockSort.java` (encode) | Apache-2.0 |
 | **zstd** (FSE/Huff0) | `zstd/doc` + `zstd/lib` | `doc/zstd_compression_format.md` (RFC 8878 text), `doc/educational_decoder/zstd_decompress.c` (smallest correct decoder) | BSD-3 |

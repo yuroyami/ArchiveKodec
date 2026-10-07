@@ -99,6 +99,12 @@ val out = lz4!!.decompress(frameBytes)
 | LZ4 (frame and block) | yes | yes |
 | Snappy (raw block) | yes | valid output, but it does not compress |
 
+Dynamic DEFLATE trees use binary package-merge to minimize weighted code length
+within the 15-bit literal/distance and 7-bit code-length limits. The encoder checks
+symbol coverage and code-space occupancy before selecting a table. Raw DEFLATE,
+gzip, zlib and deflated ZIP all share this builder; compressed bytes are deterministic
+for the same input, but may change when encoder behavior is corrected.
+
 `gzip`, `zlib`, `deflate` and `store` have named accessors on `ArchiveKodec`. You
 reach LZ4 and Snappy through `ArchiveKodec.codec(id)`.
 
@@ -361,6 +367,8 @@ artifact and a kotlinx-io dependency.
 
 - DEFLATE round-trips.
 - Dynamic Huffman on skewed alphabets.
+- Length-limited Huffman code-space checks, exhaustive small-alphabet optimality,
+  Zopfli weighted-cost answers, and the million-byte DEFLATE/gzip/zlib/ZIP regression.
 - gzip and zlib decoding of vectors emitted by CPython.
 - A ZIP produced by CPython `zipfile`.
 - An LZ4 frame produced by the `lz4` CLI.
@@ -444,8 +452,10 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 ArchiveKodec combines specification implementations with ports of permissively
 licensed code. The inflate path is an altered Kotlin translation of Mark Adler's
-zlib-licensed `puff`, via KiteTorrent and libtorrent. The encoder's Huffman
-construction follows zlib's `trees.c`; both source files retain the zlib notices.
+zlib-licensed `puff`, via KiteTorrent and libtorrent. The encoder's canonical Huffman
+assignment follows zlib's `trees.c`; both source files retain the zlib notices.
+Its length-limited builder independently implements binary package-merge, with
+Zopfli consulted as an algorithm and validation reference.
 [NOTICE](NOTICE) and [reference/REFERENCES.md](reference/REFERENCES.md) record the
 origins and licenses. Reference source trees are used for study and are not
 redistributed. RAR is out of scope for licensing reasons, and ArchiveKodec

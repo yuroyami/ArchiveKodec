@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- DEFLATE dynamic trees use optimal length-limited package-merge coding with
+  symbol-coverage, length and code-space checks. This fixes oversubscribed trees
+  that made raw DEFLATE, gzip, zlib and deflated ZIP output undecodable for skewed
+  inputs. Compressed bytes can change; decoded content and public APIs are unchanged.
+
 - ZIP, TAR, ar and cpio readers own and close their supplied source exactly once,
   clear cached metadata on close, and reject subsequent listing or reads with
   `ArchiveClosedException`. Cleanup failures leave the reader closed. Kotlin

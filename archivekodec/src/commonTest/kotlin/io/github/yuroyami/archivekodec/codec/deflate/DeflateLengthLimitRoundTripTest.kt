@@ -1,0 +1,47 @@
+package io.github.yuroyami.archivekodec.codec.deflate
+
+import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.use
+import io.github.yuroyami.archivekodec.archive.zip.ZipReader
+import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.wrapper.Gzip
+import io.github.yuroyami.archivekodec.wrapper.Zlib
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+
+class DeflateLengthLimitRoundTripTest {
+    @Test
+    fun matchesRecordedJavaRandomFixture() {
+        assertEquals(1_000_000, deflateLengthLimitInput.size)
+        assertEquals(0x93D95898L, Crc32.of(deflateLengthLimitInput))
+    }
+
+    @Test
+    fun rawDeflateRoundTripsTheOversubscribedTreeRegression() {
+        val compressed = Deflate.encode(deflateLengthLimitInput)
+        assertEquals(5, compressed[0].toInt() and 7, "expected a final dynamic block")
+        assertContentEquals(deflateLengthLimitInput, Inflate.inflate(compressed))
+        assertContentEquals(compressed, Deflate.encode(deflateLengthLimitInput), "deterministic encoding")
+    }
+
+    @Test
+    fun gzipRoundTripsTheOversubscribedTreeRegression() {
+        assertContentEquals(deflateLengthLimitInput, Gzip.decompress(Gzip.compress(deflateLengthLimitInput)))
+    }
+
+    @Test
+    fun zlibRoundTripsTheOversubscribedTreeRegression() {
+        assertContentEquals(deflateLengthLimitInput, Zlib.decompress(Zlib.compress(deflateLengthLimitInput)))
+    }
+
+    @Test
+    fun zipRoundTripsTheOversubscribedTreeRegression() {
+        val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("regression.bin", deflateLengthLimitInput, CodecId.DEFLATE)))
+        ZipReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
+            assertContentEquals(deflateLengthLimitInput, reader.read(reader.entries().single()))
+        }
+    }
+}

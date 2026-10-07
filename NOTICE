@@ -8,8 +8,10 @@ The DEFLATE inflate path is an altered Kotlin translation of Mark Adler's puff
 (2002-2013), via KiteTorrent and libtorrent. puff carries a zlib-style license,
 not a public-domain dedication; its original notice is retained in Inflate.kt.
 The DEFLATE encoder originated in KitePDF's FlateDecode encoder and its
-length-limited Huffman construction follows zlib's trees.c (Jean-loup Gailly and
-Mark Adler). Deflate.kt retains the zlib copyright and license notice.
+canonical Huffman assignment follows zlib's trees.c (Jean-loup Gailly and
+Mark Adler). Deflate.kt retains the zlib copyright and license notice. The
+length-limited builder independently implements binary package-merge; Zopfli's
+Apache-2.0 katajainen.c was consulted as an algorithm and validation reference.
 
 Format references consulted for porting (study only, not redistributed; see
 reference/REFERENCES.md) are each under permissive licenses: zlib (zlib), XZ for Java
