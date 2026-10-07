@@ -280,7 +280,9 @@ Both headers use the reproducible default timestamp 1980-01-01 00:00:00.
 
 `ZipReader`, `TarReader`, `ArReader` and `CpioReader` return `ArchiveEntry.name`
 exactly as the archive stored it, and none of them validates it. A name of
-`../../etc/passwd` or `/etc/passwd` arrives unchanged.
+`../../etc/passwd` or `/etc/passwd` arrives unchanged. Directory names retain
+every stored trailing slash, including `e//` and `./`. Use `isDirectory` to
+identify directories; a type-5 TAR directory need not end in a slash.
 
 Joining such a name to an output directory is the Zip-Slip vulnerability.
 Zip-Slip means an archive entry escapes the folder you meant to extract into, and

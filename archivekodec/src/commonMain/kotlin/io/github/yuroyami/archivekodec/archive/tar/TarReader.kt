@@ -98,7 +98,7 @@ class TarReader(source: RandomAccessSource) : ArchiveReader {
                     if (isFileLike && name.isNotEmpty()) {
                         out.add(
                             ArchiveEntry(
-                                name = if (isDir) name.trimEnd('/') else name,
+                                name = name,
                                 size = if (isDir) 0L else size,
                                 isDirectory = isDir,
                                 lastModifiedEpochSeconds = numeric(hdr, 136, 12, pos),
