@@ -550,7 +550,27 @@ artifact and a kotlinx-io dependency.
 
 ## Testing
 
-`commonTest` runs on the JVM, Node.js and iOS simulator, and covers:
+`commonTest` runs on the JVM, Android host, Node.js and arm64 iOS simulator.
+Android host tests run on the host JVM against the Android target's compiled
+code; they do not run on an emulator or device. Both modules enable these tests
+with the Android KMP plugin's `withHostTest {}` option.
+
+At the [Android host-test checkpoint](https://github.com/yuroyami/ArchiveKodec/issues/110),
+the core has 503 common test methods and 39 JVM-only methods. The IO module has
+five common test methods. The complete local verification lanes execute:
+
+| Target | Core | IO |
+|---|---:|---:|
+| JVM | 542 | 5 |
+| Android host | 503 | 5 |
+| Node.js | 503 | no IO target |
+| arm64 iOS simulator | 503 | 5 |
+
+These are test-method counts at that checkpoint; loops within methods and the
+Swift consumer checks exercise additional cases. The gates read the XML reports
+for the current counts as coverage grows.
+
+The shared suites cover:
 
 - DEFLATE round-trips.
 - Dynamic Huffman on skewed alphabets.
@@ -561,6 +581,10 @@ artifact and a kotlinx-io dependency.
 - An LZ4 frame produced by the `lz4` CLI.
 - Snappy, ar and cpio hand-written test vectors.
 - Magic sniffing, checksum check values and `PathGuard`.
+- Both facade overloads opening foreign v7/ustar/PAX/GNU TAR, GNU ar, newc/odc
+  cpio and ZIP64 fixtures, including a GNU binary timestamp and long names.
+- All four IO adapters across the 64 KiB boundary, irregular short reads,
+  output limits and source ownership.
 
 JVM-only suites test interoperability. `ZlibInteropTest` feeds our raw
 DEFLATE, zlib and gzip output to `java.util.zip.Inflater` and `GZIPInputStream`.
@@ -580,6 +604,7 @@ values are independent of the Kotlin implementation.
 
 ```bash
 ./gradlew :archivekodec:jvmTest         # core test suite
+./gradlew :archivekodec:testAndroidHostTest :archivekodec-io:testAndroidHostTest
 ./gradlew swiftConsumerTest             # macOS arm64: compile and run core/IO Swift consumers
 ./gradlew :archivekodec-io:jvmTest      # kotlinx-io adapter tests
 ./gradlew :io-consumer-test:compileJava # downstream IO API compile check
@@ -590,13 +615,16 @@ You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
 your SDK install.
 
 Pull requests and main pushes run the `CI` workflow without path filters. Its
-`Verification` check requires both platform lanes to succeed, including JVM and
-Node tests, both Android AARs/JVM JARs, the core JS distribution, the downstream
-Java compile check, both iOS simulator suites and the independent Swift consumers.
-All three Apple frameworks are built; device and x64 checks cover compilation and
+`Verification` check requires both platform lanes to succeed, including JVM,
+Android host and Node tests, both Android AARs/JVM JARs, the core JS distribution,
+the downstream Java compile check, both iOS simulator suites and the independent
+Swift consumers.
+All six Apple frameworks are built; device and x64 checks cover compilation and
 exported headers, while runtime checks use the arm64 iOS simulator. Android
-verification currently covers compilation and packaging. Pages builds and deploys
-only after verification succeeds for the same main commit. `Verification` is the
+verification includes both host-test suites, compilation and packaging. Android
+device/emulator tests and JS browser tests are not configured in these lanes.
+Pages builds and deploys only after verification succeeds for the same main commit.
+`Verification` is the
 stable check to select in branch protection.
 
 Run the identical commands locally with JDK 21 and Android SDK 36 installed:

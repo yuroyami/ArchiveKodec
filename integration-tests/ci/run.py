@@ -10,10 +10,12 @@ ROOT = Path(__file__).resolve().parents[2]
 LANES = {
     "portable": (
         [":archivekodec:jvmTest", ":archivekodec-io:jvmTest", ":archivekodec:jsNodeTest",
+         ":archivekodec:testAndroidHostTest", ":archivekodec-io:testAndroidHostTest",
          ":archivekodec:jvmJar", ":archivekodec-io:jvmJar",
          ":archivekodec:bundleAndroidMainAar", ":archivekodec-io:bundleAndroidMainAar",
          ":archivekodec:jsNodeProductionLibraryDistribution", ":io-consumer-test:compileJava"],
-        [("archivekodec", "jvmTest"), ("archivekodec-io", "jvmTest"), ("archivekodec", "jsNodeTest")],
+        [("archivekodec", "jvmTest"), ("archivekodec-io", "jvmTest"), ("archivekodec", "jsNodeTest"),
+         ("archivekodec", "testAndroidHostTest"), ("archivekodec-io", "testAndroidHostTest")],
     ),
     "apple": (
         [":archivekodec:iosSimulatorArm64Test", ":archivekodec-io:iosSimulatorArm64Test",

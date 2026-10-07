@@ -25,6 +25,7 @@ kotlin {
         namespace = "io.github.yuroyami.archivekodec"
         compileSdk = 36
         minSdk = 21
+        withHostTest {}
     }
 
     listOf(
