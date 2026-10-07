@@ -2,15 +2,36 @@ package io.github.yuroyami.archivekodec.codec
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.ar.ArReader
+import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
 import io.github.yuroyami.archivekodec.codec.snappy.Snappy
+import io.github.yuroyami.archivekodec.wrapper.Zlib
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class CrossTargetMalformedTest {
     private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+
+    @Test
+    fun invalidArLz4AndZlibHeadersUseTypedErrors() {
+        ArReader(ByteArrayRandomAccessSource("!<arch>\n".encodeToByteArray())).use { assertTrue(it.entries().isEmpty()) }
+        assertFailsWith<ArchiveFormatException> {
+            ArReader(ByteArrayRandomAccessSource("!<arcb>\n".encodeToByteArray())).use { it.entries() }
+        }
+        assertContentEquals(byteArrayOf(), Lz4.frameDecompress(hex("04224d1860707300000000")))
+        assertFailsWith<ArchiveFormatException> { Lz4.frameDecompress(hex("05224d1860707300000000")) }
+        val zlib = hex("789c4bcb2f4acd4ccf53c82d2d492cc9cccf532848acccc94f4ce14a1b5a12002c064c79")
+        assertContentEquals("foreign mutation payload\n".repeat(8).encodeToByteArray(), Zlib.decompress(zlib))
+        // Method and window mutations retain correct FCHECK, and the rest of
+        // the stream remains valid, so each individual header check is required.
+        for (header in listOf("7918", "881c", "7800")) {
+            assertFailsWith<ArchiveFormatException> { Zlib.decompress(hex(header) + zlib.copyOfRange(2, zlib.size)) }
+        }
+    }
 
     @Test
     fun lz4HeaderWithoutAnEndMarkerIsTruncated() {
