@@ -30,3 +30,7 @@ include(":archivekodec")
 // No RawSink bridge and no seekable file handle yet. Keeps the kotlinx-io dependency
 // off the core and off consumers that don't want it. Android, iOS, JVM — no JS.
 include(":archivekodec-io")
+
+// Compile a downstream JVM consumer against only the IO module's public dependencies.
+include(":io-consumer-test")
+project(":io-consumer-test").projectDir = file("integration-tests/io-consumer")

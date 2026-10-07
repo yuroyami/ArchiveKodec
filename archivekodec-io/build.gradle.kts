@@ -52,13 +52,15 @@ kotlin {
 
         commonMain.dependencies {
             api(projects.archivekodec)
-            implementation(libs.kotlinx.io.core)
+            api(libs.kotlinx.io.core)
         }
 
         commonTest.dependencies {
             implementation(kotlin("test"))
-            implementation(libs.kotlinx.io.core)
         }
     }
 }
 
+tasks.named("check") {
+    dependsOn(":io-consumer-test:compileJava")
+}

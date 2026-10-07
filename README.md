@@ -309,6 +309,7 @@ LZ4 frame header byte.
 ```bash
 ./gradlew :archivekodec:jvmTest         # core test suite
 ./gradlew :archivekodec-io:jvmTest      # kotlinx-io adapter tests
+./gradlew :io-consumer-test:compileJava # downstream IO API compile check
 ./gradlew build                        # all modules, all targets
 ```
 
