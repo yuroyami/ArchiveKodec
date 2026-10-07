@@ -23,12 +23,12 @@ public final class io/github/yuroyami/archivekodec/ArchiveIOException : io/githu
 
 public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/ArchiveKodec;
-	public static final field VERSION Ljava/lang/String;
 	public final fun codec (Lio/github/yuroyami/archivekodec/codec/CodecId;)Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun getCodecs ()Ljava/util/List;
 	public final fun getDeflate ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun getGzip ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun getStore ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getVERSION ()Ljava/lang/String;
 	public final fun getZlib ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;

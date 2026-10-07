@@ -20,9 +20,24 @@ plugins {
     alias(libs.plugins.dokka)
 }
 
-allprojects {
-    group = "io.github.yuroyami"
-    version = "0.1.0"
+// The README install snippets name the release being developed: the Gradle version
+// without -SNAPSHOT. This keeps them on the same number as ArchiveKodec.VERSION.
+val checkReadmeVersion = tasks.register("checkReadmeVersion") {
+    group = "verification"
+    description = "Check that the README coordinates name the version in gradle.properties"
+    val release = providers.gradleProperty("version").map { it.removeSuffix("-SNAPSHOT") }
+    val readme = layout.projectDirectory.file("README.md")
+    inputs.property("release", release)
+    inputs.file(readme)
+    doLast {
+        val coordinates = Regex("""io\.github\.yuroyami:(archivekodec[a-z-]*):([0-9][^"\s)`]*)""")
+            .findAll(readme.asFile.readText()).map { it.groupValues[1] to it.groupValues[2] }.toList()
+        if (coordinates.isEmpty()) throw GradleException("README.md names no archivekodec coordinates")
+        val stale = coordinates.filter { it.second != release.get() }
+        if (stale.isNotEmpty()) {
+            throw GradleException("README.md coordinates $stale do not name release ${release.get()}")
+        }
+    }
 }
 
 // Aggregate the published library modules into a single Dokka API reference.
@@ -181,7 +196,7 @@ tasks.register("updateKotlinAbi") {
 
 tasks.named("check") {
     group = "verification"
-    dependsOn(":archivekodec:check", ":archivekodec-io:check", "checkKotlinAbi")
+    dependsOn(":archivekodec:check", ":archivekodec-io:check", "checkKotlinAbi", checkReadmeVersion)
 }
 subprojects {
     tasks.matching { it.name == "check" }.configureEach {

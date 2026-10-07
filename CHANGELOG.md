@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Breaking binary change: `ArchiveKodec.VERSION` is a `@JvmStatic val` instead of a
+  `const val`, so it reports the version of the jar that runs rather than one
+  inlined at compile time. Kotlin source that reads it is unchanged, but it can no
+  longer appear in constant expressions such as annotation arguments. Java callers
+  use `ArchiveKodec.getVERSION()` instead of the removed static field. The value
+  is generated from the Gradle `version` property, the only place the version is
+  written. `checkReadmeVersion` fails when the README coordinates name another
+  release.
+
 - The JVM and Android classes are Java 8 bytecode (major version 52) instead of
   Java 21 (65), so they load on Java 8 through 20 as well. The JVM compilation uses
   `-Xjdk-release=1.8`. Both jars declare an `Automatic-Module-Name`

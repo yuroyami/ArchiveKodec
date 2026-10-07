@@ -13,6 +13,7 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipEndRecord
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.Codecs
+import kotlin.jvm.JvmStatic
 
 /**
  * Top-level entry point for the library. Use it to detect an archive format, get a
@@ -23,7 +24,15 @@ import io.github.yuroyami.archivekodec.codec.Codecs
  */
 public object ArchiveKodec {
 
-    public const val VERSION: String = "0.1.0"
+    /**
+     * The version of the ArchiveKodec artifact that is running, such as `0.2.0`.
+     *
+     * The build generates it from the Gradle `version` property. It is a property,
+     * not a `const`, so a caller compiled against one release reads the value of the
+     * release it runs with.
+     */
+    @JvmStatic
+    public val VERSION: String get() = GENERATED_VERSION
 
     /** Detect the format of a header buffer. */
     public fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)

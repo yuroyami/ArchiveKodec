@@ -666,6 +666,13 @@ SDK and no Apple toolchain.
 ./gradlew updateKotlinAbi             # deliberate reference update; review and commit its diff
 ```
 
+The version is written once, as `version` in `gradle.properties`. Development
+builds carry a `-SNAPSHOT` suffix. `ArchiveKodec.VERSION` is generated from it,
+and `./gradlew checkReadmeVersion` (part of `check` and the portable CI lane) fails
+unless every coordinate in this README names the same release. To release, drop
+the suffix, publish, then set the next `-SNAPSHOT` and update the README snippets
+in the same commit.
+
 Update a reference only alongside an intentional API change, with that change
 named in the commit and release notes. See [the API baseline records](api/README.md)
 for the frozen, checksum-verified 0.1.0 artifacts under the original `kitearchive`

@@ -30,7 +30,7 @@ APPLE_TESTS = tests("iosSimulatorArm64Test", "macosArm64Test", "tvosSimulatorArm
 WINDOWS_TESTS = tests("mingwX64Test")
 LANES = {
     "portable": (
-        [":checkKotlinAbi", *PORTABLE_TESTS[0],
+        [":checkKotlinAbi", ":checkReadmeVersion", *PORTABLE_TESTS[0],
          *compiles("LinuxArm64", "AndroidNativeArm32", "AndroidNativeArm64", "AndroidNativeX86",
                    "AndroidNativeX64"),
          ":archivekodec:jvmJar", ":archivekodec-io:jvmJar",
