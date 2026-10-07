@@ -340,8 +340,9 @@ bomb rejection without allocating the expanded payload. `ZipInteropTest`
 round-trips ZIPs in both directions against
 `java.util.zip`, including a 70,000-entry ZIP64 archive.
 
-Not covered: xxHash32 has no check-value test. The suite exercises it only as the
-LZ4 frame header byte.
+`XxHash32Test` checks upstream known-answer vectors across accumulator and tail
+boundaries, unsigned results, nonzero seeds and unaligned slices. The expected
+values are independent of the Kotlin implementation.
 
 ## Building
 
