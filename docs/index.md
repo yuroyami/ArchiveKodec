@@ -114,7 +114,7 @@ What `archivekodec` contains:
 | Codecs | DEFLATE, gzip, zlib, LZ4 and Snappy |
 | Archives | ZIP reader and writer (ZIP64, STORE and DEFLATE), plus TAR, ar and cpio readers |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
-| Safety | A magic sniffer, default output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
+| Safety | A magic sniffer, default entry-count limits on listings, output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
 
 Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 `wasmWasi`, iOS, `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`,

@@ -18,13 +18,16 @@ public interface ArchiveReader {
     /** The container format this reader handles. */
     public val format: ArchiveFormat
 
-    /** List members from the header/directory only. */
+    /** Policy for listing and the default for each read. Custom readers default to [ArchiveLimits.DEFAULT]. */
+    public val limits: ArchiveLimits get() = ArchiveLimits.DEFAULT
+
+    /** List members from the header/directory only, enforcing [ArchiveLimits.maxEntries] in built-in readers. */
     @Throws(ArchiveException::class)
     public fun entries(): List<ArchiveEntry>
 
-    /** Read one entry's uncompressed bytes, enforcing [limits]. */
+    /** Read one entry's uncompressed bytes, using this reader's policy unless [limits] overrides it. */
     @Throws(ArchiveException::class)
-    public fun read(entry: ArchiveEntry, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
+    public fun read(entry: ArchiveEntry, limits: ArchiveLimits = this.limits): ByteArray
 
     /**
      * Release the underlying source and cached metadata. Built-in readers mark

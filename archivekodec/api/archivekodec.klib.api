@@ -114,6 +114,8 @@ abstract fun interface io.github.yuroyami.archivekodec.archive/ArchiveNameDecode
 abstract interface io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive/ArchiveReader|null[0]
     abstract val format // io.github.yuroyami.archivekodec.archive/ArchiveReader.format|{}format[0]
         abstract fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveReader.format.<get-format>|<get-format>(){}[0]
+    open val limits // io.github.yuroyami.archivekodec.archive/ArchiveReader.limits|{}limits[0]
+        open fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive/ArchiveReader.limits.<get-limits>|<get-limits>(){}[0]
 
     abstract fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive/ArchiveReader.entries|entries(){}[0]
     abstract fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
@@ -145,9 +147,13 @@ abstract interface io.github.yuroyami.archivekodec.codec/Codec { // io.github.yu
 final class io.github.yuroyami.archivekodec.archive.ar/ArReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.ar/ArReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 
     final val format // io.github.yuroyami.archivekodec.archive.ar/ArReader.format|{}format[0]
         final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.ar/ArReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.ar/ArReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.ar/ArReader.limits.<get-limits>|<get-limits>(){}[0]
 
     final fun close() // io.github.yuroyami.archivekodec.archive.ar/ArReader.close|close(){}[0]
     final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.ar/ArReader.entries|entries(){}[0]
@@ -160,9 +166,13 @@ final class io.github.yuroyami.archivekodec.archive.ar/ArReader : io.github.yuro
 final class io.github.yuroyami.archivekodec.archive.cpio/CpioReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.cpio/CpioReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 
     final val format // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.format|{}format[0]
         final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.limits.<get-limits>|<get-limits>(){}[0]
 
     final fun close() // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.close|close(){}[0]
     final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.entries|entries(){}[0]
@@ -175,9 +185,13 @@ final class io.github.yuroyami.archivekodec.archive.cpio/CpioReader : io.github.
 final class io.github.yuroyami.archivekodec.archive.tar/TarReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.tar/TarReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 
     final val format // io.github.yuroyami.archivekodec.archive.tar/TarReader.format|{}format[0]
         final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.tar/TarReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.tar/TarReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.tar/TarReader.limits.<get-limits>|<get-limits>(){}[0]
 
     final fun close() // io.github.yuroyami.archivekodec.archive.tar/TarReader.close|close(){}[0]
     final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.tar/TarReader.entries|entries(){}[0]
@@ -190,9 +204,13 @@ final class io.github.yuroyami.archivekodec.archive.tar/TarReader : io.github.yu
 final class io.github.yuroyami.archivekodec.archive.zip/ZipReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.zip/ZipReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.zip/ZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.zip/ZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.zip/ZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.zip/ZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 
     final val format // io.github.yuroyami.archivekodec.archive.zip/ZipReader.format|{}format[0]
         final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.zip/ZipReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.zip/ZipReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.zip/ZipReader.limits.<get-limits>|<get-limits>(){}[0]
 
     final fun close() // io.github.yuroyami.archivekodec.archive.zip/ZipReader.close|close(){}[0]
     final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.zip/ZipReader.entries|entries(){}[0]
@@ -529,6 +547,8 @@ final object io.github.yuroyami.archivekodec/ArchiveKodec { // io.github.yuroyam
     final fun codec(io.github.yuroyami.archivekodec.codec/CodecId): io.github.yuroyami.archivekodec.codec/Codec? // io.github.yuroyami.archivekodec/ArchiveKodec.codec|codec(io.github.yuroyami.archivekodec.codec.CodecId){}[0]
     final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+    final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     final fun sniff(io.github.yuroyami.archivekodec.archive/RandomAccessSource): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec/ArchiveKodec.sniff|sniff(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     final fun sniff(kotlin/ByteArray): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec/ArchiveKodec.sniff|sniff(kotlin.ByteArray){}[0]
 }

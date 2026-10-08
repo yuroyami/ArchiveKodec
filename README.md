@@ -252,7 +252,7 @@ reader.read(entry)        // decode one entry
 ```
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
-`CpioReader`. When the header is unknown, both `open` overloads search the last
+`CpioReader`. When the header is unknown, all `open` overloads search the last
 65,557 bytes for a ZIP end record with a complete EOF-terminated comment. This
 opens zipapps and other prefixed ZIPs; recognized header formats retain priority.
 An unknown source throws `ArchiveFormatException`, and a recognized format
@@ -260,6 +260,30 @@ without a reader throws `ArchiveUnsupportedException`. `entries()`
 does not decompress entries. ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
+
+Readers enforce a default ceiling of 100,000 listed entries during parsing,
+before retaining each additional entry. Directories and cpio hard-link records
+count; ar symbol/name tables, TAR metadata records and cpio trailers do not.
+ZIP also checks its declared count before loading the central directory, and
+counts actual records so wrapped or understated counts cannot bypass the ceiling.
+An excess throws `DecompressionBombException`; failed listings are not cached.
+Pass a policy when opening a legitimately larger archive:
+
+```kotlin
+val limits = ArchiveLimits { maxEntries = 200_000 }
+ArchiveKodec.open(source, limits).use { reader ->
+    for (entry in reader.entries()) {
+        val data = reader.read(entry) // defaults to reader.limits
+    }
+}
+```
+
+Each concrete reader also accepts `(source, limits)` or
+`(source, nameDecoder, limits)`, and the facade has the corresponding overloads.
+Existing constructor and `open` calls still use `ArchiveLimits.DEFAULT`.
+An explicit policy on `read(entry, limits)` overrides the reader's read policy;
+it does not relax the ceiling used to parse its listing. Byte limits apply per
+read, and separate calls do not share an archive-wide output budget.
 
 ar resolves GNU and COFF long-name references from the `//` table. GNU names end
 with `/\n` (LF-only names are also accepted); COFF names end with NUL and retain
@@ -597,8 +621,8 @@ artifact and a kotlinx-io dependency.
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
-- Of `ArchiveLimits`, only `checkOutputSize` and `checkRatio` are ever called.
-  Nothing reads `maxEntries` or `maxNestingDepth`. Every implemented codec
+- Built-in reader listings enforce `maxEntries`; buffered APIs do not recurse
+  into nested archives, so `maxNestingDepth` remains reserved. Every implemented codec
   applies `checkRatio` before output allocation or growth. ZIP checks each entry;
   uncompressed TAR/ar/cpio reads check their known 1:1 ratio.
 - `ArchiveEntry.size` stays a `Long` during parsing. Readers validate source

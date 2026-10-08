@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- ZIP, TAR, ar and cpio listings now enforce `ArchiveLimits.maxEntries` while
+  parsing, with a default ceiling of 100,000 entries. ZIP checks both the declared
+  count and actual directory records, including wrapped classic counts. Container
+  metadata and end markers are excluded; directories and cpio hard-link records
+  count as entries. Excess counts throw `DecompressionBombException` before an
+  additional entry is retained, and failed listings are not cached. For larger
+  trusted archives, pass a policy with a larger `maxEntries` to the new reader
+  constructors or `ArchiveKodec.open` overloads. Existing overloads remain.
+  `ArchiveReader.limits` exposes the reader policy and supplies the default for
+  each `read`; an explicit read policy still overrides it. Output byte limits
+  remain per call, with no archive-wide accumulation.
+
 - Breaking binary change: `ArchiveKodec.VERSION` is a `@JvmStatic val` instead of a
   `const val`, so it reports the version of the jar that runs rather than one
   inlined at compile time. Kotlin source that reads it is unchanged, but it can no

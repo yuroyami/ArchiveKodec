@@ -8,9 +8,9 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * from this policy. Results never retain the mutable builder and can be shared.
  *
  * Output and ratio checks apply during each buffered decode/read, before output
- * growth. Separate calls do not share an archive-wide byte budget. Built-in reader
- * listings do not yet apply [maxEntries], and current buffered APIs do not recurse
- * into nested archives or apply [maxNestingDepth].
+ * growth. Separate calls do not share an archive-wide byte budget. Built-in readers
+ * apply [maxEntries] while listing and use their policy as the default for each
+ * read. Current buffered APIs do not recurse into nested archives or apply [maxNestingDepth].
  *
  * Every setting is nonnegative. Zero permits only zero output, a zero ratio,
  * zero entries or zero nesting depth respectively. [DEFAULT] preserves the default
@@ -26,7 +26,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
     /** Uncompressed/compressed ratio ceiling, checked during decode. Default 10000:1. */
     public val maxCompressionRatio: Int = builder.maxCompressionRatio
 
-    /** Entry ceiling used by [checkEntryCount]; reader listing enforcement is pending. Default 100k. */
+    /** Entry ceiling enforced while built-in readers parse their listings. Default 100k. */
     public val maxEntries: Int = builder.maxEntries
 
     /** Reserved nested-archive depth ceiling; buffered APIs do not enforce it. Default 8. */

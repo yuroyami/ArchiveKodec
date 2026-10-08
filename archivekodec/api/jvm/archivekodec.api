@@ -32,6 +32,8 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public final fun getZlib ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public final fun sniff (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public final fun sniff ([B)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 }
@@ -110,12 +112,14 @@ public abstract interface class io/github/yuroyami/archivekodec/archive/ArchiveR
 	public fun close ()V
 	public abstract fun entries ()Ljava/util/List;
 	public abstract fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public abstract fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun read$default (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 }
 
 public final class io/github/yuroyami/archivekodec/archive/ArchiveReader$DefaultImpls {
 	public static fun close (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;)V
+	public static fun getLimits (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public static synthetic fun read$default (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 }
 
@@ -158,9 +162,12 @@ public final class io/github/yuroyami/archivekodec/archive/ar/ArReader : io/gith
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ar/ArReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
 	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public fun toString ()Ljava/lang/String;
 }
@@ -172,9 +179,12 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/CpioReader : io/
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/cpio/CpioReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
 	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public fun toString ()Ljava/lang/String;
 }
@@ -186,9 +196,12 @@ public final class io/github/yuroyami/archivekodec/archive/tar/TarReader : io/gi
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/tar/TarReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
 	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public fun toString ()Ljava/lang/String;
 }
@@ -208,9 +221,12 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipMethod : java/
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
 	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public fun toString ()Ljava/lang/String;
 }

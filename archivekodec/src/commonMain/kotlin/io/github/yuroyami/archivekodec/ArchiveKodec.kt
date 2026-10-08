@@ -13,6 +13,7 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipEndRecord
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.Codecs
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.jvm.JvmStatic
 
 /**
@@ -64,11 +65,15 @@ public object ArchiveKodec {
      * @throws ArchiveUnsupportedException for a format with no reader yet.
      */
     @Throws(ArchiveException::class)
-    public fun open(source: RandomAccessSource): ArchiveReader = when (val format = containerFormat(source)) {
-        ArchiveFormat.TAR -> TarReader(source)
-        ArchiveFormat.ZIP -> ZipReader(source)
-        ArchiveFormat.AR -> ArReader(source)
-        ArchiveFormat.CPIO -> CpioReader(source)
+    public fun open(source: RandomAccessSource): ArchiveReader = open(source, ArchiveLimits.DEFAULT)
+
+    /** Open with a policy for entry listing and the default limits of each read. */
+    @Throws(ArchiveException::class)
+    public fun open(source: RandomAccessSource, limits: ArchiveLimits): ArchiveReader = when (val format = containerFormat(source)) {
+        ArchiveFormat.TAR -> TarReader(source, limits)
+        ArchiveFormat.ZIP -> ZipReader(source, limits)
+        ArchiveFormat.AR -> ArReader(source, limits)
+        ArchiveFormat.CPIO -> CpioReader(source, limits)
         ArchiveFormat.UNKNOWN -> throw ArchiveFormatException("unrecognized archive format", 0)
         else -> throw ArchiveUnsupportedException(
             "no container reader for $format", offset = 0,
@@ -77,11 +82,16 @@ public object ArchiveKodec {
 
     /** Open with explicit filename decoding; ZIP Unicode metadata still takes precedence. */
     @Throws(ArchiveException::class)
-    public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader = when (val format = containerFormat(source)) {
-        ArchiveFormat.TAR -> TarReader(source, nameDecoder)
-        ArchiveFormat.ZIP -> ZipReader(source, nameDecoder)
-        ArchiveFormat.AR -> ArReader(source, nameDecoder)
-        ArchiveFormat.CPIO -> CpioReader(source, nameDecoder)
+    public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader =
+        open(source, nameDecoder, ArchiveLimits.DEFAULT)
+
+    /** Open with explicit filename decoding and a policy for listing and entry reads. */
+    @Throws(ArchiveException::class)
+    public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): ArchiveReader = when (val format = containerFormat(source)) {
+        ArchiveFormat.TAR -> TarReader(source, nameDecoder, limits)
+        ArchiveFormat.ZIP -> ZipReader(source, nameDecoder, limits)
+        ArchiveFormat.AR -> ArReader(source, nameDecoder, limits)
+        ArchiveFormat.CPIO -> CpioReader(source, nameDecoder, limits)
         ArchiveFormat.UNKNOWN -> throw ArchiveFormatException("unrecognized archive format", 0)
         else -> throw ArchiveUnsupportedException("no container reader for $format", offset = 0)
     }

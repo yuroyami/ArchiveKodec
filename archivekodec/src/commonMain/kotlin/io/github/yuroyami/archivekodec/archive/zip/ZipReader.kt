@@ -41,9 +41,16 @@ import kotlin.text.CharacterCodingException
  * at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
  * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
+ * [limits] caps the listing count and supplies the default policy for each read.
  */
-public class ZipReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+public class ZipReader(
+    source: RandomAccessSource,
+    private val nameDecoder: ArchiveNameDecoder,
+    override val limits: ArchiveLimits,
+) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.CP437)
+    public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.CP437, limits)
 
     private class Member(
         val entry: ArchiveEntry,
@@ -246,6 +253,9 @@ public class ZipReader(source: RandomAccessSource, private val nameDecoder: Arch
             throw ArchiveFormatException("ZIP: invalid directory count $cdEntries for $cdSize bytes", cdOffset)
         }
 
+        // Reject an excessive declared count before loading directory bytes. Classic
+        // counts may wrap, so the per-record check below is still required.
+        limits.checkEntryCount(cdEntries.toInt())
         val cd = source.readFullyChecked(cdOffset, cdSize)
         val entries = ArrayList<ArchiveEntry>()
         val members = HashMap<Long, Member>()
@@ -264,6 +274,7 @@ public class ZipReader(source: RandomAccessSource, private val nameDecoder: Arch
                 throw ArchiveFormatException("ZIP: truncated central directory at entry $n of $cdEntries", cdOffset + p)
             }
             if (ZipFormat.u32(cd, p) != ZipFormat.CEN) throw ArchiveFormatException("ZIP: invalid central directory signature", cdOffset + p)
+            limits.checkEntryCount(entries.size + 1)
             val flags = ZipFormat.u16(cd, p + 8)
             val method = ZipFormat.u16(cd, p + 10)
             val crc = ZipFormat.u32(cd, p + 16)

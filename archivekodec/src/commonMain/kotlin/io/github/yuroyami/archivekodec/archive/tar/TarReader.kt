@@ -26,9 +26,16 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Ustar prefixes require the complete `ustar\u0000` marker; old GNU/v7 tails are not paths.
  * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
  * Complete records may end without a trailer; nonempty partial headers are rejected.
+ * [limits] caps the listing count and supplies the default policy for each read.
  */
-public class TarReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+public class TarReader(
+    source: RandomAccessSource,
+    private val nameDecoder: ArchiveNameDecoder,
+    override val limits: ArchiveLimits,
+) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
+    public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.UTF8, limits)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -103,6 +110,7 @@ public class TarReader(source: RandomAccessSource, private val nameDecoder: Arch
                     val isFileLike = typeFlag == '0' || typeFlag == '\u0000' ||
                         typeFlag == '5' || typeFlag == '7'
                     if (isFileLike && nameBytes.isNotEmpty()) {
+                        limits.checkEntryCount(out.size + 1)
                         val name = nameDecoder.decodeStoredName(nameBytes, nameOffset)
                         val isDir = typeFlag == '5' || name.endsWith("/")
                         out.add(

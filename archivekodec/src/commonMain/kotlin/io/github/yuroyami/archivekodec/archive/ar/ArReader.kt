@@ -21,9 +21,16 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * `//` long-name tables (`/offset` references) and BSD `#1/len` inline names.
  * GNU indices (`/`, `/SYM64/`), the name table (`//`) and a leading BSD ranlib
  * index are skipped as entries.
+ * [limits] caps the listing count and supplies the default policy for each read.
  */
-public class ArReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+public class ArReader(
+    source: RandomAccessSource,
+    private val nameDecoder: ArchiveNameDecoder,
+    override val limits: ArchiveLimits,
+) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
+    public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.UTF8, limits)
 
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -98,6 +105,7 @@ public class ArReader(source: RandomAccessSource, private val nameDecoder: Archi
                     while (end > 0 && storedName[end - 1].toInt() == 0) end--
                     val nameBytes = storedName.copyOf(end)
                     if (pos != 8L || !isBsdSymbolTable(nameBytes.decodeToString())) {
+                        limits.checkEntryCount(out.size + 1)
                         val name = nameDecoder.decodeStoredName(nameBytes, dataStart)
                         out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false, dataOffset = dataStart + nameLength).withNameBytes(nameBytes))
                     }
@@ -111,10 +119,12 @@ public class ArReader(source: RandomAccessSource, private val nameDecoder: Archi
                     val table = nameTable ?: throw ArchiveFormatException("ar: missing long-name table", pos, rawName)
                     if (off !in table.indices) throw ArchiveFormatException("ar: long-name offset $off exceeds table", pos, rawName)
                     val nameBytes = extractLongName(table, off, nulDelimitedNames, pos, rawName)
+                    limits.checkEntryCount(out.size + 1)
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
                     out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart).withNameBytes(nameBytes))
                 }
                 else -> {
+                    limits.checkEntryCount(out.size + 1)
                     val nameBytes = if (nameField.lastOrNull()?.toInt() == 47) nameField.copyOf(nameField.size - 1) else nameField
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
                     out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart).withNameBytes(nameBytes))

@@ -21,9 +21,16 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * Hard links resolve to their group's last nonempty payload. Listing reads only
  * metadata; reading verifies each crc record's unsigned byte sum, including
  * overwritten payloads. The archive ends at `TRAILER!!!`. Old binary cpio is not handled.
+ * [limits] caps the listing count and supplies the default policy for each read.
  */
-public class CpioReader(source: RandomAccessSource, private val nameDecoder: ArchiveNameDecoder) : ArchiveReader {
+public class CpioReader(
+    source: RandomAccessSource,
+    private val nameDecoder: ArchiveNameDecoder,
+    override val limits: ArchiveLimits,
+) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
+    public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.UTF8, limits)
 
     private data class LinkKey(val odc: Boolean, val major: Long, val minor: Long, val inode: Long)
     private data class Record(
@@ -161,6 +168,7 @@ public class CpioReader(source: RandomAccessSource, private val nameDecoder: Arc
         nameStart: Long, size: Long, mode: Long, modeOffset: Long, dataStart: Long,
         key: LinkKey?, checksum: Long?, checksumOffset: Long,
     ) {
+        limits.checkEntryCount(out.size + 1)
         val name = nameDecoder.decodeStoredName(nameBytes, nameStart)
         val isDir = (mode and 0xF000L) == 0x4000L // S_IFDIR
         val entry = ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir, dataOffset = dataStart).withNameBytes(nameBytes)
