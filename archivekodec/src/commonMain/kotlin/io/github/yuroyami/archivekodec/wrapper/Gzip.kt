@@ -7,6 +7,8 @@ import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.checkedArraySize
+import io.github.yuroyami.archivekodec.util.le16
 import io.github.yuroyami.archivekodec.util.le32
 import io.github.yuroyami.archivekodec.util.readU16Le
 import io.github.yuroyami.archivekodec.util.readU32Le
@@ -25,6 +27,7 @@ import io.github.yuroyami.archivekodec.util.readU32Le
 public object Gzip {
 
     // gzip header flag bits.
+    private const val FTEXT = 0x01
     private const val FHCRC = 0x02
     private const val FEXTRA = 0x04
     private const val FNAME = 0x08
@@ -39,24 +42,82 @@ public object Gzip {
     public const val DEFAULT_MAXIMUM_SIZE: Long = 4L * 1024 * 1024
 
     /**
-     * Compress [data] into a complete gzip member.
+     * Compress [data] into a complete gzip member with [GzipHeader.DEFAULT].
+     * The default ten header bytes remain `1f 8b 08 00 00 00 00 00 00 ff`.
      *
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
-    public fun compress(data: ByteArray): ByteArray {
-        val out = ByteArrayBuilder(data.size / 2 + 32)
+    public fun compress(data: ByteArray): ByteArray = compress(data, GzipHeader.DEFAULT)
+
+    /**
+     * Compress [data] with explicit RFC 1952 metadata. Names/comments are written
+     * as Latin-1, with NUL terminators; [GzipHeader] validates their representation.
+     * Emits optional extra bytes and calculates FHCRC when requested. Metadata
+     * does not change the DEFLATE algorithm or perform any filesystem operation.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    public fun compress(data: ByteArray, header: GzipHeader): ByteArray {
+        val extra = header.storedExtra
+        val headerSize = 10L + (extra?.let { 2L + it.size } ?: 0L) +
+            (header.name?.let { it.length + 1L } ?: 0L) + (header.comment?.let { it.length + 1L } ?: 0L) +
+            (if (header.hasHeaderCrc) 2L else 0L)
+        checkedArraySize(headerSize + 8)
+        val compressed = Deflate.encode(data)
+        val out = ByteArrayBuilder(checkedArraySize(headerSize + compressed.size + 8))
+        val flags = (if (header.isText) FTEXT else 0) or (if (header.hasHeaderCrc) FHCRC else 0) or
+            (if (extra != null) FEXTRA else 0) or (if (header.name != null) FNAME else 0) or
+            (if (header.comment != null) FCOMMENT else 0)
         out.append(MAGIC0.toByte())
         out.append(MAGIC1.toByte())
         out.append(8.toByte())              // CM = DEFLATE
-        out.append(0.toByte())              // FLG = 0 (no optional fields)
-        repeat(4) { out.append(0.toByte()) } // MTIME = 0
-        out.append(0.toByte())              // XFL
-        out.append(255.toByte())            // OS = unknown
-        out.append(Deflate.encode(data))
+        out.append(flags.toByte())
+        out.le32(header.mtimeEpochSeconds)
+        out.append(header.extraFlags.toByte())
+        out.append(header.os.toByte())
+        if (extra != null) {
+            out.le16(extra.size)
+            out.append(extra)
+        }
+        fun text(value: String?) {
+            if (value != null) {
+                for (char in value) out.append(char.code.toByte())
+                out.append(0)
+            }
+        }
+        text(header.name)
+        text(header.comment)
+        if (header.hasHeaderCrc) {
+            val sum = out.checksum { bytes, size -> Crc32().apply { update(bytes, 0, size) }.value() }
+            out.le16((sum and 0xffff).toInt())
+        }
+        out.append(compressed)
         out.le32(Crc32.of(data))                       // CRC-32 of uncompressed data
         out.le32(data.size.toLong() and 0xFFFFFFFFL)   // ISIZE mod 2^32
-        return out.toByteArray()
+        return out.takeByteArray()
+    }
+
+    /**
+     * Inspect the first member's header without decoding its payload. Returns null
+     * if the first two bytes are not gzip magic (including input shorter than two
+     * bytes). Once magic matches, validates all header fields and optional FHCRC.
+     * Decodes names/comments as Latin-1 and preserves absent versus empty fields.
+     * The result owns its extra bytes and remains independent of [input].
+     *
+     * A complete header alone is sufficient. This does not validate DEFLATE data,
+     * the trailer or later members; use [decompress] for those checks. It does not
+     * accept the zlib fallback supported by [decompress].
+     *
+     * @throws ArchiveFormatException for a recognized but malformed/truncated gzip header or failed FHCRC.
+     */
+    @Throws(ArchiveException::class)
+    public fun readHeader(input: ByteArray): GzipHeader? {
+        if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) return null
+        val metadata = GzipHeader.Builder()
+        gzipHeader(input, 0, metadata)
+        return metadata.build()
     }
 
     /**
@@ -131,7 +192,7 @@ public object Gzip {
 
     private fun u(input: ByteArray, i: Int): Int = input[i].toInt() and 0xff
 
-    private fun gzipHeader(input: ByteArray, start: Int): Int {
+    private fun gzipHeader(input: ByteArray, start: Int, metadata: GzipHeader.Builder? = null): Int {
         var position = start
         fun need(count: Int) {
             if (count > input.size - position) throw ArchiveFormatException("gzip: truncated header", position.toLong())
@@ -144,21 +205,39 @@ public object Gzip {
         if (u(input, start + 2) != 8 || flags and FRESERVED != 0) {
             throw ArchiveFormatException("gzip: invalid method or reserved flags", (start + 2).toLong())
         }
+        if (metadata != null) {
+            metadata.mtimeEpochSeconds = readU32Le(input, start + 4)
+            metadata.os = u(input, start + 9)
+            metadata.extraFlags = u(input, start + 8)
+            metadata.isText = flags and FTEXT != 0
+            metadata.hasHeaderCrc = flags and FHCRC != 0
+        }
         position += 10
         if (flags and FEXTRA != 0) {
             need(2)
             val length = readU16Le(input, position)
             position += 2
             need(length)
+            if (metadata != null) metadata.extra = input.copyOfRange(position, position + length)
             position += length
         }
-        fun skipString() {
+        fun readString(): String? {
+            val begin = position
             do {
                 need(1)
             } while (input[position++] != 0.toByte())
+            return if (metadata == null) null else buildString(position - begin - 1) {
+                for (index in begin until position - 1) append(u(input, index).toChar())
+            }
         }
-        if (flags and FNAME != 0) skipString()
-        if (flags and FCOMMENT != 0) skipString()
+        if (flags and FNAME != 0) {
+            val name = readString()
+            if (metadata != null) metadata.name = name
+        }
+        if (flags and FCOMMENT != 0) {
+            val comment = readString()
+            if (metadata != null) metadata.comment = comment
+        }
         if (flags and FHCRC != 0) {
             need(2)
             val expected = readU16Le(input, position)

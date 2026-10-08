@@ -683,10 +683,56 @@ public final class io/github/yuroyami/archivekodec/wrapper/Gzip {
 	public static final field DEFAULT_MAXIMUM_SIZE J
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/wrapper/Gzip;
 	public final fun compress ([B)[B
+	public final fun compress ([BLio/github/yuroyami/archivekodec/wrapper/GzipHeader;)[B
 	public final fun decompress ([B)[B
 	public final fun decompress ([BJ)[B
 	public final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/wrapper/Gzip;[BJILjava/lang/Object;)[B
+	public final fun readHeader ([B)Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
+}
+
+public final class io/github/yuroyami/archivekodec/wrapper/GzipHeader {
+	public static final field Companion Lio/github/yuroyami/archivekodec/wrapper/GzipHeader$Companion;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getComment ()Ljava/lang/String;
+	public final fun getExtra ()[B
+	public final fun getExtraFlags ()I
+	public final fun getHasHeaderCrc ()Z
+	public final fun getMtimeEpochSeconds ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getOs ()I
+	public fun hashCode ()I
+	public final fun isText ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/wrapper/GzipHeader$Builder {
+	public fun <init> ()V
+	public final fun build ()Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
+	public final fun getComment ()Ljava/lang/String;
+	public final fun getExtra ()[B
+	public final fun getExtraFlags ()I
+	public final fun getHasHeaderCrc ()Z
+	public final fun getMtimeEpochSeconds ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getOs ()I
+	public final fun isText ()Z
+	public final fun setComment (Ljava/lang/String;)V
+	public final fun setExtra ([B)V
+	public final fun setExtraFlags (I)V
+	public final fun setHasHeaderCrc (Z)V
+	public final fun setMtimeEpochSeconds (J)V
+	public final fun setName (Ljava/lang/String;)V
+	public final fun setOs (I)V
+	public final fun setText (Z)V
+}
+
+public final class io/github/yuroyami/archivekodec/wrapper/GzipHeader$Companion {
+	public final fun getDEFAULT ()Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
+	public static synthetic fun invoke$default (Lio/github/yuroyami/archivekodec/wrapper/GzipHeader$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/wrapper/GzipHeader;
 }
 
 public final class io/github/yuroyami/archivekodec/wrapper/Zlib {

@@ -417,6 +417,68 @@ final class io.github.yuroyami.archivekodec.security/DecompressionBombException 
     constructor <init>(kotlin/String, kotlin/Long?, kotlin/String?, kotlin/Throwable?) // io.github.yuroyami.archivekodec.security/DecompressionBombException.<init>|<init>(kotlin.String;kotlin.Long?;kotlin.String?;kotlin.Throwable?){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.wrapper/GzipHeader { // io.github.yuroyami.archivekodec.wrapper/GzipHeader|null[0]
+    final val comment // io.github.yuroyami.archivekodec.wrapper/GzipHeader.comment|{}comment[0]
+        final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.wrapper/GzipHeader.comment.<get-comment>|<get-comment>(){}[0]
+    final val extra // io.github.yuroyami.archivekodec.wrapper/GzipHeader.extra|{}extra[0]
+        final fun <get-extra>(): kotlin/ByteArray? // io.github.yuroyami.archivekodec.wrapper/GzipHeader.extra.<get-extra>|<get-extra>(){}[0]
+    final val extraFlags // io.github.yuroyami.archivekodec.wrapper/GzipHeader.extraFlags|{}extraFlags[0]
+        final fun <get-extraFlags>(): kotlin/Int // io.github.yuroyami.archivekodec.wrapper/GzipHeader.extraFlags.<get-extraFlags>|<get-extraFlags>(){}[0]
+    final val hasHeaderCrc // io.github.yuroyami.archivekodec.wrapper/GzipHeader.hasHeaderCrc|{}hasHeaderCrc[0]
+        final fun <get-hasHeaderCrc>(): kotlin/Boolean // io.github.yuroyami.archivekodec.wrapper/GzipHeader.hasHeaderCrc.<get-hasHeaderCrc>|<get-hasHeaderCrc>(){}[0]
+    final val isText // io.github.yuroyami.archivekodec.wrapper/GzipHeader.isText|{}isText[0]
+        final fun <get-isText>(): kotlin/Boolean // io.github.yuroyami.archivekodec.wrapper/GzipHeader.isText.<get-isText>|<get-isText>(){}[0]
+    final val mtimeEpochSeconds // io.github.yuroyami.archivekodec.wrapper/GzipHeader.mtimeEpochSeconds|{}mtimeEpochSeconds[0]
+        final fun <get-mtimeEpochSeconds>(): kotlin/Long // io.github.yuroyami.archivekodec.wrapper/GzipHeader.mtimeEpochSeconds.<get-mtimeEpochSeconds>|<get-mtimeEpochSeconds>(){}[0]
+    final val name // io.github.yuroyami.archivekodec.wrapper/GzipHeader.name|{}name[0]
+        final fun <get-name>(): kotlin/String? // io.github.yuroyami.archivekodec.wrapper/GzipHeader.name.<get-name>|<get-name>(){}[0]
+    final val os // io.github.yuroyami.archivekodec.wrapper/GzipHeader.os|{}os[0]
+        final fun <get-os>(): kotlin/Int // io.github.yuroyami.archivekodec.wrapper/GzipHeader.os.<get-os>|<get-os>(){}[0]
+
+    final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.wrapper/GzipHeader // io.github.yuroyami.archivekodec.wrapper/GzipHeader.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.wrapper.GzipHeader.Builder,kotlin.Unit>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.wrapper/GzipHeader.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.wrapper/GzipHeader.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.wrapper/GzipHeader.toString|toString(){}[0]
+
+    final class Builder { // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder|null[0]
+        constructor <init>() // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.<init>|<init>(){}[0]
+
+        final var comment // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.comment|{}comment[0]
+            final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.comment.<get-comment>|<get-comment>(){}[0]
+            final fun <set-comment>(kotlin/String?) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.comment.<set-comment>|<set-comment>(kotlin.String?){}[0]
+        final var extra // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.extra|{}extra[0]
+            final fun <get-extra>(): kotlin/ByteArray? // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.extra.<get-extra>|<get-extra>(){}[0]
+            final fun <set-extra>(kotlin/ByteArray?) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.extra.<set-extra>|<set-extra>(kotlin.ByteArray?){}[0]
+        final var extraFlags // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.extraFlags|{}extraFlags[0]
+            final fun <get-extraFlags>(): kotlin/Int // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.extraFlags.<get-extraFlags>|<get-extraFlags>(){}[0]
+            final fun <set-extraFlags>(kotlin/Int) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.extraFlags.<set-extraFlags>|<set-extraFlags>(kotlin.Int){}[0]
+        final var hasHeaderCrc // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.hasHeaderCrc|{}hasHeaderCrc[0]
+            final fun <get-hasHeaderCrc>(): kotlin/Boolean // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.hasHeaderCrc.<get-hasHeaderCrc>|<get-hasHeaderCrc>(){}[0]
+            final fun <set-hasHeaderCrc>(kotlin/Boolean) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.hasHeaderCrc.<set-hasHeaderCrc>|<set-hasHeaderCrc>(kotlin.Boolean){}[0]
+        final var isText // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.isText|{}isText[0]
+            final fun <get-isText>(): kotlin/Boolean // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.isText.<get-isText>|<get-isText>(){}[0]
+            final fun <set-isText>(kotlin/Boolean) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.isText.<set-isText>|<set-isText>(kotlin.Boolean){}[0]
+        final var mtimeEpochSeconds // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.mtimeEpochSeconds|{}mtimeEpochSeconds[0]
+            final fun <get-mtimeEpochSeconds>(): kotlin/Long // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.mtimeEpochSeconds.<get-mtimeEpochSeconds>|<get-mtimeEpochSeconds>(){}[0]
+            final fun <set-mtimeEpochSeconds>(kotlin/Long) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.mtimeEpochSeconds.<set-mtimeEpochSeconds>|<set-mtimeEpochSeconds>(kotlin.Long){}[0]
+        final var name // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.name|{}name[0]
+            final fun <get-name>(): kotlin/String? // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.name.<get-name>|<get-name>(){}[0]
+            final fun <set-name>(kotlin/String?) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.name.<set-name>|<set-name>(kotlin.String?){}[0]
+        final var os // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.os|{}os[0]
+            final fun <get-os>(): kotlin/Int // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.os.<get-os>|<get-os>(){}[0]
+            final fun <set-os>(kotlin/Int) // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.os.<set-os>|<set-os>(kotlin.Int){}[0]
+
+        final fun build(): io.github.yuroyami.archivekodec.wrapper/GzipHeader // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder.build|build(){}[0]
+    }
+
+    final object Companion { // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Companion|null[0]
+        final val DEFAULT // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.wrapper/GzipHeader // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+
+        final fun invoke(kotlin/Function1<io.github.yuroyami.archivekodec.wrapper/GzipHeader.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.wrapper/GzipHeader // io.github.yuroyami.archivekodec.wrapper/GzipHeader.Companion.invoke|invoke(kotlin.Function1<io.github.yuroyami.archivekodec.wrapper.GzipHeader.Builder,kotlin.Unit>){}[0]
+    }
+}
+
 final class io.github.yuroyami.archivekodec/ArchiveClosedException : io.github.yuroyami.archivekodec/ArchiveException { // io.github.yuroyami.archivekodec/ArchiveClosedException|null[0]
     constructor <init>(kotlin/String, kotlin/Long? = ..., kotlin/String? = ..., kotlin/Throwable? = ...) // io.github.yuroyami.archivekodec/ArchiveClosedException.<init>|<init>(kotlin.String;kotlin.Long?;kotlin.String?;kotlin.Throwable?){}[0]
 }
@@ -771,9 +833,11 @@ final object io.github.yuroyami.archivekodec.wrapper/Gzip { // io.github.yuroyam
         final fun <get-DEFAULT_MAXIMUM_SIZE>(): kotlin/Long // io.github.yuroyami.archivekodec.wrapper/Gzip.DEFAULT_MAXIMUM_SIZE.<get-DEFAULT_MAXIMUM_SIZE>|<get-DEFAULT_MAXIMUM_SIZE>(){}[0]
 
     final fun compress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Gzip.compress|compress(kotlin.ByteArray){}[0]
+    final fun compress(kotlin/ByteArray, io.github.yuroyami.archivekodec.wrapper/GzipHeader): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Gzip.compress|compress(kotlin.ByteArray;io.github.yuroyami.archivekodec.wrapper.GzipHeader){}[0]
     final fun decompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Gzip.decompress|decompress(kotlin.ByteArray){}[0]
     final fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Gzip.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     final fun decompress(kotlin/ByteArray, kotlin/Long = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Gzip.decompress|decompress(kotlin.ByteArray;kotlin.Long){}[0]
+    final fun readHeader(kotlin/ByteArray): io.github.yuroyami.archivekodec.wrapper/GzipHeader? // io.github.yuroyami.archivekodec.wrapper/Gzip.readHeader|readHeader(kotlin.ByteArray){}[0]
 }
 
 final object io.github.yuroyami.archivekodec.wrapper/Zlib { // io.github.yuroyami.archivekodec.wrapper/Zlib|null[0]

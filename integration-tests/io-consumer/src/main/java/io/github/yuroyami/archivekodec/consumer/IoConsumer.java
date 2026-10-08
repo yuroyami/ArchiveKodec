@@ -14,11 +14,26 @@ import io.github.yuroyami.archivekodec.archive.cpio.CpioWriter;
 import io.github.yuroyami.archivekodec.archive.cpio.InitramfsReader;
 import io.github.yuroyami.archivekodec.archive.cpio.InitramfsSegment;
 import io.github.yuroyami.archivekodec.archive.tar.TarWriter;
+import io.github.yuroyami.archivekodec.wrapper.Gzip;
+import io.github.yuroyami.archivekodec.wrapper.GzipHeader;
 import java.util.Collections;
 import kotlinx.io.RawSource;
 
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
+    public byte[] gzipWithHeader(byte[] bytes, String name) throws Exception {
+        GzipHeader.Builder header = new GzipHeader.Builder();
+        header.setName(name);
+        header.setMtimeEpochSeconds(1700000000L);
+        header.setOs(3);
+        header.setHasHeaderCrc(true);
+        return Gzip.INSTANCE.compress(bytes, header.build());
+    }
+
+    public GzipHeader inspectGzipHeader(byte[] bytes) throws Exception {
+        return Gzip.INSTANCE.readHeader(bytes);
+    }
+
     public long lastInitramfsOffset(RandomAccessSource source) throws Exception {
         ArchiveLimits.Builder limits = new ArchiveLimits.Builder();
         limits.setMaxSegments(100);

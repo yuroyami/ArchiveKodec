@@ -127,6 +127,12 @@ the current codecs, so it cannot reject their valid streams. Set a lower ratio
 when that restriction is needed. The default 2 GiB output cap applies separately
 to each decode/read; callers must enforce a cumulative budget across reads.
 
+`Gzip.compress(bytes, GzipHeader { ... })` writes optional filename, comment,
+timestamp, OS and extra-field metadata, including an optional header CRC.
+`Gzip.readHeader(bytes)` inspects the first member without decoding it. Default
+compression remains reproducible. See the
+[gzip metadata example](https://github.com/yuroyami/ArchiveKodec#read-and-write-gzip-header-metadata).
+
 Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 `wasmWasi`, iOS, `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`,
 `mingwX64` and the four androidNative targets. The README lists them in full.

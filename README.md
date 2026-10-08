@@ -214,6 +214,46 @@ trailing bytes. zlib validates Adler-32 and requires exactly one complete stream
 raw DEFLATE also rejects bytes after its final block. Wrapper integrity failures
 throw `ArchiveFormatException`. The gzip-to-zlib fallback uses the same checks.
 
+### Read and write gzip header metadata
+
+Use the format-specific `Gzip` API when you need member metadata:
+
+```kotlin
+import io.github.yuroyami.archivekodec.wrapper.Gzip
+import io.github.yuroyami.archivekodec.wrapper.GzipHeader
+
+val header = GzipHeader {
+    name = "report.txt"
+    comment = "monthly report"
+    mtimeEpochSeconds = 1_700_000_000L
+    os = 3 // Unix
+    hasHeaderCrc = true
+}
+val member = Gzip.compress(bytes, header)
+val originalName = Gzip.readHeader(member)?.name
+```
+
+`Gzip.compress(bytes)` and `ArchiveKodec.gzip.compress(bytes)` retain their
+reproducible default output: MTIME 0 (unavailable), OS 255 (unknown), XFL 0 and
+no optional fields. `GzipHeader.Builder().build()` is also available, including
+from Java; `header.copy { ... }` configures an independent snapshot. Names and
+comments must be ISO 8859-1 text without NUL. Null omits the field; an empty value
+emits an empty field. Supply an original basename when writing a name; names are
+preserved literally and are not sanitized for filesystem use.
+
+Timestamps must fit unsigned 32-bit seconds. OS and `extraFlags` must fit one
+unsigned byte. `extra` holds up to 65,535 raw extra-field bytes, excluding XLEN;
+the header owns a copy and its getter returns a copy. `isText` sets FTEXT without
+converting the payload. `extraFlags` is informational XFL metadata and does not
+select a compression level. `hasHeaderCrc` writes FHCRC as the low 16 bits of the
+header's CRC-32; the reader verifies it.
+
+`readHeader` inspects only the first member and needs only its complete header.
+It returns null when the first two bytes are not gzip magic, and throws
+`ArchiveFormatException` for recognized but malformed/truncated headers or a bad
+header CRC. It does not decode or validate the payload, trailer or later members,
+and does not accept the zlib fallback. Use `Gzip.decompress` for full validation.
+
 ## Expected failures and Apple consumers
 
 Expected archive failures share the `ArchiveException` base. Its `offset` and

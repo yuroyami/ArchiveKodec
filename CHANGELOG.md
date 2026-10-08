@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added immutable `GzipHeader` metadata with builders and owned extra-field
+  snapshots, `Gzip.compress(data, header)` and first-member `Gzip.readHeader`.
+  Names/comments use Latin-1; timestamp, OS, XFL, FTEXT, extra bytes and optional
+  FHCRC are exposed. Header inspection validates framing and FHCRC without
+  decoding payloads. Default compressed output remains byte-for-byte unchanged.
+
 - Added an explicit `InitramfsReader` for complete uncompressed newc/crc buffers,
   exposing segment bounds and members, resetting hard links at trailers and
   reporting later malformed/unsupported segments with absolute offsets. Listings
