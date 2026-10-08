@@ -102,7 +102,7 @@ This is what works today:
 
 | Area | What is implemented |
 | --- | --- |
-| Codecs | DEFLATE both directions, gzip and zlib framing, LZ4 both directions, a Snappy decoder |
+| Codecs | DEFLATE both directions, gzip and zlib framing, LZ4 and Snappy both directions |
 | Archives | ZIP read and write including ZIP64, plus readers for TAR, ar and cpio |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
@@ -159,7 +159,7 @@ val out = lz4!!.decompress(frameBytes)
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
-| Snappy (raw block) | yes | valid output, but it does not compress |
+| Snappy (raw block) | yes | yes, with greedy back-reference matching |
 
 Dynamic DEFLATE trees use binary package-merge to minimize weighted code length
 within the 15-bit literal/distance and 7-bit code-length limits. The encoder checks
@@ -682,8 +682,9 @@ artifact and a kotlinx-io dependency.
   blocks must end in
   a literal-only sequence, with at least five final literals after a match.
   Empty output uses a zero token; an empty compressed byte sequence is invalid.
-- Snappy's encoder emits literals only, with no back-reference matching. The
-  output is a valid Snappy block, and slightly larger than the input.
+- Snappy reads and writes raw blocks, without Snappy stream framing or chunk
+  checksums. Its encoder keeps one candidate per hash slot and extends matches
+  greedily; incompressible input can still grow slightly from framing overhead.
 - The public API is not frozen. Both modules use strict explicit API mode, and
   committed ABI dumps detect changes across every supported target. `Codec` and
   `ArchiveReader` will change when a streaming API arrives.
@@ -826,8 +827,7 @@ The table at the top lists what works today. Everything still missing has its ow
 issue, so the tracker is the current answer instead of a file that goes stale
 between releases.
 
-- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): bzip2, zstd, brotli, PPMd, and a Snappy
-  encoder that actually compresses.
+- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): bzip2, zstd, brotli and PPMd.
 - [LZMA, xz and 7z](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Alzma-family).
 - [Streaming and extraction](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Astreaming-api): reading from a file, and
   extracting without holding the whole archive in memory.

@@ -5,14 +5,18 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.le16
+import io.github.yuroyami.archivekodec.util.le32
 import io.github.yuroyami.archivekodec.util.leBytes
+import io.github.yuroyami.archivekodec.util.readI32Le
 import io.github.yuroyami.archivekodec.util.readUIntLe
 
 /**
  * Snappy raw block format (Google): a byte-oriented LZ77 with no entropy stage.
  * [decompress] reads raw blocks, not the optional Snappy framed format.
- * [compress] emits an all-literal raw block. It has no back-reference matching,
- * so it does not shrink the input.
+ * [compress] finds repeated four-byte sequences with a bounded hash table, extends
+ * matches greedily and emits the smallest applicable copy-tag form. Incompressible
+ * input is stored in literal runs with a small framing overhead.
  */
 public object Snappy {
 
@@ -104,35 +108,106 @@ public object Snappy {
     }
 
     /**
-     * Compress [data] into a valid (all-literal) Snappy block.
+     * Compress [data] into a raw Snappy block using literal runs and back-references.
+     * One candidate is kept per hash slot; the table uses at most 64 KiB regardless
+     * of input size. No external dictionary or stream framing is produced.
      *
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
     public fun compress(data: ByteArray): ByteArray {
-        val out = ByteArrayBuilder(data.size + 8)
+        val out = ByteArrayBuilder(minOf(data.size, 64 * 1024) + 8)
         var v = data.size
         while (true) {
             val b = v and 0x7F
             v = v ushr 7
             if (v != 0) out.append((b or 0x80).toByte()) else { out.append(b.toByte()); break }
         }
-        var off = 0
-        while (off < data.size) {
-            val chunk = minOf(data.size - off, 1 shl 24)
-            val l = chunk - 1
-            if (l < 60) {
-                out.append((l shl 2).toByte())
-            } else {
-                var nbytes = 1
-                var t = l
-                while (t >= 256) { nbytes++; t = t ushr 8 }
-                out.append(((59 + nbytes) shl 2).toByte())
-                out.leBytes(l.toLong(), nbytes)
+        var anchor = 0
+        if (data.size >= 4) {
+            var tableSize = 256
+            var hashBits = 8
+            while (tableSize < minOf(data.size, 1 shl 14)) {
+                tableSize *= 2
+                hashBits++
             }
-            out.append(data, off, chunk)
-            off += chunk
+            val shift = 32 - hashBits
+            val table = IntArray(tableSize) { -1 }
+            fun hash(position: Int): Int = (readI32Le(data, position) * -1640531535) ushr shift
+
+            val lastStart = data.size - 4
+            var position = 0
+            while (position <= lastStart) {
+                val slot = hash(position)
+                val candidate = table[slot]
+                table[slot] = position
+                if (candidate < 0 || readI32Le(data, candidate) != readI32Le(data, position)) {
+                    position++
+                    continue
+                }
+
+                var length = 4
+                val remaining = data.size - position
+                while (length < remaining && data[candidate + length] == data[position + length]) length++
+                literal(out, data, anchor, position - anchor)
+                copy(out, position - candidate, length)
+                position += length
+                anchor = position
+
+                // Keep nearby history available after skipping the matched input.
+                // Overlapping copies are legal, including offsets one and two.
+                for (previous in position - 2 until position) {
+                    if (previous <= lastStart) table[hash(previous)] = previous
+                }
+            }
         }
+        literal(out, data, anchor, data.size - anchor)
         return out.toByteArray()
+    }
+
+    private fun literal(out: ByteArrayBuilder, data: ByteArray, offset: Int, length: Int) {
+        if (length == 0) return
+        val encodedLength = length - 1
+        if (encodedLength < 60) {
+            out.append((encodedLength shl 2).toByte())
+        } else {
+            var byteCount = 1
+            var remaining = encodedLength
+            while (remaining >= 256) { byteCount++; remaining = remaining ushr 8 }
+            out.append(((59 + byteCount) shl 2).toByte())
+            out.leBytes(encodedLength.toLong(), byteCount)
+        }
+        out.append(data, offset, length)
+    }
+
+    private fun copy(out: ByteArrayBuilder, offset: Int, length: Int) {
+        var remaining = length
+        while (remaining >= 68) {
+            copyTag(out, offset, 64)
+            remaining -= 64
+        }
+        // Leave at least four bytes so a short tail can use the compact copy tag.
+        if (remaining > 64) {
+            copyTag(out, offset, 60)
+            remaining -= 60
+        }
+        copyTag(out, offset, remaining)
+    }
+
+    private fun copyTag(out: ByteArrayBuilder, offset: Int, length: Int) {
+        when {
+            offset < 2048 && length <= 11 -> {
+                out.append((1 or ((length - 4) shl 2) or ((offset ushr 8) shl 5)).toByte())
+                out.append(offset.toByte())
+            }
+            offset <= 0xffff -> {
+                out.append((2 or ((length - 1) shl 2)).toByte())
+                out.le16(offset)
+            }
+            else -> {
+                out.append((3 or ((length - 1) shl 2)).toByte())
+                out.le32(offset.toLong())
+            }
+        }
     }
 }

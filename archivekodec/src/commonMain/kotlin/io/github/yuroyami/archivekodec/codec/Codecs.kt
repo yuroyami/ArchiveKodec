@@ -49,7 +49,7 @@ public object Codecs {
             Lz4.frameDecompress(data, limits)
     }
 
-    /** Snappy raw-block codec; the encoder currently emits literals only. */
+    /** Snappy raw-block codec with greedy back-reference compression. */
     public val SNAPPY: Codec = object : Codec {
         override val id = CodecId.SNAPPY
         override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)

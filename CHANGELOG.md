@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Snappy compression now finds repeated sequences and emits back-references,
+  including all three offset encodings and split long matches. Its bounded hash
+  table uses at most 64 KiB; raw-block APIs and decoding limits are unchanged.
+
 - Public metadata, format and codec identifiers now have individual API descriptions.
   Reader, codec, wrapper and IO entry points document their current failure contracts,
   and Dokka reports undocumented public declarations. No API or runtime behavior changed.
