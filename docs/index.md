@@ -124,8 +124,7 @@ Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 
 `CodecId` names bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd, and the sniffer
 recognizes several of them. None of them has an implementation, and
-`ArchiveKodec.codec(id)` returns `null` for those ids. ZIP is the only container
-with a writer.
+`ArchiveKodec.codec(id)` returns `null` for those ids. ZIP and GNU ar have writers; TAR and cpio remain read-only.
 
 ## Where to go next
 
