@@ -31,6 +31,7 @@ import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.checksum.Checksum
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
+import io.github.yuroyami.archivekodec.util.readI32Le
 import io.github.yuroyami.archivekodec.util.readU16Le
 
 /**
@@ -52,9 +53,10 @@ import io.github.yuroyami.archivekodec.util.readU16Le
  *  - puff's "scan only" mode (`dest == NULL`) is omitted; we always materialise
  *    the output.
  *
- * Bits are consumed LSB-first within each input byte; Huffman codes are read
- * MSB-first and accumulated in reversed order so canonical codes compare as plain
- * integers (see [decode]).
+ * Bits are buffered in 32-bit words. Canonical codes index a primary table of up
+ * to nine bits and secondary tables for longer codes. Fixed tables are shared;
+ * bounded canonical decoding handles short tails and invalid/incomplete prefixes.
+ * Lookahead retains the logical byte cursor for following blocks and trailers.
  *
  * This object is stateless and thread-safe; all mutable inflate state lives in the
  * private [State] created per call.
@@ -153,15 +155,15 @@ public object Inflate {
                     2 -> dynamic(s)
                     else -> InflateError.INVALID_BLOCK_TYPE.code
                 }
-                if (err != 0) throw InflateException(InflateError.fromPuff(err), s.position.toLong(), null, null)
+                if (err != 0) throw InflateException(InflateError.fromPuff(err), s.consumedPosition.toLong(), null, null)
             } while (last == 0)
         } catch (_: OutOfInput) {
             throw InflateException(InflateError.DATA_DID_NOT_TERMINATE, s.position.toLong(), null, null)
         } catch (error: InflateException) {
             if (error.offset != null) throw error
-            throw InflateException(error.error, s.position.toLong(), null, error)
+            throw InflateException(error.error, s.consumedPosition.toLong(), null, error)
         }
-        return s.position
+        return s.consumedPosition
     }
 
     /** Shared output across gzip members; each State still has a fresh dictionary. */
@@ -186,6 +188,9 @@ public object Inflate {
         }
 
         private fun ensure(extra: Int) {
+            // Every allocation is capped by all three immutable budgets. Writes
+            // within that capacity need no Long arithmetic or ratio division.
+            if (extra <= bytes.size - size) return
             val required = size.toLong() + extra
             limits.checkOutputSize(required)
             limits.checkRatio(compressedBytes.toLong(), required)
@@ -241,6 +246,7 @@ public object Inflate {
             private set
         var bitbuf = 0
         var bitcnt = 0
+        val consumedPosition: Int get() = position - (bitcnt ushr 3)
         private val outputStart = output.size
         val outcnt: Int get() = output.size - outputStart
         val inAvailable: Int get() = end - position
@@ -257,15 +263,45 @@ public object Inflate {
             return value
         }
 
-        fun bits(need: Int): Int {
-            var value = bitbuf
-            while (bitcnt < need) {
-                value = value or (nextByte() shl bitcnt)
-                bitcnt += 8
+        /** Fill without crossing the slice; a short final code may need fewer bits. */
+        fun fill(need: Int) {
+            while (bitcnt < need && position < end) {
+                if (bitcnt <= 8 && inAvailable >= 4) {
+                    val word = readI32Le(inBuf, position)
+                    if (bitcnt == 0) {
+                        bitbuf = word
+                        bitcnt = 32
+                        position += 4
+                    } else {
+                        bitbuf = bitbuf or ((word and 0xFFFFFF) shl bitcnt)
+                        bitcnt += 24
+                        position += 3
+                    }
+                } else {
+                    bitbuf = bitbuf or (nextByte() shl bitcnt)
+                    bitcnt += 8
+                }
             }
-            bitbuf = value ushr need
+        }
+
+        fun drop(need: Int) {
+            bitbuf = bitbuf ushr need
             bitcnt -= need
-            return value and ((1 shl need) - 1)
+        }
+
+        fun bits(need: Int): Int {
+            fill(need)
+            if (bitcnt < need) throw OutOfInput()
+            val value = bitbuf and ((1 shl need) - 1)
+            drop(need)
+            return value
+        }
+
+        fun alignToByte() {
+            // Discard padding in the current byte, retaining prefetched whole bytes.
+            position = consumedPosition
+            bitbuf = 0
+            bitcnt = 0
         }
 
         fun writeByte(value: Int) = output.writeByte(value)
@@ -279,11 +315,12 @@ public object Inflate {
     private class Huffman(maxSymbols: Int) {
         val count = ShortArray(MAXBITS + 1)
         val symbol = ShortArray(maxSymbols)
+        var rootBits = 0
+        var table = IntArray(1)
     }
 
     private fun stored(s: State): Int {
-        s.bitbuf = 0
-        s.bitcnt = 0
+        s.alignToByte()
 
         if (s.inAvailable < 4) return InflateError.DATA_DID_NOT_TERMINATE.code
         val len = s.rawU16()
@@ -298,35 +335,37 @@ public object Inflate {
     }
 
     private fun decode(s: State, h: Huffman): Int {
-        var bitbuf = s.bitbuf
-        var left = s.bitcnt
+        s.fill(h.rootBits)
+        val rootMask = (1 shl h.rootBits) - 1
+        var entry = h.table[s.bitbuf and rootMask]
+        if (entry < 0) {
+            val pointer = -entry
+            val tailBits = pointer and 15
+            s.fill(h.rootBits + tailBits)
+            entry = h.table[(pointer ushr 4) + ((s.bitbuf ushr h.rootBits) and ((1 shl tailBits) - 1))]
+        }
+        if (entry > 0) {
+            val length = entry ushr 16
+            if (length <= s.bitcnt) {
+                s.drop(length)
+                return entry and 0xFFFF
+            }
+        }
+        return decodeSlow(s, h)
+    }
+
+    /** Preserve puff's bounded invalid-code and truncated-input behavior. */
+    private fun decodeSlow(s: State, h: Huffman): Int {
         var code = 0
         var first = 0
         var index = 0
-        var len = 1
-        var nextIdx = 1
-
-        while (true) {
-            while (left > 0) {
-                left--
-                code = code or (bitbuf and 1)
-                bitbuf = bitbuf ushr 1
-                val count = h.count[nextIdx++].toInt()
-                if (code - count < first) {
-                    s.bitbuf = bitbuf
-                    s.bitcnt = (s.bitcnt - len) and 7
-                    return h.symbol[index + (code - first)].toInt()
-                }
-                index += count
-                first += count
-                first = first shl 1
-                code = code shl 1
-                len++
-            }
-            left = (MAXBITS + 1) - len
-            if (left == 0) break
-            bitbuf = s.nextByte()
-            if (left > 8) left = 8
+        for (length in 1..MAXBITS) {
+            code = code or s.bits(1)
+            val count = h.count[length].toInt()
+            if (code - count < first) return h.symbol[index + code - first].toInt()
+            index += count
+            first = (first + count) shl 1
+            code = code shl 1
         }
         return InflateError.INVALID_LITERAL_OR_DISTANCE_CODE.code
     }
@@ -356,7 +395,68 @@ public object Inflate {
                 offs[l]++
             }
         }
+        buildLookup(h, length, n)
         return left
+    }
+
+    private fun buildLookup(h: Huffman, lengths: ShortArray, n: Int) {
+        var longest = MAXBITS
+        while (h.count[longest].toInt() == 0) longest--
+        val rootBits = minOf(9, longest)
+        val rootSize = 1 shl rootBits
+        val next = IntArray(MAXBITS + 1)
+        for (length in 2..MAXBITS) next[length] = (next[length - 1] + h.count[length - 1]) shl 1
+        val reversed = IntArray(n)
+        val widths = IntArray(if (longest > rootBits) rootSize else 0)
+        for (symbol in 0 until n) {
+            val length = lengths[symbol].toInt()
+            if (length == 0) continue
+            var code = next[length]++
+            var reverse = 0
+            repeat(length) {
+                reverse = (reverse shl 1) or (code and 1)
+                code = code ushr 1
+            }
+            reversed[symbol] = reverse
+            if (length > rootBits) {
+                val prefix = reverse and (rootSize - 1)
+                widths[prefix] = maxOf(widths[prefix], length - rootBits)
+            }
+        }
+        var size = rootSize
+        for (width in widths) if (width > 0) size += 1 shl width
+        val table = IntArray(size)
+        var offset = rootSize
+        for (prefix in widths.indices) {
+            val width = widths[prefix]
+            if (width > 0) {
+                table[prefix] = -((offset shl 4) or width)
+                offset += 1 shl width
+            }
+        }
+        for (symbol in 0 until n) {
+            val length = lengths[symbol].toInt()
+            if (length == 0) continue
+            val entry = (length shl 16) or symbol
+            if (length <= rootBits) {
+                var index = reversed[symbol]
+                while (index < rootSize) {
+                    table[index] = entry
+                    index += 1 shl length
+                }
+            } else {
+                val pointer = -table[reversed[symbol] and (rootSize - 1)]
+                val start = pointer ushr 4
+                val count = 1 shl (pointer and 15)
+                var index = reversed[symbol] ushr rootBits
+                while (index < count) {
+                    table[start + index] = entry
+                    index += 1 shl (length - rootBits)
+                }
+            }
+        }
+        h.rootBits = rootBits
+        h.table = table
     }
 
     private fun codes(s: State, lencode: Huffman, distcode: Huffman): Int {
@@ -385,22 +485,23 @@ public object Inflate {
         return 0
     }
 
-    private fun fixed(s: State): Int {
-        val lengths = ShortArray(FIXLCODES)
-        var symbol = 0
-        while (symbol < 144) { lengths[symbol] = 8; symbol++ }
-        while (symbol < 256) { lengths[symbol] = 9; symbol++ }
-        while (symbol < 280) { lengths[symbol] = 7; symbol++ }
-        while (symbol < FIXLCODES) { lengths[symbol] = 8; symbol++ }
-        val lencode = Huffman(FIXLCODES)
-        construct(lencode, lengths, FIXLCODES)
-
-        for (i in 0 until MAXDCODES) lengths[i] = 5
-        val distcode = Huffman(MAXDCODES)
-        construct(distcode, lengths, MAXDCODES)
-
-        return codes(s, lencode, distcode)
+    private val fixedLiteral = Huffman(FIXLCODES).also { table ->
+        val lengths = ShortArray(FIXLCODES) {
+            when {
+                it < 144 -> 8
+                it < 256 -> 9
+                it < 280 -> 7
+                else -> 8
+            }
+        }
+        construct(table, lengths, lengths.size)
     }
+
+    private val fixedDistance = Huffman(MAXDCODES).also { table ->
+        construct(table, ShortArray(MAXDCODES) { 5 }, MAXDCODES)
+    }
+
+    private fun fixed(s: State): Int = codes(s, fixedLiteral, fixedDistance)
 
     private fun dynamic(s: State): Int {
         val lengths = ShortArray(MAXCODES)

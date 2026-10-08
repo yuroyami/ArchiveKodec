@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- DEFLATE decoding uses primary and secondary Huffman lookup tables, shared fixed
+  tables and a wider bit buffer. Logical cursors preserve block/trailer boundaries;
+  writes inside the checked output capacity avoid repeated ratio arithmetic.
+
 - Added an unpublished JVM/Node benchmark module with fixed corpora, CPU-time
   sampling, JDK references, a documented baseline and a CI smoke comparison.
 
