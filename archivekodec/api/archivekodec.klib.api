@@ -467,6 +467,103 @@ final object io.github.yuroyami.archivekodec.archive.ar/ArWriter { // io.github.
     }
 }
 
+final object io.github.yuroyami.archivekodec.archive.cpio/CpioWriter { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter|null[0]
+    final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec>){}[0]
+    final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec>, io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec>;io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.Dialect){}[0]
+
+    final enum class Dialect : kotlin/Enum<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect> { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect|null[0]
+        enum entry CRC // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.CRC|null[0]
+        enum entry NEWC // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.NEWC|null[0]
+
+        final val entries // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.entries|#static{}entries[0]
+            final fun <get-entries>(): kotlin.enums/EnumEntries<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect> // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.entries.<get-entries>|<get-entries>#static(){}[0]
+
+        final fun valueOf(kotlin/String): io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.valueOf|valueOf#static(kotlin.String){}[0]
+        final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect> // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.values|values#static(){}[0]
+    }
+
+    final class FileSpec { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec|null[0]
+        constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
+
+        final val data // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.data|{}data[0]
+            final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.data.<get-data>|<get-data>(){}[0]
+        final val deviceMajor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.deviceMajor|{}deviceMajor[0]
+            final fun <get-deviceMajor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.deviceMajor.<get-deviceMajor>|<get-deviceMajor>(){}[0]
+        final val deviceMinor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.deviceMinor|{}deviceMinor[0]
+            final fun <get-deviceMinor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.deviceMinor.<get-deviceMinor>|<get-deviceMinor>(){}[0]
+        final val gid // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.gid|{}gid[0]
+            final fun <get-gid>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.gid.<get-gid>|<get-gid>(){}[0]
+        final val inode // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.inode|{}inode[0]
+            final fun <get-inode>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.inode.<get-inode>|<get-inode>(){}[0]
+        final val linkCount // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.linkCount|{}linkCount[0]
+            final fun <get-linkCount>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.linkCount.<get-linkCount>|<get-linkCount>(){}[0]
+        final val mode // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.mode|{}mode[0]
+            final fun <get-mode>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.mode.<get-mode>|<get-mode>(){}[0]
+        final val modificationTime // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.modificationTime|{}modificationTime[0]
+            final fun <get-modificationTime>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.modificationTime.<get-modificationTime>|<get-modificationTime>(){}[0]
+        final val name // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.name|{}name[0]
+            final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.name.<get-name>|<get-name>(){}[0]
+        final val rdevMajor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.rdevMajor|{}rdevMajor[0]
+            final fun <get-rdevMajor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.rdevMajor.<get-rdevMajor>|<get-rdevMajor>(){}[0]
+        final val rdevMinor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.rdevMinor|{}rdevMinor[0]
+            final fun <get-rdevMinor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.rdevMinor.<get-rdevMinor>|<get-rdevMinor>(){}[0]
+        final val uid // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.uid|{}uid[0]
+            final fun <get-uid>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.uid.<get-uid>|<get-uid>(){}[0]
+
+        final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec.Builder,kotlin.Unit>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.toString|toString(){}[0]
+
+        final class Builder { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder|null[0]
+            constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
+
+            final var data // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.data|{}data[0]
+                final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.data.<get-data>|<get-data>(){}[0]
+                final fun <set-data>(kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.data.<set-data>|<set-data>(kotlin.ByteArray){}[0]
+            final var deviceMajor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.deviceMajor|{}deviceMajor[0]
+                final fun <get-deviceMajor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.deviceMajor.<get-deviceMajor>|<get-deviceMajor>(){}[0]
+                final fun <set-deviceMajor>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.deviceMajor.<set-deviceMajor>|<set-deviceMajor>(kotlin.Long){}[0]
+            final var deviceMinor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.deviceMinor|{}deviceMinor[0]
+                final fun <get-deviceMinor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.deviceMinor.<get-deviceMinor>|<get-deviceMinor>(){}[0]
+                final fun <set-deviceMinor>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.deviceMinor.<set-deviceMinor>|<set-deviceMinor>(kotlin.Long){}[0]
+            final var gid // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.gid|{}gid[0]
+                final fun <get-gid>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.gid.<get-gid>|<get-gid>(){}[0]
+                final fun <set-gid>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.gid.<set-gid>|<set-gid>(kotlin.Long){}[0]
+            final var inode // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.inode|{}inode[0]
+                final fun <get-inode>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.inode.<get-inode>|<get-inode>(){}[0]
+                final fun <set-inode>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.inode.<set-inode>|<set-inode>(kotlin.Long){}[0]
+            final var linkCount // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.linkCount|{}linkCount[0]
+                final fun <get-linkCount>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.linkCount.<get-linkCount>|<get-linkCount>(){}[0]
+                final fun <set-linkCount>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.linkCount.<set-linkCount>|<set-linkCount>(kotlin.Long){}[0]
+            final var mode // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.mode|{}mode[0]
+                final fun <get-mode>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.mode.<get-mode>|<get-mode>(){}[0]
+                final fun <set-mode>(kotlin/Int) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.mode.<set-mode>|<set-mode>(kotlin.Int){}[0]
+            final var modificationTime // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.modificationTime|{}modificationTime[0]
+                final fun <get-modificationTime>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.modificationTime.<get-modificationTime>|<get-modificationTime>(){}[0]
+                final fun <set-modificationTime>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.modificationTime.<set-modificationTime>|<set-modificationTime>(kotlin.Long){}[0]
+            final var name // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.name|{}name[0]
+                final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.name.<get-name>|<get-name>(){}[0]
+                final fun <set-name>(kotlin/String) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.name.<set-name>|<set-name>(kotlin.String){}[0]
+            final var rdevMajor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.rdevMajor|{}rdevMajor[0]
+                final fun <get-rdevMajor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.rdevMajor.<get-rdevMajor>|<get-rdevMajor>(){}[0]
+                final fun <set-rdevMajor>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.rdevMajor.<set-rdevMajor>|<set-rdevMajor>(kotlin.Long){}[0]
+            final var rdevMinor // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.rdevMinor|{}rdevMinor[0]
+                final fun <get-rdevMinor>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.rdevMinor.<get-rdevMinor>|<get-rdevMinor>(){}[0]
+                final fun <set-rdevMinor>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.rdevMinor.<set-rdevMinor>|<set-rdevMinor>(kotlin.Long){}[0]
+            final var uid // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.uid|{}uid[0]
+                final fun <get-uid>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.uid.<get-uid>|<get-uid>(){}[0]
+                final fun <set-uid>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.uid.<set-uid>|<set-uid>(kotlin.Long){}[0]
+
+            final fun build(): io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder.build|build(){}[0]
+        }
+
+        final object Companion { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Companion|null[0]
+            final fun invoke(kotlin/String, kotlin/ByteArray, kotlin/Function1<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder, kotlin/Unit>): io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Companion.invoke|invoke(kotlin.String;kotlin.ByteArray;kotlin.Function1<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec.Builder,kotlin.Unit>){}[0]
+        }
+    }
+}
+
 final object io.github.yuroyami.archivekodec.archive.zip/ZipWriter { // io.github.yuroyami.archivekodec.archive.zip/ZipWriter|null[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.zip.ZipWriter.FileSpec>){}[0]
 

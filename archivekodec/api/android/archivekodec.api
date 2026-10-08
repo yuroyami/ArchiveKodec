@@ -234,6 +234,75 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/CpioReader : io/
 public final class io/github/yuroyami/archivekodec/archive/cpio/CpioReader$Companion {
 }
 
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter {
+	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter;
+	public final fun write (Ljava/util/List;)[B
+	public final fun write (Ljava/util/List;Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;)[B
+}
+
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect : java/lang/Enum {
+	public static final field CRC Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
+	public static final field NEWC Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
+	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec$Companion;
+	public fun <init> (Ljava/lang/String;[B)V
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()[B
+	public final fun getDeviceMajor ()J
+	public final fun getDeviceMinor ()J
+	public final fun getGid ()J
+	public final fun getInode ()J
+	public final fun getLinkCount ()J
+	public final fun getMode ()I
+	public final fun getModificationTime ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getRdevMajor ()J
+	public final fun getRdevMinor ()J
+	public final fun getUid ()J
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec$Builder {
+	public fun <init> (Ljava/lang/String;[B)V
+	public final fun build ()Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec;
+	public final fun getData ()[B
+	public final fun getDeviceMajor ()J
+	public final fun getDeviceMinor ()J
+	public final fun getGid ()J
+	public final fun getInode ()J
+	public final fun getLinkCount ()J
+	public final fun getMode ()I
+	public final fun getModificationTime ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getRdevMajor ()J
+	public final fun getRdevMinor ()J
+	public final fun getUid ()J
+	public final fun setData ([B)V
+	public final fun setDeviceMajor (J)V
+	public final fun setDeviceMinor (J)V
+	public final fun setGid (J)V
+	public final fun setInode (J)V
+	public final fun setLinkCount (J)V
+	public final fun setMode (I)V
+	public final fun setModificationTime (J)V
+	public final fun setName (Ljava/lang/String;)V
+	public final fun setRdevMajor (J)V
+	public final fun setRdevMinor (J)V
+	public final fun setUid (J)V
+}
+
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec$Companion {
+	public final fun invoke (Ljava/lang/String;[BLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec;
+}
+
 public final class io/github/yuroyami/archivekodec/archive/tar/TarReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/tar/TarReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V

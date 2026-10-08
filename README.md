@@ -19,7 +19,7 @@ before 0.2.0 use older coordinates: 0.1.0 is `io.github.yuroyami:kitearchive`.
 
 | Artifact | Coordinates | What it holds |
 | --- | --- | --- |
-| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP and ar writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP, ar and cpio writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
 | IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | Four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
 
 Both build for every target in [Targets](#targets).
@@ -103,7 +103,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, plus TAR and cpio readers |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, cpio read and write (newc/crc), plus a TAR reader |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -384,7 +384,7 @@ entry throws an unsupported-method error.
 | ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU) | yes | no |
 | ar (GNU) | yes | yes |
-| cpio (newc, crc, odc) | yes | no |
+| cpio (newc, crc, odc) | yes | newc and crc |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version
@@ -435,6 +435,46 @@ numeric values must fit their decimal/octal header fields. The complete archive
 must fit in one `ByteArray`. No linker symbol index is generated; run `ranlib`
 when a linker needs one. Debian member contents and ordering remain the caller's
 responsibility; the example assumes already-created control and data archives.
+
+## Write cpio
+
+```kotlin
+import io.github.yuroyami.archivekodec.archive.cpio.CpioWriter
+
+val archive = CpioWriter.write(
+    listOf(
+        CpioWriter.FileSpec("etc", byteArrayOf()) { mode = 0x41ED }, // directory, 0755
+        CpioWriter.FileSpec("etc/config", configBytes),
+        CpioWriter.FileSpec("config", "etc/config".encodeToByteArray()) {
+            mode = 0xA1FF // symbolic link, 0777; the body is the target
+        },
+    ),
+)
+```
+
+The default dialect is `newc` (`070701`). Pass `CpioWriter.Dialect.CRC` as the
+second argument for `070702` and its unsigned body-byte sum modulo 2^32. This
+checksum is not CRC-32. Both dialects use fixed hexadecimal headers, NUL-terminated
+UTF-8 names, zero padding to four-byte boundaries and a final `TRAILER!!!` record.
+No odc, old binary or compressed output is emitted; apply a codec separately if
+the consumer expects a compressed archive. The complete result must fit in one
+`ByteArray`.
+
+Member descriptions own their data snapshots and offer `FileSpec(name, data) { ... }`,
+`FileSpec.Builder(name, data).build()` and `file.copy { ... }`. Configure Unix
+`mode`, `inode`, `uid`, `gid`, `linkCount`, `modificationTime` (Unix seconds),
+`deviceMajor`/`deviceMinor` and `rdevMajor`/`rdevMinor`. Numeric fields must fit
+unsigned 32-bit headers; `mode` contains a supported Unix file type and its
+permissions in 16 bits. Defaults are regular-file mode octal `0100644`, one link
+and all other metadata zero. Directories and special files require empty bodies;
+symlinks require nonempty target bytes without NUL.
+
+Hard links use matching device and inode numbers with `linkCount > 1`.
+The writer preserves body placement; callers choose which member carries the
+shared data. Conflicting file types in a hard-link group are rejected. Names,
+duplicates and member order are preserved. Empty names, NUL, malformed Unicode
+and the exact reserved name `TRAILER!!!` are rejected. Names are not sanitized
+for filesystem extraction, and no filesystem objects are created by the writer.
 
 ## Write a ZIP
 
@@ -883,7 +923,7 @@ between releases.
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under
   Limits.
-- [Writers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Acontainer-writers) for TAR and cpio.
+- [Writers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Acontainer-writers) for TAR.
 - [More containers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM.
 
 RAR, ACE, StuffIt and ALZ stay out of scope. See License below.

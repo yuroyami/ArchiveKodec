@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added `CpioWriter` for buffered newc and crc archives, with configurable Unix
+  metadata, four-byte alignment, trailer records and owned member snapshots.
+  Directories, symlinks, caller-described hard links and empty special records
+  are supported; no odc, old binary or automatic filesystem extraction is added.
+
 - Clarified that the default 10,000:1 compression-ratio ceiling cannot reject valid
   streams from the current codecs. Dense format-level fixtures cover defaults,
   custom ratio limits and per-call byte caps; default values remain unchanged.

@@ -10,11 +10,25 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits;
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod;
 import io.github.yuroyami.archivekodec.archive.ar.ArWriter;
+import io.github.yuroyami.archivekodec.archive.cpio.CpioWriter;
 import java.util.Collections;
 import kotlinx.io.RawSource;
 
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
+    public CpioWriter.FileSpec cpioFile(String name, byte[] data) {
+        return new CpioWriter.FileSpec(name, data);
+    }
+
+    public byte[] writeCpio(String name, byte[] data) throws Exception {
+        CpioWriter.FileSpec.Builder builder = new CpioWriter.FileSpec.Builder(name, data);
+        builder.setModificationTime(1700000000L);
+        builder.setUid(123L);
+        builder.setGid(456L);
+        builder.setMode(0100644);
+        return CpioWriter.INSTANCE.write(Collections.singletonList(builder.build()), CpioWriter.Dialect.CRC);
+    }
+
     public ArWriter.FileSpec arFile(String name, byte[] data) {
         return new ArWriter.FileSpec(name, data);
     }
