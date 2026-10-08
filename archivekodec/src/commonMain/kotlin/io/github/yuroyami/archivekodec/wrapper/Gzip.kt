@@ -90,7 +90,10 @@ public object Gzip {
         if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) {
             return Zlib.decompress(input, limits)
         }
-        val output = Inflate.Output(limits, input.size)
+        // This is only a hint: padding may follow the last trailer, and ISIZE
+        // covers one member modulo 2^32, not the combined output of all members.
+        val sizeHint = if (input.size >= 18) readU32Le(input, input.size - 4) else null
+        val output = Inflate.Output(limits, input.size, sizeHint = sizeHint)
         var position = 0
         do {
             val payload = gzipHeader(input, position)
@@ -106,7 +109,7 @@ public object Gzip {
             position = trailer + 8
             while (position < input.size && input[position] == 0.toByte()) position++
         } while (position < input.size)
-        return output.toByteArray()
+        return output.takeByteArray()
     }
 
     /**

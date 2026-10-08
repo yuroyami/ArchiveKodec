@@ -137,7 +137,7 @@ public object Inflate {
         if (expectedSize != null && output.size.toLong() != expectedSize) {
             throw ArchiveFormatException("deflate: output size ${output.size} differs from expected size $expectedSize", end.toLong())
         }
-        return output.toByteArray()
+        return output.takeByteArray()
     }
 
     /** Return the first byte after the final block, including its partial final byte. */
@@ -170,8 +170,10 @@ public object Inflate {
     internal class Output(
         private val limits: ArchiveLimits, private val compressedBytes: Int,
         private val expectedSize: Long? = null,
+        sizeHint: Long? = expectedSize,
     ) {
         private val maximum: Int
+        private val hint: Int
         private var bytes: ByteArray
         var size: Int = 0
             private set
@@ -184,7 +186,11 @@ public object Inflate {
                 Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes, expectedSize ?: Long.MAX_VALUE,
                 if (compressedBytes > 0) compressedBytes.toLong() * limits.maxCompressionRatio else Long.MAX_VALUE,
             ).toInt()
-            bytes = ByteArray(minOf(256, maximum))
+            hint = (sizeHint ?: 0).coerceIn(0, maximum.toLong()).toInt()
+            // File-controlled sizes guide growth, but never reserve a large array
+            // before any output has been decoded. Unlike expectedSize, a hint is
+            // not an output bound (gzip ISIZE describes only its final member).
+            bytes = ByteArray(minOf(if (hint > 0) minOf(4096, hint) else 256, maximum))
         }
 
         private fun ensure(extra: Int) {
@@ -197,7 +203,8 @@ public object Inflate {
             if (expectedSize != null && required > expectedSize) {
                 throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
             }
-            val capacity = byteArrayCapacity(bytes.size, size, extra, maximum)
+            val growthMaximum = if (required <= hint) hint else maximum
+            val capacity = byteArrayCapacity(bytes.size, size, extra, growthMaximum, hint)
             if (capacity != bytes.size) bytes = bytes.copyOf(capacity)
         }
 
@@ -231,7 +238,16 @@ public object Inflate {
             return checksum.value()
         }
 
+        /** Snapshot the output without giving up ownership of its storage. */
         fun toByteArray(): ByteArray = bytes.copyOf(size)
+
+        /** Transfer a finished buffer without retaining a mutable alias. */
+        fun takeByteArray(): ByteArray {
+            val result = if (size == bytes.size) bytes else bytes.copyOf(size)
+            bytes = ByteArray(0)
+            size = 0
+            return result
+        }
     }
 
     /** Non-local "out of input" signal, replacing puff's setjmp/longjmp. */

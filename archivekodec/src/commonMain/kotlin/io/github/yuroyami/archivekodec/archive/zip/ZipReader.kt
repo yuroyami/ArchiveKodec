@@ -128,8 +128,12 @@ public class ZipReader(
         }
         val comp = source.readFullyChecked(dataStart, entry.compressedSize)
         val out = try {
-            if (codecId == CodecId.DEFLATE) Inflate.inflateExact(comp, limits, entry.size)
-            else codec.decompress(comp, limits)
+            when (codecId) {
+                CodecId.DEFLATE -> Inflate.inflateExact(comp, limits, entry.size)
+                // readFullyChecked allocated this result; no source storage is shared.
+                CodecId.STORE -> comp
+                else -> codec.decompress(comp, limits)
+            }
         } catch (error: ArchiveException) {
             throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
         }

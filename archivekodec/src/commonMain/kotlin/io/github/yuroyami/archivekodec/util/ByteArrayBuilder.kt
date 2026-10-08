@@ -14,10 +14,13 @@ internal class ByteArrayBuilder(initialCapacity: Int = 64) {
     private var buf = ByteArray(if (initialCapacity < 16) 16 else initialCapacity)
     private var len = 0
     private var maximum = Int.MAX_VALUE
+    private var growthMaximum = Int.MAX_VALUE
+    private var growthHint = 0
 
     internal constructor(initialCapacity: Int, maximum: Int) : this(minOf(initialCapacity, maximum)) {
         require(maximum >= 0)
         this.maximum = maximum
+        this.growthMaximum = maximum
         if (buf.size > maximum) buf = ByteArray(maximum)
     }
 
@@ -44,19 +47,54 @@ internal class ByteArrayBuilder(initialCapacity: Int = 64) {
     }
 
     private fun ensure(extra: Int) {
-        val capacity = byteArrayCapacity(buf.size, len, extra, maximum)
+        val capacity = byteArrayCapacity(buf.size, len, extra, growthMaximum, growthHint)
         if (capacity != buf.size) buf = buf.copyOf(capacity)
     }
 
     /** Snapshot the written bytes into a right-sized array. */
     fun toByteArray(): ByteArray = buf.copyOf(len)
 
-    /** Copy already-written bytes into a destination without taking a snapshot. */
-    internal fun copyTo(destination: ByteArray, destinationOffset: Int, sourceOffset: Int, length: Int) {
-        require(sourceOffset >= 0 && length >= 0 && sourceOffset <= len && length <= len - sourceOffset) {
-            "invalid written slice: offset $sourceOffset, length $length, size $len"
+    /** Transfer the written bytes, clearing this builder so no mutable alias remains. */
+    internal fun takeByteArray(): ByteArray {
+        val result = if (len == buf.size) buf else buf.copyOf(len)
+        buf = ByteArray(0)
+        len = 0
+        return result
+    }
+
+    /** Bound subsequent growth for one frame; an earlier frame may have reserved more. */
+    internal fun limitGrowth(limit: Int, sizeHint: Int = 0) {
+        require(limit in len..maximum && sizeHint in 0..limit)
+        growthMaximum = limit
+        growthHint = sizeHint
+    }
+
+    /** Append a validated LZ match, with forward-copy semantics for overlapping bytes. */
+    internal fun copyBack(distance: Int, length: Int) {
+        require(distance in 1..len && length >= 0)
+        ensure(length)
+        val output = buf
+        val end = len + length
+        var source = len - distance
+        if (distance >= length) {
+            output.copyInto(output, len, source, source + length)
+        } else if (distance == 1) {
+            output.fill(output[source], len, end)
+        } else if (length >= 64) {
+            // Seed one complete pattern, then double only already-written bytes.
+            // Every copy is non-overlapping, including matches across old blocks.
+            output.copyInto(output, len, source, source + distance)
+            var copied = distance
+            while (copied < length) {
+                val count = minOf(copied, length - copied)
+                output.copyInto(output, len + copied, len, len + count)
+                copied += count
+            }
+        } else {
+            var destination = len
+            while (destination < end) output[destination++] = output[source++]
         }
-        buf.copyInto(destination, destinationOffset, sourceOffset, sourceOffset + length)
+        len = end
     }
 
     /** Inspect written bytes without copying; [calculate] must not retain or modify storage. */

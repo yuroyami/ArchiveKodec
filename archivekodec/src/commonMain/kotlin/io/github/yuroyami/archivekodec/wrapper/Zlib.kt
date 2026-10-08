@@ -82,7 +82,7 @@ public object Zlib {
         val expected = readU32Be(input, trailer)
         if (expected != output.checksum(Adler32())) throw ArchiveFormatException("zlib: Adler-32 mismatch", trailer.toLong())
         if (input.size - trailer != 4) throw ArchiveFormatException("zlib: trailing bytes after stream", (trailer + 4).toLong())
-        return output.toByteArray()
+        return output.takeByteArray()
     }
 
     /**

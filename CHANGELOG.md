@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Decoders transfer exact-sized output buffers without a trimming copy. ZIP STORE
+  reads return their owned payload buffer; DEFLATE and gzip use bounded size hints
+  during growth. LZ4 blocks decode directly into the frame output, with growth
+  capped by each frame's declared size and ratio budget. Limits, checksums and
+  independent/linked block history remain enforced.
+
 - DEFLATE decoding uses primary and secondary Huffman lookup tables, shared fixed
   tables and a wider bit buffer. Logical cursors preserve block/trailer boundaries;
   writes inside the checked output capacity avoid repeated ratio arithmetic.

@@ -8,7 +8,6 @@ import io.github.yuroyami.archivekodec.codec.EncoderMatchTable
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
-import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 import io.github.yuroyami.archivekodec.util.le16
 import io.github.yuroyami.archivekodec.util.le32
 import io.github.yuroyami.archivekodec.util.readI32Le
@@ -49,35 +48,29 @@ public object Lz4 {
      * Empty output is encoded by a zero token, rather than an empty byte sequence.
      */
     @Throws(ArchiveException::class)
-    internal fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray =
-        decodeBlock(src, sOff, sEnd, expectedSize, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, 0, sEnd - sOff)
+    internal fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray {
+        // A reservation hint cannot cause a large allocation for malformed input.
+        val out = ByteArrayBuilder(if (expectedSize > 0) minOf(4096, expectedSize) else 64)
+        decodeBlock(src, sOff, sEnd, out, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, sEnd - sOff)
+        return out.takeByteArray()
+    }
 
     private fun decodeBlock(
-        src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int,
-        blockMaximum: Int, limits: ArchiveLimits, outputBase: Int, compressedBytes: Int,
+        src: ByteArray, sOff: Int, sEnd: Int, out: ByteArrayBuilder,
+        blockMaximum: Int, limits: ArchiveLimits, compressedBytes: Int,
         declaredSize: Long? = null, dictionaryId: Long? = null,
-        frameOutputBase: Int = outputBase, sizeOffset: Long = 6,
-        history: ByteArrayBuilder? = null,
-    ): ByteArray {
+        frameOutputBase: Int = 0, sizeOffset: Long = 6,
+        linkedBlocks: Boolean = false,
+    ) {
         if (sOff < 0 || sEnd < sOff || sEnd > src.size) {
             throw ArchiveFormatException("lz4: invalid block slice [$sOff, $sEnd)", sOff.toLong())
         }
+        val outputBase = out.size
         limits.checkOutputSize(outputBase.toLong())
         limits.checkRatio(compressedBytes.toLong(), frameOutputBase.toLong())
-        val ratioBudget = if (compressedBytes > 0) {
-            compressedBytes.toLong() * limits.maxCompressionRatio - frameOutputBase
-        } else Long.MAX_VALUE
-        val budget = minOf(
-            blockMaximum.toLong(), limits.maxUncompressedBytes - outputBase,
-            ratioBudget, (Int.MAX_VALUE - outputBase).toLong(),
-        ).toInt()
-        // A size hint never triggers a large reservation before decoding any input.
-        val hint = if (expectedSize > 0) expectedSize else 64
-        var out = ByteArray(minOf(4096, hint, budget))
-        var o = 0
         var s = sOff
         var hasMatch = false
-        val historySize = if (history != null) minOf(frameOutputBase, HISTORY_WINDOW) else 0
+        val historySize = if (linkedBlocks) minOf(frameOutputBase, HISTORY_WINDOW) else 0
         fun needInput(n: Int) {
             if (n > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
         }
@@ -95,15 +88,13 @@ public object Lz4 {
             return n.toInt()
         }
         fun ensure(n: Int) {
-            val required = o.toLong() + n
+            val required = (out.size - outputBase).toLong() + n
             if (required > blockMaximum) {
                 throw ArchiveFormatException("lz4: decoded block exceeds maximum $blockMaximum", s.toLong())
             }
             checkContentSize(frameOutputBase.toLong() + required, declaredSize, sizeOffset)
             limits.checkOutputSize(outputBase.toLong() + required)
             limits.checkRatio(compressedBytes.toLong(), frameOutputBase.toLong() + required)
-            val capacity = byteArrayCapacity(out.size, o, n, budget)
-            if (capacity != out.size) out = out.copyOf(capacity)
         }
         while (s < sEnd) {
             val tokenAt = s
@@ -114,16 +105,15 @@ public object Lz4 {
                 throw ArchiveFormatException("lz4: final literals after a match must contain at least $LAST_LITERALS bytes", tokenAt.toLong())
             }
             ensure(litLen)
-            src.copyInto(out, o, s, s + litLen)
-            o += litLen
+            out.append(src, s, litLen)
             s += litLen
-            if (s == sEnd) return out.copyOf(o) // last sequence: literals only
+            if (s == sEnd) return // last sequence: literals only
 
             needInput(2)
             val offset = readU16Le(src, s)
             s += 2
             if (offset == 0) throw ArchiveFormatException("lz4: invalid match offset 0", (s - 2).toLong())
-            val availableHistory = o.toLong() + historySize
+            val availableHistory = (out.size - outputBase).toLong() + historySize
             if (offset > availableHistory) {
                 val message = "lz4: match offset $offset exceeds available history $availableHistory"
                 if (dictionaryId != null) {
@@ -137,29 +127,9 @@ public object Lz4 {
             if (encodedLength > Int.MAX_VALUE - MIN_MATCH) throw ArchiveFormatException("lz4: match length exceeds ByteArray limit", s.toLong())
             val matchLen = encodedLength + MIN_MATCH
             ensure(matchLen)
-            var m = o - offset
-            val historyLength = minOf(matchLen, maxOf(0, -m))
-            if (historyLength > 0) {
-                // Read only preceding bytes in this frame's bounded history window.
-                // The builder owns the current storage even after its buffer grows.
-                history!!.copyTo(out, o, outputBase + m, historyLength)
-                o += historyLength
-                m += historyLength
-            }
-            val remaining = matchLen - historyLength
-            val output = out
-            val outputEnd = o + remaining
-            // A match wholly in prior history leaves no local bytes to copy.
-            if (remaining > 0 && offset >= remaining) {
-                output.copyInto(output, o, m, m + remaining)
-            } else if (remaining > 0 && offset == 1) {
-                // Every new byte repeats the same preceding byte, even across blocks.
-                output.fill(output[m], o, outputEnd)
-            } else {
-                var destination = o
-                while (destination < outputEnd) output[destination++] = output[m++]
-            }
-            o = outputEnd
+            // History and this block share one buffer. The distance check above
+            // still excludes prior blocks in independent frames and prior frames.
+            out.copyBack(offset, matchLen)
             hasMatch = true
         }
         throw ArchiveFormatException("lz4: missing final literal sequence", sEnd.toLong())
@@ -394,6 +364,16 @@ public object Lz4 {
             val frameEnd = findFrameEnd(input, p, blockMaximum, blockChecksum, contentChecksum)
             val compressedBytes = frameEnd - frameStart
             if (declaredSize != null) limits.checkRatio(compressedBytes.toLong(), declaredSize)
+            val frameMaximum = minOf(
+                (maximum - outputStart).toLong(), declaredSize ?: Long.MAX_VALUE,
+                compressedBytes.toLong() * limits.maxCompressionRatio,
+            ).toInt()
+            // The declaration caps geometric growth; it never causes an eager
+            // allocation. A new frame receives its own size and ratio budget.
+            out.limitGrowth(
+                outputStart + frameMaximum,
+                if (declaredSize != null) outputStart + declaredSize.toInt() else 0,
+            )
             while (true) {
                 val raw = nextU32()
                 if (raw == 0L) break // end mark, distinct from an empty stored block
@@ -418,11 +398,11 @@ public object Lz4 {
                     limits.checkRatio(compressedBytes.toLong(), frameOutput.toLong() + blockSize)
                     out.append(input, p, blockSize)
                 } else {
-                    out.append(decodeBlock(
-                        input, p, p + blockSize, -1, blockMaximum, limits, out.size,
+                    decodeBlock(
+                        input, p, p + blockSize, out, blockMaximum, limits,
                         compressedBytes, declaredSize, dictionaryId, frameOutput, sizeOffset,
-                        history = if (linkedBlocks) out else null,
-                    ))
+                        linkedBlocks = linkedBlocks,
+                    )
                 }
                 p += blockSize
                 if (blockChecksum) p += 4
@@ -439,7 +419,7 @@ public object Lz4 {
                 throw ArchiveFormatException("lz4: content checksum mismatch", checksumAt.toLong())
             }
         }
-        return out.toByteArray()
+        return out.takeByteArray()
     }
 
     private fun findFrameEnd(

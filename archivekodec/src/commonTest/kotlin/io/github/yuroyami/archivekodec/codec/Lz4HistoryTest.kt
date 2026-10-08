@@ -263,6 +263,19 @@ class Lz4HistoryTest {
     }
 
     @Test
+    fun concatenatedFramesResetGrowthBudgetsEvenAfterAnEmptyOrSmallerFrame() {
+        val small = frame(listOf(true to seed), size = seed.size.toULong())
+        val empty = frame(emptyList(), size = 0uL)
+        val skipped = hex("5f2a4d1803000000616263")
+        val input = reference + empty + small + skipped + reference
+        val expected = ByteArray(70000) { 65 } + seed + ByteArray(70000) { 65 }
+        assertContentEquals(expected, Lz4.frameDecompress(input, ArchiveLimits { maxUncompressedBytes = expected.size.toLong() }))
+        assertFailsWith<DecompressionBombException> {
+            Lz4.frameDecompress(input, ArchiveLimits { maxUncompressedBytes = expected.size - 1L })
+        }
+    }
+
+    @Test
     fun laterLinkedBlockAndContentChecksumFailuresKeepTheirSourceOffsets() {
         for ((at, field) in listOf(321 to "block", 329 to "content")) {
             val changed = reference.copyOf().also { it[at] = (it[at].toInt() xor 1).toByte() }
