@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive.cpio
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
@@ -20,7 +21,10 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding).
  * Hard links resolve to their group's last nonempty payload. Listing reads only
  * metadata; reading verifies each crc record's unsigned byte sum, including
- * overwritten payloads. The archive ends at `TRAILER!!!`. Old binary cpio is not handled.
+ * overwritten payloads. The archive ends at `TRAILER!!!`. Old binary cpio is
+ * recognized in either byte order and refused with [ArchiveUnsupportedException].
+ * Empty input, unknown magic and incomplete magic before a trailer throw
+ * [ArchiveFormatException], rather than returning an empty or partial listing.
  * [limits] caps the listing count and supplies the default policy for each read.
  *
  * Owns the supplied source; close this reader to release it, including after a
@@ -101,12 +105,19 @@ public class CpioReader(
         val links = HashMap<LinkKey, Group>()
         var pos = 0L
         val total = source.size
-        while (pos <= total && total - pos >= 6) {
-            val magic = source.readFully(pos, 6).decodeToString()
+        if (total < 0) throw ArchiveFormatException("cpio: negative source size $total", 0)
+        if (total == 0L) throw ArchiveFormatException("cpio: missing header", 0)
+        while (pos < total) {
+            val prefix = source.readFully(pos, minOf(6L, total - pos).toInt())
+            if (isBinaryCpioMagic(prefix)) {
+                throw ArchiveUnsupportedException("cpio: old binary cpio is not supported", pos)
+            }
+            if (prefix.size < 6) throw ArchiveFormatException("cpio: truncated header magic", pos)
+            val magic = prefix.decodeToString()
             when (magic) {
                 "070701", "070702" -> pos = parseNewc(pos, magic == "070702", records, links) ?: break
                 "070707" -> pos = parseOdc(pos, records, links) ?: break
-                else -> break
+                else -> throw ArchiveFormatException("cpio: unrecognized header magic", pos)
             }
         }
         val entries = ArrayList<ArchiveEntry>(records.size)

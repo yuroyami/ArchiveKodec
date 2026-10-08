@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- CpioReader now rejects empty input and unknown or truncated header magic with
+  `ArchiveFormatException`, including after valid records. Failed listings never
+  expose or cache a partial result. The sniffer recognizes both byte orders of
+  old binary cpio; listing that unsupported dialect throws
+  `ArchiveUnsupportedException` naming the header offset. ASCII cpio trailers
+  and their following block padding remain supported.
+
 - ZIP, TAR, ar and cpio listings now enforce `ArchiveLimits.maxEntries` while
   parsing, with a default ceiling of 100,000 entries. ZIP checks both the declared
   count and actual directory records, including wrapped classic counts. Container

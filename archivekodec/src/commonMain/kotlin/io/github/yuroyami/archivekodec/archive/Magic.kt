@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.archive.cpio.isBinaryCpioMagic
 import io.github.yuroyami.archivekodec.archive.tar.TarHeader
 
 /**
@@ -40,6 +41,7 @@ public object Magic {
             // cpio: "070701"/"070702" (newc/crc) or "070707" (odc)
             at(0) == 0x30 && at(1) == 0x37 && at(2) == 0x30 && at(3) == 0x37 && at(4) == 0x30 &&
                 (at(5) == 0x31 || at(5) == 0x32 || at(5) == 0x37) -> ArchiveFormat.CPIO
+            isBinaryCpioMagic(header) -> ArchiveFormat.CPIO
             at(0) == 0x52 && at(1) == 0x61 && at(2) == 0x72 && at(3) == 0x21 && at(4) == 0x1A && at(5) == 0x07 ->
                 ArchiveFormat.RAR
             isZlib(header) -> ArchiveFormat.ZLIB

@@ -648,7 +648,10 @@ artifact and a kotlinx-io dependency.
   trailer; a partial header or invalid checksum throws `ArchiveFormatException`
   at that record's offset. An empty source is accepted as an empty archive.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files.
-  cpio stops at the first trailer and does not handle the old binary dialect.
+- cpio stops at the first trailer. Both byte orders of the old binary dialect are
+  recognized but listing throws `ArchiveUnsupportedException`. Empty input and
+  unknown or truncated magic before the trailer throw `ArchiveFormatException`
+  with the header offset, rather than returning an empty or partial listing.
 - The LZ4 frame decoder consumes the complete sequence of concatenated standard
   frames and all 16 skippable-frame types, including a skippable-only sequence.
   Skippable payloads are ignored. Invalid or truncated trailing data throws

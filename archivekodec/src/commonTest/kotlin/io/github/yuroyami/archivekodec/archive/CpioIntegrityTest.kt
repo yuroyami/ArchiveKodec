@@ -2,6 +2,8 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
+import io.github.yuroyami.archivekodec.ArchiveKodec
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
@@ -53,6 +55,80 @@ class CpioIntegrityTest {
             assertNull(e.crc32)
             assertContentEquals(expected, r.read(e), e.name)
             assertContentEquals(expected, r.read(e.copy()), e.name)
+        }
+    }
+
+    @Test fun binaryCpioIsDetectedAndExplicitlyRefusedInBothByteOrders() {
+        for (magic in listOf(byteArrayOf(0xc7.toByte(), 0x71), byteArrayOf(0x71, 0xc7.toByte()))) {
+            for (bytes in listOf(magic, magic + ByteArray(24))) {
+                assertEquals(ArchiveFormat.CPIO, Magic.sniff(bytes))
+                ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { r ->
+                    repeat(2) {
+                        val error = assertFailsWith<ArchiveUnsupportedException> { r.entries() }
+                        assertEquals(0L, error.offset)
+                        assertTrue(error.message.orEmpty().contains("binary cpio"))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun rejectsUnknownOrIncompleteFirstHeadersInsteadOfReturningAnEmptyListing() {
+        val inputs = listOf(byteArrayOf(), byteArrayOf(0), "07070".encodeToByteArray(),
+            "notcpio".encodeToByteArray(), ByteArray(26))
+        for (bytes in inputs) {
+            CpioReader(ByteArrayRandomAccessSource(bytes)).use { r ->
+                repeat(2) {
+                    val error = assertFailsWith<ArchiveFormatException> { r.entries() }
+                    assertEquals(0L, error.offset)
+                }
+            }
+        }
+    }
+
+    @Test fun rejectsUnknownOrIncompleteHeadersWithoutCachingAPartialListing() {
+        for (magic in listOf("070701", "070702", "070707")) {
+            val f = fixture(Spec("a", payload, magic))
+            val offset = f.headers[1]
+            val badHeaders = (1..5).map { ByteArray(it) } + listOf("broken".encodeToByteArray())
+            for (badHeader in badHeaders) {
+                val bytes = f.bytes.copyOf(offset) + badHeader
+                CpioReader(ByteArrayRandomAccessSource(bytes)).use { r ->
+                    repeat(2) {
+                        val error = assertFailsWith<ArchiveFormatException> { r.entries() }
+                        assertEquals(offset.toLong(), error.offset)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun refusesBinaryHeadersAfterSupportedRecords() {
+        for (magic in listOf("070701", "070702", "070707")) {
+            val f = fixture(Spec("a", payload, magic))
+            val offset = f.headers[1]
+            for (binary in listOf(byteArrayOf(0xc7.toByte(), 0x71), byteArrayOf(0x71, 0xc7.toByte()))) {
+                val bytes = f.bytes.copyOf(offset) + binary + ByteArray(24)
+                CpioReader(ByteArrayRandomAccessSource(bytes)).use { r ->
+                    repeat(2) {
+                        val error = assertFailsWith<ArchiveUnsupportedException> { r.entries() }
+                        assertEquals(offset.toLong(), error.offset)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun trailerTerminatedEmptyArchivesAndBlockPaddingRemainValid() {
+        for (magic in listOf("070701", "070702", "070707")) {
+            val empty = fixture(trailerMagic = magic)
+            CpioReader(ByteArrayRandomAccessSource(empty.bytes + ByteArray(512))).use { r ->
+                assertTrue(r.entries().isEmpty())
+            }
+            val f = fixture(Spec("a", payload, magic))
+            CpioReader(ByteArrayRandomAccessSource(f.bytes + ByteArray(512))).use { r ->
+                assertPayloads(r, payload, 1)
+            }
         }
     }
 
