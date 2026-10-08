@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- DEFLATE and LZ4 use compact match tables for short inputs while retaining the
+  original hash keys and match choices. Huffman symbol ordering now uses primitive
+  arrays with the same frequency and symbol tie order, reducing temporary allocations.
+
 - CRC-32, CRC-32C and CRC-64 now process eight bytes at a time using tables
   initialized once for each polynomial. Short tails and split updates retain
   their checksum values; CRC-64 keeps 32-bit arithmetic in its input loop.

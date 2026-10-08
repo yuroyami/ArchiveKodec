@@ -95,6 +95,21 @@ class LengthLimitedHuffmanTest {
         assertEquals(Int.MAX_VALUE.toLong() + 2623, cost(skew, skewLengths))
     }
 
+    @Test
+    fun equalFrequencyTiesKeepSymbolOrderAcrossSortSizes() {
+        for (count in listOf(31, 32, 33, 63, 64, 65, 285, 286)) {
+            val shortLength = 31 - count.countLeadingZeroBits()
+            val longer = 2 * count - (1 shl (shortLength + 1))
+            for (weight in listOf(1, Int.MAX_VALUE)) {
+                val frequencies = IntArray(count * 2) { if (it % 2 == 1) weight else 0 }
+                val expected = IntArray(frequencies.size) { symbol ->
+                    if (symbol % 2 == 0) 0 else if (symbol / 2 < longer) shortLength + 1 else shortLength
+                }
+                assertContentEquals(expected, checked(frequencies, 15), "count $count weight $weight")
+            }
+        }
+    }
+
     /** Independent enumeration of full prefix-code lengths, without merging packages. */
     private fun possibleLengths(count: Int, limit: Int): List<IntArray> {
         val results = ArrayList<IntArray>()

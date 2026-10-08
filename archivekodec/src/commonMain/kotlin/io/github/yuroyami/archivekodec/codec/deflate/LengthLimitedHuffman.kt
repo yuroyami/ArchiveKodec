@@ -15,16 +15,18 @@ internal object LengthLimitedHuffman {
         require(maxLen in 1..15) { "DEFLATE code length limit must be in 1..15" }
         require(frequencies.all { it >= 0 }) { "negative Huffman frequency" }
         val lengths = IntArray(frequencies.size)
-        val symbols = frequencies.indices.filter { frequencies[it] > 0 }
-            .sortedWith(compareBy({ frequencies[it] }, { it }))
-        val count = symbols.size
+        val count = frequencies.count { it > 0 }
         require(count <= (1 shl maxLen)) { "too many symbols for Huffman length limit" }
+        val symbols = IntArray(count)
+        var used = 0
+        for (symbol in frequencies.indices) if (frequencies[symbol] > 0) symbols[used++] = symbol
         if (count == 0) return lengths
         if (count == 1) {
             lengths[symbols[0]] = 1
             validate(frequencies, lengths, maxLen)
             return lengths
         }
+        sortSymbols(symbols, frequencies)
 
         val levels = minOf(maxLen, count - 1)
         val capacity = count + (levels - 1) * (count - 1)
@@ -73,6 +75,46 @@ internal object LengthLimitedHuffman {
         for (i in 0 until count) lengths[symbols[i]] = occurrences[i]
         validate(frequencies, lengths, maxLen)
         return lengths
+    }
+
+    /** Sort by frequency then symbol without boxing indices or allocating a comparator. */
+    private fun sortSymbols(symbols: IntArray, frequencies: IntArray) {
+        fun precedes(first: Int, second: Int): Boolean =
+            frequencies[first] < frequencies[second] ||
+                (frequencies[first] == frequencies[second] && first < second)
+
+        if (symbols.size <= 32) {
+            for (i in 1 until symbols.size) {
+                val symbol = symbols[i]
+                var at = i
+                while (at > 0 && precedes(symbol, symbols[at - 1])) {
+                    symbols[at] = symbols[at - 1]
+                    at--
+                }
+                symbols[at] = symbol
+            }
+            return
+        }
+
+        fun sift(root: Int, size: Int) {
+            val symbol = symbols[root]
+            var at = root
+            while (at < size / 2) {
+                var child = at * 2 + 1
+                if (child + 1 < size && precedes(symbols[child], symbols[child + 1])) child++
+                if (!precedes(symbol, symbols[child])) break
+                symbols[at] = symbols[child]
+                at = child
+            }
+            symbols[at] = symbol
+        }
+        for (root in symbols.size / 2 - 1 downTo 0) sift(root, symbols.size)
+        for (end in symbols.lastIndex downTo 1) {
+            val last = symbols[0]
+            symbols[0] = symbols[end]
+            symbols[end] = last
+            sift(0, end)
+        }
     }
 
     private fun validate(frequencies: IntArray, lengths: IntArray, maxLen: Int) {

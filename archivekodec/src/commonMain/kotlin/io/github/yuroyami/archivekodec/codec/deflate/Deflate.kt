@@ -28,6 +28,7 @@ Copyright notice:
 package io.github.yuroyami.archivekodec.codec.deflate
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.codec.EncoderMatchTable
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -119,7 +120,7 @@ private class Deflater(private val data: ByteArray) {
     private fun lz77() {
         val n = data.size
         if (n == 0) return
-        val head = IntArray(HASH_SIZE) { -1 }
+        val head = EncoderMatchTable(HASH_BITS, n)
         val prev = IntArray(n)
 
         fun hash(i: Int): Int {
@@ -131,8 +132,7 @@ private class Deflater(private val data: ByteArray) {
         fun insert(i: Int) {
             if (i > n - MIN_MATCH) return
             val h = hash(i)
-            prev[i] = head[h]
-            head[h] = i
+            prev[i] = head.put(h, i)
         }
 
         var pos = 0
@@ -337,7 +337,8 @@ private class Deflater(private val data: ByteArray) {
         private const val WINDOW_SIZE = 32_768
         private const val MIN_MATCH = 3
         private const val MAX_MATCH = 258
-        private const val HASH_SIZE = 1 shl 15
+        private const val HASH_BITS = 15
+        private const val HASH_SIZE = 1 shl HASH_BITS
         private const val MAX_CHAIN = 128
 
         private const val END_OF_BLOCK = 256

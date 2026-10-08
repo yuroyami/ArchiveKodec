@@ -26,6 +26,19 @@ class Lz4CompressionSliceTest {
         assertContentEquals(input, Lz4.frameDecompress(encoded))
     }
 
+    @Test fun largeSliceOffsetsProduceTheSameBlocksAsCopiedInput() {
+        for (offset in listOf(65535, 70000)) {
+            for (length in listOf(13, 100, 1024, 16383, 16384, 16385)) {
+                val backing = ByteArray(offset + length + 37) { ((it * 37) xor (it / 31)).toByte() }
+                assertContentEquals(
+                    Lz4.blockCompress(backing.copyOfRange(offset, offset + length)),
+                    Lz4.blockCompress(backing, offset, length),
+                    "offset $offset length $length",
+                )
+            }
+        }
+    }
+
     @Test fun wordExtensionStopsAtEachDifferingByteIncludingHighBits() {
         val prefix = ByteArray(32) { (it + 1).toByte() }
         for (byte in 0..3) {

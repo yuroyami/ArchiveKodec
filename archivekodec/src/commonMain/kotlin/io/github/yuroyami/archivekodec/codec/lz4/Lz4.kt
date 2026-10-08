@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
+import io.github.yuroyami.archivekodec.codec.EncoderMatchTable
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -176,7 +177,7 @@ public object Lz4 {
             emitLastLiterals(out, data, offset, end)
             return out.toByteArray()
         }
-        val table = IntArray(1 shl HASH_BITS) { -1 }
+        val table = EncoderMatchTable(HASH_BITS, length, offset)
         val mfLimit = end - MF_LIMIT
         val matchLimit = end - LAST_LITERALS
         var anchor = offset
@@ -184,8 +185,7 @@ public object Lz4 {
         var misses = 0
         while (i < mfLimit) {
             val h = hash(readI32Le(data, i))
-            val ref = table[h]
-            table[h] = i
+            val ref = table.put(h, i)
             if (ref >= 0 && i - ref <= 0xFFFF && readI32Le(data, ref) == readI32Le(data, i)) {
                 val len = matchLength(data, ref, i, matchLimit - i)
                 emitSequence(out, data, anchor, i, i - ref, len)
