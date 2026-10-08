@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.cpio.isBinaryCpioMagic
@@ -20,6 +22,7 @@ import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
 public object Magic {
 
     /** Identify a format from the supplied header bytes, or return [ArchiveFormat.UNKNOWN]. No payload is decoded. */
+    @JvmStatic
     public fun sniff(header: ByteArray): ArchiveFormat {
         fun at(i: Int): Int = if (i < header.size) header[i].toInt() and 0xFF else -1
         return when {
@@ -63,6 +66,7 @@ public object Magic {
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun sniff(source: RandomAccessSource): ArchiveFormat {
         val size = source.size
         if (size < 0) throw ArchiveFormatException("negative source size $size", 0)

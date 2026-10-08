@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.codec.lz4
 
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
@@ -226,6 +229,7 @@ public object Lz4 {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun frameCompress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
         out.le32(MAGIC)
@@ -273,6 +277,8 @@ public object Lz4 {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
     public fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
         fun needInput(n: Int) {

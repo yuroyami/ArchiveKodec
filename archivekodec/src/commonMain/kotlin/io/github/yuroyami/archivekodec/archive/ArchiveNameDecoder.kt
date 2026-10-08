@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
+import kotlin.jvm.JvmField
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import kotlin.text.CharacterCodingException
@@ -22,6 +24,7 @@ public fun interface ArchiveNameDecoder {
     /** Built-in strict UTF-8 and legacy CP437 filename decoders. */
     public companion object {
         /** Strict UTF-8; malformed sequences raise [ArchiveFormatException]. */
+        @JvmField
         public val UTF8: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
             try {
                 bytes.decodeToString(throwOnInvalidSequence = true)
@@ -31,6 +34,7 @@ public fun interface ArchiveNameDecoder {
         }
 
         /** IBM CP437, including ASCII controls (not DOS screen glyphs). */
+        @JvmField
         public val CP437: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
             buildString(bytes.size) {
                 for (byte in bytes) {

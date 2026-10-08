@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.checksum
 
+import kotlin.jvm.JvmStatic
+
 /**
  * CRC-32C (Castagnoli): reflected polynomial `0x82F63B78`, init `0xFFFFFFFF`,
  * final XOR `0xFFFFFFFF`. Used by btrfs/ext4/iSCSI/SCTP and as an optional 7z
@@ -27,6 +29,7 @@ public class Crc32c : Checksum {
         private val TABLES = Crc32Tables(POLY)
 
         /** Calculate the unsigned 32-bit checksum as a Long of all [data]. */
+        @JvmStatic
         public fun of(data: ByteArray): Long = Crc32c().apply { update(data) }.value()
     }
 }

@@ -25,6 +25,8 @@
 
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveSizeException
@@ -110,6 +112,7 @@ public object Inflate {
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun inflate(input: ByteArray): ByteArray = inflate(input, ArchiveLimits.DEFAULT)
 
     /**
@@ -124,6 +127,7 @@ public object Inflate {
      *   if the cumulative output or whole-input compression ratio exceeds [limits].
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null)
 
     /** ZIP's authoritative size constrains writes as well as the final stream length. */

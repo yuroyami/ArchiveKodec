@@ -121,6 +121,7 @@ abstract interface io.github.yuroyami.archivekodec.archive/ArchiveReader { // io
     abstract fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive/ArchiveReader.entries|entries(){}[0]
     abstract fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     open fun close() // io.github.yuroyami.archivekodec.archive/ArchiveReader.close|close(){}[0]
+    open fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry){}[0]
 }
 
 abstract interface io.github.yuroyami.archivekodec.archive/RandomAccessSource { // io.github.yuroyami.archivekodec.archive/RandomAccessSource|null[0]
@@ -129,12 +130,15 @@ abstract interface io.github.yuroyami.archivekodec.archive/RandomAccessSource { 
 
     abstract fun read(kotlin/Long, kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ...): kotlin/Int // io.github.yuroyami.archivekodec.archive/RandomAccessSource.read|read(kotlin.Long;kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
     open fun close() // io.github.yuroyami.archivekodec.archive/RandomAccessSource.close|close(){}[0]
+    open fun read(kotlin/Long, kotlin/ByteArray): kotlin/Int // io.github.yuroyami.archivekodec.archive/RandomAccessSource.read|read(kotlin.Long;kotlin.ByteArray){}[0]
 }
 
 abstract interface io.github.yuroyami.archivekodec.checksum/Checksum { // io.github.yuroyami.archivekodec.checksum/Checksum|null[0]
     abstract fun reset() // io.github.yuroyami.archivekodec.checksum/Checksum.reset|reset(){}[0]
     abstract fun update(kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ...) // io.github.yuroyami.archivekodec.checksum/Checksum.update|update(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
     abstract fun value(): kotlin/Long // io.github.yuroyami.archivekodec.checksum/Checksum.value|value(){}[0]
+    open fun update(kotlin/ByteArray) // io.github.yuroyami.archivekodec.checksum/Checksum.update|update(kotlin.ByteArray){}[0]
+    open fun update(kotlin/ByteArray, kotlin/Int) // io.github.yuroyami.archivekodec.checksum/Checksum.update|update(kotlin.ByteArray;kotlin.Int){}[0]
 }
 
 abstract interface io.github.yuroyami.archivekodec.codec/Codec { // io.github.yuroyami.archivekodec.codec/Codec|null[0]
@@ -143,6 +147,7 @@ abstract interface io.github.yuroyami.archivekodec.codec/Codec { // io.github.yu
 
     abstract fun compress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec/Codec.compress|compress(kotlin.ByteArray){}[0]
     abstract fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec/Codec.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    open fun decompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec/Codec.decompress|decompress(kotlin.ByteArray){}[0]
 }
 
 final class io.github.yuroyami.archivekodec.archive.ar/ArReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.ar/ArReader|null[0]

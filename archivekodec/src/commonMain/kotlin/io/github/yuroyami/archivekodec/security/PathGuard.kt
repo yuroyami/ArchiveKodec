@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.security
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 
@@ -27,6 +29,7 @@ public object PathGuard {
      * @throws ArchivePathException if the name is unsafe.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun sanitize(entryName: String): String = normalize(entryName, allowRoot = false)
 
     /**
@@ -35,6 +38,7 @@ public object PathGuard {
      * the root directory. Empty or unsafe names and non-directory entries return false.
      * A false result does not imply safety: validate the remaining name with [sanitize].
      */
+    @JvmStatic
     public fun isRootDirectory(entry: ArchiveEntry): Boolean = entry.isDirectory &&
         try { normalize(entry.name, allowRoot = true).isEmpty() } catch (_: ArchivePathException) { false }
 
@@ -70,6 +74,7 @@ public object PathGuard {
     }
 
     /** Non-throwing variant: true if [entryName] is a safe relative path. */
+    @JvmStatic
     public fun isSafe(entryName: String): Boolean =
         try { sanitize(entryName); true } catch (_: ArchivePathException) { false }
 }

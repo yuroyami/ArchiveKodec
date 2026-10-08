@@ -2,9 +2,9 @@ package io.github.yuroyami.archivekodec.consumer;
 
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource;
 import io.github.yuroyami.archivekodec.archive.ArchiveReader;
-import io.github.yuroyami.archivekodec.archive.ArchiveReaderKt;
+import io.github.yuroyami.archivekodec.archive.ArchiveReaders;
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry;
-import io.github.yuroyami.archivekodec.io.ArchiveKodecIoKt;
+import io.github.yuroyami.archivekodec.io.ArchiveKodecIo;
 import io.github.yuroyami.archivekodec.security.PathGuard;
 import io.github.yuroyami.archivekodec.security.ArchiveLimits;
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
@@ -16,34 +16,39 @@ import io.github.yuroyami.archivekodec.archive.cpio.InitramfsSegment;
 import io.github.yuroyami.archivekodec.archive.tar.TarWriter;
 import io.github.yuroyami.archivekodec.wrapper.Gzip;
 import io.github.yuroyami.archivekodec.wrapper.GzipHeader;
+import io.github.yuroyami.archivekodec.codec.Codecs;
 import java.util.Collections;
 import kotlinx.io.RawSource;
 
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
+    public byte[] decodeGzip(RawSource source) throws Exception {
+        return ArchiveKodecIo.decompress(Codecs.GZIP, source);
+    }
+
     public byte[] gzipWithHeader(byte[] bytes, String name) throws Exception {
         GzipHeader.Builder header = new GzipHeader.Builder();
         header.setName(name);
         header.setMtimeEpochSeconds(1700000000L);
         header.setOs(3);
         header.setHasHeaderCrc(true);
-        return Gzip.INSTANCE.compress(bytes, header.build());
+        return Gzip.compress(bytes, header.build());
     }
 
     public GzipHeader inspectGzipHeader(byte[] bytes) throws Exception {
-        return Gzip.INSTANCE.readHeader(bytes);
+        return Gzip.readHeader(bytes);
     }
 
     public long lastInitramfsOffset(RandomAccessSource source) throws Exception {
         ArchiveLimits.Builder limits = new ArchiveLimits.Builder();
         limits.setMaxSegments(100);
         InitramfsReader reader = new InitramfsReader(source, limits.build());
-        try (AutoCloseable resource = ArchiveReaderKt.asAutoCloseable(reader)) {
+        try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
             long end = 0;
             for (InitramfsSegment segment : reader.segments()) {
                 end = segment.getEndOffset();
                 for (ArchiveEntry entry : segment.getEntries()) {
-                    reader.read(entry, reader.getLimits());
+                    reader.read(entry);
                 }
             }
             return end;
@@ -60,7 +65,7 @@ public final class IoConsumer {
         builder.setUid(123);
         builder.setGid(456);
         builder.setMode(0755);
-        return TarWriter.INSTANCE.write(Collections.singletonList(builder.build()));
+        return TarWriter.write(Collections.singletonList(builder.build()));
     }
 
     public CpioWriter.FileSpec cpioFile(String name, byte[] data) {
@@ -73,7 +78,7 @@ public final class IoConsumer {
         builder.setUid(123L);
         builder.setGid(456L);
         builder.setMode(0100644);
-        return CpioWriter.INSTANCE.write(Collections.singletonList(builder.build()), CpioWriter.Dialect.CRC);
+        return CpioWriter.write(Collections.singletonList(builder.build()), CpioWriter.Dialect.CRC);
     }
 
     public ArWriter.FileSpec arFile(String name, byte[] data) {
@@ -86,7 +91,7 @@ public final class IoConsumer {
         builder.setUid(123);
         builder.setGid(456);
         builder.setMode(0100644);
-        return ArWriter.INSTANCE.write(Collections.singletonList(builder.build()));
+        return ArWriter.write(Collections.singletonList(builder.build()));
     }
 
     public ZipWriter.FileSpec file(String name, byte[] data) {
@@ -102,19 +107,19 @@ public final class IoConsumer {
     }
 
     public byte[] read(RawSource source) throws Exception {
-        return ArchiveKodecIoKt.readAllBytes(source);
+        return ArchiveKodecIo.readAllBytes(source);
     }
 
     public RandomAccessSource wrap(RawSource source) throws Exception {
-        return ArchiveKodecIoKt.toRandomAccessSource(source);
+        return ArchiveKodecIo.toRandomAccessSource(source);
     }
 
     public boolean skipRootDirectory(ArchiveEntry entry) {
-        return PathGuard.INSTANCE.isRootDirectory(entry);
+        return PathGuard.isRootDirectory(entry);
     }
 
     public int entriesInScope(ArchiveReader reader) throws Exception {
-        try (AutoCloseable resource = ArchiveReaderKt.asAutoCloseable(reader)) {
+        try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
             return reader.entries().size();
         }
     }

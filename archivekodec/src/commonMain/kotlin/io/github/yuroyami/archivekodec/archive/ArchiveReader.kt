@@ -1,8 +1,11 @@
+@file:JvmName("ArchiveReaders")
+
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.jvm.JvmName
 import kotlin.native.HiddenFromObjC
 
 /**
@@ -52,6 +55,13 @@ public interface ArchiveReader {
     public fun read(entry: ArchiveEntry, limits: ArchiveLimits = this.limits): ByteArray
 
     /**
+     * Read with this reader's [limits]. Also callable without an explicit policy from Java and Swift.
+     * @throws ArchiveException for the listing, decoding, integrity and limit failures documented by [read].
+     */
+    @Throws(ArchiveException::class)
+    public fun read(entry: ArchiveEntry): ByteArray = read(entry, limits)
+
+    /**
      * Release the underlying source and cached metadata. Built-in readers mark
      * themselves closed before attempting source cleanup; repeated calls are
      * no-ops, including after cleanup throws. Subsequent [entries] and [read]
@@ -69,6 +79,7 @@ public interface ArchiveReader {
 /**
  * A view that closes this reader, suitable for standard Kotlin resource cleanup
  * and Java try-with-resources. It shares ownership with this reader.
+ * Java calls `ArchiveReaders.asAutoCloseable(reader)`.
  *
  * Kept out of Objective-C so [ArchiveReader.close] retains its NSError contract;
  * Kotlin/Native's AutoCloseable.close has a different throws filter.

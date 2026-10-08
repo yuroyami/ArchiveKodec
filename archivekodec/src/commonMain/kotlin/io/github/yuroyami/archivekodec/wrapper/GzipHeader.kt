@@ -1,5 +1,9 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import kotlin.jvm.JvmSynthetic
 
 /**
@@ -89,6 +93,7 @@ public class GzipHeader private constructor(builder: Builder) {
      * @throws IllegalArgumentException if the resulting settings fail [Builder.build] validation.
      */
     @Throws(IllegalArgumentException::class)
+    @JvmOverloads
     public fun copy(configure: Builder.() -> Unit = {}): GzipHeader = Builder(this).apply(configure).build()
 
     /** Compare every field, including extra byte contents and absent versus empty optional fields. */
@@ -121,9 +126,12 @@ public class GzipHeader private constructor(builder: Builder) {
          * @throws IllegalArgumentException if settings fail [Builder.build] validation.
          */
         @Throws(IllegalArgumentException::class)
+        @JvmStatic
+        @JvmOverloads
         public operator fun invoke(configure: Builder.() -> Unit = {}): GzipHeader = Builder().apply(configure).build()
 
         /** MTIME 0, OS 255, XFL 0, no optional fields, text hint or header CRC. */
+        @JvmField
         public val DEFAULT: GzipHeader = GzipHeader()
     }
 }

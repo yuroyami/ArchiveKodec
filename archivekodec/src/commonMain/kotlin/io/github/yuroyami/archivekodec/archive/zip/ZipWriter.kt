@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.archive.zip
 
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
@@ -95,6 +98,7 @@ public object ZipWriter {
          * @throws IllegalArgumentException if [configure] throws an argument error.
          */
         @Throws(IllegalArgumentException::class)
+        @JvmOverloads
         public fun copy(configure: Builder.() -> Unit = {}): FileSpec = Builder(this).apply(configure).build()
 
         /** Compare the filename, compression method and payload content. */
@@ -145,6 +149,8 @@ public object ZipWriter {
              * @throws IllegalArgumentException if [configure] throws an argument error.
              */
             @Throws(IllegalArgumentException::class)
+            @JvmStatic
+            @JvmOverloads
             public operator fun invoke(
                 name: String,
                 data: ByteArray,
@@ -230,6 +236,7 @@ public object ZipWriter {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun write(files: List<FileSpec>): ByteArray {
         // Include both headers and the end records before constructing any output.
         var plannedSize = 22L + (if (files.size > 0xFFFF) 76 else 0) + files.size.toLong() * 76

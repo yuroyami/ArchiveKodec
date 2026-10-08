@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.archive.ar
 
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -87,6 +90,7 @@ public object ArWriter {
          * @throws IllegalArgumentException if numeric metadata cannot fit its header field.
          */
         @Throws(IllegalArgumentException::class)
+        @JvmOverloads
         public fun copy(configure: Builder.() -> Unit = {}): FileSpec = Builder(this).apply(configure).build()
 
         /** Compare names, numeric metadata and payload contents. */
@@ -115,6 +119,7 @@ public object ArWriter {
              * @throws IllegalArgumentException if numeric metadata cannot fit its header field.
              */
             @Throws(IllegalArgumentException::class)
+            @JvmStatic
             public operator fun invoke(name: String, data: ByteArray, configure: Builder.() -> Unit): FileSpec =
                 Builder(name, data).apply(configure).build()
         }
@@ -131,6 +136,7 @@ public object ArWriter {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun write(files: List<FileSpec>): ByteArray {
         var total = 8L + 60L * files.size
         checkedArraySize(total) // Reject impossible synthetic lists before reading their elements.

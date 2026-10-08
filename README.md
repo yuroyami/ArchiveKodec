@@ -76,10 +76,10 @@ Requirements:
 
 Callers outside Kotlin:
 
-- **Java** uses the JVM artifact directly. Kotlin objects are reached through
-  `INSTANCE` (`ArchiveKodec.INSTANCE.getGzip()`), and top-level functions through
-  their `Kt` file classes (`ArchiveKodecIoKt.readAllBytes(source)`). Throwing
-  methods declare their checked archive exceptions.
+- **Java** uses the JVM artifact directly, with static utilities such as
+  `Gzip.compress(bytes)` and `ArchiveKodec.open(source)`, overloads such as
+  `reader.read(entry)`, and fields such as `ArchiveLimits.DEFAULT`. Throwing
+  methods declare their checked archive exceptions. See the [Java example](#java-example).
 - **Swift** has no published framework or XCFramework yet. Build the `ArchiveKodec`
   or `ArchiveKodecIo` framework from this repository
   (`./gradlew :archivekodec:linkReleaseFrameworkIosArm64`), or depend on the
@@ -88,6 +88,57 @@ Callers outside Kotlin:
   shows the error bridge.
 - **JavaScript and TypeScript** cannot call the library directly. No declaration
   is exported with `@JsExport`, so it is usable from Kotlin/JS and Kotlin/Wasm code only.
+
+### Java example
+
+```java
+import io.github.yuroyami.archivekodec.ArchiveKodec;
+import io.github.yuroyami.archivekodec.archive.ArchiveEntry;
+import io.github.yuroyami.archivekodec.archive.ArchiveReader;
+import io.github.yuroyami.archivekodec.archive.ArchiveReaders;
+import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource;
+import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
+import io.github.yuroyami.archivekodec.checksum.Crc32;
+import io.github.yuroyami.archivekodec.security.ArchiveLimits;
+import io.github.yuroyami.archivekodec.wrapper.Gzip;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+
+public class Example {
+    public static void main(String[] args) throws Exception {
+        byte[] original = "hello".getBytes(StandardCharsets.UTF_8);
+        byte[] restored = Gzip.decompress(Gzip.compress(original));
+        long crc = Crc32.of(restored);
+
+        ArchiveLimits.Builder settings = new ArchiveLimits.Builder();
+        settings.setMaxUncompressedBytes(1024 * 1024);
+        settings.setMaxEntries(100);
+        byte[] zip = ZipWriter.write(Collections.singletonList(
+            new ZipWriter.FileSpec("hello.txt", restored)));
+        ArchiveReader reader = ArchiveKodec.open(
+            new ByteArrayRandomAccessSource(zip), settings.build());
+        try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
+            ArchiveEntry entry = reader.entries().get(0);
+            byte[] content = reader.read(entry); // Uses this reader's limits.
+            System.out.println(new String(content, StandardCharsets.UTF_8));
+        }
+    }
+}
+```
+
+Codec instances are available through `Codecs.GZIP` or `ArchiveKodec.getGzip()`;
+`codec.decompress(bytes)` uses `ArchiveLimits.DEFAULT`. Incremental checksums
+support `checksum.update(bytes)` and `checksum.update(bytes, offset)`. Top-level
+helpers are `RandomAccessSources.readFully(source, offset, length)`,
+`ArchiveReaders.asAutoCloseable(reader)`, and, in the IO artifact,
+`ArchiveKodecIo.readAllBytes(source)` and `ArchiveKodecIo.decompress(codec, source)`.
+
+The unreleased Java API changes require recompiling JVM consumers. Object methods
+became static, companion constants became fields, and the old utility classes
+`RandomAccessSourceKt`, `ArchiveReaderKt` and `ArchiveKodecIoKt` became
+`RandomAccessSources`, `ArchiveReaders` and `ArchiveKodecIo`. Update Java imports
+and calls when upgrading. Kotlin named arguments and Swift file-class names are
+unchanged by these JVM annotations.
 
 ## What you get
 
@@ -393,7 +444,7 @@ Import `io.github.yuroyami.archivekodec.archive.use` for scoped Kotlin cleanup.
 It closes on normal return, non-local return, or an exception. If both the block
 and cleanup throw, the block failure remains primary and the close failure is
 suppressed on it. `reader.asAutoCloseable()` provides a standard Kotlin resource
-view and Java `try`-with-resources through `ArchiveReaderKt.asAutoCloseable(reader)`.
+view and Java `try`-with-resources through `ArchiveReaders.asAutoCloseable(reader)`.
 Swift callers use `try reader.close()` in their cleanup handling. The adapter is
 hidden from Objective-C to preserve the reader's catchable NSError close contract.
 
@@ -937,10 +988,12 @@ DEFLATE, zlib and gzip output to `java.util.zip.Inflater` and `GZIPInputStream`.
 The Inflater helper requires stream completion and full input consumption;
 the JDK also validates the wrapper checksums and gzip size.
 `WrapperDecodeInteropTest` decodes JDK-produced raw DEFLATE/zlib/gzip streams,
-compares consumed cursors, checks legacy JVM method linking, and measures small-cap
+compares consumed cursors, checks the static JVM default-argument bridges, and measures small-cap
 bomb rejection without allocating the expanded payload. `ZipInteropTest`
 round-trips ZIPs in both directions against
 `java.util.zip`, including a 70,000-entry ZIP64 archive.
+`JavaInteropTest` executes Java source covering static utility calls, interface
+overloads, reader limits, builders, checked exceptions and resource cleanup.
 
 `XxHash32Test` checks upstream known-answer vectors across accumulator and tail
 boundaries, unsigned results, nonzero seeds and unaligned slices. The expected

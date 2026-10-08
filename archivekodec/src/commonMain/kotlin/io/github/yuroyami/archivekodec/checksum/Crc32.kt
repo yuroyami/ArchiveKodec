@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.checksum
 
+import kotlin.jvm.JvmStatic
+
 /**
  * CRC-32 (IEEE 802.3 / zlib / gzip / PNG): reflected polynomial `0xEDB88320`,
  * init `0xFFFFFFFF`, final XOR `0xFFFFFFFF`. Matches `zlib`'s `crc32()`.
@@ -26,6 +28,7 @@ public class Crc32 : Checksum {
         private val TABLES = Crc32Tables(POLY)
 
         /** One-shot convenience. */
+        @JvmStatic
         public fun of(data: ByteArray): Long = Crc32().apply { update(data) }.value()
     }
 }

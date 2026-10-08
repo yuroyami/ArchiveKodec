@@ -1,5 +1,6 @@
-public final class io/github/yuroyami/archivekodec/io/ArchiveKodecIoKt {
+public final class io/github/yuroyami/archivekodec/io/ArchiveKodecIo {
 	public static final fun compress (Lio/github/yuroyami/archivekodec/codec/Codec;Lkotlinx/io/RawSource;)[B
+	public static final fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;Lkotlinx/io/RawSource;)[B
 	public static final fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;Lkotlinx/io/RawSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;Lkotlinx/io/RawSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 	public static final fun readAllBytes (Lkotlinx/io/RawSource;)[B

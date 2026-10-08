@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.checksum
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.util.readI32Le
 
 /**
@@ -78,6 +80,7 @@ public class Crc64 : Checksum {
         }
 
         /** Calculate the 64 checksum bits as a signed Long of all [data]. */
+        @JvmStatic
         public fun of(data: ByteArray): Long = Crc64().apply { update(data) }.value()
     }
 }

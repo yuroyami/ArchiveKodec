@@ -1,7 +1,10 @@
+@file:JvmName("RandomAccessSources")
+
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import kotlin.jvm.JvmName
 
 /**
  * A seekable, random-access byte source. Every container reader works against this
@@ -38,6 +41,14 @@ public interface RandomAccessSource {
     public fun read(offset: Long, into: ByteArray, intoOffset: Int = 0, length: Int = into.size): Int
 
     /**
+     * Read into the complete destination array, including from Java and Swift.
+     * @throws ArchiveFormatException for a negative source offset.
+     * @throws ArchiveException for another source IO or lifecycle failure.
+     */
+    @Throws(ArchiveException::class)
+    public fun read(offset: Long, into: ByteArray): Int = read(offset, into, 0, into.size)
+
+    /**
      * Release any underlying handle. No-op for in-memory sources.
      *
      * @throws ArchiveException if the implementation cannot release its underlying resource.
@@ -48,6 +59,7 @@ public interface RandomAccessSource {
 
 /**
  * Read exactly [length] bytes at [offset]. Validate the source range before allocation.
+ * Java calls `RandomAccessSources.readFully(source, offset, length)`.
  *
  * @throws ArchiveFormatException for an invalid range or a premature end of source.
  * @throws ArchiveException if the source reports another IO or lifecycle failure.

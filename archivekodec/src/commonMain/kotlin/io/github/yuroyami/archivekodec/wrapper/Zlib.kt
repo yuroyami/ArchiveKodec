@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
@@ -29,6 +31,7 @@ public object Zlib {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 16)
         // CMF = 0x78 (CM=8, CINFO=7 → 32 KiB window), FLG = 0x9C so that
@@ -51,6 +54,7 @@ public object Zlib {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
     /**
@@ -66,6 +70,7 @@ public object Zlib {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
         if (!hasZlibHeader(input)) {
@@ -99,6 +104,7 @@ public object Zlib {
         ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
     @Throws(ArchiveException::class, IllegalArgumentException::class)
+    @JvmStatic
     public fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })
 }

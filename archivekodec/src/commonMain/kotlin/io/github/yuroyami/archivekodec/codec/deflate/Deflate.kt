@@ -27,6 +27,8 @@ Copyright notice:
 
 package io.github.yuroyami.archivekodec.codec.deflate
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.codec.EncoderMatchTable
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -58,6 +60,7 @@ public object Deflate {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
 }
 

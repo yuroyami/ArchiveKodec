@@ -22,6 +22,20 @@ public interface Checksum {
     @Throws(IllegalArgumentException::class)
     public fun update(data: ByteArray, offset: Int = 0, length: Int = data.size - offset)
 
+    /**
+     * Feed the complete array, including from Java and Swift.
+     * @throws IllegalArgumentException if an implementation rejects the supplied slice.
+     */
+    @Throws(IllegalArgumentException::class)
+    public fun update(data: ByteArray): Unit = update(data, 0, data.size)
+
+    /**
+     * Feed the suffix beginning at [offset], including an empty suffix at the end.
+     * @throws IllegalArgumentException if [offset] is outside the array's inclusive bounds.
+     */
+    @Throws(IllegalArgumentException::class)
+    public fun update(data: ByteArray, offset: Int): Unit = update(data, offset, data.size - offset)
+
     /** Current checksum value (low bits of the Long). */
     public fun value(): Long
 

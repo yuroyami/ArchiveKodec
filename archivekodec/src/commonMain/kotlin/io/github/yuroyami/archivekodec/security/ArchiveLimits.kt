@@ -1,5 +1,9 @@
 package io.github.yuroyami.archivekodec.security
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 
 /**
@@ -100,6 +104,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
      * @throws IllegalArgumentException if a resulting setting is negative.
      */
     @Throws(IllegalArgumentException::class)
+    @JvmOverloads
     public fun copy(configure: Builder.() -> Unit = {}): ArchiveLimits =
         Builder(this).apply(configure).build()
 
@@ -159,6 +164,8 @@ public class ArchiveLimits private constructor(builder: Builder) {
          * @throws IllegalArgumentException if a configured setting is negative.
          */
         @Throws(IllegalArgumentException::class)
+        @JvmStatic
+        @JvmOverloads
         public operator fun invoke(configure: Builder.() -> Unit = {}): ArchiveLimits =
             Builder().apply(configure).build()
 
@@ -167,9 +174,11 @@ public class ArchiveLimits private constructor(builder: Builder) {
          * and each reader's entry count, plus initramfs segments; its ratio ceiling cannot reject valid streams
          * from the current codecs. See [maxCompressionRatio] before relying on it.
          */
+        @JvmField
         public val DEFAULT: ArchiveLimits = ArchiveLimits()
 
         /** Opt-out for trusted input: every guard relaxed to its maximum. */
+        @JvmField
         public val UNBOUNDED: ArchiveLimits = ArchiveLimits {
             maxUncompressedBytes = Long.MAX_VALUE
             maxCompressionRatio = Int.MAX_VALUE

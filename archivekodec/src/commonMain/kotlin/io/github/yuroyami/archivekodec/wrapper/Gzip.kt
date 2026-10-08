@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
@@ -48,6 +50,7 @@ public object Gzip {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun compress(data: ByteArray): ByteArray = compress(data, GzipHeader.DEFAULT)
 
     /**
@@ -59,6 +62,7 @@ public object Gzip {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun compress(data: ByteArray, header: GzipHeader): ByteArray {
         val extra = header.storedExtra
         val headerSize = 10L + (extra?.let { 2L + it.size } ?: 0L) +
@@ -113,6 +117,7 @@ public object Gzip {
      * @throws ArchiveFormatException for a recognized but malformed/truncated gzip header or failed FHCRC.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun readHeader(input: ByteArray): GzipHeader? {
         if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) return null
         val metadata = GzipHeader.Builder()
@@ -130,6 +135,7 @@ public object Gzip {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
     /**
@@ -147,6 +153,7 @@ public object Gzip {
      * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if a zlib input requires a preset dictionary.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) {
             return Zlib.decompress(input, limits)
@@ -187,6 +194,7 @@ public object Gzip {
         ReplaceWith("decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })", "io.github.yuroyami.archivekodec.security.ArchiveLimits"),
     )
     @Throws(ArchiveException::class, IllegalArgumentException::class)
+    @JvmStatic
     public fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })
 

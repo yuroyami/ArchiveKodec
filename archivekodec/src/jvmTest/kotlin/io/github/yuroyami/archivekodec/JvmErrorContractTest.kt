@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec
 
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.Store
@@ -15,11 +17,17 @@ class JvmErrorContractTest {
         for (type in listOf(Codec::class.java, Store::class.java)) {
             val method = type.getMethod("decompress", ByteArray::class.java, ArchiveLimits::class.java)
             assertTrue(ArchiveException::class.java in method.exceptionTypes, method.toString())
+            val shortMethod = type.getMethod("decompress", ByteArray::class.java)
+            assertTrue(ArchiveException::class.java in shortMethod.exceptionTypes, shortMethod.toString())
         }
         for (type in listOf(ArchiveReader::class.java, ZipReader::class.java)) {
             val method = type.getMethod("entries")
             assertTrue(ArchiveException::class.java in method.exceptionTypes, method.toString())
+            val read = type.getMethod("read", ArchiveEntry::class.java)
+            assertTrue(ArchiveException::class.java in read.exceptionTypes, read.toString())
         }
+        val read = RandomAccessSource::class.java.getMethod("read", Long::class.javaPrimitiveType, ByteArray::class.java)
+        assertTrue(ArchiveException::class.java in read.exceptionTypes, read.toString())
         val method = Gzip::class.java.getMethod("decompress", ByteArray::class.java)
         assertTrue(ArchiveException::class.java in method.exceptionTypes)
     }

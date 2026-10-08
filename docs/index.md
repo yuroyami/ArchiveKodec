@@ -55,6 +55,12 @@ yet, and JavaScript cannot call the library because nothing is exported with
 `@JsExport`. The [README's Install section](https://github.com/yuroyami/ArchiveKodec#install)
 covers these callers and the reasons behind each requirement.
 
+Java callers can use `Gzip.compress(bytes)`, `Crc32.of(bytes)`,
+`ArchiveLimits.DEFAULT` and `reader.read(entry)` directly. The short read overload
+uses the reader's configured limits. See the
+[Java example and JVM migration notes](https://github.com/yuroyami/ArchiveKodec#java-example)
+for builders, resource cleanup and the renamed utility classes.
+
 ## A first example
 
 ```kotlin

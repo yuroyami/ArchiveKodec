@@ -37,6 +37,7 @@ public object ArchiveKodec {
     public val VERSION: String get() = GENERATED_VERSION
 
     /** Detect the format of a header buffer. */
+    @JvmStatic
     public fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
 
     /**
@@ -46,21 +47,28 @@ public object ArchiveKodec {
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
 
     /** The codec for [id], or null if not yet implemented. */
+    @JvmStatic
     public fun codec(id: CodecId): Codec? = Codecs.byId(id)
 
     /** Codec ids available right now. */
+    @JvmStatic
     public val codecs: List<CodecId> get() = Codecs.implemented
 
     /** Identity codec: returns the input bytes unchanged. */
+    @JvmStatic
     public val store: Codec get() = Codecs.STORE
     /** Raw DEFLATE codec, without gzip or zlib framing. */
+    @JvmStatic
     public val deflate: Codec get() = Codecs.DEFLATE
     /** Gzip encoder and decoder; decoding also accepts one zlib stream. */
+    @JvmStatic
     public val gzip: Codec get() = Codecs.GZIP
     /** Zlib codec with RFC 1950 framing and Adler-32 integrity checks. */
+    @JvmStatic
     public val zlib: Codec get() = Codecs.ZLIB
 
     /**
@@ -76,6 +84,7 @@ public object ArchiveKodec {
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun open(source: RandomAccessSource): ArchiveReader = open(source, ArchiveLimits.DEFAULT)
 
     /**
@@ -86,6 +95,7 @@ public object ArchiveKodec {
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun open(source: RandomAccessSource, limits: ArchiveLimits): ArchiveReader = when (val format = containerFormat(source)) {
         ArchiveFormat.TAR -> TarReader(source, limits)
         ArchiveFormat.ZIP -> ZipReader(source, limits)
@@ -105,6 +115,7 @@ public object ArchiveKodec {
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader =
         open(source, nameDecoder, ArchiveLimits.DEFAULT)
 
@@ -116,6 +127,7 @@ public object ArchiveKodec {
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): ArchiveReader = when (val format = containerFormat(source)) {
         ArchiveFormat.TAR -> TarReader(source, nameDecoder, limits)
         ArchiveFormat.ZIP -> ZipReader(source, nameDecoder, limits)

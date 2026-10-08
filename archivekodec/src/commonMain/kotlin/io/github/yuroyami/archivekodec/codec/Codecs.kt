@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.codec
 
+import kotlin.jvm.JvmField
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
@@ -15,9 +18,11 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
 public object Codecs {
 
     /** Identity transform; decompression still enforces the supplied limits. */
+    @JvmField
     public val STORE: Codec = Store
 
     /** Raw DEFLATE without a wrapper header or checksum. */
+    @JvmField
     public val DEFLATE: Codec = object : Codec {
         override val id = CodecId.DEFLATE
         override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
@@ -26,6 +31,7 @@ public object Codecs {
     }
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */
+    @JvmField
     public val GZIP: Codec = object : Codec {
         override val id = CodecId.GZIP
         override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
@@ -34,6 +40,7 @@ public object Codecs {
     }
 
     /** Zlib framing with Adler-32 validation and no preset dictionary support. */
+    @JvmField
     public val ZLIB: Codec = object : Codec {
         override val id = CodecId.ZLIB
         override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
@@ -42,6 +49,7 @@ public object Codecs {
     }
 
     /** LZ4 frame codec; decoding supports linked blocks and concatenated frames. */
+    @JvmField
     public val LZ4: Codec = object : Codec {
         override val id = CodecId.LZ4
         override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
@@ -50,6 +58,7 @@ public object Codecs {
     }
 
     /** Snappy raw-block codec with greedy back-reference compression. */
+    @JvmField
     public val SNAPPY: Codec = object : Codec {
         override val id = CodecId.SNAPPY
         override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)
@@ -58,6 +67,7 @@ public object Codecs {
     }
 
     /** Standard Snappy framing with per-chunk CRC-32C validation; [SNAPPY] handles raw blocks. */
+    @JvmField
     public val SNAPPY_FRAMED: Codec = object : Codec {
         override val id = CodecId.SNAPPY_FRAMED
         override fun compress(data: ByteArray): ByteArray = Snappy.frameCompress(data)
@@ -68,8 +78,10 @@ public object Codecs {
     private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB, LZ4, SNAPPY, SNAPPY_FRAMED)
 
     /** The codec for [id], or null if not yet implemented. */
+    @JvmStatic
     public fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }
 
     /** Ids of the codecs available right now. */
+    @JvmStatic
     public val implemented: List<CodecId> get() = all.map { it.id }
 }

@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.codec.snappy
 
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -28,6 +31,8 @@ public object Snappy {
      * @throws DecompressionBombException if declared output exceeds [limits] or the maximum ByteArray size.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
     public fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray =
         decompressBlock(src, 0, src.size) { length ->
             limits.checkOutputSize(length)
@@ -129,6 +134,7 @@ public object Snappy {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(minOf(data.size, 64 * 1024) + 8)
         var v = data.size
@@ -190,6 +196,8 @@ public object Snappy {
      * @throws DecompressionBombException if combined output exceeds [limits] or the maximum ByteArray size.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
     public fun frameDecompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray =
         SnappyFraming.decompress(src, limits)
 
@@ -201,6 +209,7 @@ public object Snappy {
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
+    @JvmStatic
     public fun frameCompress(data: ByteArray): ByteArray = SnappyFraming.compress(data)
 
     private fun literal(out: ByteArrayBuilder, data: ByteArray, offset: Int, length: Int) {

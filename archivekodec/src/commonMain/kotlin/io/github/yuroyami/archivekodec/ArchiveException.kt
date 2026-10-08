@@ -1,10 +1,12 @@
 package io.github.yuroyami.archivekodec
 
+import kotlin.jvm.JvmOverloads
+
 /**
  * Base for expected archive and codec failures. [offset] identifies the source
  * byte when known; [entryName] identifies the member when known.
  */
-public open class ArchiveException(
+public open class ArchiveException @JvmOverloads public constructor(
     message: String,
     cause: Throwable? = null,
     /** Absolute source byte offset of the failure, or null when unavailable. */
@@ -22,7 +24,7 @@ public open class ArchiveException(
 }
 
 /** Malformed or truncated archive data, including a declared range outside its source. */
-public class ArchiveFormatException(
+public class ArchiveFormatException @JvmOverloads public constructor(
     message: String,
     offset: Long? = null,
     entryName: String? = null,
@@ -33,16 +35,16 @@ public class ArchiveFormatException(
 public class ArchiveSizeException(message: String) : ArchiveException(message)
 
 /** A recognized format, compression method or requested operation is not implemented. */
-public class ArchiveUnsupportedException(
+public class ArchiveUnsupportedException @JvmOverloads public constructor(
     message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
 ) : ArchiveException(message, cause, offset, entryName)
 
 /** A source or adapter failed while performing IO; [cause] retains the original failure. */
-public class ArchiveIOException(
+public class ArchiveIOException @JvmOverloads public constructor(
     message: String, cause: Throwable, offset: Long? = null, entryName: String? = null,
 ) : ArchiveException(message, cause, offset, entryName)
 
 /** Listing or reading was attempted after the reader released its source. */
-public class ArchiveClosedException(
+public class ArchiveClosedException @JvmOverloads public constructor(
     message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
 ) : ArchiveException(message, cause, offset, entryName)

@@ -9,6 +9,7 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.lang.management.ManagementFactory
+import java.lang.reflect.Modifier
 import java.util.zip.Deflater
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
@@ -87,19 +88,21 @@ class WrapperDecodeInteropTest {
     }
 
     @Test
-    fun legacyDefaultBridgesKeepLinkingAndUseTheSharedDefault() {
+    fun deprecatedSizeDefaultBridgesAreStaticAndUseTheSharedDefault() {
         val data = ByteArray(5 * 1024 * 1024)
-        for ((type, receiver, input) in listOf(
-            Triple(Gzip::class.java, Gzip, Gzip.compress(data)),
-            Triple(Zlib::class.java, Zlib, Zlib.compress(data)),
+        for ((type, input) in listOf(
+            Gzip::class.java to Gzip.compress(data),
+            Zlib::class.java to Zlib.compress(data),
         )) {
-            // These are the JVM entry points used by callers compiled before the overloads.
-            type.getMethod("decompress", ByteArray::class.java, Long::class.javaPrimitiveType)
+            // The Java API migration makes these static; recompiling Kotlin callers
+            // uses a default bridge without the former object receiver parameter.
+            val explicit = type.getMethod("decompress", ByteArray::class.java, Long::class.javaPrimitiveType)
+            assertTrue(Modifier.isStatic(explicit.modifiers))
             val bridge = type.getMethod(
-                "decompress\$default", type, ByteArray::class.java,
+                "decompress\$default", ByteArray::class.java,
                 Long::class.javaPrimitiveType, Int::class.javaPrimitiveType, Any::class.java,
             )
-            val result = bridge.invoke(null, receiver, input, 0L, 2, null) as ByteArray
+            val result = bridge.invoke(null, input, 0L, 2, null) as ByteArray
             assertEquals(data.size, result.size)
         }
     }

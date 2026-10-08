@@ -32,4 +32,11 @@ public interface Codec {
      */
     @Throws(ArchiveException::class)
     public fun decompress(data: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
+
+    /**
+     * Decode with [ArchiveLimits.DEFAULT], including from Java and Swift.
+     * @throws ArchiveException for the framing, decoding, integrity and limit failures documented by [decompress].
+     */
+    @Throws(ArchiveException::class)
+    public fun decompress(data: ByteArray): ByteArray = decompress(data, ArchiveLimits.DEFAULT)
 }

@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.checksum
 
+import kotlin.jvm.JvmStatic
+
 /**
  * Adler-32 (RFC 1950): the zlib-stream trailer checksum. Two 16-bit rolling sums
  * modulo 65521, combined as `(b shl 16) or a`. Faster but weaker than CRC-32.
@@ -43,6 +45,7 @@ public class Adler32 : Checksum {
         private const val NMAX = 3854
 
         /** Calculate the unsigned 32-bit checksum as a Long of all [data]. */
+        @JvmStatic
         public fun of(data: ByteArray): Long = Adler32().apply { update(data) }.value()
     }
 }

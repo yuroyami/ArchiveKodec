@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added Java static utility calls, constant fields, interface convenience overloads
+  and default-argument overloads for builders, copies and codec helpers. A reader's
+  `read(entry)` retains its configured limits. JVM helper classes are now
+  `RandomAccessSources`, `ArchiveReaders` and `ArchiveKodecIo`. These static/field
+  changes and class renames break JVM binary compatibility: recompile consumers
+  and update Java imports/calls. Kotlin named arguments remain supported.
+
 - Added immutable `GzipHeader` metadata with builders and owned extra-field
   snapshots, `Gzip.compress(data, header)` and first-member `Gzip.readHeader`.
   Names/comments use Latin-1; timestamp, OS, XFL, FTEXT, extra bytes and optional
@@ -239,8 +246,9 @@
   `ArchiveLimits`; omitted policies use `ArchiveLimits.DEFAULT` (2 GiB output,
   10000:1 ratio). This raises the direct gzip/zlib default from 4 MiB to the shared
   default. Explicit byte budgets remain available through the policy.
-- Existing gzip/zlib `maximumSize: Long` calls and JVM default-call bridges remain
-  available as deprecated delegates. `Gzip.DEFAULT_MAXIMUM_SIZE` remains the old
+- Existing gzip/zlib `maximumSize: Long` source calls remain available as deprecated
+  delegates. Their JVM default-call bridges now use the static signatures described
+  above and require recompilation. `Gzip.DEFAULT_MAXIMUM_SIZE` remains the old
   4 MiB value for explicit compatibility use, but is deprecated and no longer
   controls defaults. Zero-byte budgets accept empty output. Budget violations
   now consistently throw `DecompressionBombException`; malformed wrapper headers,

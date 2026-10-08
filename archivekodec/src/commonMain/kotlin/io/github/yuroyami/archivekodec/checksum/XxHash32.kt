@@ -1,5 +1,8 @@
 package io.github.yuroyami.archivekodec.checksum
 
+import kotlin.jvm.JvmOverloads
+import kotlin.jvm.JvmStatic
+
 import io.github.yuroyami.archivekodec.util.readI32Le
 
 /**
@@ -26,6 +29,8 @@ public object XxHash32 {
      * @throws IllegalArgumentException if the slice is outside [data].
      */
     @Throws(IllegalArgumentException::class)
+    @JvmStatic
+    @JvmOverloads
     public fun hash(data: ByteArray, offset: Int = 0, length: Int = data.size - offset, seed: Int = 0): Long {
         val end = checkedChecksumEnd(data.size, offset, length)
         var i = offset

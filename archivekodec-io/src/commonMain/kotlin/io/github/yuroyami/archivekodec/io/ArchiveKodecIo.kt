@@ -1,3 +1,5 @@
+@file:JvmName("ArchiveKodecIo")
+
 package io.github.yuroyami.archivekodec.io
 
 import io.github.yuroyami.archivekodec.ArchiveException
@@ -10,6 +12,8 @@ import kotlinx.io.IOException
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
 import kotlinx.io.readByteArray
+import kotlin.jvm.JvmName
+import kotlin.jvm.JvmOverloads
 
 /**
  * kotlinx-io convenience adapters for ArchiveKodec: drain a `RawSource` to a
@@ -26,6 +30,7 @@ import kotlinx.io.readByteArray
 
 /**
  * Drain a [RawSource] fully into a `ByteArray` from its current position.
+ * Java calls `ArchiveKodecIo.readAllBytes(source)`.
  * The caller retains ownership and must close it, including when reading fails.
  * This function does not synchronize access to the source.
  *
@@ -74,6 +79,8 @@ public fun Codec.compress(source: RawSource): ByteArray = compress(source.readAl
 
 /**
  * Decompress all bytes drained from [source]'s current position, enforcing [limits].
+ * Java calls `ArchiveKodecIo.decompress(codec, source)` with default limits, or
+ * supplies an explicit policy as the third argument.
  * The caller owns [source] and must close it on success or failure.
  * This function does not synchronize access to [source].
  *
@@ -88,6 +95,7 @@ public fun Codec.compress(source: RawSource): ByteArray = compress(source.readAl
  * @throws ArchiveException if a custom codec reports another archive failure.
  */
 @Throws(ArchiveException::class)
+@JvmOverloads
 public fun Codec.decompress(
     source: RawSource,
     limits: ArchiveLimits = ArchiveLimits.DEFAULT,
