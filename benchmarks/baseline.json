@@ -1,0 +1,4205 @@
+{
+  "schema": 1,
+  "corpus_version": 1,
+  "profile": "smoke",
+  "recorded_at": "2026-10-08T17:13:15.932483+00:00",
+  "os": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "machine": "x86_64",
+  "revision": "c1b727c4e426dbfa805e952839f4af41d810e034",
+  "dirty": true,
+  "runtimes": [
+    {
+      "platform": "jvm",
+      "runtime": "OpenJDK 64-Bit Server VM 21.0.12.1",
+      "profile": "smoke",
+      "corpus_version": 1,
+      "samples": 3
+    },
+    {
+      "platform": "js",
+      "runtime": "Node v24.10.0 / V8 13.6.233.10-node.28",
+      "profile": "smoke",
+      "corpus_version": 1,
+      "samples": 3
+    }
+  ],
+  "results": [
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 1111369139.0,
+      "iterations": 1781,
+      "cpu_ns_per_call": [
+        30978.59797866367,
+        24693.23301516002,
+        12213.576080853452
+      ],
+      "mb_per_second": 8.187610191970267
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 122318968.0,
+      "iterations": 137311,
+      "cpu_ns_per_call": [
+        384.38316668001835,
+        197.40786972638753,
+        219.00841884481216
+      ],
+      "mb_per_second": 506.5654177748973
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 109557574.0,
+      "iterations": 74150,
+      "cpu_ns_per_call": [
+        501.8710586648685,
+        675.0457316250843,
+        464.6662440997977
+      ],
+      "mb_per_second": 215.2082301431879
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 114557774.0,
+      "iterations": 160496,
+      "cpu_ns_per_call": [
+        203.491800418702,
+        267.6256729139667,
+        258.60123616787956
+      ],
+      "mb_per_second": 491.42029209157977
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 172487499.0,
+      "iterations": 35036,
+      "cpu_ns_per_call": [
+        1094.5418997602467,
+        1140.5988697339878,
+        741.1338052289074
+      ],
+      "mb_per_second": 134.9284019895893
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 103020118.0,
+      "iterations": 175851,
+      "cpu_ns_per_call": [
+        341.7733763242745,
+        269.45232043036435,
+        168.34013454572337
+      ],
+      "mb_per_second": 594.0354049844168
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 2631326244.0,
+      "iterations": 1049,
+      "cpu_ns_per_call": [
+        45673.881792183034,
+        39892.40705433746,
+        42541.355576739756
+      ],
+      "mb_per_second": 2.506742695766389
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 565768994.0,
+      "iterations": 2196,
+      "cpu_ns_per_call": [
+        32098.806921675776,
+        22403.38160291439,
+        12749.603825136612
+      ],
+      "mb_per_second": 7.8433809686575495
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 265372009.0,
+      "iterations": 8740,
+      "cpu_ns_per_call": [
+        4372.309153318078,
+        3568.0522883295193,
+        4529.139359267734
+      ],
+      "mb_per_second": 28.026495106891417
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 418280144.0,
+      "iterations": 11025,
+      "cpu_ns_per_call": [
+        2276.6628571428573,
+        2822.8513378684806,
+        1983.0179591836734
+      ],
+      "mb_per_second": 50.42818676295089
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 132603829.0,
+      "iterations": 157324,
+      "cpu_ns_per_call": [
+        368.7485062673209,
+        372.3734141008365,
+        378.83820014746635
+      ],
+      "mb_per_second": 271.18753920458164
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 507331739.0,
+      "iterations": 3536,
+      "cpu_ns_per_call": [
+        24394.10096153846,
+        16219.844739819004,
+        22524.98076923077
+      ],
+      "mb_per_second": 6.165287128458413
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 110412098.0,
+      "iterations": 393525,
+      "cpu_ns_per_call": [
+        111.663840924973,
+        85.46400101645385,
+        132.9911441458611
+      ],
+      "mb_per_second": 1170.083296015449
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 115353496.0,
+      "iterations": 667946,
+      "cpu_ns_per_call": [
+        105.71887248370378,
+        112.25645037173663,
+        84.58129848820114
+      ],
+      "mb_per_second": 1182.294452643686
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 114688748.0,
+      "iterations": 594953,
+      "cpu_ns_per_call": [
+        83.77073819276481,
+        88.38111581923278,
+        77.37142261657644
+      ],
+      "mb_per_second": 1292.4668646143712
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 1217217544.0,
+      "iterations": 1454,
+      "cpu_ns_per_call": [
+        33945.68982118295,
+        39843.3204951857,
+        27458.92916093535
+      ],
+      "mb_per_second": 3.6418026141480326
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 705291784.0,
+      "iterations": 2691,
+      "cpu_ns_per_call": [
+        18284.521739130436,
+        22384.88219992568,
+        12203.590486807878
+      ],
+      "mb_per_second": 8.194309708122404
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 385489511.0,
+      "iterations": 4518,
+      "cpu_ns_per_call": [
+        9564.466578131916,
+        7406.921204072599,
+        9180.374944665782
+      ],
+      "mb_per_second": 13.500886163743218
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 100470758.0,
+      "iterations": 172844,
+      "cpu_ns_per_call": [
+        212.9112841637546,
+        194.69587605007985,
+        274.3050438545741
+      ],
+      "mb_per_second": 513.6215621448392
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 102849471.0,
+      "iterations": 226687,
+      "cpu_ns_per_call": [
+        251.53452116795404,
+        184.9135062884065,
+        293.1729786004491
+      ],
+      "mb_per_second": 540.7933796032816
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 184023619.0,
+      "iterations": 271353,
+      "cpu_ns_per_call": [
+        150.2906435528629,
+        142.21062969637336,
+        160.6001149793811
+      ],
+      "mb_per_second": 703.1823163536009
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 147267739.0,
+      "iterations": 107924,
+      "cpu_ns_per_call": [
+        446.43085875245544,
+        470.84816166932285,
+        596.7671509580816
+      ],
+      "mb_per_second": 223.99885231824823
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 116557749.0,
+      "iterations": 413136,
+      "cpu_ns_per_call": [
+        108.44827369195616,
+        120.67541197087643,
+        135.89675796832037
+      ],
+      "mb_per_second": 922.0985876091195
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 1978351620.0,
+      "iterations": 1157,
+      "cpu_ns_per_call": [
+        33079.907519446846,
+        36362.451166810715,
+        33596.891961970614
+      ],
+      "mb_per_second": 3.022983058257116
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 106662516.0,
+      "iterations": 38273,
+      "cpu_ns_per_call": [
+        1357.5575993520235,
+        1180.606667885977,
+        1431.463668904972
+      ],
+      "mb_per_second": 84.70221515779039
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 102372243.0,
+      "iterations": 336643,
+      "cpu_ns_per_call": [
+        138.23186580442783,
+        230.0934164678903,
+        180.40331151991873
+      ],
+      "mb_per_second": 723.4221965974275
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 161271486.0,
+      "iterations": 21811,
+      "cpu_ns_per_call": [
+        2440.2087937279352,
+        1039.9531887579662,
+        931.1219568107836
+      ],
+      "mb_per_second": 107.39731704159709
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 108299179.0,
+      "iterations": 543207,
+      "cpu_ns_per_call": [
+        50.650289852671264,
+        58.654017713321075,
+        57.73839991016316
+      ],
+      "mb_per_second": 1974.3223640155745
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 124552311.0,
+      "iterations": 29083,
+      "cpu_ns_per_call": [
+        1498.9621084482344,
+        1960.3144448646976,
+        2962.803562218478
+      ],
+      "mb_per_second": 66.71282711977467
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 155680426.0,
+      "iterations": 664426,
+      "cpu_ns_per_call": [
+        66.67640489685834,
+        65.4600557473669,
+        35.68714800444293
+      ],
+      "mb_per_second": 2802.1292143477067
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 3145727,
+      "warmup_cpu_ns": 132873849.0,
+      "iterations": 1048576,
+      "cpu_ns_per_call": [
+        48.32107353210449,
+        80.81934928894043,
+        55.08166980743408
+      ],
+      "mb_per_second": 2069.490445686395
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 120664290.0,
+      "iterations": 768941,
+      "cpu_ns_per_call": [
+        47.66898240567222,
+        40.61387284590105,
+        51.39920748145826
+      ],
+      "mb_per_second": 2462.2128596163293
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 552029378.0,
+      "iterations": 2777,
+      "cpu_ns_per_call": [
+        19018.212099387827,
+        16524.29708318329,
+        15349.112711559237
+      ],
+      "mb_per_second": 6.515034574258561
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 522755948.0,
+      "iterations": 2992,
+      "cpu_ns_per_call": [
+        19117.08723262032,
+        13144.475935828877,
+        18018.094251336897
+      ],
+      "mb_per_second": 7.6077586119217235
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 163184221.0,
+      "iterations": 10416,
+      "cpu_ns_per_call": [
+        4155.64247311828,
+        5935.0769969278035,
+        4329.410138248848
+      ],
+      "mb_per_second": 24.063667807534646
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 227429136.0,
+      "iterations": 193584,
+      "cpu_ns_per_call": [
+        179.99645115298785,
+        181.47853644929333,
+        223.59679002396894
+      ],
+      "mb_per_second": 555.5665090030307
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 111681309.0,
+      "iterations": 239819,
+      "cpu_ns_per_call": [
+        177.61231595494937,
+        167.91897639469767,
+        181.954682489711
+      ],
+      "mb_per_second": 595.5253071871255
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 159465704.0,
+      "iterations": 303076,
+      "cpu_ns_per_call": [
+        199.75011878208767,
+        135.8692341194948,
+        172.53519249297207
+      ],
+      "mb_per_second": 736.0017935484321
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 126393474.0,
+      "iterations": 121484,
+      "cpu_ns_per_call": [
+        401.99891343716047,
+        444.2193869151493,
+        511.2116081130025
+      ],
+      "mb_per_second": 248.7568912686421
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 112240501.0,
+      "iterations": 456783,
+      "cpu_ns_per_call": [
+        107.0256139129521,
+        139.99717590190528,
+        114.67122244041481
+      ],
+      "mb_per_second": 934.3557709590315
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 761103561.0,
+      "iterations": 3378,
+      "cpu_ns_per_call": [
+        14547.797217288336,
+        16352.522498519835,
+        16504.1477205447
+      ],
+      "mb_per_second": 6.873892899824162
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 116097242.0,
+      "iterations": 30180,
+      "cpu_ns_per_call": [
+        1476.3395957587807,
+        1249.3867793240556,
+        921.0445990722333
+      ],
+      "mb_per_second": 108.57237543190617
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 113652441.0,
+      "iterations": 183973,
+      "cpu_ns_per_call": [
+        281.46048061400313,
+        392.15417479738875,
+        331.93945307191814
+      ],
+      "mb_per_second": 355.2896654686691
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 111480117.0,
+      "iterations": 16575,
+      "cpu_ns_per_call": [
+        3965.8278129713426,
+        6570.563740573152,
+        5356.977978883861
+      ],
+      "mb_per_second": 25.21541648200716
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 125710180.0,
+      "iterations": 79778,
+      "cpu_ns_per_call": [
+        586.18261926847,
+        597.693349043596,
+        517.2930632505202
+      ],
+      "mb_per_second": 193.31401695516442
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 109472838.0,
+      "iterations": 27451,
+      "cpu_ns_per_call": [
+        1711.5772103019926,
+        1384.435612545991,
+        1515.4144839896544
+      ],
+      "mb_per_second": 72.23160043976259
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 103045971.0,
+      "iterations": 917117,
+      "cpu_ns_per_call": [
+        55.987842336364935,
+        48.804862411229976,
+        49.52582494927038
+      ],
+      "mb_per_second": 2048.9761687554733
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 145593319.0,
+      "iterations": 808390,
+      "cpu_ns_per_call": [
+        46.00345254147132,
+        44.34204529991712,
+        48.57730550847982
+      ],
+      "mb_per_second": 2255.1959280098185
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 106288523.0,
+      "iterations": 840924,
+      "cpu_ns_per_call": [
+        54.15481541732665,
+        49.3478483192298,
+        41.67665448958527
+      ],
+      "mb_per_second": 2399.424839270373
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 366084859.0,
+      "iterations": 4904,
+      "cpu_ns_per_call": [
+        9124.93515497553,
+        9306.324632952692,
+        8453.152936378467
+      ],
+      "mb_per_second": 11.829905450976307
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 336030536.0,
+      "iterations": 5195,
+      "cpu_ns_per_call": [
+        19172.228681424447,
+        9178.825601539942,
+        9129.565158806545
+      ],
+      "mb_per_second": 10.953424205920495
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "stored",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 120124342.0,
+      "iterations": 190743,
+      "cpu_ns_per_call": [
+        225.96357926634266,
+        193.92629873704408,
+        183.8942031948748
+      ],
+      "mb_per_second": 543.790931212926
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "stored",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 108426598.0,
+      "iterations": 30939,
+      "cpu_ns_per_call": [
+        1616.0514237693526,
+        1348.1416335369597,
+        1392.7528362261223
+      ],
+      "mb_per_second": 74.17618261490955
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 432093646.0,
+      "iterations": 1159,
+      "cpu_ns_per_call": [
+        34399.93787748059,
+        40428.77308024159,
+        36382.839516824846
+      ],
+      "mb_per_second": 29.767495617204194
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 114235619.0,
+      "iterations": 16811,
+      "cpu_ns_per_call": [
+        3559.716019273095,
+        3226.093153292487,
+        6005.216049015526
+      ],
+      "mb_per_second": 317.41178922714175
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 145599404.0,
+      "iterations": 24994,
+      "cpu_ns_per_call": [
+        2488.159758342002,
+        1879.2700648155558,
+        1718.7145714971593
+      ],
+      "mb_per_second": 595.794099254073
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 163923240.0,
+      "iterations": 16766,
+      "cpu_ns_per_call": [
+        1602.4658236908028,
+        1771.696946200644,
+        1541.114517475844
+      ],
+      "mb_per_second": 664.4541910338928
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 230878860.0,
+      "iterations": 5764,
+      "cpu_ns_per_call": [
+        4145.750867453157,
+        5638.532789729355,
+        4403.874739764053
+      ],
+      "mb_per_second": 246.99988801523665
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 113375064.0,
+      "iterations": 58682,
+      "cpu_ns_per_call": [
+        1522.6354589141474,
+        1213.1814866568966,
+        838.607920657101
+      ],
+      "mb_per_second": 1221.0712238415695
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 1166728565.0,
+      "iterations": 526,
+      "cpu_ns_per_call": [
+        95680.47338403043,
+        77258.57034220532,
+        109726.76235741445
+      ],
+      "mb_per_second": 13.254192971269655
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 101024480.0,
+      "iterations": 3890,
+      "cpu_ns_per_call": [
+        13643.475064267352,
+        21052.003084832904,
+        14586.408740359897
+      ],
+      "mb_per_second": 75.05419221836561
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 116871382.0,
+      "iterations": 6718,
+      "cpu_ns_per_call": [
+        7872.769425424233,
+        12325.820184578744,
+        5606.829562369753
+      ],
+      "mb_per_second": 182.63440837805697
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 332653989.0,
+      "iterations": 1136,
+      "cpu_ns_per_call": [
+        42335.890845070426,
+        17094.207746478874,
+        10501.578345070422
+      ],
+      "mb_per_second": 97.50915208671266
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 202103819.0,
+      "iterations": 6999,
+      "cpu_ns_per_call": [
+        5753.693384769253,
+        5158.085440777254,
+        7233.75753679097
+      ],
+      "mb_per_second": 198.52327220188445
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 105632610.0,
+      "iterations": 4087,
+      "cpu_ns_per_call": [
+        12281.321507218008,
+        20592.83361879129,
+        14647.160753609005
+      ],
+      "mb_per_second": 83.37864939030969
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 132555083.0,
+      "iterations": 462419,
+      "cpu_ns_per_call": [
+        121.31440100860908,
+        120.96295783694009,
+        140.7264018130743
+      ],
+      "mb_per_second": 8465.401461002364
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 168067454.0,
+      "iterations": 698080,
+      "cpu_ns_per_call": [
+        106.86980861792345,
+        94.06260314004126,
+        71.60697054778822
+      ],
+      "mb_per_second": 14300.283787548517
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 178934342.0,
+      "iterations": 268395,
+      "cpu_ns_per_call": [
+        134.69509864192702,
+        137.1496972745394,
+        136.46884256413122
+      ],
+      "mb_per_second": 7602.355321942323
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 271426482.0,
+      "iterations": 1474,
+      "cpu_ns_per_call": [
+        36722.75508819539,
+        56268.35549525102,
+        29753.20488466757
+      ],
+      "mb_per_second": 34.4164604777648
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 1396366526.0,
+      "iterations": 350,
+      "cpu_ns_per_call": [
+        25858.345714285715,
+        32345.262857142858,
+        27227.905714285713
+      ],
+      "mb_per_second": 39.60036776189748
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 900033597.0,
+      "iterations": 675,
+      "cpu_ns_per_call": [
+        82213.1288888889,
+        156449.6311111111,
+        57370.87259259259
+      ],
+      "mb_per_second": 17.84877854781336
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 160121554.0,
+      "iterations": 20471,
+      "cpu_ns_per_call": [
+        1808.1332616872648,
+        2098.011968150066,
+        2004.7782717014313
+      ],
+      "mb_per_second": 566.329939113255
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 201529025.0,
+      "iterations": 5298,
+      "cpu_ns_per_call": [
+        2410.1910154775387,
+        1744.7540581351454,
+        1792.3469233673084
+      ],
+      "mb_per_second": 586.9022027634584
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 108969734.0,
+      "iterations": 34441,
+      "cpu_ns_per_call": [
+        1676.220260735751,
+        2107.3491768531694,
+        2739.9558665543973
+      ],
+      "mb_per_second": 610.8982357429154
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 208380150.0,
+      "iterations": 6746,
+      "cpu_ns_per_call": [
+        5996.442039727246,
+        4571.121998221168,
+        5084.323154461903
+      ],
+      "mb_per_second": 224.0150230946549
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 110214170.0,
+      "iterations": 64182,
+      "cpu_ns_per_call": [
+        2227.974323018915,
+        827.7182075971456,
+        1121.4696643918855
+      ],
+      "mb_per_second": 1237.1360090925843
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 2404929211.0,
+      "iterations": 208,
+      "cpu_ns_per_call": [
+        529432.8605769231,
+        407154.63942307694,
+        212073.64423076922
+      ],
+      "mb_per_second": 4.828511358468138
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 1133094757.0,
+      "iterations": 1332,
+      "cpu_ns_per_call": [
+        10212.93093093093,
+        17380.08033033033,
+        10479.422672672672
+      ],
+      "mb_per_second": 100.26504701982356
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 175948021.0,
+      "iterations": 5478,
+      "cpu_ns_per_call": [
+        9944.242424242424,
+        3479.730376049653,
+        7497.009492515516
+      ],
+      "mb_per_second": 294.2756734970055
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 254081424.0,
+      "iterations": 4999,
+      "cpu_ns_per_call": [
+        99858.2426485297,
+        23736.478895779157,
+        11363.823364672935
+      ],
+      "mb_per_second": 90.11051713311033
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 373341743.0,
+      "iterations": 21447,
+      "cpu_ns_per_call": [
+        516.7800158530331,
+        451.56618641301816,
+        515.9868046813074
+      ],
+      "mb_per_second": 2267.663148416994
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 214149460.0,
+      "iterations": 1630,
+      "cpu_ns_per_call": [
+        23397.893865030674,
+        22666.149079754603,
+        31247.240490797547
+      ],
+      "mb_per_second": 45.177502203699724
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 125725162.0,
+      "iterations": 348336,
+      "cpu_ns_per_call": [
+        82.10328246290938,
+        95.46961841440448,
+        79.8510375040191
+      ],
+      "mb_per_second": 12823.878461797813
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 128459029.0,
+      "iterations": 152832,
+      "cpu_ns_per_call": [
+        589.1772861704355,
+        131.00531302345058,
+        1577.9980959484924
+      ],
+      "mb_per_second": 7816.476876908794
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 127299982.0,
+      "iterations": 13156,
+      "cpu_ns_per_call": [
+        219.05906050471268,
+        293.9324262693828,
+        683.1570386135603
+      ],
+      "mb_per_second": 4674.538444749563
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 1873338540.0,
+      "iterations": 235,
+      "cpu_ns_per_call": [
+        279694.9234042553,
+        873401.2127659575,
+        172634.11489361702
+      ],
+      "mb_per_second": 5.931620181972859
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 1905031574.0,
+      "iterations": 395,
+      "cpu_ns_per_call": [
+        360396.7215189873,
+        189399.79746835443,
+        155240.39746835444
+      ],
+      "mb_per_second": 6.5962211943495
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 298232723.0,
+      "iterations": 1020,
+      "cpu_ns_per_call": [
+        15293.771568627451,
+        11151.740196078432,
+        17560.629411764705
+      ],
+      "mb_per_second": 91.82423388594499
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 108093677.0,
+      "iterations": 15876,
+      "cpu_ns_per_call": [
+        3177.3180272108843,
+        2355.368921642731,
+        2513.248047367095
+      ],
+      "mb_per_second": 434.7514270867684
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 140456734.0,
+      "iterations": 26260,
+      "cpu_ns_per_call": [
+        2662.431150038081,
+        2326.408377760853,
+        1987.4547981721248
+      ],
+      "mb_per_second": 515.231843733895
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 123271428.0,
+      "iterations": 26512,
+      "cpu_ns_per_call": [
+        1226.9148310199155,
+        1115.6205114665058,
+        1111.3866173808087
+      ],
+      "mb_per_second": 921.3715407274278
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 136240552.0,
+      "iterations": 5040,
+      "cpu_ns_per_call": [
+        6511.652380952381,
+        4779.050595238095,
+        6125.408134920635
+      ],
+      "mb_per_second": 214.26849948404526
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 117416334.0,
+      "iterations": 54953,
+      "cpu_ns_per_call": [
+        775.5293614543338,
+        920.2185685949812,
+        811.6117045475224
+      ],
+      "mb_per_second": 1320.3884351711902
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 427137166.0,
+      "iterations": 1569,
+      "cpu_ns_per_call": [
+        38317.737412364564,
+        38396.50669216061,
+        26807.991077119183
+      ],
+      "mb_per_second": 38.197565683091845
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 124626222.0,
+      "iterations": 7601,
+      "cpu_ns_per_call": [
+        6954.688462044468,
+        7693.621497171424,
+        6354.471780028944
+      ],
+      "mb_per_second": 161.14636046040255
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 105721742.0,
+      "iterations": 17333,
+      "cpu_ns_per_call": [
+        3597.7526683205447,
+        2401.6424162003113,
+        3289.2415046443202
+      ],
+      "mb_per_second": 426.374881244849
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 116532896.0,
+      "iterations": 13116,
+      "cpu_ns_per_call": [
+        5206.424138456847,
+        5198.427188167124,
+        3580.3580359865814
+      ],
+      "mb_per_second": 286.0049161864989
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 121153135.0,
+      "iterations": 5550,
+      "cpu_ns_per_call": [
+        9105.344684684685,
+        7477.996576576576,
+        5646.8846846846845
+      ],
+      "mb_per_second": 181.33892529756503
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 145927504.0,
+      "iterations": 11401,
+      "cpu_ns_per_call": [
+        5101.87974739058,
+        7481.292605911762,
+        4741.343654065433
+      ],
+      "mb_per_second": 215.97253325478277
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 2097151,
+      "warmup_cpu_ns": 163802005.0,
+      "iterations": 604843,
+      "cpu_ns_per_call": [
+        90.00050260976815,
+        72.20536899658258,
+        103.98618649798378
+      ],
+      "mb_per_second": 14181.770888096495
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 118995558.0,
+      "iterations": 550258,
+      "cpu_ns_per_call": [
+        91.35204031563376,
+        84.21133359260565,
+        131.29355138862132
+      ],
+      "mb_per_second": 12159.883430345228
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 105327340.0,
+      "iterations": 287309,
+      "cpu_ns_per_call": [
+        181.73968793180862,
+        164.58520269117918,
+        236.06227093477753
+      ],
+      "mb_per_second": 6221.701485044138
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 142346930.0,
+      "iterations": 3027,
+      "cpu_ns_per_call": [
+        16034.391476709614,
+        22436.860588040963,
+        21246.679220350183
+      ],
+      "mb_per_second": 63.862729152359016
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 245214610.0,
+      "iterations": 1819,
+      "cpu_ns_per_call": [
+        34748.830676195714,
+        25345.972512369433,
+        48865.99395272128
+      ],
+      "mb_per_second": 40.40089602007829
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "stored",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 206857381.0,
+      "iterations": 13813,
+      "cpu_ns_per_call": [
+        3262.273365670021,
+        2599.6934047636287,
+        2942.28654166365
+      ],
+      "mb_per_second": 393.89260215210066
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "stored",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 121135523.0,
+      "iterations": 13043,
+      "cpu_ns_per_call": [
+        2795.7282067009123,
+        2635.878478877559,
+        3160.1219811393084
+      ],
+      "mb_per_second": 388.4852842062931
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 286491387.0,
+      "iterations": 23,
+      "cpu_ns_per_call": [
+        3109516.1304347827,
+        2641665.5217391304,
+        2239034.652173913
+      ],
+      "mb_per_second": 29.269756917951266
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 102576387.0,
+      "iterations": 221,
+      "cpu_ns_per_call": [
+        223664.62895927601,
+        132981.88687782804,
+        186567.7511312217
+      ],
+      "mb_per_second": 492.81899617057366
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 146145622.0,
+      "iterations": 347,
+      "cpu_ns_per_call": [
+        141302.42939481267,
+        235714.0432276657,
+        254226.89048991355
+      ],
+      "mb_per_second": 463.79952758551707
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 117553199.0,
+      "iterations": 244,
+      "cpu_ns_per_call": [
+        267407.7868852459,
+        318868.60655737703,
+        193541.1680327869
+      ],
+      "mb_per_second": 338.61529650837826
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 114689582.0,
+      "iterations": 131,
+      "cpu_ns_per_call": [
+        486220.7786259542,
+        529492.7175572519,
+        670598.748091603
+      ],
+      "mb_per_second": 134.78650621473406
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 162629423.0,
+      "iterations": 738,
+      "cpu_ns_per_call": [
+        52000.73170731707,
+        60609.28590785908,
+        58807.49322493225
+      ],
+      "mb_per_second": 1260.289958396458
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 3333841140.0,
+      "iterations": 2,
+      "cpu_ns_per_call": [
+        10723802.5,
+        12854775.0,
+        14875899.5
+      ],
+      "mb_per_second": 6.11126510395916
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 208671407.0,
+      "iterations": 28,
+      "cpu_ns_per_call": [
+        1442115.4642857143,
+        946906.5,
+        740685.3571428572
+      ],
+      "mb_per_second": 88.48021547611069
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 182578718.0,
+      "iterations": 53,
+      "cpu_ns_per_call": [
+        1019595.641509434,
+        3001316.0188679243,
+        1780395.0566037735
+      ],
+      "mb_per_second": 64.27646150289435
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 138687865.0,
+      "iterations": 50,
+      "cpu_ns_per_call": [
+        1093683.9,
+        1141617.74,
+        1001112.22
+      ],
+      "mb_per_second": 65.46319053022847
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 232734315.0,
+      "iterations": 34,
+      "cpu_ns_per_call": [
+        356614.4705882353,
+        1228436.1764705882,
+        876485.1764705882
+      ],
+      "mb_per_second": 183.7726884495136
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 115527358.0,
+      "iterations": 78,
+      "cpu_ns_per_call": [
+        304649.9871794872,
+        308751.74358974356,
+        284489.7948717949
+      ],
+      "mb_per_second": 230.36327200957683
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 234958158.0,
+      "iterations": 11822,
+      "cpu_ns_per_call": [
+        3758.816528506175,
+        4081.422348164439,
+        3036.2141769582136
+      ],
+      "mb_per_second": 21584.775045631424
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 122817374.0,
+      "iterations": 11880,
+      "cpu_ns_per_call": [
+        2696.7446127946127,
+        2497.6943602693605,
+        3021.530808080808
+      ],
+      "mb_per_second": 26238.598702257692
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 152233776.0,
+      "iterations": 4473,
+      "cpu_ns_per_call": [
+        9135.924211938296,
+        7289.379610999329,
+        6987.210820478426
+      ],
+      "mb_per_second": 9379.422159114505
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 195637367.0,
+      "iterations": 35,
+      "cpu_ns_per_call": [
+        1661166.4285714286,
+        1795391.4571428571,
+        1944448.857142857
+      ],
+      "mb_per_second": 39.45179656463423
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 1211540040.0,
+      "iterations": 6,
+      "cpu_ns_per_call": [
+        10353139.666666666,
+        7540169.166666667,
+        8423827.333333334
+      ],
+      "mb_per_second": 8.691582184882456
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 440747240.0,
+      "iterations": 14,
+      "cpu_ns_per_call": [
+        2962585.5714285714,
+        2594061.3571428573,
+        4653485.214285715
+      ],
+      "mb_per_second": 25.263858859600163
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 149203865.0,
+      "iterations": 337,
+      "cpu_ns_per_call": [
+        133261.83086053413,
+        202595.9465875371,
+        150482.32640949555
+      ],
+      "mb_per_second": 491.7837281448358
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 124680518.0,
+      "iterations": 395,
+      "cpu_ns_per_call": [
+        187265.80759493672,
+        129600.84810126582,
+        168486.4987341772
+      ],
+      "mb_per_second": 505.6757032083026
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 142852037.0,
+      "iterations": 317,
+      "cpu_ns_per_call": [
+        128418.55205047318,
+        125538.51104100946,
+        133610.17034700315
+      ],
+      "mb_per_second": 522.03900983493
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 198479040.0,
+      "iterations": 123,
+      "cpu_ns_per_call": [
+        329699.0081300813,
+        360627.89430894307,
+        526802.3821138211
+      ],
+      "mb_per_second": 198.7752416111093
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 108185447.0,
+      "iterations": 996,
+      "cpu_ns_per_call": [
+        52093.9718875502,
+        64349.33534136546,
+        55771.50602409639
+      ],
+      "mb_per_second": 1258.034233624299
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 916494326.0,
+      "iterations": 7,
+      "cpu_ns_per_call": [
+        11348179.285714285,
+        6628611.571428572,
+        7132757.0
+      ],
+      "mb_per_second": 9.886836676700298
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 147457241.0,
+      "iterations": 90,
+      "cpu_ns_per_call": [
+        401045.5111111111,
+        419253.8888888889,
+        403065.2555555556
+      ],
+      "mb_per_second": 163.41287505856914
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 147627512.0,
+      "iterations": 617,
+      "cpu_ns_per_call": [
+        58044.47974068071,
+        70818.24311183144,
+        74553.46677471638
+      ],
+      "mb_per_second": 1129.0651633503887
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 172444925.0,
+      "iterations": 40,
+      "cpu_ns_per_call": [
+        1114622.8,
+        885313.5,
+        1254144.25
+      ],
+      "mb_per_second": 74.02575471852626
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 4095,
+      "warmup_cpu_ns": 102085604.0,
+      "iterations": 2209,
+      "cpu_ns_per_call": [
+        28651.930285196922,
+        29777.674513354457,
+        30450.14169307379
+      ],
+      "mb_per_second": 2287.315351798804
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 104843327.0,
+      "iterations": 65,
+      "cpu_ns_per_call": [
+        623056.4923076923,
+        797468.1538461539,
+        920108.6
+      ],
+      "mb_per_second": 105.1846835866618
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 196122106.0,
+      "iterations": 16108,
+      "cpu_ns_per_call": [
+        2609.924633722374,
+        3271.808294015396,
+        2446.854233921033
+      ],
+      "mb_per_second": 26783.77775490938
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 183576895.0,
+      "iterations": 17596,
+      "cpu_ns_per_call": [
+        2414.547397135713,
+        2577.634632871107,
+        3341.5263696294614
+      ],
+      "mb_per_second": 27142.1468378475
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 146011035.0,
+      "iterations": 5201,
+      "cpu_ns_per_call": [
+        8132.892905210537,
+        6011.408383003269,
+        9468.939819265526
+      ],
+      "mb_per_second": 10901.937753105796
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 533956669.0,
+      "iterations": 14,
+      "cpu_ns_per_call": [
+        3571846.0,
+        4018470.9285714286,
+        3447069.5
+      ],
+      "mb_per_second": 19.012091285075627
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 552455903.0,
+      "iterations": 14,
+      "cpu_ns_per_call": [
+        4227293.357142857,
+        3564610.0,
+        3707627.5714285714
+      ],
+      "mb_per_second": 18.385180987541414
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 154277193.0,
+      "iterations": 77,
+      "cpu_ns_per_call": [
+        473686.66233766236,
+        490239.16883116885,
+        490673.06493506493
+      ],
+      "mb_per_second": 138.35306165594204
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 164740712.0,
+      "iterations": 320,
+      "cpu_ns_per_call": [
+        173978.453125,
+        142023.38125,
+        196734.484375
+      ],
+      "mb_per_second": 461.44514673002124
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc32c",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 134325761.0,
+      "iterations": 217,
+      "cpu_ns_per_call": [
+        202374.05529953918,
+        212350.35944700462,
+        377232.66359447007
+      ],
+      "mb_per_second": 323.83597740826235
+    },
+    {
+      "platform": "jvm",
+      "operation": "adler32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 165189158.0,
+      "iterations": 292,
+      "cpu_ns_per_call": [
+        238035.16438356164,
+        198564.58561643836,
+        188496.47602739726
+      ],
+      "mb_per_second": 347.6775873012851
+    },
+    {
+      "platform": "jvm",
+      "operation": "crc64",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 123038171.0,
+      "iterations": 111,
+      "cpu_ns_per_call": [
+        527516.0360360361,
+        516879.7747747748,
+        435668.0720720721
+      ],
+      "mb_per_second": 150.4264466484899
+    },
+    {
+      "platform": "jvm",
+      "operation": "xxhash32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 152182135.0,
+      "iterations": 757,
+      "cpu_ns_per_call": [
+        66448.2892998679,
+        56101.06208718626,
+        75306.94055482166
+      ],
+      "mb_per_second": 1168.17752751545
+    },
+    {
+      "platform": "jvm",
+      "operation": "deflate",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 178923229.0,
+      "iterations": 36,
+      "cpu_ns_per_call": [
+        996319.3333333334,
+        1186183.0,
+        1032044.9722222222
+      ],
+      "mb_per_second": 65.77810728688726
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.encode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 105840333.0,
+      "iterations": 234,
+      "cpu_ns_per_call": [
+        167966.6923076923,
+        176067.0811965812,
+        174406.9188034188
+      ],
+      "mb_per_second": 390.1725937422575
+    },
+    {
+      "platform": "jvm",
+      "operation": "lz4.decode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 175196975.0,
+      "iterations": 283,
+      "cpu_ns_per_call": [
+        169988.8621908127,
+        181520.56183745584,
+        190816.88339222615
+      ],
+      "mb_per_second": 385.53114101343743
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.encode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 154400016.0,
+      "iterations": 323,
+      "cpu_ns_per_call": [
+        148915.47368421053,
+        130700.64705882352,
+        158519.0773993808
+      ],
+      "mb_per_second": 501.4206239583854
+    },
+    {
+      "platform": "jvm",
+      "operation": "snappy.decode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 108164855.0,
+      "iterations": 108,
+      "cpu_ns_per_call": [
+        669720.0185185185,
+        429345.6759259259,
+        591033.8425925926
+      ],
+      "mb_per_second": 152.64157455100766
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 130075573.0,
+      "iterations": 406,
+      "cpu_ns_per_call": [
+        137261.37931034484,
+        119099.18965517242,
+        141969.80049261084
+      ],
+      "mb_per_second": 550.2640294173807
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 164322735.0,
+      "iterations": 21521,
+      "cpu_ns_per_call": [
+        2255.8454997444355,
+        2698.1702523116955,
+        2657.9455880302958
+      ],
+      "mb_per_second": 29051.63496676726
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.crc32c",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 167368331.0,
+      "iterations": 19199,
+      "cpu_ns_per_call": [
+        3746.223344965884,
+        2823.0675035158083,
+        2279.4134590343247
+      ],
+      "mb_per_second": 28751.25604802052
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.adler32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 104496420.0,
+      "iterations": 7529,
+      "cpu_ns_per_call": [
+        5921.380528622659,
+        7235.350909815381,
+        6892.2528888298575
+      ],
+      "mb_per_second": 11067.689313870862
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.1",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 198780550.0,
+      "iterations": 237,
+      "cpu_ns_per_call": [
+        224479.86075949366,
+        155641.06329113923,
+        189141.91561181436
+      ],
+      "mb_per_second": 421.0713973176192
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.deflate.6",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 141472546.0,
+      "iterations": 93,
+      "cpu_ns_per_call": [
+        465734.96774193546,
+        566484.9139784946,
+        590903.5483870967
+      ],
+      "mb_per_second": 140.7152233334423
+    },
+    {
+      "platform": "jvm",
+      "operation": "inflate",
+      "corpus": "stored",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 122261998.0,
+      "iterations": 425,
+      "cpu_ns_per_call": [
+        124996.36705882353,
+        101567.55058823529,
+        95244.35294117648
+      ],
+      "mb_per_second": 688.0827889132225
+    },
+    {
+      "platform": "jvm",
+      "operation": "jdk.inflate",
+      "corpus": "stored",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 4095,
+      "warmup_cpu_ns": 115634473.0,
+      "iterations": 1809,
+      "cpu_ns_per_call": [
+        30524.752902155888,
+        32666.419568822555,
+        30209.3178551686
+      ],
+      "mb_per_second": 2169.3968832463147
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 5884730000,
+      "iterations": 291,
+      "cpu_ns_per_call": [
+        169010.30927835053,
+        133199.31271477664,
+        169955.3264604811
+      ],
+      "mb_per_second": 0.7507546244936921
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 125375000,
+      "iterations": 122028,
+      "cpu_ns_per_call": [
+        333.7676598813387,
+        299.61156455895366,
+        317.77952601042387
+      ],
+      "mb_per_second": 333.76548781488475
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 111821000,
+      "iterations": 120215,
+      "cpu_ns_per_call": [
+        389.0113546562409,
+        322.88815871563446,
+        332.8869109512124
+      ],
+      "mb_per_second": 309.70476092333064
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 132415000,
+      "iterations": 279127,
+      "cpu_ns_per_call": [
+        273.43825570439265,
+        203.24440129403462,
+        199.5901507199232
+      ],
+      "mb_per_second": 501.0267272172461
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 131306000,
+      "iterations": 72720,
+      "cpu_ns_per_call": [
+        707.0957095709571,
+        662.5825082508251,
+        569.8157315731573
+      ],
+      "mb_per_second": 175.4953302603953
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 167955000,
+      "iterations": 168283,
+      "cpu_ns_per_call": [
+        205.67139877468313,
+        218.79809606436777,
+        206.7410255343677
+      ],
+      "mb_per_second": 486.21247580249053
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 9981283000,
+      "iterations": 161,
+      "cpu_ns_per_call": [
+        343968.9440993789,
+        372018.63354037266,
+        258136.64596273293
+      ],
+      "mb_per_second": 0.3873917228103946
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 1651744000,
+      "iterations": 1038,
+      "cpu_ns_per_call": [
+        43631.02119460501,
+        44500.9633911368,
+        66563.5838150289
+      ],
+      "mb_per_second": 2.2919472719644944
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 2395945000,
+      "iterations": 764,
+      "cpu_ns_per_call": [
+        54613.87434554974,
+        36820.680628272254,
+        41221.20418848168
+      ],
+      "mb_per_second": 2.7158650598983325
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 883624000,
+      "iterations": 2030,
+      "cpu_ns_per_call": [
+        19581.28078817734,
+        22660.591133004928,
+        21582.266009852217
+      ],
+      "mb_per_second": 5.1069182389937104
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "text",
+      "bytes": 100,
+      "crc32": 312440189,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 778697000,
+      "iterations": 2305,
+      "cpu_ns_per_call": [
+        20030.368763557482,
+        25537.960954446855,
+        32678.95878524946
+      ],
+      "mb_per_second": 4.9924193199047
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 10152433000,
+      "iterations": 221,
+      "cpu_ns_per_call": [
+        234031.6742081448,
+        228769.23076923078,
+        167710.407239819
+      ],
+      "mb_per_second": 0.5962659184113965
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 105000000,
+      "iterations": 170016,
+      "cpu_ns_per_call": [
+        423.6660079051383,
+        277.74444758140413,
+        300.11881234707323
+      ],
+      "mb_per_second": 360.04320111814656
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 213301000,
+      "iterations": 98812,
+      "cpu_ns_per_call": [
+        514.1177184957293,
+        533.589037768692,
+        713.5874185321621
+      ],
+      "mb_per_second": 194.5079821263361
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 140180000,
+      "iterations": 239366,
+      "cpu_ns_per_call": [
+        198.80016376594838,
+        224.12122022342353,
+        252.17031658631552
+      ],
+      "mb_per_second": 503.0176942798302
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 110810000,
+      "iterations": 76793,
+      "cpu_ns_per_call": [
+        846.3922492935554,
+        1110.6611279673928,
+        847.4730769731616
+      ],
+      "mb_per_second": 118.14852993215071
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 122151000,
+      "iterations": 213049,
+      "cpu_ns_per_call": [
+        257.6590361841642,
+        357.0727860726875,
+        307.1593858689785
+      ],
+      "mb_per_second": 388.10981163697306
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 20672144000,
+      "iterations": 69,
+      "cpu_ns_per_call": [
+        423623.1884057971,
+        586652.1739130435,
+        438695.652173913
+      ],
+      "mb_per_second": 0.23605884365378035
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 849060000,
+      "iterations": 2170,
+      "cpu_ns_per_call": [
+        29550.230414746544,
+        25575.11520737327,
+        20747.00460829493
+      ],
+      "mb_per_second": 4.81997290153484
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 319239000,
+      "iterations": 6157,
+      "cpu_ns_per_call": [
+        11721.94250446646,
+        9567.808997888582,
+        8217.476043527691
+      ],
+      "mb_per_second": 12.169186678525547
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 337005000,
+      "iterations": 5395,
+      "cpu_ns_per_call": [
+        13199.073215940685,
+        9127.154772937905,
+        8358.85078776645
+      ],
+      "mb_per_second": 11.96336703920525
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "random",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 167955000,
+      "iterations": 10187,
+      "cpu_ns_per_call": [
+        3247.0796112692647,
+        4394.031608913321,
+        4776.283498576618
+      ],
+      "mb_per_second": 30.796904286837172
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 738693000,
+      "iterations": 2126,
+      "cpu_ns_per_call": [
+        19879.586077140168,
+        20882.878645343368,
+        25751.6462841016
+      ],
+      "mb_per_second": 5.0302858224493665
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 136514000,
+      "iterations": 203959,
+      "cpu_ns_per_call": [
+        235.2384547874818,
+        214.8471016233655,
+        239.63149456508415
+      ],
+      "mb_per_second": 465.4472843450479
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 142126000,
+      "iterations": 166827,
+      "cpu_ns_per_call": [
+        252.0035725631942,
+        274.9794697501004,
+        304.72285661193933
+      ],
+      "mb_per_second": 396.819771175757
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 1048575,
+      "warmup_cpu_ns": 177603000,
+      "iterations": 282608,
+      "cpu_ns_per_call": [
+        206.0769688048463,
+        227.8137915416407,
+        242.8558285681934
+      ],
+      "mb_per_second": 485.25558474561717
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 262143,
+      "warmup_cpu_ns": 163047000,
+      "iterations": 82685,
+      "cpu_ns_per_call": [
+        600.2176936566487,
+        535.7561831045534,
+        545.3347039970974
+      ],
+      "mb_per_second": 186.6520688954604
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 524287,
+      "warmup_cpu_ns": 109805000,
+      "iterations": 256271,
+      "cpu_ns_per_call": [
+        213.5473775807641,
+        202.48096741340223,
+        171.9624928298559
+      ],
+      "mb_per_second": 581.5221584333658
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 3259234000,
+      "iterations": 515,
+      "cpu_ns_per_call": [
+        1130965.0485436893,
+        657854.3689320388,
+        733629.1262135922
+      ],
+      "mb_per_second": 0.15200932717424992
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 2167892000,
+      "iterations": 462,
+      "cpu_ns_per_call": [
+        23136.363636363636,
+        194393.9393939394,
+        46636.36363636364
+      ],
+      "mb_per_second": 4.322200392927308
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 2677224000,
+      "iterations": 953,
+      "cpu_ns_per_call": [
+        65078.69884575026,
+        42237.145855194125,
+        48520.461699895066
+      ],
+      "mb_per_second": 2.367584219417669
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 836789000,
+      "iterations": 2092,
+      "cpu_ns_per_call": [
+        14724.665391969407,
+        21414.91395793499,
+        29390.53537284895
+      ],
+      "mb_per_second": 6.791325801843916
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "runs",
+      "bytes": 100,
+      "crc32": 2509749389,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 632475000,
+      "iterations": 3440,
+      "cpu_ns_per_call": [
+        10119.767441860466,
+        8451.162790697674,
+        6107.267441860465
+      ],
+      "mb_per_second": 16.373934980246563
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "stored",
+      "bytes": 100,
+      "crc32": 3773426176,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 400066000,
+      "iterations": 4223,
+      "cpu_ns_per_call": [
+        14419.843713000237,
+        15705.659483779304,
+        9893.914278948614
+      ],
+      "mb_per_second": 10.107223206165335
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 13382834000,
+      "iterations": 30,
+      "cpu_ns_per_call": [
+        834466.6666666666,
+        814966.6666666666,
+        1045933.3333333334
+      ],
+      "mb_per_second": 1.256493108102581
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 278279000,
+      "iterations": 3840,
+      "cpu_ns_per_call": [
+        4665.625,
+        4165.104166666667,
+        3230.46875
+      ],
+      "mb_per_second": 316.9818621523579
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 160547000,
+      "iterations": 21678,
+      "cpu_ns_per_call": [
+        2490.681797213765,
+        3321.939293292739,
+        1944.1830427161178
+      ],
+      "mb_per_second": 526.6993783514449
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 158538000,
+      "iterations": 17585,
+      "cpu_ns_per_call": [
+        2640.4890531703154,
+        2103.7816320727893,
+        1998.4646005117997
+      ],
+      "mb_per_second": 512.3933642546169
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 113353000,
+      "iterations": 7109,
+      "cpu_ns_per_call": [
+        7261.780841187227,
+        5641.721761147841,
+        4805.598537065692
+      ],
+      "mb_per_second": 213.08479934431986
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 113411000,
+      "iterations": 32931,
+      "cpu_ns_per_call": [
+        2372.081017885883,
+        2114.755093984392,
+        2840.029151862986
+      ],
+      "mb_per_second": 484.216826294855
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 8132634000,
+      "iterations": 50,
+      "cpu_ns_per_call": [
+        690660,
+        1045080,
+        1206600
+      ],
+      "mb_per_second": 1.4826397938204037
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 3453315000,
+      "iterations": 112,
+      "cpu_ns_per_call": [
+        720071.4285714285,
+        477357.14285714284,
+        508875
+      ],
+      "mb_per_second": 2.1451443962292385
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 13184729000,
+      "iterations": 36,
+      "cpu_ns_per_call": [
+        1294833.3333333333,
+        1224777.7777777778,
+        1549083.3333333333
+      ],
+      "mb_per_second": 0.8360700353805679
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 2773385000,
+      "iterations": 163,
+      "cpu_ns_per_call": [
+        270693.25153374235,
+        255288.3435582822,
+        278000
+      ],
+      "mb_per_second": 4.011150629626069
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "text",
+      "bytes": 1024,
+      "crc32": 3429855097,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 2912974000,
+      "iterations": 161,
+      "cpu_ns_per_call": [
+        178714.2857142857,
+        177149.06832298136,
+        215776.39751552796
+      ],
+      "mb_per_second": 5.780442480978928
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 18812284000,
+      "iterations": 22,
+      "cpu_ns_per_call": [
+        3237227.272727273,
+        2922454.5454545454,
+        2616363.6363636362
+      ],
+      "mb_per_second": 0.39138290479499654
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 167540000,
+      "iterations": 18338,
+      "cpu_ns_per_call": [
+        2313.720143963355,
+        3242.174719162395,
+        4042.1529065328828
+      ],
+      "mb_per_second": 442.5772938320488
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 119906000,
+      "iterations": 15210,
+      "cpu_ns_per_call": [
+        3726.03550295858,
+        3593.2281393819853,
+        4971.860618014464
+      ],
+      "mb_per_second": 284.9805134210382
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 115256000,
+      "iterations": 15941,
+      "cpu_ns_per_call": [
+        3702.9044601969763,
+        3044.601969763503,
+        3480.772849883947
+      ],
+      "mb_per_second": 336.3329624593069
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 168764000,
+      "iterations": 4847,
+      "cpu_ns_per_call": [
+        12225.293996286362,
+        11224.262430369301,
+        11916.030534351145
+      ],
+      "mb_per_second": 91.23093890155135
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 118218000,
+      "iterations": 13840,
+      "cpu_ns_per_call": [
+        4299.277456647399,
+        2371.5317919075146,
+        2950.9393063583816
+      ],
+      "mb_per_second": 431.78843458655774
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 15111143000,
+      "iterations": 30,
+      "cpu_ns_per_call": [
+        1665866.6666666667,
+        1394800,
+        1344466.6666666667
+      ],
+      "mb_per_second": 0.7616403034660584
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 479719000,
+      "iterations": 790,
+      "cpu_ns_per_call": [
+        28183.54430379747,
+        30794.936708860758,
+        166020.25316455695
+      ],
+      "mb_per_second": 36.333258477430945
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 16383,
+      "warmup_cpu_ns": 152109000,
+      "iterations": 4490,
+      "cpu_ns_per_call": [
+        7655.902004454343,
+        13455.456570155902,
+        6509.35412026726
+      ],
+      "mb_per_second": 157.31207445170563
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 263280000,
+      "iterations": 1438,
+      "cpu_ns_per_call": [
+        31629.346314325452,
+        28092.48956884562,
+        23949.23504867872
+      ],
+      "mb_per_second": 42.75710676848921
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "random",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 150832000,
+      "iterations": 11612,
+      "cpu_ns_per_call": [
+        5674.3024457457805,
+        3670.943851188426,
+        5357.905614881158
+      ],
+      "mb_per_second": 278.9473338494381
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 409008000,
+      "iterations": 966,
+      "cpu_ns_per_call": [
+        52700.8281573499,
+        33453.416149068325,
+        59669.77225672878
+      ],
+      "mb_per_second": 30.60972892684738
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 155262000,
+      "iterations": 21885,
+      "cpu_ns_per_call": [
+        2596.6186885994975,
+        2106.557002513137,
+        2146.949965729952
+      ],
+      "mb_per_second": 486.10125374170315
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 154625000,
+      "iterations": 22516,
+      "cpu_ns_per_call": [
+        2168.280333984722,
+        2093.3114229880975,
+        2492.316574880085
+      ],
+      "mb_per_second": 489.1770946046294
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 65535,
+      "warmup_cpu_ns": 129527000,
+      "iterations": 31695,
+      "cpu_ns_per_call": [
+        1598.0438554977127,
+        1540.9370563180312,
+        1456.0025240574223
+      ],
+      "mb_per_second": 703.295484094652
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 32767,
+      "warmup_cpu_ns": 138732000,
+      "iterations": 11526,
+      "cpu_ns_per_call": [
+        5001.474926253687,
+        3973.2778066979004,
+        4151.310081554746
+      ],
+      "mb_per_second": 257.72172242117216
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 131071,
+      "warmup_cpu_ns": 228469000,
+      "iterations": 24393,
+      "cpu_ns_per_call": [
+        1216.7425080965852,
+        1633.9113680154142,
+        1465.6253843315706
+      ],
+      "mb_per_second": 841.5913746630727
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 942872000,
+      "iterations": 434,
+      "cpu_ns_per_call": [
+        64619.81566820276,
+        100447.00460829493,
+        94437.78801843317
+      ],
+      "mb_per_second": 15.846532358709219
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 170241000,
+      "iterations": 2363,
+      "cpu_ns_per_call": [
+        20504.020313161236,
+        28721.117223867965,
+        13540.837917900973
+      ],
+      "mb_per_second": 75.62308966465606
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 366981000,
+      "iterations": 1038,
+      "cpu_ns_per_call": [
+        25930.63583815029,
+        69763.96917148362,
+        67133.91136801541
+      ],
+      "mb_per_second": 39.4899687917967
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 257131000,
+      "iterations": 1621,
+      "cpu_ns_per_call": [
+        29844.540407156077,
+        34691.548426896974,
+        25653.917334978407
+      ],
+      "mb_per_second": 39.9159312252014
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "runs",
+      "bytes": 1024,
+      "crc32": 3073899290,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 998446000,
+      "iterations": 242,
+      "cpu_ns_per_call": [
+        45462.80991735537,
+        37566.115702479336,
+        25057.85123966942
+      ],
+      "mb_per_second": 40.86543535620053
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "stored",
+      "bytes": 1024,
+      "crc32": 3106126500,
+      "warmup_calls": 8191,
+      "warmup_cpu_ns": 109565000,
+      "iterations": 4349,
+      "cpu_ns_per_call": [
+        9276.155438031732,
+        34638.07771901586,
+        8414.808001839503
+      ],
+      "mb_per_second": 121.690239370423
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 4747718000,
+      "iterations": 2,
+      "cpu_ns_per_call": [
+        23441500,
+        19476500,
+        29336000
+      ],
+      "mb_per_second": 3.364875619336123
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 114575000,
+      "iterations": 206,
+      "cpu_ns_per_call": [
+        152907.76699029127,
+        110849.5145631068,
+        228097.08737864078
+      ],
+      "mb_per_second": 591.2159404423035
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 172677000,
+      "iterations": 326,
+      "cpu_ns_per_call": [
+        151490.79754601227,
+        146880.3680981595,
+        186861.96319018406
+      ],
+      "mb_per_second": 446.1862456404152
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 134156000,
+      "iterations": 413,
+      "cpu_ns_per_call": [
+        143702.17917675545,
+        129699.7578692494,
+        148067.7966101695
+      ],
+      "mb_per_second": 505.29007206063545
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 221882000,
+      "iterations": 27,
+      "cpu_ns_per_call": [
+        234111.11111111112,
+        251925.92592592593,
+        324666.6666666667
+      ],
+      "mb_per_second": 279.9354532510678
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 425656000,
+      "iterations": 78,
+      "cpu_ns_per_call": [
+        204538.46153846153,
+        129871.79487179487,
+        337807.6923076923
+      ],
+      "mb_per_second": 504.6207305034551
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 6105823000,
+      "iterations": 1,
+      "cpu_ns_per_call": [
+        62387000,
+        69142000,
+        60621000
+      ],
+      "mb_per_second": 1.0810775143927023
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 2552533000,
+      "iterations": 4,
+      "cpu_ns_per_call": [
+        11464750,
+        116188250,
+        10270000
+      ],
+      "mb_per_second": 6.381304771178189
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 12897519000,
+      "iterations": 1,
+      "cpu_ns_per_call": [
+        98620000,
+        78865000,
+        55067000
+      ],
+      "mb_per_second": 1.1901138612962392
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 1376783000,
+      "iterations": 5,
+      "cpu_ns_per_call": [
+        7712200,
+        11710800,
+        11309800
+      ],
+      "mb_per_second": 8.497704935037993
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "text",
+      "bytes": 65536,
+      "crc32": 1211929540,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 1525362000,
+      "iterations": 5,
+      "cpu_ns_per_call": [
+        9761600,
+        12971200,
+        8896800
+      ],
+      "mb_per_second": 7.366244042801906
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 16038197000,
+      "iterations": 1,
+      "cpu_ns_per_call": [
+        136146000,
+        102682000,
+        90704000
+      ],
+      "mb_per_second": 0.7225260186981831
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 143870000,
+      "iterations": 332,
+      "cpu_ns_per_call": [
+        258009.0361445783,
+        112840.36144578313,
+        162746.98795180724
+      ],
+      "mb_per_second": 580.7850946266983
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 116530000,
+      "iterations": 417,
+      "cpu_ns_per_call": [
+        124333.33333333333,
+        120134.29256594724,
+        136170.26378896882
+      ],
+      "mb_per_second": 545.5228361545833
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 100772000,
+      "iterations": 481,
+      "cpu_ns_per_call": [
+        103392.9313929314,
+        106031.18503118503,
+        102484.40748440748
+      ],
+      "mb_per_second": 639.472887716807
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 221731000,
+      "iterations": 90,
+      "cpu_ns_per_call": [
+        685344.4444444445,
+        602522.2222222222,
+        686077.7777777778
+      ],
+      "mb_per_second": 108.76943220167075
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 116310000,
+      "iterations": 481,
+      "cpu_ns_per_call": [
+        86496.8814968815,
+        89399.1683991684,
+        86413.72141372142
+      ],
+      "mb_per_second": 758.398075303741
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 3604339000,
+      "iterations": 2,
+      "cpu_ns_per_call": [
+        26695000,
+        42758000,
+        27786000
+      ],
+      "mb_per_second": 2.4549915714553285
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 172021000,
+      "iterations": 79,
+      "cpu_ns_per_call": [
+        659405.0632911392,
+        688050.6329113924,
+        595670.8860759494
+      ],
+      "mb_per_second": 110.02048535849376
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 164081000,
+      "iterations": 534,
+      "cpu_ns_per_call": [
+        116402.62172284644,
+        82050.5617977528,
+        107762.1722846442
+      ],
+      "mb_per_second": 798.7270112975009
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 180939000,
+      "iterations": 40,
+      "cpu_ns_per_call": [
+        1390100,
+        1371900,
+        1994100
+      ],
+      "mb_per_second": 47.770245644726295
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "random",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 122792000,
+      "iterations": 632,
+      "cpu_ns_per_call": [
+        82140.82278481012,
+        21202.53164556962,
+        57811.70886075949
+      ],
+      "mb_per_second": 3090.951641791045
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 182762000,
+      "iterations": 33,
+      "cpu_ns_per_call": [
+        1078939.393939394,
+        1256393.9393939395,
+        1168787.878787879
+      ],
+      "mb_per_second": 60.74113186350231
+    },
+    {
+      "platform": "js",
+      "operation": "crc32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 118841000,
+      "iterations": 404,
+      "cpu_ns_per_call": [
+        115304.45544554456,
+        121183.16831683168,
+        136455.44554455444
+      ],
+      "mb_per_second": 568.37352682309
+    },
+    {
+      "platform": "js",
+      "operation": "crc32c",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 126712000,
+      "iterations": 427,
+      "cpu_ns_per_call": [
+        107084.30913348946,
+        134362.99765807964,
+        132056.20608899297
+      ],
+      "mb_per_second": 612.0037616183707
+    },
+    {
+      "platform": "js",
+      "operation": "adler32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 103963000,
+      "iterations": 510,
+      "cpu_ns_per_call": [
+        90341.17647058824,
+        91052.94117647059,
+        102172.54901960785
+      ],
+      "mb_per_second": 725.4277900768329
+    },
+    {
+      "platform": "js",
+      "operation": "crc64",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 155349000,
+      "iterations": 202,
+      "cpu_ns_per_call": [
+        276524.75247524754,
+        277084.1584158416,
+        315074.2574257426
+      ],
+      "mb_per_second": 236.99867521214506
+    },
+    {
+      "platform": "js",
+      "operation": "xxhash32",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 2047,
+      "warmup_cpu_ns": 171902000,
+      "iterations": 589,
+      "cpu_ns_per_call": [
+        76726.65534804754,
+        82106.96095076401,
+        75414.26146010187
+      ],
+      "mb_per_second": 869.0133501429568
+    },
+    {
+      "platform": "js",
+      "operation": "deflate",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 183726000,
+      "iterations": 34,
+      "cpu_ns_per_call": [
+        2168558.8235294116,
+        729176.4705882353,
+        721911.7647058824
+      ],
+      "mb_per_second": 90.78117742921164
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.encode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 255,
+      "warmup_cpu_ns": 106803000,
+      "iterations": 150,
+      "cpu_ns_per_call": [
+        616353.3333333334,
+        547086.6666666666,
+        311820
+      ],
+      "mb_per_second": 210.17253543711115
+    },
+    {
+      "platform": "js",
+      "operation": "lz4.decode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 511,
+      "warmup_cpu_ns": 156506000,
+      "iterations": 204,
+      "cpu_ns_per_call": [
+        361495.09803921566,
+        263245.09803921566,
+        327470.5882352941
+      ],
+      "mb_per_second": 248.9543033779003
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.encode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 181130000,
+      "iterations": 35,
+      "cpu_ns_per_call": [
+        1013371.4285714285,
+        888542.8571428572,
+        913028.5714285715
+      ],
+      "mb_per_second": 73.75671243448342
+    },
+    {
+      "platform": "js",
+      "operation": "snappy.decode",
+      "corpus": "runs",
+      "bytes": 65536,
+      "crc32": 2694514304,
+      "warmup_calls": 127,
+      "warmup_cpu_ns": 143978000,
+      "iterations": 42,
+      "cpu_ns_per_call": [
+        1175761.9047619049,
+        905738.0952380953,
+        1059690.4761904762
+      ],
+      "mb_per_second": 72.3564575063747
+    },
+    {
+      "platform": "js",
+      "operation": "inflate",
+      "corpus": "stored",
+      "bytes": 65536,
+      "crc32": 1000274927,
+      "warmup_calls": 1023,
+      "warmup_cpu_ns": 197372000,
+      "iterations": 258,
+      "cpu_ns_per_call": [
+        156395.3488372093,
+        169569.76744186046,
+        202062.01550387597
+      ],
+      "mb_per_second": 419.040594795539
+    }
+  ],
+  "minimum_ratio": 0.1
+}

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added an unpublished JVM/Node benchmark module with fixed corpora, CPU-time
+  sampling, JDK references, a documented baseline and a CI smoke comparison.
+
 - DEFLATE and LZ4 use compact match tables for short inputs while retaining the
   original hash keys and match choices. Huffman symbol ordering now uses primitive
   arrays with the same frequency and symbol tie order, reducing temporary allocations.

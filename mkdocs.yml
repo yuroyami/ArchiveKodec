@@ -80,4 +80,5 @@ extra:
 
 nav:
   - Home: index.md
+  - Benchmarks: benchmarks.md
   - API reference: https://yuroyami.github.io/ArchiveKodec/api/

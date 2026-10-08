@@ -35,3 +35,6 @@ include(":archivekodec-io")
 // Compile a downstream JVM consumer against only the IO module's public dependencies.
 include(":io-consumer-test")
 project(":io-consumer-test").projectDir = file("integration-tests/io-consumer")
+
+// Unpublished CPU-time benchmarks with shared JVM/Node corpora and JDK references.
+include(":benchmarks")

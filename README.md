@@ -749,6 +749,12 @@ round-trips ZIPs in both directions against
 boundaries, unsigned results, nonzero seeds and unaligned slices. The expected
 values are independent of the Kotlin implementation.
 
+The unpublished `benchmarks` module measures the same fixed corpora on JVM and
+Node, with JDK checksum and DEFLATE references. Run
+`python3 benchmarks/run.py --check` for the smoke comparison or
+`python3 benchmarks/run.py --profile full` for larger inputs and longer sampling.
+See [benchmark methodology and baseline](docs/benchmarks.md) before comparing rates.
+
 ## Building
 
 The ABI references in each module's `api/` directory cover JVM classes, the

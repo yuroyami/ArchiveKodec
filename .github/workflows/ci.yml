@@ -119,22 +119,51 @@ jobs:
             archivekodec-io/build/reports/tests/
           retention-days: 14
 
+  benchmarks:
+    name: JVM and Node benchmark smoke check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
+      - name: Install the Android SDK for build configuration
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Verify the comparison gate
+        run: python3 -B -m unittest discover -s benchmarks -p 'test_*.py'
+      - name: Run both runtimes and compare the baseline
+        run: python3 benchmarks/run.py --check
+      - name: Retain benchmark samples
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: benchmark-results
+          path: benchmarks/build/results.json
+          retention-days: 14
+
   verification:
     name: Verification
-    needs: [portable, apple, windows]
+    needs: [portable, apple, windows, benchmarks]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require both platform lanes to pass
+      - name: Require every platform lane and the benchmark check to pass
         env:
           PORTABLE_RESULT: ${{ needs.portable.result }}
           APPLE_RESULT: ${{ needs.apple.result }}
           WINDOWS_RESULT: ${{ needs.windows.result }}
+          BENCHMARK_RESULT: ${{ needs.benchmarks.result }}
         run: |
           test "$PORTABLE_RESULT" = success
           test "$APPLE_RESULT" = success
           test "$WINDOWS_RESULT" = success
+          test "$BENCHMARK_RESULT" = success
 
   docs:
     name: Build documentation
