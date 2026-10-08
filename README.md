@@ -390,9 +390,10 @@ getter, generated field-list copy and destructuring functions are removed for
 the next minor release; rebuild callers and migrate to the typed methods.
 
 `ZipWriter` is the only writer in the library. It is not reachable from the
-`ArchiveKodec` object, so import it directly. It emits ZIP64 records only when
-they are needed, meaning more than 65,535 entries or a size or offset past 4 GiB.
-Ordinary archives therefore stay in the classic ZIP layout.
+`ArchiveKodec` object, so import it directly. Its whole-array output is limited
+by the platform's `ByteArray` capacity, so sizes and offsets cannot reach 4 GiB.
+It emits ZIP64 end records when there are more than 65,535 entries; smaller
+entry counts use the classic ZIP layout.
 Names use strict UTF-8 and bit 11 in both ZIP headers. All names are validated
 before payload compression or output assembly. Backslashes, leading slashes,
 drive/device prefixes, `..` components, ASCII controls (including NUL and DEL),
@@ -510,7 +511,9 @@ ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSou
 ```
 
 The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z
-and RAR. Snappy and brotli have no magic bytes, so it never detects them.
+and RAR. Raw Snappy and brotli have no identifying magic bytes, LZMA-alone is
+not identified reliably from its header, and Snappy framing is not supported.
+The sniffer never returns `SNAPPY`, `BROTLI` or `LZMA`.
 
 Source sniffing fills `min(source.size, 512)` bytes through repeated reads, so
 one-byte and other partial positive reads are supported. Negative source sizes,
@@ -569,7 +572,7 @@ them ([target tiers](https://kotlinlang.org/docs/native-target-support.html)).
 fun RawSource.readAllBytes(): ByteArray
 fun RawSource.toRandomAccessSource(): RandomAccessSource
 fun Codec.compress(source: RawSource): ByteArray
-fun Codec.decompress(source: RawSource, limits: ArchiveLimits): ByteArray
+fun Codec.decompress(source: RawSource, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 ```
 
 Four facts about this artifact:

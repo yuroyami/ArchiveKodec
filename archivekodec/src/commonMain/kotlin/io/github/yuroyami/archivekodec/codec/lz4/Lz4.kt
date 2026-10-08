@@ -11,13 +11,14 @@ import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 
 /**
  * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
- * `0x184D2204`). Pure-Kotlin, with no entropy stage, so it is fast and cheap.
+ * `0x184D2204`). Implemented in pure Kotlin, with no entropy stage.
  *
  * Frame decoding supports independent and linked blocks, consumes concatenated frames
  * and skippable metadata, and verifies each
  * frame's declared content size, header and advertised block/content xxHash32 checksums.
  * Encoder writes a minimal frame (block-independent,
- * 4 MiB max block, no optional checksums) with a real greedy hash-chain block compressor and
+ * 4 MiB max block, no optional checksums) with a greedy block compressor that keeps
+ * one match candidate per hash-table slot, and
  * a stored-block fallback when a block doesn't shrink.
  */
 public object Lz4 {

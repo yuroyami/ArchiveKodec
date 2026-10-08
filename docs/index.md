@@ -14,8 +14,8 @@ well as on the JVM.
 
 </div>
 
-There is no JNI, no cinterop and no native binary. The core artifact depends on
-`kotlin-stdlib` and nothing else, so it builds anywhere Kotlin builds.
+There are no JNI or cinterop dependencies. The core artifact depends on
+`kotlin-stdlib` and nothing else. Both modules build for the targets listed below.
 
 ## Install
 
@@ -61,13 +61,17 @@ covers these callers and the reasons behind each requirement.
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
+import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.security.PathGuard
 
 val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
 val back = ArchiveKodec.gzip.decompress(gz)
 
-ArchiveKodec.sniff(bytes)                            // -> ArchiveFormat.ZIP / TAR / GZIP / ...
+ArchiveKodec.sniff(gz) // -> ArchiveFormat.GZIP
 
+val zipBytes = ZipWriter.write(
+    listOf(ZipWriter.FileSpec("hello.txt", back)),
+)
 ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
     for (entry in reader.entries()) {
         // Archives of the current directory may contain a root directory entry.
@@ -110,7 +114,7 @@ What `archivekodec` contains:
 | Codecs | DEFLATE, gzip, zlib, LZ4 and Snappy |
 | Archives | ZIP reader and writer (ZIP64, STORE and DEFLATE), plus TAR, ar and cpio readers |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
-| Safety | A magic sniffer, plus the opt-in `PathGuard` and `ArchiveLimits` checks |
+| Safety | A magic sniffer, default output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
 
 Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 `wasmWasi`, iOS, `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`,

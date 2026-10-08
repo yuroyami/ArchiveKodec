@@ -12,9 +12,9 @@ import kotlin.jvm.JvmSynthetic
 /**
  * ZIP writer for STORE and DEFLATE entries, with ZIP64 where it is needed. The whole
  * archive is built in memory and returned as a `ByteArray`; there is no streaming
- * form. ZIP64 records are emitted only when the entry count passes 65535 or a size or
- * offset overflows 32 bits, with per-entry ZIP64 extra fields for oversized entries,
- * so ordinary archives stay classic and small.
+ * form. ZIP64 end records are emitted when the entry count passes 65535. Sizes and
+ * offsets cannot reach the ZIP64 boundary in this whole-array API; the complete
+ * output must fit in one `ByteArray`. Smaller entry counts use classic ZIP records.
  * Names are UTF-8 with bit 11 set in both headers. Their encoded length must fit
  * the 16-bit filename field, including for ZIP64 archives. Accepted names retain
  * their exact spelling. Backslashes, leading slashes, drive/device prefixes in

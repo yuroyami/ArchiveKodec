@@ -1,10 +1,9 @@
 package io.github.yuroyami.archivekodec.checksum
 
 /**
- * A streaming, unkeyed integrity check (CRC / Adler family). All implementations are
- * pure-Kotlin and table-driven. They are cheap (GB/s), export-safe, and need no
- * constant-time care, so the core module can hold them. AES is different: this design
- * delegates it to a platform crypto provider.
+ * A streaming, unkeyed integrity check (CRC / Adler family), implemented in pure
+ * Kotlin. These checks detect accidental corruption; they do not authenticate data
+ * or provide cryptographic integrity.
  *
  * [value] returns the result in the low bits of a `Long` (32-bit checksums fit in the
  * low 32 bits; CRC-64 uses the full width).

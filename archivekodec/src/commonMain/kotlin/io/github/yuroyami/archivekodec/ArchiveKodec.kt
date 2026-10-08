@@ -19,8 +19,9 @@ import kotlin.jvm.JvmStatic
  * Top-level entry point for the library. Use it to detect an archive format, get a
  * codec by id, or open a seekable source as a container reader.
  *
- * Pure `commonMain`, `kotlin-stdlib` only. The kotlinx-io stream and file adapters
- * live in the separate `:archivekodec-io` artifact.
+ * Pure `commonMain`, `kotlin-stdlib` only. The separate `:archivekodec-io` artifact
+ * provides convenience adapters that drain a kotlinx-io `RawSource` into memory;
+ * it does not provide streaming codecs or seekable file handles.
  */
 public object ArchiveKodec {
 

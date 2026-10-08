@@ -8,9 +8,9 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
  * Snappy raw block format (Google): a byte-oriented LZ77 with no entropy stage.
- * [decompress] reads any conformant stream. [compress] emits a valid all-literal
- * stream, which is correct and fast. It has no back-reference matching, so it does
- * not shrink the input.
+ * [decompress] reads raw blocks, not the optional Snappy framed format.
+ * [compress] emits an all-literal raw block. It has no back-reference matching,
+ * so it does not shrink the input.
  */
 public object Snappy {
 

@@ -6,8 +6,10 @@ import io.github.yuroyami.archivekodec.archive.tar.TarHeader
 
 /**
  * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
- * [RandomAccessSource], and returns the matching [ArchiveFormat]. Brotli has no
- * magic bytes, so this object never detects it. A match identifies a format
+ * [RandomAccessSource], and returns the matching [ArchiveFormat]. Raw Snappy and
+ * Brotli have no identifying magic bytes. LZMA-alone headers are too weak to
+ * identify reliably here, and Snappy framing is not supported, so this object
+ * never returns SNAPPY, BROTLI or LZMA. A match identifies a format
  * candidate; readers and codecs validate its complete structure and payload.
  */
 public object Magic {
@@ -40,8 +42,6 @@ public object Magic {
                 (at(5) == 0x31 || at(5) == 0x32 || at(5) == 0x37) -> ArchiveFormat.CPIO
             at(0) == 0x52 && at(1) == 0x61 && at(2) == 0x72 && at(3) == 0x21 && at(4) == 0x1A && at(5) == 0x07 ->
                 ArchiveFormat.RAR
-            // .lzma-alone: properties byte (<=0xE0 for valid lc/lp/pb) then 4-byte dict size.
-            // Too weak to sniff reliably from magic alone, so it needs explicit selection.
             isZlib(header) -> ArchiveFormat.ZLIB
             else -> ArchiveFormat.UNKNOWN
         }

@@ -3,8 +3,8 @@ package io.github.yuroyami.archivekodec.util
 /**
  * A minimal growable byte buffer. It is the pure-Kotlin equivalent of a
  * `ByteArrayOutputStream`, with no `java.io` dependency, so it lives in `commonMain`.
- * Amortised O(1) append by doubling. Used by the DEFLATE encoder and the gzip and
- * zlib framers.
+ * Amortised O(1) append by doubling. Used to assemble encoded data, decoded LZ4
+ * frames, wrapper headers/trailers and ZIP archives.
  * Appends throw [io.github.yuroyami.archivekodec.ArchiveSizeException] when the
  * result cannot fit in one ByteArray.
  */
