@@ -183,6 +183,37 @@ final class io.github.yuroyami.archivekodec.archive.cpio/CpioReader : io.github.
     final object Companion // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.Companion|null[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+    final val format // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.format|{}format[0]
+        final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.limits.<get-limits>|<get-limits>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.close|close(){}[0]
+    final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun segments(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment> // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.segments|segments(){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/InitramfsReader.toString|toString(){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment { // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment|null[0]
+    final val endOffset // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.endOffset|{}endOffset[0]
+        final fun <get-endOffset>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.endOffset.<get-endOffset>|<get-endOffset>(){}[0]
+    final val entries // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.entries|{}entries[0]
+        final fun <get-entries>(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.entries.<get-entries>|<get-entries>(){}[0]
+    final val hasTrailer // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.hasTrailer|{}hasTrailer[0]
+        final fun <get-hasTrailer>(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.hasTrailer.<get-hasTrailer>|<get-hasTrailer>(){}[0]
+    final val startOffset // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.startOffset|{}startOffset[0]
+        final fun <get-startOffset>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.startOffset.<get-startOffset>|<get-startOffset>(){}[0]
+
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.toString|toString(){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive.tar/TarReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.tar/TarReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
@@ -331,6 +362,8 @@ final class io.github.yuroyami.archivekodec.security/ArchiveLimits { // io.githu
         final fun <get-maxEntries>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxEntries.<get-maxEntries>|<get-maxEntries>(){}[0]
     final val maxNestingDepth // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxNestingDepth|{}maxNestingDepth[0]
         final fun <get-maxNestingDepth>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxNestingDepth.<get-maxNestingDepth>|<get-maxNestingDepth>(){}[0]
+    final val maxSegments // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxSegments|{}maxSegments[0]
+        final fun <get-maxSegments>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxSegments.<get-maxSegments>|<get-maxSegments>(){}[0]
     final val maxUncompressedBytes // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxUncompressedBytes|{}maxUncompressedBytes[0]
         final fun <get-maxUncompressedBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxUncompressedBytes.<get-maxUncompressedBytes>|<get-maxUncompressedBytes>(){}[0]
 
@@ -354,6 +387,9 @@ final class io.github.yuroyami.archivekodec.security/ArchiveLimits { // io.githu
         final var maxNestingDepth // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxNestingDepth|{}maxNestingDepth[0]
             final fun <get-maxNestingDepth>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxNestingDepth.<get-maxNestingDepth>|<get-maxNestingDepth>(){}[0]
             final fun <set-maxNestingDepth>(kotlin/Int) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxNestingDepth.<set-maxNestingDepth>|<set-maxNestingDepth>(kotlin.Int){}[0]
+        final var maxSegments // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxSegments|{}maxSegments[0]
+            final fun <get-maxSegments>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxSegments.<get-maxSegments>|<get-maxSegments>(){}[0]
+            final fun <set-maxSegments>(kotlin/Int) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxSegments.<set-maxSegments>|<set-maxSegments>(kotlin.Int){}[0]
         final var maxUncompressedBytes // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes|{}maxUncompressedBytes[0]
             final fun <get-maxUncompressedBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes.<get-maxUncompressedBytes>|<get-maxUncompressedBytes>(){}[0]
             final fun <set-maxUncompressedBytes>(kotlin/Long) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes.<set-maxUncompressedBytes>|<set-maxUncompressedBytes>(kotlin.Long){}[0]

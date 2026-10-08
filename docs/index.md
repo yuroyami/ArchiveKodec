@@ -116,6 +116,12 @@ What `archivekodec` contains:
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Safety | A magic sniffer, default entry-count limits on listings, output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
 
+The explicit `InitramfsReader` browses every uncompressed newc/crc segment in a
+Linux initramfs buffer, preserving boundaries and resetting hard links at each
+trailer. Listings enforce entry and segment limits and reject compressed segments
+with their source offset. `CpioReader` still reads a single archive. See the
+[initramfs example](https://github.com/yuroyami/ArchiveKodec#browse-an-uncompressed-linux-initramfs).
+
 The default 10,000:1 compression-ratio ceiling is above the ratios reachable by
 the current codecs, so it cannot reject their valid streams. Set a lower ratio
 when that restriction is needed. The default 2 GiB output cap applies separately

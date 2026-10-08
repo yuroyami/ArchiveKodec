@@ -19,11 +19,13 @@ class ArchiveLimitsTest {
         assertEquals(2L * 1024 * 1024 * 1024, defaults.maxUncompressedBytes)
         assertEquals(10_000, defaults.maxCompressionRatio)
         assertEquals(100_000, defaults.maxEntries)
+        assertEquals(100_000, defaults.maxSegments)
         assertEquals(8, defaults.maxNestingDepth)
         val zero = ArchiveLimits {
             maxUncompressedBytes = 0
             maxCompressionRatio = 0
             maxEntries = 0
+            maxSegments = 0
             maxNestingDepth = 0
         }
         zero.checkOutputSize(0)
@@ -35,6 +37,7 @@ class ArchiveLimitsTest {
         assertEquals(Long.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxUncompressedBytes)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxCompressionRatio)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxEntries)
+        assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxSegments)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxNestingDepth)
         ArchiveLimits.UNBOUNDED.checkOutputSize(Long.MAX_VALUE)
         ArchiveLimits.UNBOUNDED.checkEntryCount(Int.MAX_VALUE)
@@ -46,6 +49,7 @@ class ArchiveLimitsTest {
             maxUncompressedBytes = 7
             maxCompressionRatio = 3
             maxEntries = 5
+            maxSegments = 6
             maxNestingDepth = 2
         }
         val first = builder.build()
@@ -53,10 +57,11 @@ class ArchiveLimitsTest {
         builder.maxUncompressedBytes = 8
         builder.maxCompressionRatio = 4
         builder.maxEntries = 6
+        builder.maxSegments = 7
         builder.maxNestingDepth = 1
         val second = builder.build()
-        assertEquals(listOf(7L, 3L, 5L, 2L), values(first))
-        assertEquals(listOf(8L, 4L, 6L, 1L), values(second))
+        assertEquals(listOf(7L, 3L, 5L, 6L, 2L), values(first))
+        assertEquals(listOf(8L, 4L, 6L, 7L, 1L), values(second))
         assertEquals(hash, first.hashCode())
         assertNotSame(first, second)
     }
@@ -67,6 +72,7 @@ class ArchiveLimitsTest {
             maxUncompressedBytes = 7
             maxCompressionRatio = 3
             maxEntries = 5
+            maxSegments = 6
             maxNestingDepth = 2
         }
         lateinit var configuration: ArchiveLimits.Builder
@@ -76,8 +82,8 @@ class ArchiveLimitsTest {
         }
         configuration.maxUncompressedBytes = 0
         configuration.maxEntries = 9
-        assertEquals(listOf(7L, 3L, 5L, 2L), values(original))
-        assertEquals(listOf(7L, 3L, 1L, 2L), values(changed))
+        assertEquals(listOf(7L, 3L, 5L, 6L, 2L), values(original))
+        assertEquals(listOf(7L, 3L, 1L, 6L, 2L), values(changed))
         val equal = original.copy()
         assertEquals(original, equal)
         assertNotSame(original, equal)
@@ -94,7 +100,7 @@ class ArchiveLimitsTest {
         assertTrue(!policy.equals("ArchiveLimits"))
         val description = ArchiveLimits.UNBOUNDED.toString()
         assertTrue(description.length < 200)
-        for (field in listOf("maxUncompressedBytes", "maxCompressionRatio", "maxEntries", "maxNestingDepth")) {
+        for (field in listOf("maxUncompressedBytes", "maxCompressionRatio", "maxEntries", "maxSegments", "maxNestingDepth")) {
             assertTrue(description.contains("$field="))
         }
         assertTrue(description.contains(Long.MAX_VALUE.toString()))
@@ -137,13 +143,14 @@ class ArchiveLimitsTest {
 
     private fun values(limits: ArchiveLimits): List<Long> = listOf(
         limits.maxUncompressedBytes, limits.maxCompressionRatio.toLong(),
-        limits.maxEntries.toLong(), limits.maxNestingDepth.toLong(),
+        limits.maxEntries.toLong(), limits.maxSegments.toLong(), limits.maxNestingDepth.toLong(),
     )
 
     private fun invalidSettings(value: Long): List<Pair<String, ArchiveLimits.Builder.() -> Unit>> = listOf(
         "maxUncompressedBytes" to { maxUncompressedBytes = value },
         "maxCompressionRatio" to { maxCompressionRatio = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxEntries" to { maxEntries = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
+        "maxSegments" to { maxSegments = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxNestingDepth" to { maxNestingDepth = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
     )
 

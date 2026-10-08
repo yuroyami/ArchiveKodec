@@ -11,12 +11,30 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod;
 import io.github.yuroyami.archivekodec.archive.ar.ArWriter;
 import io.github.yuroyami.archivekodec.archive.cpio.CpioWriter;
+import io.github.yuroyami.archivekodec.archive.cpio.InitramfsReader;
+import io.github.yuroyami.archivekodec.archive.cpio.InitramfsSegment;
 import io.github.yuroyami.archivekodec.archive.tar.TarWriter;
 import java.util.Collections;
 import kotlinx.io.RawSource;
 
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
+    public long lastInitramfsOffset(RandomAccessSource source) throws Exception {
+        ArchiveLimits.Builder limits = new ArchiveLimits.Builder();
+        limits.setMaxSegments(100);
+        InitramfsReader reader = new InitramfsReader(source, limits.build());
+        try (AutoCloseable resource = ArchiveReaderKt.asAutoCloseable(reader)) {
+            long end = 0;
+            for (InitramfsSegment segment : reader.segments()) {
+                end = segment.getEndOffset();
+                for (ArchiveEntry entry : segment.getEntries()) {
+                    reader.read(entry, reader.getLimits());
+                }
+            }
+            return end;
+        }
+    }
+
     public TarWriter.FileSpec tarFile(String name, byte[] data) {
         return new TarWriter.FileSpec(name, data);
     }

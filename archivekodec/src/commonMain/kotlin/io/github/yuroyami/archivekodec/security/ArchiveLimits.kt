@@ -10,10 +10,11 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * Output and ratio checks apply during each buffered decode/read, before output
  * growth. Separate calls do not share an archive-wide byte budget. Built-in readers
  * apply [maxEntries] while listing and use their policy as the default for each
- * read. Current buffered APIs do not recurse into nested archives or apply [maxNestingDepth].
+ * read. Initramfs listings also apply [maxSegments]. Current buffered APIs do not
+ * recurse into nested archives or apply [maxNestingDepth].
  *
  * Every setting is nonnegative. Zero permits only zero output, a zero ratio,
- * zero entries or zero nesting depth respectively. [DEFAULT] preserves the default
+ * zero entries, zero segments or zero nesting depth respectively. [DEFAULT] preserves the default
  * values; [UNBOUNDED] raises every ceiling for trusted input.
  *
  * Public construction and copy signatures contain a builder action rather than
@@ -40,6 +41,9 @@ public class ArchiveLimits private constructor(builder: Builder) {
     /** Entry ceiling enforced while built-in readers parse their listings. Default 100k. */
     public val maxEntries: Int = builder.maxEntries
 
+    /** Initramfs segment ceiling, including trailer-only empty segments. Default 100k. Other readers do not use it. */
+    public val maxSegments: Int = builder.maxSegments
+
     /** Reserved nested-archive depth ceiling; buffered APIs do not enforce it. Default 8. */
     public val maxNestingDepth: Int = builder.maxNestingDepth
 
@@ -47,6 +51,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
         require(maxUncompressedBytes >= 0) { "archive limits: maxUncompressedBytes must be nonnegative" }
         require(maxCompressionRatio >= 0) { "archive limits: maxCompressionRatio must be nonnegative" }
         require(maxEntries >= 0) { "archive limits: maxEntries must be nonnegative" }
+        require(maxSegments >= 0) { "archive limits: maxSegments must be nonnegative" }
         require(maxNestingDepth >= 0) { "archive limits: maxNestingDepth must be nonnegative" }
     }
 
@@ -67,6 +72,9 @@ public class ArchiveLimits private constructor(builder: Builder) {
         /** See [ArchiveLimits.maxEntries]. Must be nonnegative at build time. */
         public var maxEntries: Int = 100_000
 
+        /** See [ArchiveLimits.maxSegments]. Must be nonnegative at build time. */
+        public var maxSegments: Int = 100_000
+
         /** See [ArchiveLimits.maxNestingDepth]. Must be nonnegative at build time. */
         public var maxNestingDepth: Int = 8
 
@@ -74,6 +82,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
             maxUncompressedBytes = source.maxUncompressedBytes
             maxCompressionRatio = source.maxCompressionRatio
             maxEntries = source.maxEntries
+            maxSegments = source.maxSegments
             maxNestingDepth = source.maxNestingDepth
         }
 
@@ -97,19 +106,20 @@ public class ArchiveLimits private constructor(builder: Builder) {
     /** Compare all configured policy ceilings. */
     override fun equals(other: Any?): Boolean = other is ArchiveLimits &&
         maxUncompressedBytes == other.maxUncompressedBytes && maxCompressionRatio == other.maxCompressionRatio &&
-        maxEntries == other.maxEntries && maxNestingDepth == other.maxNestingDepth
+        maxEntries == other.maxEntries && maxSegments == other.maxSegments && maxNestingDepth == other.maxNestingDepth
 
     /** Hash the policy ceilings used by [equals]. */
     override fun hashCode(): Int {
         var result = maxUncompressedBytes.hashCode()
         result = 31 * result + maxCompressionRatio
         result = 31 * result + maxEntries
+        result = 31 * result + maxSegments
         return 31 * result + maxNestingDepth
     }
 
     /** Describe each configured policy ceiling. */
     override fun toString(): String = "ArchiveLimits(maxUncompressedBytes=$maxUncompressedBytes, " +
-        "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxNestingDepth=$maxNestingDepth)"
+        "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxSegments=$maxSegments, maxNestingDepth=$maxNestingDepth)"
 
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
     @Throws(ArchiveException::class)
@@ -154,7 +164,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
 
         /**
          * Policy applied when a caller does not supply one. Bounds each call's output
-         * and each reader's entry count; its ratio ceiling cannot reject valid streams
+         * and each reader's entry count, plus initramfs segments; its ratio ceiling cannot reject valid streams
          * from the current codecs. See [maxCompressionRatio] before relying on it.
          */
         public val DEFAULT: ArchiveLimits = ArchiveLimits()
@@ -164,6 +174,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
             maxUncompressedBytes = Long.MAX_VALUE
             maxCompressionRatio = Int.MAX_VALUE
             maxEntries = Int.MAX_VALUE
+            maxSegments = Int.MAX_VALUE
             maxNestingDepth = Int.MAX_VALUE
         }
     }

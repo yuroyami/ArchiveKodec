@@ -290,6 +290,47 @@ An explicit policy on `read(entry, limits)` overrides the reader's read policy;
 it does not relax the ceiling used to parse its listing. Byte limits apply per
 read, and separate calls do not share an archive-wide output budget.
 
+### Browse an uncompressed Linux initramfs
+
+`CpioReader` and `ArchiveKodec.open` read one CPIO archive and stop at its first
+`TRAILER!!!`. Choose `InitramfsReader` explicitly to browse an entire buffer of
+newc/crc segments:
+
+```kotlin
+import io.github.yuroyami.archivekodec.archive.cpio.InitramfsReader
+
+InitramfsReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
+    for (segment in reader.segments()) {
+        println("${segment.startOffset}..${segment.endOffset}, trailer=${segment.hasTrailer}")
+        for (entry in segment.entries) {
+            val body = reader.read(entry)
+        }
+    }
+    // The same entries, flattened in source order:
+    val allEntries = reader.entries()
+}
+```
+
+Each trailer ends a segment and resets hard links. Segment offsets are absolute,
+with an exclusive end; they include record alignment and the trailer but exclude
+surrounding zero padding. Extra zero padding may appear between records, and raw
+headers must begin at absolute four-byte offsets. The final segment may omit its
+trailer (`hasTrailer == false`). Empty/all-zero buffers have no segments;
+trailer-only segments are preserved with empty entry lists. Duplicate names
+remain in source order; this API does not apply a filesystem overlay.
+
+`entries()` and `segments()` inspect metadata without reading payloads. A later
+malformed or unsupported segment fails the complete listing with its source
+offset; a partial result is never cached. Compressed segments, including gzip,
+and odc/binary CPIO are explicitly unsupported. The reader does not automatically
+decompress them. The usual source ownership, custom name decoder and per-read
+limits apply, including crc byte-sum verification when an entry is read.
+
+`maxEntries` counts members across the whole buffer. `ArchiveLimits.maxSegments`
+separately caps all segments, including empty ones, at 100,000 by default. Zero
+allows no segments; `UNBOUNDED` raises it to `Int.MAX_VALUE`. Other readers ignore
+this setting. Configure it through the existing `ArchiveLimits` builder or `copy`.
+
 ar resolves GNU and COFF long-name references from the `//` table. GNU names end
 with `/\n` (LF-only names are also accepted); COFF names end with NUL and retain
 any stored trailing slash. A table containing NUL uses the COFF delimiter, so
@@ -747,7 +788,8 @@ artifact and a kotlinx-io dependency.
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
-- Built-in reader listings enforce `maxEntries`; buffered APIs do not recurse
+- Built-in reader listings enforce `maxEntries`; initramfs listings additionally
+  enforce `maxSegments`, including empty segments. Buffered APIs do not recurse
   into nested archives, so `maxNestingDepth` remains reserved. Every implemented codec
   applies `checkRatio` before output allocation or growth. ZIP checks each entry;
   uncompressed TAR/ar/cpio reads check their known 1:1 ratio.
@@ -769,7 +811,8 @@ artifact and a kotlinx-io dependency.
   trailer; a partial header or invalid checksum throws `ArchiveFormatException`
   at that record's offset. An empty source is accepted as an empty archive.
 - TAR skips pax `x` and `g` extended headers and does not handle sparse files.
-- cpio stops at the first trailer. Both byte orders of the old binary dialect are
+- `CpioReader` stops at the first trailer; the explicit `InitramfsReader` continues
+  across uncompressed newc/crc segments. Both byte orders of the old binary dialect are
   recognized but listing throws `ArchiveUnsupportedException`. Empty input and
   unknown or truncated magic before the trailer throw `ArchiveFormatException`
   with the header offset, rather than returning an empty or partial listing.

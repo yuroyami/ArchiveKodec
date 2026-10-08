@@ -303,6 +303,28 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileS
 	public final fun invoke (Ljava/lang/String;[BLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$FileSpec;
 }
 
+public final class io/github/yuroyami/archivekodec/archive/cpio/InitramfsReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun close ()V
+	public fun entries ()Ljava/util/List;
+	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public final fun segments ()Ljava/util/List;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/cpio/InitramfsSegment {
+	public final fun getEndOffset ()J
+	public final fun getEntries ()Ljava/util/List;
+	public final fun getHasTrailer ()Z
+	public final fun getStartOffset ()J
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class io/github/yuroyami/archivekodec/archive/tar/TarReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/tar/TarReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
@@ -612,6 +634,7 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public final fun getMaxCompressionRatio ()I
 	public final fun getMaxEntries ()I
 	public final fun getMaxNestingDepth ()I
+	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
@@ -623,10 +646,12 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Builde
 	public final fun getMaxCompressionRatio ()I
 	public final fun getMaxEntries ()I
 	public final fun getMaxNestingDepth ()I
+	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
 	public final fun setMaxCompressionRatio (I)V
 	public final fun setMaxEntries (I)V
 	public final fun setMaxNestingDepth (I)V
+	public final fun setMaxSegments (I)V
 	public final fun setMaxUncompressedBytes (J)V
 }
 

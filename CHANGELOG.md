@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added an explicit `InitramfsReader` for complete uncompressed newc/crc buffers,
+  exposing segment bounds and members, resetting hard links at trailers and
+  reporting later malformed/unsupported segments with absolute offsets. Listings
+  count entries globally and enforce the new `ArchiveLimits.maxSegments` ceiling,
+  including empty segments. `CpioReader` retains single-archive behavior.
+
 - Added `TarWriter` for regular files and directories, with ustar headers, prefix
   splitting, GNU long-name records, header checksums, block padding and two EOF
   blocks. Member descriptions own their payloads and expose stable builders; the

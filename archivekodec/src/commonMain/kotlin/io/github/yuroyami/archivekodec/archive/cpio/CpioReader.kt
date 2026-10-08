@@ -15,6 +15,8 @@ import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import kotlin.jvm.JvmSynthetic
 
 /**
  * cpio reader for the two portable ASCII dialects: `newc`/`crc` (magic 070701/070702,
@@ -32,11 +34,14 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * externally serialize all access, including [close]. The list from [entries]
  * must be treated as read-only; it may share the reader's cached metadata.
  */
-public class CpioReader(
+public class CpioReader private constructor(
     source: RandomAccessSource,
     private val nameDecoder: ArchiveNameDecoder,
     override val limits: ArchiveLimits,
+    private val initramfs: Boolean,
 ) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits) :
+        this(source, nameDecoder, limits, false)
     public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
     public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.UTF8, limits)
@@ -50,11 +55,15 @@ public class CpioReader(
         val records = arrayListOf(first)
         var payload = first
     }
-    private class EntryList(private val values: List<ArchiveEntry>) : AbstractList<ArchiveEntry>() {
+    private class ReadOnlyList<T>(private val values: List<T>) : AbstractList<T>() {
         override val size: Int get() = values.size
-        override fun get(index: Int): ArchiveEntry = values[index]
+        override fun get(index: Int): T = values[index]
     }
-    private data class Directory(val entries: List<ArchiveEntry>, val groups: Map<ArchiveEntry, Group>)
+    private data class Directory(
+        val entries: List<ArchiveEntry>, val groups: Map<ArchiveEntry, Group>, val segments: List<InitramfsSegment>,
+    )
+    private data class ParsedRecord(val endOffset: Long, val trailer: Boolean)
+    private data class SegmentBounds(val start: Long, val end: Long, val first: Int, val last: Int, val trailer: Boolean)
 
     private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -66,6 +75,9 @@ public class CpioReader(
 
     @Throws(ArchiveException::class)
     override fun entries(): List<ArchiveEntry> = directory().entries
+
+    @JvmSynthetic
+    internal fun segments(): List<InitramfsSegment> = directory().segments
 
     private fun directory(): Directory = ownedSource.metadata { parse() }
 
@@ -104,23 +116,55 @@ public class CpioReader(
     private fun parse(): Directory {
         val records = ArrayList<Pair<Record, Group>>()
         val links = HashMap<LinkKey, Group>()
+        val bounds = ArrayList<SegmentBounds>()
+        val paddingBuffer = if (initramfs) ByteArray(110) else null
         var pos = 0L
+        var segmentStart: Long? = null
+        var segmentFirst = 0
+        var recordEnd = 0L
         val total = source.size
         if (total < 0) throw ArchiveFormatException("cpio: negative source size $total", 0)
-        if (total == 0L) throw ArchiveFormatException("cpio: missing header", 0)
+        if (!initramfs && total == 0L) throw ArchiveFormatException("cpio: missing header", 0)
         while (pos < total) {
+            if (initramfs) {
+                pos = skipZeros(pos, total, paddingBuffer!!)
+                if (pos == total) break
+            }
             val prefix = source.readFully(pos, minOf(6L, total - pos).toInt())
+            if (initramfs) rejectCompression(prefix, pos)
             if (isBinaryCpioMagic(prefix)) {
                 throw ArchiveUnsupportedException("cpio: old binary cpio is not supported", pos)
             }
             if (prefix.size < 6) throw ArchiveFormatException("cpio: truncated header magic", pos)
             val magic = prefix.decodeToString()
-            when (magic) {
-                "070701", "070702" -> pos = parseNewc(pos, magic == "070702", records, links) ?: break
-                "070707" -> pos = parseOdc(pos, records, links) ?: break
+            if (initramfs) {
+                if (magic == "070707") throw ArchiveUnsupportedException("initramfs: odc cpio is not supported; expected newc/crc", pos)
+                if ((magic == "070701" || magic == "070702") && pos and 3L != 0L) {
+                    throw ArchiveFormatException("initramfs: cpio header is not four-byte aligned", pos)
+                }
+                if (segmentStart == null) {
+                    if (bounds.size >= limits.maxSegments) {
+                        throw DecompressionBombException("initramfs: segment count exceeds limit ${limits.maxSegments}", pos, null, null)
+                    }
+                    segmentStart = pos
+                    segmentFirst = records.size
+                }
+            }
+            val parsed = when (magic) {
+                "070701", "070702" -> parseNewc(pos, magic == "070702", records, links)
+                "070707" -> parseOdc(pos, records, links)
                 else -> throw ArchiveFormatException("cpio: unrecognized header magic", pos)
             }
+            pos = parsed.endOffset
+            recordEnd = pos
+            if (parsed.trailer) {
+                if (!initramfs) break
+                bounds.add(SegmentBounds(segmentStart!!, pos, segmentFirst, records.size, true))
+                segmentStart = null
+                links.clear()
+            }
         }
+        if (segmentStart != null) bounds.add(SegmentBounds(segmentStart, recordEnd, segmentFirst, records.size, false))
         val entries = ArrayList<ArchiveEntry>(records.size)
         val groups = HashMap<ArchiveEntry, Group>()
         for ((record, group) in records) {
@@ -129,11 +173,45 @@ public class CpioReader(
             entries.add(entry)
             groups[entry] = group
         }
-        return Directory(EntryList(entries), groups)
+        val segments = bounds.map { b ->
+            InitramfsSegment(b.start, b.end, b.trailer, ReadOnlyList(entries.subList(b.first, b.last)))
+        }
+        return Directory(ReadOnlyList(entries), groups, ReadOnlyList(segments))
+    }
+
+    private fun skipZeros(start: Long, total: Long, buffer: ByteArray): Long {
+        var pos = start
+        while (pos < total) {
+            // Reuse one header-sized buffer, never reading a valid record's body.
+            val wanted = minOf(buffer.size.toLong(), total - pos).toInt()
+            val count = source.read(pos, buffer, 0, wanted)
+            if (count <= 0 || count > wanted) {
+                throw ArchiveFormatException("initramfs: unexpected padding read (wanted $wanted, got $count)", pos)
+            }
+            for (index in 0 until count) if (buffer[index].toInt() != 0) return pos + index
+            pos += count
+        }
+        return pos
+    }
+
+    private fun rejectCompression(prefix: ByteArray, offset: Long) {
+        fun starts(vararg bytes: Int): Boolean = prefix.size >= bytes.size &&
+            bytes.indices.all { prefix[it].toInt() and 255 == bytes[it] }
+        val name = when {
+            starts(0x1f, 0x8b) || starts(0x1f, 0x9e) -> "gzip"
+            starts(0x42, 0x5a, 0x68) -> "bzip2"
+            starts(0xfd, 0x37, 0x7a, 0x58, 0x5a, 0) -> "xz"
+            starts(0x5d, 0) -> "LZMA"
+            starts(0x89, 0x4c, 0x5a, 0x4f) -> "LZO"
+            starts(0x02, 0x21, 0x4c, 0x18) || starts(0x04, 0x22, 0x4d, 0x18) -> "LZ4"
+            starts(0x28, 0xb5, 0x2f, 0xfd) -> "Zstandard"
+            else -> return
+        }
+        throw ArchiveUnsupportedException("initramfs: $name compressed segments are not supported", offset)
     }
 
     /** newc/crc: 6-byte magic + 13 × 8 hex fields = 110-byte header; 4-byte padding. */
-    private fun parseNewc(pos: Long, crc: Boolean, out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>): Long? {
+    private fun parseNewc(pos: Long, crc: Boolean, out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>): ParsedRecord {
         val h = source.readFully(pos, 110)
         fun field(i: Int): Long = number(h, 6 + i * 8, 8, 16, pos)
         val inode = field(0)
@@ -150,15 +228,15 @@ public class CpioReader(
         source.requireRange(dataStart, fileSize)
         if (nameBytes.contentEquals(TRAILER_BYTES)) {
             checkTrailer(fileSize, pos + 54, checksum, pos + 102)
-            return null
+            return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, pos + 14, dataStart,
             if (nlink > 1) LinkKey(false, major, minor, inode) else null, checksum, pos + 102)
-        return align4(dataStart + fileSize)
+        return ParsedRecord(align4(dataStart + fileSize), false)
     }
 
     /** odc: 6-byte magic + octal fields (76-byte header); no padding. */
-    private fun parseOdc(pos: Long, out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>): Long? {
+    private fun parseOdc(pos: Long, out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>): ParsedRecord {
         val h = source.readFully(pos, 76)
         fun field(offset: Int, width: Int = 6) = number(h, offset, width, 8, pos)
         val device = field(6)
@@ -173,11 +251,11 @@ public class CpioReader(
         source.requireRange(dataStart, fileSize)
         if (nameBytes.contentEquals(TRAILER_BYTES)) {
             checkTrailer(fileSize, pos + 65, null, pos)
-            return null
+            return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, pos + 18, dataStart,
             if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
-        return dataStart + fileSize
+        return ParsedRecord(dataStart + fileSize, false)
     }
 
     private fun addEntry(
@@ -185,7 +263,11 @@ public class CpioReader(
         nameStart: Long, size: Long, mode: Long, modeOffset: Long, dataStart: Long,
         key: LinkKey?, checksum: Long?, checksumOffset: Long,
     ) {
-        limits.checkEntryCount(out.size + 1)
+        try {
+            limits.checkEntryCount(out.size + 1)
+        } catch (error: DecompressionBombException) {
+            throw error.withEntryContext(nameBytes.decodeToString(), nameStart)
+        }
         val name = nameDecoder.decodeStoredName(nameBytes, nameStart)
         val isDir = (mode and 0xF000L) == 0x4000L // S_IFDIR
         val entry = ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir, dataOffset = dataStart).withNameBytes(nameBytes)
@@ -272,5 +354,9 @@ public class CpioReader(
     /** Holds the reader's internal format constants; exposes no public operations. */
     public companion object {
         private val TRAILER_BYTES = "TRAILER!!!".encodeToByteArray()
+
+        @JvmSynthetic
+        internal fun initramfs(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): CpioReader =
+            CpioReader(source, nameDecoder, limits, true)
     }
 }
