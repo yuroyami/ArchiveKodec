@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- CRC-32, CRC-32C and CRC-64 now process eight bytes at a time using tables
+  initialized once for each polynomial. Short tails and split updates retain
+  their checksum values; CRC-64 keeps 32-bit arithmetic in its input loop.
+
 - Adler-32 and CRC-64 no longer perform 64-bit arithmetic for each input byte.
   Adler-32 bounds signed 32-bit sums with shorter blocks; CRC-64 keeps its state
   and lookup tables in two 32-bit halves. Checksum values and streaming APIs are unchanged.

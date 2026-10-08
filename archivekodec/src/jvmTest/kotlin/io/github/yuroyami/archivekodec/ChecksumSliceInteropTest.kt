@@ -18,8 +18,8 @@ class ChecksumSliceInteropTest {
     fun validSlicesAndIncrementalPartitionsMatchJdkChecksums() {
         val data = ByteArray(17000) { (it * 71 + 255).toByte() }
         for ((create, reference) in pairs) {
-            for (offset in listOf(0, 1, 3, 15, 3853, 3854, 3855, 5551, 5552)) {
-                for (length in listOf(0, 1, 15, 16, 17, 3853, 3854, 3855, 5551, 5552, 5553, 11000)) {
+            for (offset in listOf(0, 1, 3, 7, 8, 9, 15, 3853, 3854, 3855, 5551, 5552)) {
+                for (length in listOf(0, 1, 7, 8, 9, 15, 16, 17, 3853, 3854, 3855, 5551, 5552, 5553, 11000)) {
                     val expected = reference().also { it.update(data, offset, length) }.value
                     assertEquals(expected, create().also { it.update(data, offset, length) }.value())
                 }
@@ -27,7 +27,7 @@ class ChecksumSliceInteropTest {
             val actual = create()
             val expected = reference()
             var offset = 0
-            val chunks = listOf(1, 15, 16, 17, 3853, 3854, 3855, 5551, 5552, 5553, 3)
+            val chunks = listOf(1, 7, 8, 9, 15, 16, 17, 3853, 3854, 3855, 5551, 5552, 5553, 3)
             var index = 0
             while (offset < data.size) {
                 val length = minOf(chunks[index++ % chunks.size], data.size - offset)
