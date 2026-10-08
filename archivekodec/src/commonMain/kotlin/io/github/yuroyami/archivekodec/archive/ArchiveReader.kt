@@ -12,7 +12,8 @@ import kotlin.native.HiddenFromObjC
  *
  * Built-in readers take ownership of their supplied [RandomAccessSource]. Close
  * the reader to release it, including after a listing or read failure. Readers
- * require external serialization of operations, including [close].
+ * are not thread-safe, even with a thread-safe source: keep each reader on one
+ * thread or externally serialize all operations, including [close].
  */
 public interface ArchiveReader {
     /** The container format this reader handles. */
@@ -21,7 +22,12 @@ public interface ArchiveReader {
     /** Policy for listing and the default for each read. Custom readers default to [ArchiveLimits.DEFAULT]. */
     public val limits: ArchiveLimits get() = ArchiveLimits.DEFAULT
 
-    /** List members from the header/directory only, enforcing [ArchiveLimits.maxEntries] in built-in readers. */
+    /**
+     * List members from the header/directory only, enforcing [ArchiveLimits.maxEntries]
+     * in built-in readers. The returned read-only list may be shared with the reader's
+     * metadata cache. Do not cast it to a mutable collection or modify it through
+     * Java collection methods; use `toMutableList()` for an independently editable list.
+     */
     @Throws(ArchiveException::class)
     public fun entries(): List<ArchiveEntry>
 

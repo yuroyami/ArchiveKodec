@@ -16,6 +16,10 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
  * Supplying this source to a built-in reader transfers ownership to that reader;
  * close the reader to release it. Do not share an owned source with another reader
  * or close it independently while its reader is in use.
+ *
+ * Implementations need not support concurrent calls. Unless an implementation
+ * explicitly promises otherwise, serialize access to [size], [read] and [close].
+ * Built-in readers do not synchronize access to their source.
  */
 public interface RandomAccessSource {
     /** Total size in bytes. */
@@ -71,7 +75,12 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
     return buf
 }
 
-/** A [RandomAccessSource] backed by an in-memory [ByteArray]. */
+/**
+ * A [RandomAccessSource] backed by an in-memory [ByteArray], without copying it.
+ * The caller must keep the backing bytes unchanged while this source is in use.
+ * Concurrent reads are supported with separate destination buffers that do not
+ * alias the backing array. [close] is a no-op and does not release the array.
+ */
 public class ByteArrayRandomAccessSource(private val data: ByteArray) : RandomAccessSource {
     override val size: Long get() = data.size.toLong()
 

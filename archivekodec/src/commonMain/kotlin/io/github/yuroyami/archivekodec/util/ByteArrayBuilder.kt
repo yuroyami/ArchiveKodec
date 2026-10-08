@@ -7,6 +7,8 @@ package io.github.yuroyami.archivekodec.util
  * frames, wrapper headers/trailers and ZIP archives.
  * Appends throw [io.github.yuroyami.archivekodec.ArchiveSizeException] when the
  * result cannot fit in one ByteArray.
+ * Instances are mutable and not thread-safe; confine each builder to one thread
+ * or externally serialize all access, including snapshots.
  */
 internal class ByteArrayBuilder(initialCapacity: Int = 64) {
     private var buf = ByteArray(if (initialCapacity < 16) 16 else initialCapacity)

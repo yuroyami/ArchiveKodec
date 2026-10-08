@@ -320,6 +320,19 @@ and empty/directory reads. Previously returned entry values remain usable, and
 for concurrent operations or close. Resource-free custom readers can use the
 interface's default close; implementations retaining a handle must override it.
 
+`RandomAccessSource` implementations need not support concurrent calls. Even a
+thread-safe source does not make its reader thread-safe. `entries()` may return
+the reader's shared cached list: treat it as read-only, including from Java, and
+use `toMutableList()` when you need to edit the listing. `ByteArrayRandomAccessSource`
+borrows its input array without copying it; keep those bytes unchanged during use.
+Checksum instances also hold mutable state: use one per thread or serialize all
+updates, value reads and resets.
+
+The `archivekodec-io` adapters consume a `RawSource` from its current position
+without closing it or synchronizing access. The caller must close that original
+source on success or failure. The snapshot returned by `toRandomAccessSource()`
+has independent ownership; closing it does not close the original `RawSource`.
+
 ZIP/ZIP64 supports single-volume archives. Split-volume disk metadata throws
 `ArchiveUnsupportedException`. End-record comments must reach EOF, and missing
 or malformed required ZIP64 fields throw `ArchiveFormatException` with entry

@@ -24,7 +24,11 @@ import kotlinx.io.readByteArray
  * These helpers operate on whatever source the app already holds.
  */
 
-/** Drain a [RawSource] fully into a `ByteArray`. */
+/**
+ * Drain a [RawSource] fully into a `ByteArray` from its current position.
+ * The caller retains ownership and must close it, including when reading fails.
+ * This function does not synchronize access to the source.
+ */
 @Throws(ArchiveException::class)
 public fun RawSource.readAllBytes(): ByteArray {
     val buffer = Buffer()
@@ -36,16 +40,29 @@ public fun RawSource.readAllBytes(): ByteArray {
     }
 }
 
-/** Read an entire [RawSource] into memory and wrap it as a seekable source. */
+/**
+ * Read the remaining bytes of a [RawSource] into memory and wrap them as a seekable source.
+ * The caller retains ownership of the original source and must close it on success
+ * or failure. Closing the returned snapshot does not close the original source.
+ * This function does not synchronize access to the original source.
+ */
 @Throws(ArchiveException::class)
 public fun RawSource.toRandomAccessSource(): RandomAccessSource =
     ByteArrayRandomAccessSource(readAllBytes())
 
-/** Compress all bytes drained from [source]. */
+/**
+ * Compress all bytes drained from [source]'s current position.
+ * The caller owns [source] and must close it on success or failure.
+ * This function does not synchronize access to [source].
+ */
 @Throws(ArchiveException::class)
 public fun Codec.compress(source: RawSource): ByteArray = compress(source.readAllBytes())
 
-/** Decompress all bytes drained from [source], enforcing [limits]. */
+/**
+ * Decompress all bytes drained from [source]'s current position, enforcing [limits].
+ * The caller owns [source] and must close it on success or failure.
+ * This function does not synchronize access to [source].
+ */
 @Throws(ArchiveException::class)
 public fun Codec.decompress(
     source: RawSource,

@@ -42,6 +42,11 @@ import kotlin.text.CharacterCodingException
  * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
  * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
  * [limits] caps the listing count and supplies the default policy for each read.
+ *
+ * Owns the supplied source; close this reader to release it, including after a
+ * failed operation. This reader is not thread-safe. Keep it on one thread or
+ * externally serialize all access, including [close]. The list from [entries]
+ * must be treated as read-only; it may share the reader's cached metadata.
  */
 public class ZipReader(
     source: RandomAccessSource,

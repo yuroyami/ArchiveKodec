@@ -7,6 +7,9 @@ package io.github.yuroyami.archivekodec.checksum
  *
  * [value] returns the result in the low bits of a `Long` (32-bit checksums fit in the
  * low 32 bits; CRC-64 uses the full width).
+ *
+ * Instances hold mutable state and are not thread-safe. Use one instance per
+ * thread, or externally serialize all calls to [update], [value] and [reset].
  */
 public interface Checksum {
     /**

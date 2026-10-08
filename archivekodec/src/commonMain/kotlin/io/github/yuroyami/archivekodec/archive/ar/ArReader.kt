@@ -22,6 +22,11 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * GNU indices (`/`, `/SYM64/`), the name table (`//`) and a leading BSD ranlib
  * index are skipped as entries.
  * [limits] caps the listing count and supplies the default policy for each read.
+ *
+ * Owns the supplied source; close this reader to release it, including after a
+ * failed operation. This reader is not thread-safe. Keep it on one thread or
+ * externally serialize all access, including [close]. The list from [entries]
+ * must be treated as read-only; it may share the reader's cached metadata.
  */
 public class ArReader(
     source: RandomAccessSource,
