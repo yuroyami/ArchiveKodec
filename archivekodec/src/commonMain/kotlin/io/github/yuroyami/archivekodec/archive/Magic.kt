@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.cpio.isBinaryCpioMagic
 import io.github.yuroyami.archivekodec.archive.tar.TarHeader
+import io.github.yuroyami.archivekodec.codec.snappy.SnappyFraming
 import io.github.yuroyami.archivekodec.util.readU16Be
 import io.github.yuroyami.archivekodec.util.readU32Be
 import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
@@ -12,8 +13,8 @@ import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
  * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
  * [RandomAccessSource], and returns the matching [ArchiveFormat]. Raw Snappy and
  * Brotli have no identifying magic bytes. LZMA-alone headers are too weak to
- * identify reliably here, and Snappy framing is not supported, so this object
- * never returns SNAPPY, BROTLI or LZMA. A match identifies a format
+ * identify reliably here, so this object never returns BROTLI or LZMA.
+ * SNAPPY identifies the standard framed stream header. A match identifies a format
  * candidate; readers and codecs validate its complete structure and payload.
  */
 public object Magic {
@@ -36,6 +37,7 @@ public object Magic {
                 ArchiveFormat.XZ
             at(0) == 0x28 && at(1) == 0xB5 && at(2) == 0x2F && at(3) == 0xFD -> ArchiveFormat.ZSTD
             at(0) == 0x04 && at(1) == 0x22 && at(2) == 0x4D && at(3) == 0x18 -> ArchiveFormat.LZ4
+            SnappyFraming.hasIdentifier(header) -> ArchiveFormat.SNAPPY
             isBzip2(header) -> ArchiveFormat.BZIP2
             at(0) == 0x37 && at(1) == 0x7A && at(2) == 0xBC && at(3) == 0xAF && at(4) == 0x27 && at(5) == 0x1C ->
                 ArchiveFormat.SEVEN_ZIP

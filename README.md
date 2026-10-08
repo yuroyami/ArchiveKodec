@@ -160,6 +160,7 @@ val out = lz4!!.decompress(frameBytes)
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
 | Snappy (raw block) | yes | yes, with greedy back-reference matching |
+| Snappy (framed stream) | yes, with CRC-32C validation | yes, with stored-chunk fallback |
 
 Dynamic DEFLATE trees use binary package-merge to minimize weighted code length
 within the 15-bit literal/distance and 7-bit code-length limits. The encoder checks
@@ -169,6 +170,10 @@ for the same input, but may change when encoder behavior is corrected.
 
 `gzip`, `zlib`, `deflate` and `store` have named accessors on `ArchiveKodec`. You
 reach LZ4 and Snappy through `ArchiveKodec.codec(id)`.
+
+`CodecId.SNAPPY` and `Codecs.SNAPPY` select raw Snappy blocks.
+`CodecId.SNAPPY_FRAMED` and `Codecs.SNAPPY_FRAMED` select standard `.sz` framing.
+The low-level `Snappy` object also exposes `frameCompress` and `frameDecompress`.
 
 `CodecId` also carries entries for bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd.
 None of those have an implementation. `ArchiveKodec.codec(...)` returns `null` for
@@ -548,10 +553,11 @@ ArchiveKodec.sniff(header)     // ArchiveFormat.ZIP, TAR, GZIP, ...
 ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSource
 ```
 
-The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z
-and RAR. Raw Snappy and brotli have no identifying magic bytes, LZMA-alone is
-not identified reliably from its header, and Snappy framing is not supported.
-The sniffer never returns `SNAPPY`, `BROTLI` or `LZMA`.
+The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z,
+RAR and Snappy framing. `ArchiveFormat.SNAPPY` identifies framed input; decode
+it with `CodecId.SNAPPY_FRAMED`. Raw Snappy and brotli have no identifying magic
+bytes, and LZMA-alone is not identified reliably from its header.
+The sniffer never returns `BROTLI` or `LZMA`.
 
 Source sniffing fills `min(source.size, 512)` bytes through repeated reads, so
 one-byte and other partial positive reads are supported. Negative source sizes,
@@ -682,9 +688,11 @@ artifact and a kotlinx-io dependency.
   blocks must end in
   a literal-only sequence, with at least five final literals after a match.
   Empty output uses a zero token; an empty compressed byte sequence is invalid.
-- Snappy reads and writes raw blocks, without Snappy stream framing or chunk
-  checksums. Its encoder keeps one candidate per hash slot and extends matches
-  greedily; incompressible input can still grow slightly from framing overhead.
+- Snappy exposes separate raw-block and framed-stream codecs. The raw encoder
+  keeps one candidate per hash slot and extends matches greedily. Framed output
+  uses chunks of at most 64 KiB with masked CRC-32C checksums and a stored fallback.
+  Framed decoding accepts concatenated streams, repeated identifiers and skippable
+  chunks, rejects reserved unskippable types, and enforces combined output limits.
 - The public API is not frozen. Both modules use strict explicit API mode, and
   committed ABI dumps detect changes across every supported target. `Codec` and
   `ArchiveReader` will change when a streaming API arrives.

@@ -57,7 +57,15 @@ public object Codecs {
             Snappy.decompress(data, limits)
     }
 
-    private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB, LZ4, SNAPPY)
+    /** Standard Snappy framing with per-chunk CRC-32C validation; [SNAPPY] handles raw blocks. */
+    public val SNAPPY_FRAMED: Codec = object : Codec {
+        override val id = CodecId.SNAPPY_FRAMED
+        override fun compress(data: ByteArray): ByteArray = Snappy.frameCompress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            Snappy.frameDecompress(data, limits)
+    }
+
+    private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB, LZ4, SNAPPY, SNAPPY_FRAMED)
 
     /** The codec for [id], or null if not yet implemented. */
     public fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }

@@ -135,6 +135,7 @@ class ArchiveFacadeTest {
             CodecId.STORE to Codecs.STORE, CodecId.DEFLATE to Codecs.DEFLATE,
             CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
             CodecId.LZ4 to Codecs.LZ4, CodecId.SNAPPY to Codecs.SNAPPY,
+            CodecId.SNAPPY_FRAMED to Codecs.SNAPPY_FRAMED,
         )
         assertEquals(expected.size, ArchiveKodec.codecs.size)
         assertEquals(expected.keys, ArchiveKodec.codecs.toSet())

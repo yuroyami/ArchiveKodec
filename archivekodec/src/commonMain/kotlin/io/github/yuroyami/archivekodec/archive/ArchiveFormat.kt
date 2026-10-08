@@ -2,7 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 /**
  * A container or single-stream format identifier. [Magic] recognizes only formats
- * with supported identifying headers; it never returns [LZMA], [BROTLI] or [SNAPPY].
+ * with supported identifying headers; it never returns [LZMA] or [BROTLI].
  * An identifier does not imply that a reader or decoder is implemented.
  */
 public enum class ArchiveFormat {
@@ -34,7 +34,7 @@ public enum class ArchiveFormat {
     RAR,
     /** Brotli stream identifier; the sniffer does not return this value. */
     BROTLI,
-    /** Snappy stream identifier; raw blocks have no dependable signature. */
+    /** Standard Snappy framed stream; raw blocks have no dependable signature. */
     SNAPPY,
     /** The inspected bytes do not identify a recognized format. */
     UNKNOWN,

@@ -13,7 +13,8 @@ import io.github.yuroyami.archivekodec.util.readUIntLe
 
 /**
  * Snappy raw block format (Google): a byte-oriented LZ77 with no entropy stage.
- * [decompress] reads raw blocks, not the optional Snappy framed format.
+ * [decompress] and [compress] handle raw blocks. [frameDecompress] and
+ * [frameCompress] handle the optional Snappy framed format with chunk checksums.
  * [compress] finds repeated four-byte sequences with a bounded hash table, extends
  * matches greedily and emits the smallest applicable copy-tag form. Incompressible
  * input is stored in literal runs with a small framing overhead.
@@ -27,36 +28,42 @@ public object Snappy {
      * @throws DecompressionBombException if declared output exceeds [limits] or the maximum ByteArray size.
      */
     @Throws(ArchiveException::class)
-    public fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
-        var p = 0
+    public fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray =
+        decompressBlock(src, 0, src.size) { length ->
+            limits.checkOutputSize(length)
+            limits.checkRatio(src.size.toLong(), length)
+        }
+
+    /** Decode one bounded raw block, checking its declared output before allocation. */
+    internal fun decompressBlock(src: ByteArray, start: Int, end: Int, checkSize: (Long) -> Unit): ByteArray {
+        var p = start
         var length = 0L
         var terminated = false
         for (i in 0 until 5) {
-            if (p == src.size) throw ArchiveFormatException("snappy: truncated length preamble", p.toLong())
+            if (p == end) throw ArchiveFormatException("snappy: truncated length preamble", p.toLong())
             val b = src[p++].toInt() and 0xFF
             if (i == 4 && b > 0x0F) throw ArchiveFormatException("snappy: length preamble exceeds u32", (p - 1).toLong())
             length = length or ((b and 0x7F).toLong() shl (7 * i))
             if (b < 0x80) { terminated = true; break }
         }
         if (!terminated) throw ArchiveFormatException("snappy: unterminated length preamble", p.toLong())
-        limits.checkOutputSize(length)
+        checkSize(length)
         if (length > Int.MAX_VALUE) {
             throw DecompressionBombException("snappy: declared output $length exceeds ByteArray maximum ${Int.MAX_VALUE}")
         }
-        limits.checkRatio(src.size.toLong(), length)
         val size = length.toInt()
-        decode(src, p, size, null)
+        decode(src, p, end, size, null)
         val out = ByteArray(size)
-        decode(src, p, size, out)
+        decode(src, p, end, size, out)
         return out
     }
 
     /** Scan once without writes, then decode using exactly the same validated tag rules. */
-    private fun decode(src: ByteArray, start: Int, size: Int, out: ByteArray?) {
+    private fun decode(src: ByteArray, start: Int, end: Int, size: Int, out: ByteArray?) {
         var p = start
         var o = 0
         fun needInput(n: Int) {
-            if (n > src.size - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
+            if (n > end - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
         }
         fun littleEndian(n: Int): Long {
             needInput(n)
@@ -67,14 +74,14 @@ public object Snappy {
         fun needOutput(n: Long) {
             if (n > size.toLong() - o) throw ArchiveFormatException("snappy: tag exceeds declared output size $size", p.toLong())
         }
-        while (p < src.size) {
+        while (p < end) {
             val tagOffset = p
             val tag = src[p++].toInt() and 0xFF
             when (tag and 3) {
                 0 -> {
                     val encoded = tag ushr 2
                     val length = (if (encoded < 60) encoded.toLong() else littleEndian(encoded - 59)) + 1
-                    if (length > src.size - p) throw ArchiveFormatException("snappy: truncated literal", p.toLong())
+                    if (length > end - p) throw ArchiveFormatException("snappy: truncated literal", p.toLong())
                     needOutput(length)
                     val count = length.toInt()
                     if (out != null) src.copyInto(out, o, p, p + count)
@@ -164,6 +171,30 @@ public object Snappy {
         literal(out, data, anchor, data.size - anchor)
         return out.toByteArray()
     }
+
+    /**
+     * Decode a standard Snappy framed stream, including concatenated streams.
+     * Validates each chunk's masked CRC-32C and 64 KiB output ceiling, accepts
+     * repeat stream identifiers, and skips reserved skippable chunks and padding.
+     * [limits] apply to the combined output and the complete input/output ratio.
+     *
+     * @throws ArchiveFormatException for malformed framing, invalid raw blocks, oversized chunks or bad checksums.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for reserved unskippable chunk types.
+     * @throws DecompressionBombException if combined output exceeds [limits] or the maximum ByteArray size.
+     */
+    @Throws(ArchiveException::class)
+    public fun frameDecompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray =
+        SnappyFraming.decompress(src, limits)
+
+    /**
+     * Encode standard Snappy framing with a stream identifier and independent
+     * chunks of at most 64 KiB, each protected by a masked CRC-32C. Chunks that
+     * do not shrink are stored uncompressed. Empty input produces an identifier.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    public fun frameCompress(data: ByteArray): ByteArray = SnappyFraming.compress(data)
 
     private fun literal(out: ByteArrayBuilder, data: ByteArray, offset: Int, length: Int) {
         if (length == 0) return

@@ -352,6 +352,7 @@ public final class io/github/yuroyami/archivekodec/codec/CodecId : java/lang/Enu
 	public static final field LZMA2 Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field PPMD Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field SNAPPY Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public static final field SNAPPY_FRAMED Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field STORE Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field XZ Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field ZLIB Lio/github/yuroyami/archivekodec/codec/CodecId;
@@ -371,6 +372,7 @@ public final class io/github/yuroyami/archivekodec/codec/Codecs {
 	public final fun getImplemented ()Ljava/util/List;
 	public final fun getLZ4 ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun getSNAPPY ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public final fun getSNAPPY_FRAMED ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun getSTORE ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public final fun getZLIB ()Lio/github/yuroyami/archivekodec/codec/Codec;
 }
@@ -438,6 +440,9 @@ public final class io/github/yuroyami/archivekodec/codec/snappy/Snappy {
 	public final fun compress ([B)[B
 	public final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/snappy/Snappy;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
+	public final fun frameCompress ([B)[B
+	public final fun frameDecompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public static synthetic fun frameDecompress$default (Lio/github/yuroyami/archivekodec/codec/snappy/Snappy;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 }
 
 public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {

@@ -55,7 +55,7 @@ class MalformedMutationTest {
     @Test
     fun seededDecoderMutationsStayWithinTheTypedContract() {
         val started = TimeSource.Monotonic.markNow()
-        // CPython zlib/gzip, liblz4 1.10.0 and libsnappy 1.2.2 output.
+        // CPython zlib/gzip, liblz4 1.10.0, libsnappy 1.2.2 and python-snappy 0.7.3 output.
         val stored = hex("01c80037ff") + payload
         val fixed = hex("4bcb2f4acd4ccf53c82d2d492cc9cccf532848acccc94f4ce14a1b5a1200")
         val dynamic = hex("edcab70180301004c19c2aae358cf0e841bc70d54317241bcf781fb4e5a19e54253ba35abb34e665dd654748f28fe7f2b9d558573897cbe572b95c2e97cbe5727fbb2f")
@@ -72,6 +72,7 @@ class MalformedMutationTest {
             Decoder("ZLIB", hex("789c4bcb2f4acd4ccf53c82d2d492cc9cccf532848acccc94f4ce14a1b5a12002c064c79"), payload) { Codecs.ZLIB.decompress(it, limits) },
             Decoder("LZ4 frame", hex("04224d186c40c800000000000000a424000000ff0a666f726569676e206d75746174696f6e207061796c6f61640a190097506c6f61640a00000000d93a4998"), payload) { Codecs.LZ4.decompress(it, limits) },
             Decoder("SNAPPY", hex("c80160666f726569676e206d75746174696f6e207061796c6f61640afe1900fe1900ba1900"), payload) { Codecs.SNAPPY.decompress(it, limits) },
+            Decoder("SNAPPY framed", hex("ff060000734e61507059002a000074d0026cc80164666f726569676e206d75746174696f6e207061796c6f61640a66fe1900fe1900b61900"), payload) { Codecs.SNAPPY_FRAMED.decompress(it, limits) },
             Decoder("LZ4 block", hex("ff0a666f726569676e206d75746174696f6e207061796c6f61640a190097506c6f61640a"), payload) { Lz4.blockDecompress(it, 0, it.size) },
             Decoder("Inflate cursor", dynamic, dynamicPayload) {
                 val output = Inflate.Output(limits, it.size)

@@ -39,5 +39,8 @@ public enum class CodecId(
     BROTLI("brotli", false),
     /** Prediction by partial matching compression. */
     PPMD("ppmd", false),
+
+    /** Standard Snappy stream framing with chunk boundaries and masked CRC-32C checksums. */
+    SNAPPY_FRAMED("snappy-framed", true),
     ;
 }

@@ -84,6 +84,7 @@ final enum class io.github.yuroyami.archivekodec.codec/CodecId : kotlin/Enum<io.
     enum entry LZMA2 // io.github.yuroyami.archivekodec.codec/CodecId.LZMA2|null[0]
     enum entry PPMD // io.github.yuroyami.archivekodec.codec/CodecId.PPMD|null[0]
     enum entry SNAPPY // io.github.yuroyami.archivekodec.codec/CodecId.SNAPPY|null[0]
+    enum entry SNAPPY_FRAMED // io.github.yuroyami.archivekodec.codec/CodecId.SNAPPY_FRAMED|null[0]
     enum entry STORE // io.github.yuroyami.archivekodec.codec/CodecId.STORE|null[0]
     enum entry XZ // io.github.yuroyami.archivekodec.codec/CodecId.XZ|null[0]
     enum entry ZLIB // io.github.yuroyami.archivekodec.codec/CodecId.ZLIB|null[0]
@@ -478,6 +479,8 @@ final object io.github.yuroyami.archivekodec.codec.lz4/Lz4 { // io.github.yuroya
 final object io.github.yuroyami.archivekodec.codec.snappy/Snappy { // io.github.yuroyami.archivekodec.codec.snappy/Snappy|null[0]
     final fun compress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.snappy/Snappy.compress|compress(kotlin.ByteArray){}[0]
     final fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.snappy/Snappy.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun frameCompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.snappy/Snappy.frameCompress|frameCompress(kotlin.ByteArray){}[0]
+    final fun frameDecompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.snappy/Snappy.frameDecompress|frameDecompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 }
 
 final object io.github.yuroyami.archivekodec.codec/Codecs { // io.github.yuroyami.archivekodec.codec/Codecs|null[0]
@@ -489,6 +492,8 @@ final object io.github.yuroyami.archivekodec.codec/Codecs { // io.github.yuroyam
         final fun <get-LZ4>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.LZ4.<get-LZ4>|<get-LZ4>(){}[0]
     final val SNAPPY // io.github.yuroyami.archivekodec.codec/Codecs.SNAPPY|{}SNAPPY[0]
         final fun <get-SNAPPY>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.SNAPPY.<get-SNAPPY>|<get-SNAPPY>(){}[0]
+    final val SNAPPY_FRAMED // io.github.yuroyami.archivekodec.codec/Codecs.SNAPPY_FRAMED|{}SNAPPY_FRAMED[0]
+        final fun <get-SNAPPY_FRAMED>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.SNAPPY_FRAMED.<get-SNAPPY_FRAMED>|<get-SNAPPY_FRAMED>(){}[0]
     final val STORE // io.github.yuroyami.archivekodec.codec/Codecs.STORE|{}STORE[0]
         final fun <get-STORE>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.STORE.<get-STORE>|<get-STORE>(){}[0]
     final val ZLIB // io.github.yuroyami.archivekodec.codec/Codecs.ZLIB|{}ZLIB[0]

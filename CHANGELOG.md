@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added explicit Snappy framed encoding and decoding through `SNAPPY_FRAMED`
+  and `Snappy.frameCompress`/`frameDecompress`, with CRC-32C validation, chunk and
+  combined output limits, concatenation and skippable chunks. The sniffer now
+  recognizes the framed identifier; `SNAPPY` codec APIs continue to handle raw blocks.
+
 - LZ4 encoding now increases its search step after repeated misses, compresses
   frame blocks directly from input slices, and extends matches four bytes at a
   time. Block independence and the required final literals are preserved.
