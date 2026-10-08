@@ -51,7 +51,11 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  */
 public object Deflate {
 
-    /** Compress [data] to a bare DEFLATE stream (no zlib/gzip wrapper). */
+    /**
+     * Compress [data] to a bare DEFLATE stream (no zlib/gzip wrapper).
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
 }

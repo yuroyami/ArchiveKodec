@@ -73,6 +73,7 @@ public class ZipReader(
     private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
+    /** Describe the owned source without listing or extracting members. */
     override fun toString(): String = "ZipReader(source=$ownedSource)"
 
     override val format: ArchiveFormat = ArchiveFormat.ZIP
@@ -85,7 +86,17 @@ public class ZipReader(
     @Throws(ArchiveException::class)
     override fun close(): Unit = ownedSource.close()
 
-    /** Read a directory entry or an unchanged value copy; altered metadata is rejected. */
+    /**
+     * Read a directory entry or an unchanged value copy; altered metadata is rejected.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveClosedException if the reader is closed.
+     * @throws ArchiveFormatException for changed entry metadata, malformed headers or failed integrity checks.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for encryption or an unsupported ZIP method or feature.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     * @throws ArchiveException if the underlying source or directory listing reports another archive failure.
+     */
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source

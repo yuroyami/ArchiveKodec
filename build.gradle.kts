@@ -73,6 +73,7 @@ allprojects {
             // A module with a Module.md gets its description onto the aggregated
             // "all modules" landing page, which is otherwise a bare list of names.
             dokkaSourceSets.configureEach {
+                reportUndocumented.set(true)
                 val moduleDoc = layout.projectDirectory.file("Module.md")
                 if (moduleDoc.asFile.exists()) {
                     includes.from(moduleDoc)

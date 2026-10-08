@@ -18,6 +18,7 @@ import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
  */
 public object Magic {
 
+    /** Identify a format from the supplied header bytes, or return [ArchiveFormat.UNKNOWN]. No payload is decoded. */
     public fun sniff(header: ByteArray): ArchiveFormat {
         fun at(i: Int): Int = if (i < header.size) header[i].toInt() and 0xFF else -1
         return when {
@@ -55,6 +56,9 @@ public object Magic {
     /**
      * Sniff up to 512 bytes, filling partial reads without taking source ownership.
      * Inconsistent sizes, premature EOF and invalid read counts are format errors.
+     *
+     * @throws ArchiveFormatException if the source range or returned read count is invalid.
+     * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
     public fun sniff(source: RandomAccessSource): ArchiveFormat {

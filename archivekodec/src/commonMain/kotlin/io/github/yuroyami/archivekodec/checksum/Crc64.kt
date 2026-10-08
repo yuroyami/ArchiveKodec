@@ -26,6 +26,7 @@ public class Crc64 : Checksum {
 
     override fun reset() { crc = -1L }
 
+    /** One-shot checksum calculation for a complete byte array. */
     public companion object {
         private val POLY = 0xC96C5795D7870F42uL.toLong()
 
@@ -35,6 +36,7 @@ public class Crc64 : Checksum {
             c
         }
 
+        /** Calculate the 64 checksum bits as a signed Long of all [data]. */
         public fun of(data: ByteArray): Long = Crc64().apply { update(data) }.value()
     }
 }

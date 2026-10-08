@@ -14,8 +14,10 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
  */
 public object Codecs {
 
+    /** Identity transform; decompression still enforces the supplied limits. */
     public val STORE: Codec = Store
 
+    /** Raw DEFLATE without a wrapper header or checksum. */
     public val DEFLATE: Codec = object : Codec {
         override val id = CodecId.DEFLATE
         override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
@@ -23,6 +25,7 @@ public object Codecs {
             Inflate.inflate(data, limits)
     }
 
+    /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */
     public val GZIP: Codec = object : Codec {
         override val id = CodecId.GZIP
         override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
@@ -30,6 +33,7 @@ public object Codecs {
             Gzip.decompress(data, limits)
     }
 
+    /** Zlib framing with Adler-32 validation and no preset dictionary support. */
     public val ZLIB: Codec = object : Codec {
         override val id = CodecId.ZLIB
         override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
@@ -37,6 +41,7 @@ public object Codecs {
             Zlib.decompress(data, limits)
     }
 
+    /** LZ4 frame codec; decoding supports linked blocks and concatenated frames. */
     public val LZ4: Codec = object : Codec {
         override val id = CodecId.LZ4
         override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
@@ -44,6 +49,7 @@ public object Codecs {
             Lz4.frameDecompress(data, limits)
     }
 
+    /** Snappy raw-block codec; the encoder currently emits literals only. */
     public val SNAPPY: Codec = object : Codec {
         override val id = CodecId.SNAPPY
         override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)

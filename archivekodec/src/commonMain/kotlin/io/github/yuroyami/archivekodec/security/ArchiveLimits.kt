@@ -83,10 +83,12 @@ public class ArchiveLimits private constructor(builder: Builder) {
     public fun copy(configure: Builder.() -> Unit = {}): ArchiveLimits =
         Builder(this).apply(configure).build()
 
+    /** Compare all configured policy ceilings. */
     override fun equals(other: Any?): Boolean = other is ArchiveLimits &&
         maxUncompressedBytes == other.maxUncompressedBytes && maxCompressionRatio == other.maxCompressionRatio &&
         maxEntries == other.maxEntries && maxNestingDepth == other.maxNestingDepth
 
+    /** Hash the policy ceilings used by [equals]. */
     override fun hashCode(): Int {
         var result = maxUncompressedBytes.hashCode()
         result = 31 * result + maxCompressionRatio
@@ -94,6 +96,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
         return 31 * result + maxNestingDepth
     }
 
+    /** Describe each configured policy ceiling. */
     override fun toString(): String = "ArchiveLimits(maxUncompressedBytes=$maxUncompressedBytes, " +
         "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxNestingDepth=$maxNestingDepth)"
 
@@ -128,6 +131,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
         }
     }
 
+    /** Default policies and builder-based policy construction. */
     public companion object {
         /**
          * Build a policy from default settings, for example `ArchiveLimits { maxEntries = 5 }`.

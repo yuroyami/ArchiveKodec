@@ -38,7 +38,11 @@ public object Gzip {
     @Deprecated("Use ArchiveLimits.DEFAULT or an explicit ArchiveLimits policy")
     public const val DEFAULT_MAXIMUM_SIZE: Long = 4L * 1024 * 1024
 
-    /** Compress [data] into a complete gzip member. */
+    /**
+     * Compress [data] into a complete gzip member.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 32)
@@ -55,7 +59,15 @@ public object Gzip {
         return out.toByteArray()
     }
 
-    /** Decode all gzip members with [ArchiveLimits.DEFAULT]. Also accepts one zlib stream. */
+    /**
+     * Decode all gzip members with [ArchiveLimits.DEFAULT]. Also accepts one zlib stream.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, inconsistent sizes or failed integrity checks.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if decoding needs an unsupported format feature or dictionary.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
@@ -70,6 +82,8 @@ public object Gzip {
      * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
      *   before output growth if the output or whole-input ratio exceeds [limits].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if a zlib input requires a preset dictionary.
      */
     @Throws(ArchiveException::class)
     public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
@@ -98,6 +112,11 @@ public object Gzip {
     /**
      * Compatibility overload. A zero cap accepts only empty output, as [ArchiveLimits] does.
      * @throws IllegalArgumentException if [maximumSize] is negative.
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, inconsistent sizes or failed integrity checks.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if decoding needs an unsupported format feature or dictionary.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Deprecated(
         "Pass ArchiveLimits to configure the complete decompression policy",

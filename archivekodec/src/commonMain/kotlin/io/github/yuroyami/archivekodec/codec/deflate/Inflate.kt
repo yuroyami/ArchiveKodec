@@ -99,7 +99,14 @@ public object Inflate {
         16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
     )
 
-    /** Inflate exactly one complete raw DEFLATE stream with [ArchiveLimits.DEFAULT]. */
+    /**
+     * Inflate exactly one complete raw DEFLATE stream with [ArchiveLimits.DEFAULT].
+     *
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws ArchiveFormatException if bytes remain after the DEFLATE stream.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     */
     @Throws(ArchiveException::class)
     public fun inflate(input: ByteArray): ByteArray = inflate(input, ArchiveLimits.DEFAULT)
 

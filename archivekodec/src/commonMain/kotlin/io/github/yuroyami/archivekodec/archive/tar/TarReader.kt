@@ -45,6 +45,7 @@ public class TarReader(
     private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
+    /** Describe the owned source without listing or extracting members. */
     override fun toString(): String = "TarReader(source=$ownedSource)"
 
     override val format: ArchiveFormat = ArchiveFormat.TAR
@@ -173,6 +174,7 @@ public class TarReader(
         return v
     }
 
+    /** Holds the reader's internal format constants; exposes no public operations. */
     public companion object {
         private const val BLOCK = TarHeader.SIZE
         private const val SPACE = ' '.code

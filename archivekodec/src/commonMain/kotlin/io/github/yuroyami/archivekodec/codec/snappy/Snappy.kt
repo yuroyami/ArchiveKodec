@@ -16,7 +16,12 @@ import io.github.yuroyami.archivekodec.util.readUIntLe
  */
 public object Snappy {
 
-    /** Decompress a Snappy block, validating its complete structure before output allocation. */
+    /**
+     * Decompress a Snappy block, validating its complete structure before output allocation.
+     *
+     * @throws ArchiveFormatException for a malformed preamble, invalid tags or inconsistent output size.
+     * @throws DecompressionBombException if declared output exceeds [limits] or the maximum ByteArray size.
+     */
     @Throws(ArchiveException::class)
     public fun decompress(src: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {
         var p = 0
@@ -98,7 +103,11 @@ public object Snappy {
         if (o != size) throw ArchiveFormatException("snappy: decoded $o bytes, expected $size", p.toLong())
     }
 
-    /** Compress [data] into a valid (all-literal) Snappy block. */
+    /**
+     * Compress [data] into a valid (all-literal) Snappy block.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size + 8)

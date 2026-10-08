@@ -39,7 +39,12 @@ public object ArchiveKodec {
     /** Detect the format of a header buffer. */
     public fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
 
-    /** Detect the format of a seekable source (reads up to the first 512 bytes). */
+    /**
+     * Detect the format of a seekable source (reads up to the first 512 bytes).
+     *
+     * @throws ArchiveFormatException if the source reports an invalid size, premature EOF or invalid read count.
+     * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
+     */
     @Throws(ArchiveException::class)
     public fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
 
@@ -49,9 +54,13 @@ public object ArchiveKodec {
     /** Codec ids available right now. */
     public val codecs: List<CodecId> get() = Codecs.implemented
 
+    /** Identity codec: returns the input bytes unchanged. */
     public val store: Codec get() = Codecs.STORE
+    /** Raw DEFLATE codec, without gzip or zlib framing. */
     public val deflate: Codec get() = Codecs.DEFLATE
+    /** Gzip encoder and decoder; decoding also accepts one zlib stream. */
     public val gzip: Codec get() = Codecs.GZIP
+    /** Zlib codec with RFC 1950 framing and Adler-32 integrity checks. */
     public val zlib: Codec get() = Codecs.ZLIB
 
     /**
@@ -62,12 +71,20 @@ public object ArchiveKodec {
      * Ownership transfers to the returned reader. If detection or opening
      * throws, the caller still owns [source] and must close it.
      *
-     * @throws ArchiveUnsupportedException for a format with no reader yet.
+     * @throws ArchiveFormatException if the format is unrecognized or source ranges are invalid.
+     * @throws ArchiveUnsupportedException if the recognized format has no container reader.
+     * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
     public fun open(source: RandomAccessSource): ArchiveReader = open(source, ArchiveLimits.DEFAULT)
 
-    /** Open with a policy for entry listing and the default limits of each read. */
+    /**
+     * Open with a policy for entry listing and the default limits of each read.
+     *
+     * @throws ArchiveFormatException if the format is unrecognized or source ranges are invalid.
+     * @throws ArchiveUnsupportedException if the recognized format has no container reader.
+     * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
+     */
     @Throws(ArchiveException::class)
     public fun open(source: RandomAccessSource, limits: ArchiveLimits): ArchiveReader = when (val format = containerFormat(source)) {
         ArchiveFormat.TAR -> TarReader(source, limits)
@@ -80,12 +97,24 @@ public object ArchiveKodec {
         )
     }
 
-    /** Open with explicit filename decoding; ZIP Unicode metadata still takes precedence. */
+    /**
+     * Open with explicit filename decoding; ZIP Unicode metadata still takes precedence.
+     *
+     * @throws ArchiveFormatException if the format is unrecognized or source ranges are invalid.
+     * @throws ArchiveUnsupportedException if the recognized format has no container reader.
+     * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
+     */
     @Throws(ArchiveException::class)
     public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder): ArchiveReader =
         open(source, nameDecoder, ArchiveLimits.DEFAULT)
 
-    /** Open with explicit filename decoding and a policy for listing and entry reads. */
+    /**
+     * Open with explicit filename decoding and a policy for listing and entry reads.
+     *
+     * @throws ArchiveFormatException if the format is unrecognized or source ranges are invalid.
+     * @throws ArchiveUnsupportedException if the recognized format has no container reader.
+     * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
+     */
     @Throws(ArchiveException::class)
     public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): ArchiveReader = when (val format = containerFormat(source)) {
         ArchiveFormat.TAR -> TarReader(source, nameDecoder, limits)

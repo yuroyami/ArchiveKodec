@@ -59,6 +59,7 @@ public class CpioReader(
     private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
+    /** Describe the owned source without listing or extracting members. */
     override fun toString(): String = "CpioReader(source=$ownedSource)"
 
     override val format: ArchiveFormat = ArchiveFormat.CPIO
@@ -268,6 +269,7 @@ public class CpioReader(
         return v
     }
 
+    /** Holds the reader's internal format constants; exposes no public operations. */
     public companion object {
         private val TRAILER_BYTES = "TRAILER!!!".encodeToByteArray()
     }

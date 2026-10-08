@@ -214,7 +214,11 @@ public object Lz4 {
 
     /* ─── Frame format (.lz4) ────────────────────────────────────────────── */
 
-    /** Compress [data] into a complete LZ4 frame (no optional checksums, 4 MiB blocks). */
+    /**
+     * Compress [data] into a complete LZ4 frame (no optional checksums, 4 MiB blocks).
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun frameCompress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
@@ -257,6 +261,11 @@ public object Lz4 {
      * [ArchiveUnsupportedException] with the declared ID. An untagged missing-history
      * match remains malformed, since an external dictionary cannot be inferred reliably.
      * Legacy frames raise [ArchiveUnsupportedException]. Empty input is malformed.
+     *
+     * @throws ArchiveFormatException for malformed frames, invalid matches or failed size/checksum validation.
+     * @throws ArchiveUnsupportedException for legacy frames or unavailable declared dictionary history.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
     public fun frameDecompress(input: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray {

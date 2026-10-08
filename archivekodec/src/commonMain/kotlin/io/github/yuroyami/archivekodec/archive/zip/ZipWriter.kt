@@ -72,7 +72,12 @@ public object ZipWriter {
          * Mutable single-thread configuration. [data] remains mutable while configuring;
          * [build] takes an independent snapshot. Future settings are body properties.
          */
-        public class Builder public constructor(public var name: String, public var data: ByteArray) {
+        public class Builder public constructor(
+            /** Exact archive filename; validated when [ZipWriter.write] is called. */
+            public var name: String,
+            /** Mutable payload to snapshot when [build] is called. */
+            public var data: ByteArray,
+        ) {
             /** Compression method, initially [ZipMethod.DEFLATED]. */
             public var method: ZipMethod = ZipMethod.DEFLATED
 
@@ -93,9 +98,11 @@ public object ZipWriter {
         @Throws(IllegalArgumentException::class)
         public fun copy(configure: Builder.() -> Unit = {}): FileSpec = Builder(this).apply(configure).build()
 
+        /** Compare the filename, compression method and payload content. */
         override fun equals(other: Any?): Boolean = this === other || other is FileSpec &&
             name == other.name && method == other.method && content.contentEquals(other.content)
 
+        /** Hash the filename, compression method and payload content. */
         override fun hashCode(): Int = 31 * (31 * name.hashCode() + method.hashCode()) + content.contentHashCode()
 
         /** Bounded description with an escaped name, byte count and method; no payload dump. */
@@ -131,6 +138,7 @@ public object ZipWriter {
             }
         }
 
+        /** Construct file descriptions with a builder action. */
         public companion object {
             /**
              * Configure additional settings before taking a snapshot, for example

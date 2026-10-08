@@ -7,9 +7,12 @@ package io.github.yuroyami.archivekodec
 public open class ArchiveException(
     message: String,
     cause: Throwable? = null,
+    /** Absolute source byte offset of the failure, or null when unavailable. */
     public val offset: Long? = null,
+    /** Stored member name associated with the failure, or null when unavailable. */
     public val entryName: String? = null,
 ) : Exception(message, cause) {
+    /** Describe the failure with its available member name and source offset. */
     override fun toString(): String = buildString {
         append(this@ArchiveException::class.simpleName ?: "ArchiveException")
         append(": ").append(message)

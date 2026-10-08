@@ -8,7 +8,12 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * A reader who cross-references the canonical C source can map an exception back to
  * the branch that raised it.
  */
-public enum class InflateError(public val code: Int, public val message: String) {
+public enum class InflateError(
+    /** Stable puff-compatible code, with additional wrapper-level values. */
+    public val code: Int,
+    /** Human-readable explanation of the inflation failure. */
+    public val message: String,
+) {
     /** puff 2: `bits()`/`decode()` read past the end of the input (longjmp path). */
     DATA_DID_NOT_TERMINATE(2, "available inflate data did not terminate"),
 
@@ -55,6 +60,7 @@ public enum class InflateError(public val code: Int, public val message: String)
     UNKNOWN(999, "unknown inflate error"),
     ;
 
+    /** Internal puff error-code conversion; exposes no public operations. */
     public companion object {
         /** Map a raw `puff()` return value to the corresponding [InflateError]. */
         internal fun fromPuff(code: Int): InflateError = when (code) {
@@ -80,6 +86,7 @@ public enum class InflateError(public val code: Int, public val message: String)
  * the specific [error] so callers can branch on the exact failure mode.
  */
 public class InflateException(
+    /** Specific DEFLATE failure category for programmatic handling. */
     public val error: InflateError, offset: Long?, entryName: String?, cause: Throwable?,
 ) : ArchiveException(error.message, cause, offset, entryName) {
     public constructor(error: InflateError) : this(error, null, null, null)

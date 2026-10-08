@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Public metadata, format and codec identifiers now have individual API descriptions.
+  Reader, codec, wrapper and IO entry points document their current failure contracts,
+  and Dokka reports undocumented public declarations. No API or runtime behavior changed.
+
 - Binary readers and writers now share internal byte-order helpers, and zlib
   decoding and sniffing share header validation. The test fixtures share one hex
   decoder, with a registry check keeping codec support flags in sync. Removed

@@ -25,6 +25,7 @@ public class Crc32 : Checksum {
 
     override fun reset() { crc = -1 }
 
+    /** One-shot checksum calculation for a complete byte array. */
     public companion object {
         private const val POLY = 0xEDB88320.toInt()
 

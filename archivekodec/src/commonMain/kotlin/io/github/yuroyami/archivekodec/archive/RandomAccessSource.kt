@@ -32,11 +32,16 @@ public interface RandomAccessSource {
      *
      * @throws ArchiveFormatException for a negative source offset.
      * @throws IllegalArgumentException for an invalid destination slice.
+     * @throws ArchiveException if the implementation reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class, IllegalArgumentException::class)
     public fun read(offset: Long, into: ByteArray, intoOffset: Int = 0, length: Int = into.size): Int
 
-    /** Release any underlying handle. No-op for in-memory sources. */
+    /**
+     * Release any underlying handle. No-op for in-memory sources.
+     *
+     * @throws ArchiveException if the implementation cannot release its underlying resource.
+     */
     @Throws(ArchiveException::class)
     public fun close() {}
 }
@@ -45,6 +50,7 @@ public interface RandomAccessSource {
  * Read exactly [length] bytes at [offset]. Validate the source range before allocation.
  *
  * @throws ArchiveFormatException for an invalid range or a premature end of source.
+ * @throws ArchiveException if the source reports another IO or lifecycle failure.
  */
 @Throws(ArchiveException::class)
 public fun RandomAccessSource.readFully(offset: Long, length: Int): ByteArray =
@@ -84,6 +90,7 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
 public class ByteArrayRandomAccessSource(private val data: ByteArray) : RandomAccessSource {
     override val size: Long get() = data.size.toLong()
 
+    /** Describe the source size without exposing its bytes. */
     override fun toString(): String = "ByteArrayRandomAccessSource(size=${data.size})"
 
     @Throws(ArchiveException::class, IllegalArgumentException::class)

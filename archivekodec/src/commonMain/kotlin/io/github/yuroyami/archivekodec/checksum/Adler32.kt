@@ -36,10 +36,12 @@ public class Adler32 : Checksum {
 
     override fun reset() { a = 1L; b = 0L }
 
+    /** One-shot checksum calculation for a complete byte array. */
     public companion object {
         private const val MOD = 65521      // largest prime below 2^16
         private const val NMAX = 5552      // max iterations before a mod is required
 
+        /** Calculate the unsigned 32-bit checksum as a Long of all [data]. */
         public fun of(data: ByteArray): Long = Adler32().apply { update(data) }.value()
     }
 }

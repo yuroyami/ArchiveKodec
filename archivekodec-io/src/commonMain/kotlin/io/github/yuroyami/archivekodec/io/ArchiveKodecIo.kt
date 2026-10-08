@@ -28,6 +28,10 @@ import kotlinx.io.readByteArray
  * Drain a [RawSource] fully into a `ByteArray` from its current position.
  * The caller retains ownership and must close it, including when reading fails.
  * This function does not synchronize access to the source.
+ *
+ * @throws ArchiveIOException if the source reports an IO failure.
+ * @throws IllegalStateException if the source is closed or the buffered byte count
+ *   reaches kotlinx-io's ByteArray ceiling (`Int.MAX_VALUE`).
  */
 @Throws(ArchiveException::class)
 public fun RawSource.readAllBytes(): ByteArray {
@@ -45,6 +49,10 @@ public fun RawSource.readAllBytes(): ByteArray {
  * The caller retains ownership of the original source and must close it on success
  * or failure. Closing the returned snapshot does not close the original source.
  * This function does not synchronize access to the original source.
+ *
+ * @throws ArchiveIOException if the source reports an IO failure.
+ * @throws IllegalStateException if the source is closed or the remaining bytes
+ *   reach kotlinx-io's ByteArray ceiling (`Int.MAX_VALUE`).
  */
 @Throws(ArchiveException::class)
 public fun RawSource.toRandomAccessSource(): RandomAccessSource =
@@ -54,6 +62,12 @@ public fun RawSource.toRandomAccessSource(): RandomAccessSource =
  * Compress all bytes drained from [source]'s current position.
  * The caller owns [source] and must close it on success or failure.
  * This function does not synchronize access to [source].
+ *
+ * @throws ArchiveIOException if the source reports an IO failure.
+ * @throws IllegalStateException if the source is closed or the input cannot be
+ *   materialized by [readAllBytes].
+ * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if compressed output cannot fit in one ByteArray.
+ * @throws ArchiveException if a custom codec reports another archive failure.
  */
 @Throws(ArchiveException::class)
 public fun Codec.compress(source: RawSource): ByteArray = compress(source.readAllBytes())
@@ -62,6 +76,16 @@ public fun Codec.compress(source: RawSource): ByteArray = compress(source.readAl
  * Decompress all bytes drained from [source]'s current position, enforcing [limits].
  * The caller owns [source] and must close it on success or failure.
  * This function does not synchronize access to [source].
+ *
+ * @throws ArchiveIOException if the source reports an IO failure.
+ * @throws IllegalStateException if the source is closed or the input cannot be
+ *   materialized by [readAllBytes].
+ * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, invalid sizes or failed integrity checks.
+ * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data.
+ * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for an unsupported format feature or dictionary.
+ * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if decoding exceeds [limits].
+ * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if decoded output cannot fit in one ByteArray.
+ * @throws ArchiveException if a custom codec reports another archive failure.
  */
 @Throws(ArchiveException::class)
 public fun Codec.decompress(

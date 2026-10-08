@@ -23,7 +23,11 @@ import io.github.yuroyami.archivekodec.util.readU32Be
  */
 public object Zlib {
 
-    /** Compress [data] into a zlib stream. */
+    /**
+     * Compress [data] into a zlib stream.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun compress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 16)
@@ -37,7 +41,15 @@ public object Zlib {
         return out.toByteArray()
     }
 
-    /** Decode exactly one complete zlib stream with [ArchiveLimits.DEFAULT]. */
+    /**
+     * Decode exactly one complete zlib stream with [ArchiveLimits.DEFAULT].
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, inconsistent sizes or failed integrity checks.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if decoding needs an unsupported format feature or dictionary.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun decompress(input: ByteArray): ByteArray = decompress(input, ArchiveLimits.DEFAULT)
 
@@ -51,6 +63,7 @@ public object Zlib {
      * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
      *   if the output or whole-input ratio exceeds [limits].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Throws(ArchiveException::class)
     public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
@@ -75,6 +88,11 @@ public object Zlib {
     /**
      * Compatibility overload. A zero cap accepts only empty output, as [ArchiveLimits] does.
      * @throws IllegalArgumentException if [maximumSize] is negative.
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, inconsistent sizes or failed integrity checks.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if decoding needs an unsupported format feature or dictionary.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
     @Deprecated(
         "Pass ArchiveLimits to configure the complete decompression policy",

@@ -26,6 +26,7 @@ public class Crc32c : Checksum {
 
     override fun reset() { crc = -1 }
 
+    /** One-shot checksum calculation for a complete byte array. */
     public companion object {
         private const val POLY = 0x82F63B78.toInt()
 
@@ -35,6 +36,7 @@ public class Crc32c : Checksum {
             c
         }
 
+        /** Calculate the unsigned 32-bit checksum as a Long of all [data]. */
         public fun of(data: ByteArray): Long = Crc32c().apply { update(data) }.value()
     }
 }

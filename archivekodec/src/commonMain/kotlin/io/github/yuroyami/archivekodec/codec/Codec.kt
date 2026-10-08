@@ -13,11 +13,23 @@ public interface Codec {
     /** Which codec this is. */
     public val id: CodecId
 
-    /** Compress [data] fully in memory. */
+    /**
+     * Compress [data] fully in memory.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun compress(data: ByteArray): ByteArray
 
-    /** Decompress [data] fully in memory, enforcing [limits]. */
+    /**
+     * Decompress [data] fully in memory, enforcing [limits].
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, inconsistent sizes or failed integrity checks.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException if decoding needs an unsupported format feature or dictionary.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
     @Throws(ArchiveException::class)
     public fun decompress(data: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 }

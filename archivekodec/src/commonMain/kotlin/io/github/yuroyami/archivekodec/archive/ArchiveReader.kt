@@ -27,11 +27,27 @@ public interface ArchiveReader {
      * in built-in readers. The returned read-only list may be shared with the reader's
      * metadata cache. Do not cast it to a mutable collection or modify it through
      * Java collection methods; use `toMutableList()` for an independently editable list.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveClosedException if the reader is closed.
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed metadata or invalid filename encoding.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for an unsupported container dialect or directory feature.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if the entry count exceeds this reader's policy.
+     * @throws ArchiveException if the source or a custom filename decoder reports another archive failure.
      */
     @Throws(ArchiveException::class)
     public fun entries(): List<ArchiveEntry>
 
-    /** Read one entry's uncompressed bytes, using this reader's policy unless [limits] overrides it. */
+    /**
+     * Read one entry's uncompressed bytes, using this reader's policy unless [limits] overrides it.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveClosedException if the reader is closed.
+     * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for invalid entry metadata, truncated data or a failed integrity check.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for encryption, an unavailable codec or an unsupported format feature.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     * @throws ArchiveException if listing or reading the underlying source reports another archive failure.
+     */
     @Throws(ArchiveException::class)
     public fun read(entry: ArchiveEntry, limits: ArchiveLimits = this.limits): ByteArray
 
@@ -43,6 +59,8 @@ public interface ArchiveReader {
      *
      * The default is for resource-free custom readers. Custom implementations
      * retaining a source or handle must override this method to release it.
+     *
+     * @throws ArchiveException if closing the underlying source reports an archive failure.
      */
     @Throws(ArchiveException::class)
     public fun close() {}
@@ -63,6 +81,9 @@ public fun ArchiveReader.asAutoCloseable(): AutoCloseable = AutoCloseable { clos
  * Execute [block] and close this reader on normal or exceptional return. A close
  * failure is suppressed on a primary block failure, as in standard Kotlin [use].
  * A nullable receiver is passed to [block] and needs no cleanup when null.
+ *
+ * @throws ArchiveException if cleanup fails after a successful block.
+ * @throws Throwable if [block] throws; cleanup failures are then suppressed on that failure.
  */
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC

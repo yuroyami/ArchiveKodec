@@ -11,9 +11,15 @@ import kotlin.text.CharacterCodingException
  * Supply a platform charset decoder for other legacy encodings.
  */
 public fun interface ArchiveNameDecoder {
+    /**
+     * Decode one filename.
+     * @throws ArchiveFormatException if the built-in UTF-8 decoder encounters malformed bytes.
+     * @throws ArchiveException if the bytes cannot be decoded under this decoder's policy.
+     */
     @Throws(ArchiveException::class)
     public fun decode(bytes: ByteArray): String
 
+    /** Built-in strict UTF-8 and legacy CP437 filename decoders. */
     public companion object {
         /** Strict UTF-8; malformed sequences raise [ArchiveFormatException]. */
         public val UTF8: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
