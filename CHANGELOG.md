@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added `ArWriter` for buffered GNU ar archives, with long-name tables, even-byte
+  padding and configurable numeric metadata. Member descriptions own their payloads
+  and use stable constructors/builders. Names are validated UTF-8 basenames; BSD,
+  thin archives and linker symbol-index generation are outside this writer's scope.
+
 - Decoders transfer exact-sized output buffers without a trimming copy. ZIP STORE
   reads return their owned payload buffer; DEFLATE and gzip use bounded size hints
   during growth. LZ4 blocks decode directly into the frame output, with growth

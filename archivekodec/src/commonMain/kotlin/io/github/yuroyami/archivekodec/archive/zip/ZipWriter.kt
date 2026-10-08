@@ -29,8 +29,7 @@ import kotlin.text.CharacterCodingException
  * and empty anonymous names are supported; filesystem mapping is the caller's job.
  * Entries use the reproducible default timestamp 1980-01-01 00:00:00.
  *
- * This is the only writer in the library, and it is not reachable from the
- * `ArchiveKodec` object.
+ * Import this writer directly; it is not reachable from the `ArchiveKodec` object.
  */
 public object ZipWriter {
 

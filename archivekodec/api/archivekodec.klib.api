@@ -412,6 +412,61 @@ open class io.github.yuroyami.archivekodec/ArchiveException : kotlin/Exception {
     open fun toString(): kotlin/String // io.github.yuroyami.archivekodec/ArchiveException.toString|toString(){}[0]
 }
 
+final object io.github.yuroyami.archivekodec.archive.ar/ArWriter { // io.github.yuroyami.archivekodec.archive.ar/ArWriter|null[0]
+    final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec>){}[0]
+
+    final class FileSpec { // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec|null[0]
+        constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
+
+        final val data // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.data|{}data[0]
+            final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.data.<get-data>|<get-data>(){}[0]
+        final val gid // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.gid|{}gid[0]
+            final fun <get-gid>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.gid.<get-gid>|<get-gid>(){}[0]
+        final val mode // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.mode|{}mode[0]
+            final fun <get-mode>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.mode.<get-mode>|<get-mode>(){}[0]
+        final val modificationTime // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.modificationTime|{}modificationTime[0]
+            final fun <get-modificationTime>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.modificationTime.<get-modificationTime>|<get-modificationTime>(){}[0]
+        final val name // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.name|{}name[0]
+            final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.name.<get-name>|<get-name>(){}[0]
+        final val uid // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.uid|{}uid[0]
+            final fun <get-uid>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.uid.<get-uid>|<get-uid>(){}[0]
+
+        final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec.Builder,kotlin.Unit>){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.toString|toString(){}[0]
+
+        final class Builder { // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder|null[0]
+            constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
+
+            final var data // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.data|{}data[0]
+                final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.data.<get-data>|<get-data>(){}[0]
+                final fun <set-data>(kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.data.<set-data>|<set-data>(kotlin.ByteArray){}[0]
+            final var gid // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.gid|{}gid[0]
+                final fun <get-gid>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.gid.<get-gid>|<get-gid>(){}[0]
+                final fun <set-gid>(kotlin/Int) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.gid.<set-gid>|<set-gid>(kotlin.Int){}[0]
+            final var mode // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.mode|{}mode[0]
+                final fun <get-mode>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.mode.<get-mode>|<get-mode>(){}[0]
+                final fun <set-mode>(kotlin/Int) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.mode.<set-mode>|<set-mode>(kotlin.Int){}[0]
+            final var modificationTime // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.modificationTime|{}modificationTime[0]
+                final fun <get-modificationTime>(): kotlin/Long // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.modificationTime.<get-modificationTime>|<get-modificationTime>(){}[0]
+                final fun <set-modificationTime>(kotlin/Long) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.modificationTime.<set-modificationTime>|<set-modificationTime>(kotlin.Long){}[0]
+            final var name // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.name|{}name[0]
+                final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.name.<get-name>|<get-name>(){}[0]
+                final fun <set-name>(kotlin/String) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.name.<set-name>|<set-name>(kotlin.String){}[0]
+            final var uid // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.uid|{}uid[0]
+                final fun <get-uid>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.uid.<get-uid>|<get-uid>(){}[0]
+                final fun <set-uid>(kotlin/Int) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.uid.<set-uid>|<set-uid>(kotlin.Int){}[0]
+
+            final fun build(): io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder.build|build(){}[0]
+        }
+
+        final object Companion { // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Companion|null[0]
+            final fun invoke(kotlin/String, kotlin/ByteArray, kotlin/Function1<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder, kotlin/Unit>): io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Companion.invoke|invoke(kotlin.String;kotlin.ByteArray;kotlin.Function1<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec.Builder,kotlin.Unit>){}[0]
+        }
+    }
+}
+
 final object io.github.yuroyami.archivekodec.archive.zip/ZipWriter { // io.github.yuroyami.archivekodec.archive.zip/ZipWriter|null[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.zip.ZipWriter.FileSpec>){}[0]
 

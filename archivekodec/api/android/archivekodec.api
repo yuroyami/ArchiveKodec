@@ -175,6 +175,48 @@ public final class io/github/yuroyami/archivekodec/archive/ar/ArReader : io/gith
 public final class io/github/yuroyami/archivekodec/archive/ar/ArReader$Companion {
 }
 
+public final class io/github/yuroyami/archivekodec/archive/ar/ArWriter {
+	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/ar/ArWriter;
+	public final fun write (Ljava/util/List;)[B
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec$Companion;
+	public fun <init> (Ljava/lang/String;[B)V
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()[B
+	public final fun getGid ()I
+	public final fun getMode ()I
+	public final fun getModificationTime ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getUid ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec$Builder {
+	public fun <init> (Ljava/lang/String;[B)V
+	public final fun build ()Lio/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec;
+	public final fun getData ()[B
+	public final fun getGid ()I
+	public final fun getMode ()I
+	public final fun getModificationTime ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getUid ()I
+	public final fun setData ([B)V
+	public final fun setGid (I)V
+	public final fun setMode (I)V
+	public final fun setModificationTime (J)V
+	public final fun setName (Ljava/lang/String;)V
+	public final fun setUid (I)V
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec$Companion {
+	public final fun invoke (Ljava/lang/String;[BLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ar/ArWriter$FileSpec;
+}
+
 public final class io/github/yuroyami/archivekodec/archive/cpio/CpioReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/cpio/CpioReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V

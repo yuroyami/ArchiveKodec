@@ -19,7 +19,7 @@ before 0.2.0 use older coordinates: 0.1.0 is `io.github.yuroyami:kitearchive`.
 
 | Artifact | Coordinates | What it holds |
 | --- | --- | --- |
-| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, the ZIP writer, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP and ar writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
 | IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | Four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
 
 Both build for every target in [Targets](#targets).
@@ -383,7 +383,7 @@ entry throws an unsupported-method error.
 | --- | --- | --- |
 | ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU) | yes | no |
-| ar (GNU) | yes | no |
+| ar (GNU) | yes | yes |
 | cpio (newc, crc, odc) | yes | no |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
@@ -408,6 +408,34 @@ The readers read through the `RandomAccessSource` interface, which supports seek
 and read. `ByteArrayRandomAccessSource` is the only implementation in the
 library. The whole archive must therefore be in memory before you can open it.
 
+## Write GNU ar
+
+```kotlin
+import io.github.yuroyami.archivekodec.archive.ar.ArWriter
+
+val archive = ArWriter.write(
+    listOf(
+        ArWriter.FileSpec("debian-binary", "2.0\n".encodeToByteArray()),
+        ArWriter.FileSpec("control.tar.gz", controlTarGzip),
+        ArWriter.FileSpec("data.tar.gz", dataTarGzip),
+    ),
+)
+```
+
+`ArWriter` writes GNU headers, even-byte padding and a `//` table for long names.
+It preserves UTF-8 basenames, spaces, duplicate names and member order. Empty/dot
+names, slashes, backslashes, colons, ASCII controls, malformed Unicode and reserved
+symbol-index names are rejected. It does not silently strip directories or truncate
+names. BSD inline names and thin archives are not emitted.
+
+File descriptions own their payload snapshots. Use `FileSpec(name, data) { ... }`
+or `FileSpec.Builder(name, data).build()` to set `modificationTime` (Unix seconds),
+`uid`, `gid` and `mode`. Defaults are time/IDs zero and Unix mode octal `0100644`;
+numeric values must fit their decimal/octal header fields. The complete archive
+must fit in one `ByteArray`. No linker symbol index is generated; run `ranlib`
+when a linker needs one. Debian member contents and ordering remain the caller's
+responsibility; the example assumes already-created control and data archives.
+
 ## Write a ZIP
 
 ```kotlin
@@ -431,9 +459,9 @@ constructors and `doCopy(configure:)` require `try`. The old CodecId constructor
 getter, generated field-list copy and destructuring functions are removed for
 the next minor release; rebuild callers and migrate to the typed methods.
 
-`ZipWriter` is the only writer in the library. It is not reachable from the
-`ArchiveKodec` object, so import it directly. Its whole-array output is limited
-by the platform's `ByteArray` capacity, so sizes and offsets cannot reach 4 GiB.
+`ZipWriter` is not reachable from the `ArchiveKodec` object, so import it directly.
+Its whole-array output is limited by the platform's `ByteArray` capacity, so sizes
+and offsets cannot reach 4 GiB.
 It emits ZIP64 end records when there are more than 65,535 entries; smaller
 entry counts use the classic ZIP layout. Member sizes and offsets always use
 classic 32-bit fields, including in archives with ZIP64 entry counts.
