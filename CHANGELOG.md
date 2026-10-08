@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Clarified that the default 10,000:1 compression-ratio ceiling cannot reject valid
+  streams from the current codecs. Dense format-level fixtures cover defaults,
+  custom ratio limits and per-call byte caps; default values remain unchanged.
+
 - Added `ArWriter` for buffered GNU ar archives, with long-name tables, even-byte
   padding and configurable numeric metadata. Member descriptions own their payloads
   and use stable constructors/builders. Names are validated UTF-8 basenames; BSD,

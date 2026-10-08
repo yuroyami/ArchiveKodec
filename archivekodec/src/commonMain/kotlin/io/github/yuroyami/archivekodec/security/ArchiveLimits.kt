@@ -23,7 +23,18 @@ public class ArchiveLimits private constructor(builder: Builder) {
     /** Output ceiling for one decode/read call, in bytes. Default 2 GiB. */
     public val maxUncompressedBytes: Long = builder.maxUncompressedBytes
 
-    /** Uncompressed/compressed ratio ceiling, checked during decode. Default 10000:1. */
+    /**
+     * Uncompressed/compressed ratio ceiling, checked during decode. Default 10000:1.
+     * This default cannot reject a valid stream from any currently implemented codec:
+     * DEFLATE (including gzip/zlib) stays below 1032:1, LZ4 below 255:1, Snappy
+     * (raw or framed) below 64:3, and STORE is 1:1. It can still reject impossible
+     * declared sizes before decoding. The high default preserves highly compressible
+     * legitimate input; choose a lower value when ratio-based rejection is required.
+     *
+     * [maxUncompressedBytes] is the effective default output bound and applies to one
+     * decode/read call. Callers must separately bound cumulative output across reads;
+     * there is no shared archive-wide budget in this policy.
+     */
     public val maxCompressionRatio: Int = builder.maxCompressionRatio
 
     /** Entry ceiling enforced while built-in readers parse their listings. Default 100k. */
@@ -141,7 +152,11 @@ public class ArchiveLimits private constructor(builder: Builder) {
         public operator fun invoke(configure: Builder.() -> Unit = {}): ArchiveLimits =
             Builder().apply(configure).build()
 
-        /** The safe default applied when a caller doesn't pass its own. */
+        /**
+         * Policy applied when a caller does not supply one. Bounds each call's output
+         * and each reader's entry count; its ratio ceiling cannot reject valid streams
+         * from the current codecs. See [maxCompressionRatio] before relying on it.
+         */
         public val DEFAULT: ArchiveLimits = ArchiveLimits()
 
         /** Opt-out for trusted input: every guard relaxed to its maximum. */

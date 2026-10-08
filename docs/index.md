@@ -116,6 +116,11 @@ What `archivekodec` contains:
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Safety | A magic sniffer, default entry-count limits on listings, output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
 
+The default 10,000:1 compression-ratio ceiling is above the ratios reachable by
+the current codecs, so it cannot reject their valid streams. Set a lower ratio
+when that restriction is needed. The default 2 GiB output cap applies separately
+to each decode/read; callers must enforce a cumulative budget across reads.
+
 Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 `wasmWasi`, iOS, `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`,
 `mingwX64` and the four androidNative targets. The README lists them in full.

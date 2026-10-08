@@ -673,6 +673,14 @@ artifact and a kotlinx-io dependency.
   into nested archives, so `maxNestingDepth` remains reserved. Every implemented codec
   applies `checkRatio` before output allocation or growth. ZIP checks each entry;
   uncompressed TAR/ar/cpio reads check their known 1:1 ratio.
+- The default `maxCompressionRatio` of 10,000:1 cannot reject a valid stream from
+  the current codecs. DEFLATE (including gzip/zlib) stays below 1032:1, LZ4 below
+  255:1, Snappy (raw or framed) below 64:3, and STORE is 1:1. The default preserves
+  highly compressible legitimate input; lower it when ratio-based rejection is
+  required. It can still reject impossible declared sizes before decoding.
+  The default 2 GiB output cap applies to each decode/read separately. Callers must
+  enforce their own cumulative byte budget across reads; there is no built-in
+  archive-wide budget.
 - `ArchiveEntry.size` stays a `Long` during parsing. Readers validate source
   ranges before allocation, including ZIP local-header and payload extents.
   Configured output limits apply first; a whole-array read above `Int.MAX_VALUE`
