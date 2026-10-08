@@ -8,6 +8,12 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
+import io.github.yuroyami.archivekodec.util.le16
+import io.github.yuroyami.archivekodec.util.le32
+import io.github.yuroyami.archivekodec.util.readI32Le
+import io.github.yuroyami.archivekodec.util.readI64Le
+import io.github.yuroyami.archivekodec.util.readU16Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 
 /**
  * LZ4: block format (the LZ77 token codec) + frame format (`.lz4`, magic
@@ -113,7 +119,7 @@ public object Lz4 {
             if (s == sEnd) return out.copyOf(o) // last sequence: literals only
 
             needInput(2)
-            val offset = (src[s].toInt() and 0xFF) or ((src[s + 1].toInt() and 0xFF) shl 8)
+            val offset = readU16Le(src, s)
             s += 2
             if (offset == 0) throw ArchiveFormatException("lz4: invalid match offset 0", (s - 2).toLong())
             val availableHistory = o.toLong() + historySize
@@ -160,10 +166,10 @@ public object Lz4 {
         var anchor = 0
         var i = 0
         while (i < mfLimit) {
-            val h = hash(read4(data, i))
+            val h = hash(readI32Le(data, i))
             val ref = table[h]
             table[h] = i
-            if (ref >= 0 && i - ref <= 0xFFFF && read4(data, ref) == read4(data, i)) {
+            if (ref >= 0 && i - ref <= 0xFFFF && readI32Le(data, ref) == readI32Le(data, i)) {
                 var len = MIN_MATCH
                 while (i + len < matchLimit && data[ref + len] == data[i + len]) len++
                 emitSequence(out, data, anchor, i, i - ref, len)
@@ -184,8 +190,7 @@ public object Lz4 {
         out.append(token.toByte())
         writeLength(out, litLen)
         out.append(data, anchor, litLen)
-        out.append((offset and 0xFF).toByte())
-        out.append(((offset ushr 8) and 0xFF).toByte())
+        out.le16(offset)
         writeLength(out, mlen)
     }
 
@@ -205,12 +210,6 @@ public object Lz4 {
         out.append(r.toByte())
     }
 
-    private fun read4(b: ByteArray, o: Int): Int =
-        (b[o].toInt() and 0xFF) or
-            ((b[o + 1].toInt() and 0xFF) shl 8) or
-            ((b[o + 2].toInt() and 0xFF) shl 16) or
-            ((b[o + 3].toInt() and 0xFF) shl 24)
-
     private fun hash(v: Int): Int = (v * -1640531535) ushr (32 - HASH_BITS)
 
     /* ─── Frame format (.lz4) ────────────────────────────────────────────── */
@@ -219,7 +218,7 @@ public object Lz4 {
     @Throws(ArchiveException::class)
     public fun frameCompress(data: ByteArray): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
-        out.append(0x04.toByte()); out.append(0x22.toByte()); out.append(0x4D.toByte()); out.append(0x18.toByte())
+        out.le32(MAGIC)
         val flg = 0x60 // version=01, block-independent
         val bd = 0x70  // 4 MiB max block size
         out.append(flg.toByte())
@@ -233,15 +232,15 @@ public object Lz4 {
             val chunk = data.copyOfRange(pos, end)
             val comp = blockCompress(chunk)
             if (comp.size < chunk.size) {
-                writeLe32(out, comp.size.toLong())
+                out.le32(comp.size.toLong())
                 out.append(comp)
             } else {
-                writeLe32(out, chunk.size.toLong() or 0x80000000L) // high bit = uncompressed
+                out.le32(chunk.size.toLong() or 0x80000000L) // high bit = uncompressed
                 out.append(chunk)
             }
             pos = end
         }
-        writeLe32(out, 0L) // end mark
+        out.le32(0L) // end mark
         return out.toByteArray()
     }
 
@@ -265,9 +264,9 @@ public object Lz4 {
         fun needInput(n: Int) {
             if (n > input.size - p) throw ArchiveFormatException("lz4: truncated frame", p.toLong())
         }
-        fun u32(): Long {
+        fun nextU32(): Long {
             needInput(4)
-            val v = read4(input, p).toLong() and 0xFFFFFFFFL
+            val v = readU32Le(input, p)
             p += 4
             return v
         }
@@ -278,9 +277,9 @@ public object Lz4 {
         val out = ByteArrayBuilder(minOf(64, maximum), maximum)
         while (p < input.size) {
             val frameStart = p
-            when (val magic = u32()) {
+            when (val magic = nextU32()) {
                 in SKIPPABLE_FIRST..SKIPPABLE_LAST -> {
-                    val payloadSize = u32()
+                    val payloadSize = nextU32()
                     // Compare the unsigned length before converting to Int or adding it.
                     if (payloadSize > input.size - p) {
                         throw ArchiveFormatException("lz4: truncated skippable payload", p.toLong())
@@ -314,11 +313,11 @@ public object Lz4 {
             val optional = (if (contentSize) 8 else 0) + (if (dictId) 4 else 0)
             needInput(optional)
             val unsignedSize = if (contentSize) {
-                var size = 0uL
-                repeat(8) { size = size or ((input[p++].toInt() and 0xFF).toULong() shl (it * 8)) }
+                val size = readI64Le(input, p).toULong()
+                p += 8
                 size
             } else null
-            val dictionaryId = if (dictId) u32() else null
+            val dictionaryId = if (dictId) nextU32() else null
             needInput(1)
             val headerChecksum = (XxHash32.hash(input, descriptorStart, p - descriptorStart) ushr 8).toInt() and 0xFF
             if (headerChecksum != (input[p].toInt() and 0xFF)) {
@@ -352,7 +351,7 @@ public object Lz4 {
             val compressedBytes = frameEnd - frameStart
             if (declaredSize != null) limits.checkRatio(compressedBytes.toLong(), declaredSize)
             while (true) {
-                val raw = u32()
+                val raw = nextU32()
                 if (raw == 0L) break // end mark, distinct from an empty stored block
                 val uncompressed = (raw and 0x80000000L) != 0L
                 val blockSize = (raw and 0x7FFFFFFFL).toInt()
@@ -363,7 +362,7 @@ public object Lz4 {
                     if (input.size - checksumAt < 4) {
                         throw ArchiveFormatException("lz4: truncated block checksum", checksumAt.toLong())
                     }
-                    val expected = read4(input, checksumAt).toLong() and 0xFFFFFFFFL
+                    val expected = readU32Le(input, checksumAt)
                     if (XxHash32.hash(input, p, blockSize) != expected) {
                         throw ArchiveFormatException("lz4: block checksum mismatch", checksumAt.toLong())
                     }
@@ -389,7 +388,7 @@ public object Lz4 {
                 throw contentSizeMismatch(frameOutput.toLong(), declaredSize, sizeOffset)
             }
             val checksumAt = p
-            val expectedContent = if (contentChecksum) u32() else null
+            val expectedContent = if (contentChecksum) nextU32() else null
             if (expectedContent != null && out.checksum { bytes, size ->
                     XxHash32.hash(bytes, outputStart, size - outputStart)
                 } != expectedContent) {
@@ -409,7 +408,7 @@ public object Lz4 {
         }
         while (true) {
             needInput(4)
-            val raw = read4(input, p).toLong() and 0xFFFFFFFFL
+            val raw = readU32Le(input, p)
             p += 4
             if (raw == 0L) {
                 if (contentChecksum) {
@@ -435,11 +434,4 @@ public object Lz4 {
 
     private fun contentSizeMismatch(required: Long, declared: Long, offset: Long) =
         ArchiveFormatException("lz4: content size mismatch: required $required B, declared $declared B", offset)
-
-    private fun writeLe32(out: ByteArrayBuilder, v: Long) {
-        out.append((v and 0xFF).toByte())
-        out.append(((v ushr 8) and 0xFF).toByte())
-        out.append(((v ushr 16) and 0xFF).toByte())
-        out.append(((v ushr 24) and 0xFF).toByte())
-    }
 }

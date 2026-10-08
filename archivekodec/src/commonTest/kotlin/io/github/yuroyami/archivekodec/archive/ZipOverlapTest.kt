@@ -2,12 +2,13 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -169,7 +170,7 @@ class ZipOverlapTest {
     @Test
     fun physicalSortingKeepsExactOffsetsNearLongMaximum() {
         val compact = zipEntryMetadata(4)
-        val central = ZipFormat.u32(compact, compact.size - 6).toInt()
+        val central = readU32Le(compact, compact.size - 6).toInt()
         val firstRecord = compact.copyOfRange(central, compact.size - 22)
         val secondRecord = firstRecord.copyOf().also { it[46] = 'b'.code.toByte() }
         val firstLocal = compact.copyOf(38)
@@ -202,7 +203,7 @@ class ZipOverlapTest {
     // Metadata-only sparse source; no enormous payload is materialized or decoded.
     private fun sparseNearLongMaximum(overlapping: Boolean): Pair<RandomAccessSource, Long> {
         val compact = zipEntryMetadata(2)
-        val central = ZipFormat.u32(compact, compact.size - 6).toInt()
+        val central = readU32Le(compact, compact.size - 6).toInt()
         val records = compact.copyOfRange(central, compact.size - 22)
         val boundary = Long.MAX_VALUE - records.size - 98
         putLe(records, 55, boundary - 35 + if (overlapping) 1 else 0, 8)

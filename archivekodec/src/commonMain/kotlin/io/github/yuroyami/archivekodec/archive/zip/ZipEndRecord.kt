@@ -3,6 +3,9 @@ package io.github.yuroyami.archivekodec.archive.zip
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
+import io.github.yuroyami.archivekodec.util.readI64Le
+import io.github.yuroyami.archivekodec.util.readU16Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 
 /** End-record framing shared by the reader and the unknown-header opening fallback. */
 internal object ZipEndRecord {
@@ -16,7 +19,7 @@ internal object ZipEndRecord {
         val start = size - count
         val tail = source.readFully(start, count)
         for (i in count - 22 downTo 0) {
-            if (ZipFormat.u32(tail, i) == ZipFormat.EOCD && ZipFormat.u16(tail, i + 20) == count - i - 22) {
+            if (readU32Le(tail, i) == ZipFormat.EOCD && readU16Le(tail, i + 20) == count - i - 22) {
                 return Record(start + i, tail.copyOfRange(i, i + 22))
             }
         }
@@ -39,7 +42,7 @@ internal object ZipEndRecord {
 
     private fun hasDirectorySignature(source: RandomAccessSource, offset: Long, size: Long): Boolean {
         if (size < 4) return false
-        val signature = ZipFormat.u32(source.readFully(offset, 4), 0)
+        val signature = readU32Le(source.readFully(offset, 4), 0)
         return signature == ZipFormat.CEN || signature == ZipFormat.CEN_SIGNATURE
     }
 
@@ -53,8 +56,8 @@ internal object ZipEndRecord {
             throw ArchiveFormatException("ZIP: ZIP64 end record exceeds locator boundary (relative offset $stored)", locator + 8)
         }
         val direct = source.readFully(stored, 56)
-        val directSignature = ZipFormat.u32(direct, 0) == ZipFormat.Z64_EOCD
-        val directSize = ZipFormat.u64(direct, 4)
+        val directSignature = readU32Le(direct, 0) == ZipFormat.Z64_EOCD
+        val directSize = readI64Le(direct, 4)
         val directFits = directSignature && directSize >= 44 && directSize <= locator - stored - 12
         if (directFits && directSize == locator - stored - 12) return Record(stored, direct)
 
@@ -65,9 +68,9 @@ internal object ZipEndRecord {
             val count = (end - start).toInt()
             val chunk = source.readFully(start, count + 55)
             for (i in count - 1 downTo 0) {
-                if (ZipFormat.u32(chunk, i) != ZipFormat.Z64_EOCD) continue
+                if (readU32Le(chunk, i) != ZipFormat.Z64_EOCD) continue
                 val position = start + i
-                val length = ZipFormat.u64(chunk, i + 4)
+                val length = readI64Le(chunk, i + 4)
                 val record = Record(position, chunk.copyOfRange(i, i + 56))
                 val remaining = locator - position - 12
                 if (length != remaining) {
@@ -92,10 +95,10 @@ internal object ZipEndRecord {
     }
 
     private fun coherentDirectory(source: RandomAccessSource, record: Record, relativeEnd: Long): Boolean {
-        val size = ZipFormat.u64(record.bytes, 40)
-        val offset = ZipFormat.u64(record.bytes, 48)
+        val size = readI64Le(record.bytes, 40)
+        val offset = readI64Le(record.bytes, 48)
         if (size < 0 || offset < 0 || offset > relativeEnd || size > relativeEnd - offset) return false
-        if (size == 0L) return ZipFormat.u64(record.bytes, 32) == 0L
+        if (size == 0L) return readI64Le(record.bytes, 32) == 0L
         val physical = record.offset - relativeEnd + offset // Bounded above by record.offset.
         return hasDirectorySignature(source, physical, size)
     }

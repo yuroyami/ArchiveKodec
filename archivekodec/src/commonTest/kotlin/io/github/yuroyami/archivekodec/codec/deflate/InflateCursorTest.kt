@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.codec.deflate
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlin.test.Test
@@ -54,7 +55,4 @@ class InflateCursorTest {
         assertEquals(InflateError.DISTANCE_TOO_FAR_BACK, error.error)
     }
 
-    private fun hex(s: String): ByteArray = ByteArray(s.length / 2) {
-        s.substring(it * 2, it * 2 + 2).toInt(16).toByte()
-    }
 }

@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -12,7 +13,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class Lz4DescriptorTest {
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
     private val first = hex("04224d186440a70600008066697273742d00000000e9193015")
     // liblz4 1.10.0: exact 84-byte restoration requires the external 54-byte dictionary.
     private val undeclared = hex("04224d186c4054000000000000009f140000000f3600234120616e6452000c710050616761696e00000000d2bb8d00")

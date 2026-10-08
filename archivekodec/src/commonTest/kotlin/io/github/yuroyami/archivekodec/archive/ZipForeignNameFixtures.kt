@@ -1,10 +1,10 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
-import io.github.yuroyami.archivekodec.archive.zip.le16
-import io.github.yuroyami.archivekodec.archive.zip.le32
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.le16
+import io.github.yuroyami.archivekodec.util.le32
 
 // Foreign archives may contain names that our writer refuses to produce.
 // Build their framing independently so reader tests retain those raw names.

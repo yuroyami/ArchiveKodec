@@ -5,6 +5,7 @@ import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -19,7 +20,6 @@ class Lz4HistoryTest {
     private val reference = hex("04224d185c407011010000000000e30b0100001f410100ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe750414141414159405f321b0000000f0100ffffffffffffffffffffffffffffffffff69504141414141072f90270000000048aab257")
     private val seed = "abc".encodeToByteArray()
     private val tail = "12345".encodeToByteArray()
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
     private fun le32(value: Long) = ByteArray(4) { (value ushr (8 * it)).toByte() }
 
     private fun match(offset: Int, count: Int = 19, literals: ByteArray = byteArrayOf(), last: ByteArray = tail): ByteArray {

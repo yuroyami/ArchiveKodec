@@ -31,6 +31,7 @@ import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.checksum.Checksum
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
+import io.github.yuroyami.archivekodec.util.readU16Le
 
 /**
  * Raw DEFLATE (RFC 1951) decompressor. It is a pure-Kotlin translation of Mark
@@ -234,7 +235,12 @@ public object Inflate {
             return inBuf[position++].toInt() and 0xff
         }
 
-        fun rawByte(): Int = nextByte()
+        fun rawU16(): Int {
+            if (inAvailable < 2) throw OutOfInput()
+            val value = readU16Le(inBuf, position)
+            position += 2
+            return value
+        }
 
         fun bits(need: Int): Int {
             var value = bitbuf
@@ -265,11 +271,9 @@ public object Inflate {
         s.bitcnt = 0
 
         if (s.inAvailable < 4) return InflateError.DATA_DID_NOT_TERMINATE.code
-        var len = s.rawByte()
-        len = len or (s.rawByte() shl 8)
-        val nlen0 = s.rawByte()
-        val nlen1 = s.rawByte()
-        if (nlen0 != (len.inv() and 0xff) || nlen1 != ((len.inv() ushr 8) and 0xff)) {
+        val len = s.rawU16()
+        val nlen = s.rawU16()
+        if (nlen != (len xor 0xffff)) {
             return InflateError.INVALID_STORED_BLOCK_LENGTH.code
         }
 

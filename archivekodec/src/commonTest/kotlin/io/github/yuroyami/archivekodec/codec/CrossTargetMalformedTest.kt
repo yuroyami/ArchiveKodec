@@ -7,6 +7,7 @@ import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
 import io.github.yuroyami.archivekodec.codec.snappy.Snappy
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.wrapper.Zlib
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -14,7 +15,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class CrossTargetMalformedTest {
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     @Test
     fun invalidArLz4AndZlibHeadersUseTypedErrors() {

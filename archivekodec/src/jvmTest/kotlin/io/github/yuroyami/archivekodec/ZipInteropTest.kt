@@ -1,19 +1,19 @@
 package io.github.yuroyami.archivekodec
 
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
-import io.github.yuroyami.archivekodec.archive.zip64WithComment
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.archive.zip64WithComment
+import io.github.yuroyami.archivekodec.util.readU32Le
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.util.zip.CRC32
+import java.util.zip.ZipEntry
 import java.util.zip.ZipException
 import java.util.zip.ZipFile
-import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.test.Test
@@ -54,7 +54,7 @@ class ZipInteropTest {
     fun damagedCentralDirectoryIsRejectedEvenWhenLocalEntriesRemainReadable() {
         val file = ZipWriter.FileSpec("a.txt", dataA, ZipMethod.STORED)
         val bytes = ZipWriter.write(listOf(file))
-        val centralStart = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+        val centralStart = readU32Le(bytes, bytes.size - 6).toInt()
         bytes.fill(0x7F.toByte(), centralStart, bytes.size - 22)
         ZipInputStream(ByteArrayInputStream(bytes)).use { zis ->
             assertEquals(file.name, zis.nextEntry!!.name)

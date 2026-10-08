@@ -1,18 +1,20 @@
 package io.github.yuroyami.archivekodec.archive
 
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.*
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.util.readI64Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.*
 
 class ZipPrefixTest {
     private val prefix = "#!/usr/bin/env python3\n".encodeToByteArray()
     private val payload = "ABC".encodeToByteArray()
-    private fun central(bytes: ByteArray) = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+    private fun central(bytes: ByteArray) = readU32Le(bytes, bytes.size - 6).toInt()
     private fun read(bytes: ByteArray): ByteArray = ZipReader(ByteArrayRandomAccessSource(bytes)).use { r -> r.read(r.entries().single()) }
     private fun assertArchive(r: ArchiveReader, base: Long) {
         assertEquals(ArchiveFormat.ZIP, r.format)
@@ -29,7 +31,7 @@ class ZipPrefixTest {
     }
     private fun absolute(bytes: ByteArray, prefixSize: Int, zip64: Boolean): ByteArray {
         val out = bytes.copyOf()
-        val directory = if (zip64) ZipFormat.u64(out, out.size - 98 + 48).toInt() else central(out)
+        val directory = if (zip64) readI64Le(out, out.size - 98 + 48).toInt() else central(out)
         putLe(out, directory + 42, prefixSize.toLong(), 4)
         if (zip64) {
             putLe(out, out.size - 98 + 48, directory.toLong() + prefixSize, 8)

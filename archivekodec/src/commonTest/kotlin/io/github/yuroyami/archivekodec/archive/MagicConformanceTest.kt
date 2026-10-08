@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.wrapper.Zlib
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -20,8 +21,6 @@ class MagicConformanceTest {
             "30303000303035353033002030"
     ) + ByteArray(355)
 
-    private fun hex(value: String): ByteArray =
-        ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     private fun assertFormat(expected: ArchiveFormat, bytes: ByteArray) {
         assertEquals(expected, Magic.sniff(bytes), "header of ${bytes.size} bytes")

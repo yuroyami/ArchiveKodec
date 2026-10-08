@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
+import io.github.yuroyami.archivekodec.hex
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -235,5 +236,4 @@ class TarChecksumTest {
         assertEquals("a.txt", reader(h).entries().single().name)
     }
 
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 }

@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.archive
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -77,7 +78,7 @@ class Zip64EntryMetadataTest {
                 else -> zip64Extra(bit, offset = value)
             }
             val bytes = zipEntryMetadata(bit, extra)
-            val central = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+            val central = readU32Le(bytes, bytes.size - 6).toInt()
             val error = invalid(bytes)
             assertEquals((central + 51 + 4).toLong(), error.offset)
             assertTrue(error.message!!.contains("Long"), error.toString())
@@ -106,7 +107,7 @@ class Zip64EntryMetadataTest {
     fun resolvedOffsetsAndCompressedSizesRetainAll32BitsOnSparseSources() {
         val marker = 0xFFFFFFFFL
         val compact = zipEntryMetadata(6, zip64Extra(6, compressed = marker, offset = marker))
-        val central = ZipFormat.u32(compact, compact.size - 6).toInt()
+        val central = readU32Le(compact, compact.size - 6).toInt()
         val records = compact.copyOfRange(central, compact.size - 22)
         val directoryOffset = marker + 35 + marker
         val z64 = ByteArray(56)

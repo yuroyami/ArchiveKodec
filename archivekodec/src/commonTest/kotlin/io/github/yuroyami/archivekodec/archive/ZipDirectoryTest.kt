@@ -1,10 +1,11 @@
 package io.github.yuroyami.archivekodec.archive
 
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -37,7 +38,7 @@ class ZipDirectoryTest {
 
     private fun directory(count: Int = 1): Directory {
         val bytes = ZipWriter.write((0 until count).map { ZipWriter.FileSpec("entry$it", byteArrayOf(it.toByte()), ZipMethod.STORED) })
-        val offset = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+        val offset = readU32Le(bytes, bytes.size - 6).toInt()
         return Directory(bytes.copyOfRange(0, offset), bytes.copyOfRange(offset, bytes.size - 22))
     }
 

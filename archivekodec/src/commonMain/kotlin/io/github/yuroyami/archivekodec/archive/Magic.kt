@@ -4,6 +4,9 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.cpio.isBinaryCpioMagic
 import io.github.yuroyami.archivekodec.archive.tar.TarHeader
+import io.github.yuroyami.archivekodec.util.readU16Be
+import io.github.yuroyami.archivekodec.util.readU32Be
+import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
 
 /**
  * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
@@ -65,18 +68,13 @@ public object Magic {
     private fun isBzip2(header: ByteArray): Boolean {
         if (header.size < 10 || header[0] != 0x42.toByte() || header[1] != 0x5A.toByte() ||
             header[2] != 0x68.toByte() || header[3].toInt() !in '1'.code..'9'.code) return false
-        var marker = 0L
-        for (i in 4..9) marker = (marker shl 8) or (header[i].toLong() and 0xFF)
+        val marker = (readU32Be(header, 4) shl 16) or readU16Be(header, 8).toLong()
         return marker == 0x314159265359L || marker == 0x177245385090L
     }
 
     private fun isZlib(header: ByteArray): Boolean {
-        if (header.size < 2) return false
-        val cmf = header[0].toInt() and 0xFF
+        if (!hasZlibHeader(header)) return false
         val flg = header[1].toInt() and 0xFF
-        if ((cmf and 0x0F) != 8) return false              // CM must be DEFLATE
-        if ((cmf ushr 4) > 7) return false                 // CINFO window <= 32 KiB
-        if (((cmf shl 8) or flg) % 31 != 0) return false   // header checksum
         // FDICT inserts four DICTID bytes before the first DEFLATE block.
         val blockOffset = if ((flg and 0x20) != 0) 6 else 2
         if (header.size <= blockOffset) return blockOffset == 2

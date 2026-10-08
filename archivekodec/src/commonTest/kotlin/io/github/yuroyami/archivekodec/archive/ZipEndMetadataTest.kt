@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -121,7 +122,7 @@ class ZipEndMetadataTest {
     @Test
     fun entryDiskNumbersAreResolvedBeforeDecidingSupport() {
         val ordinary = zipMetadataBase()
-        val central = ZipFormat.u32(ordinary, ordinary.size - 6).toInt()
+        val central = readU32Le(ordinary, ordinary.size - 6).toInt()
         putLe(ordinary, central + 34, 1, 2)
         val normal = assertFailsWith<ArchiveUnsupportedException> { entries(ordinary) }
         assertEquals("a.txt", normal.entryName)

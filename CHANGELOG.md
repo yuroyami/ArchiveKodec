@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Binary readers and writers now share internal byte-order helpers, and zlib
+  decoding and sniffing share header validation. The test fixtures share one hex
+  decoder, with a registry check keeping codec support flags in sync. Removed
+  unreachable ZIP64 member-size and offset branches from the buffered writer;
+  entry-count ZIP64 end records remain supported. Public APIs are unchanged.
+
 - CpioReader now rejects empty input and unknown or truncated header magic with
   `ArchiveFormatException`, including after valid records. Failed listings never
   expose or cache a partial result. The sniffer recognizes both byte orders of

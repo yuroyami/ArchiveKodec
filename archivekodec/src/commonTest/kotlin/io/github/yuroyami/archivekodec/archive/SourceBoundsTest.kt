@@ -5,8 +5,8 @@ import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -78,7 +78,7 @@ class SourceBoundsTest {
     fun zipDirectoryRejectsLargeWholeArrayPayloadWithoutNarrowing() {
         val large = 3L * 1024 * 1024 * 1024
         val bytes = zipMetadataBase()
-        val originalCentral = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+        val originalCentral = readU32Le(bytes, bytes.size - 6).toInt()
         for (field in listOf(18, 22, originalCentral + 20, originalCentral + 24)) {
             putLe(bytes, field, large, 4)
         }

@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.codec
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.test.Test
@@ -175,5 +176,4 @@ class Lz4ConformanceTest {
     }
 
     private fun le32(value: Long) = ByteArray(4) { (value ushr (8 * it)).toByte() }
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 }

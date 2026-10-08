@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
+import io.github.yuroyami.archivekodec.hex
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -38,8 +39,4 @@ class ArCpioTest {
         assertEquals(beta, r.read(byName.getValue("beta.txt")).decodeToString())
     }
 
-    private fun hex(s: String): ByteArray =
-        ByteArray(s.length / 2) {
-            ((s[it * 2].digitToInt(16) shl 4) or s[it * 2 + 1].digitToInt(16)).toByte()
-        }
 }

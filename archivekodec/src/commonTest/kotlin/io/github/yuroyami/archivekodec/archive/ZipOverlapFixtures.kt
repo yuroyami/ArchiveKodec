@@ -1,8 +1,9 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
-import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
+import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.util.readU32Le
 
 internal class ZipExtentPiece(val local: ByteArray, val directory: ByteArray)
 
@@ -14,7 +15,7 @@ internal fun zipExtentPiece(
     localExtra: ByteArray = byteArrayOf(),
 ): ZipExtentPiece {
     val original = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, method)))
-    val central = ZipFormat.u32(original, original.size - 6).toInt()
+    val central = readU32Le(original, original.size - 6).toInt()
     val headerLength = 30 + name.encodeToByteArray().size
     val header = original.copyOf(headerLength)
     val payload = compressed ?: original.copyOfRange(headerLength, central)

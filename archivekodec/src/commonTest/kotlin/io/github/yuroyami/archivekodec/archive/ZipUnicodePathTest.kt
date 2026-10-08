@@ -1,12 +1,12 @@
 package io.github.yuroyami.archivekodec.archive
 
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.security.PathGuard
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.*
 
 class ZipUnicodePathTest {
@@ -24,7 +24,7 @@ class ZipUnicodePathTest {
 
     private fun zip(localExtra: ByteArray = byteArrayOf(), centralExtra: ByteArray = byteArrayOf(), flags: Int = 0): ByteArray {
         val original = ZipWriter.write(listOf(ZipWriter.FileSpec("fallback.txt", payload, ZipMethod.STORED)))
-        val central = ZipFormat.u32(original, original.size - 6).toInt()
+        val central = readU32Le(original, original.size - 6).toInt()
         val local = original.copyOf(42) + localExtra + original.copyOfRange(42, central)
         le(local, 6, flags.toLong(), 2); le(local, 28, localExtra.size.toLong(), 2)
         val directory = original.copyOfRange(central, original.size - 22) + centralExtra
@@ -103,7 +103,7 @@ class ZipUnicodePathTest {
             val local = assertFailsWith<ArchiveFormatException> { ZipReader(ByteArrayRandomAccessSource(zip(localExtra = field))).entries() }
             assertEquals(42L, local.offset)
             val data = zip(centralExtra = field)
-            val central = ZipFormat.u32(data, data.size - 6)
+            val central = readU32Le(data, data.size - 6)
             val directory = assertFailsWith<ArchiveFormatException> { ZipReader(ByteArrayRandomAccessSource(data)).entries() }
             assertEquals(central + 58, directory.offset)
         }

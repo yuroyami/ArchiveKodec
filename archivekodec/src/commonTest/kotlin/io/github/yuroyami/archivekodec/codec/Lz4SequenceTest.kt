@@ -5,6 +5,7 @@ import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.XxHash32
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.test.Test
@@ -26,7 +27,6 @@ class Lz4SequenceTest {
     private val dictionary = hex("04224d186d40540000000000000098badcfee2140000000f3600234120616e6452000c710050616761696e00000000d2bb8d00")
     private val missingHistory = hex("04224d186440a7140000000f3600234120616e6452000c710050616761696e00000000d2bb8d00")
 
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
     private fun le32(value: Long) = ByteArray(4) { (value ushr (8 * it)).toByte() }
     private fun skip(id: Int = 0, payload: ByteArray = byteArrayOf()) = le32(0x184D2A50L + id) + le32(payload.size.toLong()) + payload
     private fun header(size: ULong): ByteArray {

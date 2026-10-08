@@ -1,12 +1,13 @@
 package io.github.yuroyami.archivekodec.archive
 
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.util.readU16Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -18,7 +19,7 @@ class ZipHeaderConsistencyTest {
     private val payload = "ABC".encodeToByteArray()
     private fun zip(method: ZipMethod = ZipMethod.STORED, name: String = "a.txt") =
         ZipWriter.write(listOf(ZipWriter.FileSpec(name, payload, method)))
-    private fun central(bytes: ByteArray) = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+    private fun central(bytes: ByteArray) = readU32Le(bytes, bytes.size - 6).toInt()
     private fun flags(bytes: ByteArray, value: Int) {
         putLe(bytes, 6, value.toLong(), 2)
         putLe(bytes, central(bytes) + 8, value.toLong(), 2)
@@ -35,8 +36,8 @@ class ZipHeaderConsistencyTest {
 
     private class PayloadSource(bytes: ByteArray) : RandomAccessSource {
         private val backing = ByteArrayRandomAccessSource(bytes)
-        private val start = 30L + ZipFormat.u16(bytes, 26) + ZipFormat.u16(bytes, 28)
-        private val end = start + ZipFormat.u32(bytes, centralOffset(bytes) + 20)
+        private val start = 30L + readU16Le(bytes, 26) + readU16Le(bytes, 28)
+        private val end = start + readU32Le(bytes, centralOffset(bytes) + 20)
         var armed = false
         var payloadReads = 0
         var accesses = 0
@@ -47,7 +48,7 @@ class ZipHeaderConsistencyTest {
             return backing.read(offset, into, intoOffset, length)
         }
         companion object {
-            private fun centralOffset(bytes: ByteArray) = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+            private fun centralOffset(bytes: ByteArray) = readU32Le(bytes, bytes.size - 6).toInt()
         }
     }
 
@@ -326,8 +327,8 @@ class ZipHeaderConsistencyTest {
     private fun descriptorZip(method: ZipMethod, signed: Boolean, zip64: Boolean): ByteArray {
         val original = zip(method)
         val central = central(original)
-        val compressed = ZipFormat.u32(original, central + 20)
-        val crc = ZipFormat.u32(original, central + 16)
+        val compressed = readU32Le(original, central + 20)
+        val crc = readU32Le(original, central + 16)
         val localExtra = if (zip64) zip64Extra(3, output = 0, compressed = 0) else byteArrayOf()
         val local = original.copyOf(35) + localExtra + original.copyOfRange(35, central)
         putLe(local, 6, 0x808, 2)

@@ -1,8 +1,8 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.util.readU32Le
 
 internal fun zipMetadataBase(): ByteArray = ZipWriter.write(listOf(ZipWriter.FileSpec("a.txt", "ABC".encodeToByteArray(), ZipMethod.STORED)))
 
@@ -31,7 +31,7 @@ internal fun zip64Extra(mask: Int, output: Long = 3, compressed: Long = 3, offse
 
 internal fun zipEntryMetadata(mask: Int, extra: ByteArray = zip64Extra(mask)): ByteArray {
     val original = zipMetadataBase()
-    val central = ZipFormat.u32(original, original.size - 6).toInt()
+    val central = readU32Le(original, original.size - 6).toInt()
     val records = original.copyOfRange(central, original.size - 22) + extra
     putLe(records, 6, 45, 2)
     if (mask and 1 != 0) putLe(records, 24, 0xFFFFFFFF, 4)

@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.wrapper
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.hex
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
@@ -109,7 +110,4 @@ class WrapperIntegrityTest {
         return header + Gzip.compress(data).let { it.copyOfRange(10, it.size) }
     }
 
-    private fun hex(s: String): ByteArray = ByteArray(s.length / 2) {
-        s.substring(it * 2, it * 2 + 2).toInt(16).toByte()
-    }
 }

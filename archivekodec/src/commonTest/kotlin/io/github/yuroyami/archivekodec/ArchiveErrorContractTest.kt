@@ -1,15 +1,15 @@
 package io.github.yuroyami.archivekodec
 
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.deflate.InflateError
 import io.github.yuroyami.archivekodec.codec.deflate.InflateException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.util.readU32Le
 import io.github.yuroyami.archivekodec.wrapper.Zlib
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,7 +67,7 @@ class ArchiveErrorContractTest {
     fun unsupportedZipMethodsAndBudgetFailuresRetainEntryContext() {
         val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("a", byteArrayOf(65), ZipMethod.STORED)))
         bytes[8] = 9 // Deflate64, consistently unsupported in both headers.
-        bytes[ZipFormat.u32(bytes, bytes.size - 6).toInt() + 10] = 9
+        bytes[readU32Le(bytes, bytes.size - 6).toInt() + 10] = 9
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
         val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(reader.entries().single()) }
         assertEquals("a", error.entryName)

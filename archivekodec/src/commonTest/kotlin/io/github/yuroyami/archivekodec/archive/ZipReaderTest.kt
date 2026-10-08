@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.archive
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.hex
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -44,8 +45,4 @@ class ZipReaderTest {
         assertContentEquals(big, reader.read(byName.getValue("big.txt")))
     }
 
-    private fun hex(s: String): ByteArray =
-        ByteArray(s.length / 2) {
-            ((s[it * 2].digitToInt(16) shl 4) or s[it * 2 + 1].digitToInt(16)).toByte()
-        }
 }

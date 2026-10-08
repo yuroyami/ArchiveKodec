@@ -1,12 +1,13 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -17,7 +18,7 @@ class ZipSizeTest {
     private fun zip(method: ZipMethod, data: ByteArray = "ABCDE".encodeToByteArray(), name: String = "size.txt") =
         ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, method)))
 
-    private fun central(bytes: ByteArray) = ZipFormat.u32(bytes, bytes.size - 6).toInt()
+    private fun central(bytes: ByteArray) = readU32Le(bytes, bytes.size - 6).toInt()
 
     private fun declareSize(bytes: ByteArray, size: Long) {
         putLe(bytes, 22, size, 4)
@@ -81,8 +82,8 @@ class ZipSizeTest {
     fun foreignDataDescriptorAllowsZeroLocalSizes() {
         // CPython ZipFile writing to an unseekable sink: bit 3, zero local sizes, signed descriptor.
         val bytes = hex("504b0304140008000800f010475d0000000000000000000000000e00000064657363726970746f722e747874737472761c45c42100504b0708ae92f3e2090000002c010000504b01021403140008000800f010475dae92f3e2090000002c0100000e000000000000000000000080010000000064657363726970746f722e747874504b050600000000010001003c000000450000000000")
-        assertEquals(0L, ZipFormat.u32(bytes, 18))
-        assertEquals(0L, ZipFormat.u32(bytes, 22))
+        assertEquals(0L, readU32Le(bytes, 18))
+        assertEquals(0L, readU32Le(bytes, 22))
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
         assertContentEquals("ABC".repeat(100).encodeToByteArray(), reader.read(reader.entries().single()))
     }
@@ -133,5 +134,4 @@ class ZipSizeTest {
         }
     }
 
-    private fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 }

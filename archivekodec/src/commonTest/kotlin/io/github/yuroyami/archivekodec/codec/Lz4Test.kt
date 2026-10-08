@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.codec
 
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
+import io.github.yuroyami.archivekodec.hex
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 
@@ -32,8 +33,4 @@ class Lz4Test {
         assertContentEquals(s, Lz4.blockDecompress(block, 0, block.size))
     }
 
-    private fun hex(s: String): ByteArray =
-        ByteArray(s.length / 2) {
-            ((s[it * 2].digitToInt(16) shl 4) or s[it * 2 + 1].digitToInt(16)).toByte()
-        }
 }

@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.checksum
 
+import io.github.yuroyami.archivekodec.util.readI32Le
+
 /**
  * xxHash32 (Yann Collet): the checksum used by the LZ4 frame format for its header
  * (HC byte) and optional block/content checks. Pure-Kotlin, one-shot. 32-bit wrapping
@@ -36,10 +38,10 @@ public object XxHash32 {
             var v4 = seed - P1
             val limit = end - 16
             while (i <= limit) {
-                v1 = rotl(v1 + le32(data, i) * P2, 13) * P1; i += 4
-                v2 = rotl(v2 + le32(data, i) * P2, 13) * P1; i += 4
-                v3 = rotl(v3 + le32(data, i) * P2, 13) * P1; i += 4
-                v4 = rotl(v4 + le32(data, i) * P2, 13) * P1; i += 4
+                v1 = rotl(v1 + readI32Le(data, i) * P2, 13) * P1; i += 4
+                v2 = rotl(v2 + readI32Le(data, i) * P2, 13) * P1; i += 4
+                v3 = rotl(v3 + readI32Le(data, i) * P2, 13) * P1; i += 4
+                v4 = rotl(v4 + readI32Le(data, i) * P2, 13) * P1; i += 4
             }
             h = rotl(v1, 1) + rotl(v2, 7) + rotl(v3, 12) + rotl(v4, 18)
         } else {
@@ -48,7 +50,7 @@ public object XxHash32 {
 
         h += length
         while (end - i >= 4) {
-            h += le32(data, i) * P3
+            h += readI32Le(data, i) * P3
             h = rotl(h, 17) * P4
             i += 4
         }
@@ -65,10 +67,4 @@ public object XxHash32 {
         h = h xor (h ushr 16)
         return h.toLong() and 0xFFFFFFFFL
     }
-
-    private fun le32(b: ByteArray, o: Int): Int =
-        (b[o].toInt() and 0xFF) or
-            ((b[o + 1].toInt() and 0xFF) shl 8) or
-            ((b[o + 2].toInt() and 0xFF) shl 16) or
-            ((b[o + 3].toInt() and 0xFF) shl 24)
 }

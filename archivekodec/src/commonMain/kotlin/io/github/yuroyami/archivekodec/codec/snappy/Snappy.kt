@@ -5,6 +5,8 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.leBytes
+import io.github.yuroyami.archivekodec.util.readUIntLe
 
 /**
  * Snappy raw block format (Google): a byte-oriented LZ77 with no entropy stage.
@@ -49,8 +51,8 @@ public object Snappy {
         }
         fun littleEndian(n: Int): Long {
             needInput(n)
-            var value = 0L
-            repeat(n) { i -> value = value or ((src[p++].toLong() and 0xFF) shl (8 * i)) }
+            val value = readUIntLe(src, p, n)
+            p += n
             return value
         }
         fun needOutput(n: Long) {
@@ -117,8 +119,7 @@ public object Snappy {
                 var t = l
                 while (t >= 256) { nbytes++; t = t ushr 8 }
                 out.append(((59 + nbytes) shl 2).toByte())
-                var x = l
-                repeat(nbytes) { out.append((x and 0xFF).toByte()); x = x ushr 8 }
+                out.leBytes(l.toLong(), nbytes)
             }
             out.append(data, off, chunk)
             off += chunk

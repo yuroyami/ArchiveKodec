@@ -11,6 +11,9 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.Codecs
+import io.github.yuroyami.archivekodec.util.readI64Le
+import io.github.yuroyami.archivekodec.util.readU16Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -77,12 +80,12 @@ class ArchiveFacadeTest {
         assertTrue(foreign.gnuBinaryTime[136].toInt() and 0x80 != 0)
         assertContentEquals("//".encodeToByteArray(), foreign.ar.copyOfRange(8, 10))
         val central = foreign.zip64CentralOffset
-        assertEquals(ZipFormat.CEN, ZipFormat.u32(foreign.zip64, central))
-        assertEquals(0xFFFFFFFFL, ZipFormat.u32(foreign.zip64, central + 24))
-        val extra = central + 46 + ZipFormat.u16(foreign.zip64, central + 28)
-        assertEquals(1, ZipFormat.u16(foreign.zip64, extra))
-        assertEquals(8, ZipFormat.u16(foreign.zip64, extra + 2))
-        assertEquals(foreign.payload.size.toLong(), ZipFormat.u64(foreign.zip64, extra + 4))
+        assertEquals(ZipFormat.CEN, readU32Le(foreign.zip64, central))
+        assertEquals(0xFFFFFFFFL, readU32Le(foreign.zip64, central + 24))
+        val extra = central + 46 + readU16Le(foreign.zip64, central + 28)
+        assertEquals(1, readU16Le(foreign.zip64, extra))
+        assertEquals(8, readU16Le(foreign.zip64, extra + 2))
+        assertEquals(foreign.payload.size.toLong(), readI64Le(foreign.zip64, extra + 4))
     }
 
     @Test
@@ -150,7 +153,4 @@ class ArchiveFacadeTest {
         assertSame(Codecs.ZLIB, ArchiveKodec.zlib)
     }
 
-    private fun hex(value: String): ByteArray = ByteArray(value.length / 2) {
-        value.substring(it * 2, it * 2 + 2).toInt(16).toByte()
-    }
 }

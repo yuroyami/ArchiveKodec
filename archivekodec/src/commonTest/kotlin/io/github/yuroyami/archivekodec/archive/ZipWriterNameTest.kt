@@ -1,10 +1,11 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
-import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
+import io.github.yuroyami.archivekodec.util.readU16Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -72,9 +73,9 @@ class ZipWriterNameTest {
         for (method in methods) for (name in names) {
             val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec(name, data, method)))
             val encoded = name.encodeToByteArray()
-            val central = ZipFormat.u32(bytes, bytes.size - 6).toInt()
-            assertContentEquals(encoded, bytes.copyOfRange(30, 30 + ZipFormat.u16(bytes, 26)), name)
-            assertContentEquals(encoded, bytes.copyOfRange(central + 46, central + 46 + ZipFormat.u16(bytes, central + 28)), name)
+            val central = readU32Le(bytes, bytes.size - 6).toInt()
+            assertContentEquals(encoded, bytes.copyOfRange(30, 30 + readU16Le(bytes, 26)), name)
+            assertContentEquals(encoded, bytes.copyOfRange(central + 46, central + 46 + readU16Le(bytes, central + 28)), name)
             ZipReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)

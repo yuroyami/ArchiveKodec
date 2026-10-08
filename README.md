@@ -430,7 +430,8 @@ the next minor release; rebuild callers and migrate to the typed methods.
 `ArchiveKodec` object, so import it directly. Its whole-array output is limited
 by the platform's `ByteArray` capacity, so sizes and offsets cannot reach 4 GiB.
 It emits ZIP64 end records when there are more than 65,535 entries; smaller
-entry counts use the classic ZIP layout.
+entry counts use the classic ZIP layout. Member sizes and offsets always use
+classic 32-bit fields, including in archives with ZIP64 entry counts.
 Names use strict UTF-8 and bit 11 in both ZIP headers. All names are validated
 before payload compression or output assembly. Backslashes, leading slashes,
 drive/device prefixes, `..` components, ASCII controls (including NUL and DEL),

@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveKodec
+import io.github.yuroyami.archivekodec.hex
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -8,9 +9,6 @@ import kotlin.test.assertFalse
 
 class TarNameLayoutTest {
     private val payload = "Archive member payload\u0000".encodeToByteArray() + byteArrayOf(0xff.toByte())
-    private fun hex(value: String) = ByteArray(value.length / 2) {
-        value.substring(it * 2, it * 2 + 2).toInt(16).toByte()
-    }
 
     // Frozen complete records from independently verified reference archives.
     private val producedUstar = hex(

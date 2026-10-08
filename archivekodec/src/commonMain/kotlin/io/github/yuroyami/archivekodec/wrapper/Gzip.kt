@@ -3,10 +3,13 @@ package io.github.yuroyami.archivekodec.wrapper
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
-import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.le32
+import io.github.yuroyami.archivekodec.util.readU16Le
+import io.github.yuroyami.archivekodec.util.readU32Le
 
 /**
  * gzip (RFC 1952) framing over [Deflate] / [Inflate], with the CRC-32 + ISIZE
@@ -47,8 +50,8 @@ public object Gzip {
         out.append(0.toByte())              // XFL
         out.append(255.toByte())            // OS = unknown
         out.append(Deflate.encode(data))
-        writeLe32(out, Crc32.of(data))                       // CRC-32 of uncompressed data
-        writeLe32(out, data.size.toLong() and 0xFFFFFFFFL)   // ISIZE mod 2^32
+        out.le32(Crc32.of(data))                       // CRC-32 of uncompressed data
+        out.le32(data.size.toLong() and 0xFFFFFFFFL)   // ISIZE mod 2^32
         return out.toByteArray()
     }
 
@@ -80,10 +83,10 @@ public object Gzip {
             val outputStart = output.size
             val trailer = Inflate.inflateInto(input, payload, input.size, output)
             if (input.size - trailer < 8) throw ArchiveFormatException("gzip: truncated trailer", trailer.toLong())
-            if (le32(input, trailer) != output.checksum(Crc32(), outputStart)) {
+            if (readU32Le(input, trailer) != output.checksum(Crc32(), outputStart)) {
                 throw ArchiveFormatException("gzip: CRC-32 mismatch", trailer.toLong())
             }
-            if (le32(input, trailer + 4) != (output.size - outputStart).toLong()) {
+            if (readU32Le(input, trailer + 4) != (output.size - outputStart).toLong()) {
                 throw ArchiveFormatException("gzip: ISIZE mismatch", (trailer + 4).toLong())
             }
             position = trailer + 8
@@ -104,18 +107,7 @@ public object Gzip {
     public fun decompress(input: ByteArray, maximumSize: Long = ArchiveLimits.DEFAULT.maxUncompressedBytes): ByteArray =
         decompress(input, ArchiveLimits.DEFAULT.copy { maxUncompressedBytes = maximumSize })
 
-    private fun writeLe32(out: ByteArrayBuilder, v: Long) {
-        out.append((v and 0xFF).toByte())
-        out.append(((v ushr 8) and 0xFF).toByte())
-        out.append(((v ushr 16) and 0xFF).toByte())
-        out.append(((v ushr 24) and 0xFF).toByte())
-    }
-
     private fun u(input: ByteArray, i: Int): Int = input[i].toInt() and 0xff
-
-    private fun le32(input: ByteArray, offset: Int): Long =
-        u(input, offset).toLong() or (u(input, offset + 1).toLong() shl 8) or
-            (u(input, offset + 2).toLong() shl 16) or (u(input, offset + 3).toLong() shl 24)
 
     private fun gzipHeader(input: ByteArray, start: Int): Int {
         var position = start
@@ -133,7 +125,7 @@ public object Gzip {
         position += 10
         if (flags and FEXTRA != 0) {
             need(2)
-            val length = u(input, position) or (u(input, position + 1) shl 8)
+            val length = readU16Le(input, position)
             position += 2
             need(length)
             position += length
@@ -147,7 +139,7 @@ public object Gzip {
         if (flags and FCOMMENT != 0) skipString()
         if (flags and FHCRC != 0) {
             need(2)
-            val expected = u(input, position) or (u(input, position + 1) shl 8)
+            val expected = readU16Le(input, position)
             val actual = Crc32().apply { update(input, start, position - start) }.value().toInt() and 0xffff
             if (actual != expected) throw ArchiveFormatException("gzip: header CRC-16 mismatch", position.toLong())
             position += 2
