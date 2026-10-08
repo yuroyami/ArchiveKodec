@@ -7,10 +7,8 @@ package io.github.yuroyami.archivekodec.checksum
  * Check value: `ADLER32("123456789") == 0x091E01DE`.
  */
 public class Adler32 : Checksum {
-    // Long accumulators: over a 5552-byte NMAX run s2 reaches ~4.1e9, which overflows
-    // a SIGNED 32-bit Int (zlib's NMAX is sized for UNSIGNED 32-bit). Long has the room.
-    private var a = 1L
-    private var b = 0L
+    private var a = 1
+    private var b = 0
 
     @Throws(IllegalArgumentException::class)
     override fun update(data: ByteArray, offset: Int, length: Int) {
@@ -22,7 +20,7 @@ public class Adler32 : Checksum {
             // Process in NMAX-sized runs to bound how often we take the modulo.
             var n = minOf(end - i, NMAX)
             while (n-- > 0) {
-                s1 += (data[i++].toInt() and 0xFF).toLong()
+                s1 += data[i++].toInt() and 0xFF
                 s2 += s1
             }
             s1 %= MOD
@@ -32,14 +30,17 @@ public class Adler32 : Checksum {
         b = s2
     }
 
-    override fun value(): Long = ((b shl 16) or a) and 0xFFFFFFFFL
+    override fun value(): Long = ((b shl 16) or a).toLong() and 0xFFFFFFFFL
 
-    override fun reset() { a = 1L; b = 0L }
+    override fun reset() { a = 1; b = 0 }
 
     /** One-shot checksum calculation for a complete byte array. */
     public companion object {
         private const val MOD = 65521      // largest prime below 2^16
-        private const val NMAX = 5552      // max iterations before a mod is required
+        // Both sums start below MOD. With all bytes equal to 255, the largest
+        // s2 is 255*n*(n+1)/2 + (n+1)*65520. At n=3854 it is 2,146,868,775;
+        // the next byte could overflow a signed Int (zlib's 5552 uses unsigned).
+        private const val NMAX = 3854
 
         /** Calculate the unsigned 32-bit checksum as a Long of all [data]. */
         public fun of(data: ByteArray): Long = Adler32().apply { update(data) }.value()

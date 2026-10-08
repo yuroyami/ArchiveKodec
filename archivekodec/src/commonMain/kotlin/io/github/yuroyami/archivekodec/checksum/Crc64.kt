@@ -8,32 +8,46 @@ package io.github.yuroyami.archivekodec.checksum
  * Check value: `CRC64("123456789") == 0x995DC9BBDF1939FA`.
  */
 public class Crc64 : Checksum {
-    private var crc = -1L // 0xFFFFFFFFFFFFFFFF
+    // Keep the per-byte arithmetic native on Kotlin/JS as well as other targets.
+    private var low = -1
+    private var high = -1
 
     @Throws(IllegalArgumentException::class)
     override fun update(data: ByteArray, offset: Int, length: Int) {
         val end = checkedChecksumEnd(data.size, offset, length)
-        var c = crc
+        var lo = low
+        var hi = high
         var i = offset
         while (i < end) {
-            c = (c ushr 8) xor TABLE[((c xor data[i].toLong()) and 0xFF).toInt()]
+            val index = (lo xor data[i].toInt()) and 0xFF
+            lo = ((lo ushr 8) or (hi shl 24)) xor TABLE_LOW[index]
+            hi = (hi ushr 8) xor TABLE_HIGH[index]
             i++
         }
-        crc = c
+        low = lo
+        high = hi
     }
 
-    override fun value(): Long = crc.inv()
+    override fun value(): Long =
+        (high.inv().toLong() shl 32) or (low.inv().toLong() and 0xFFFFFFFFL)
 
-    override fun reset() { crc = -1L }
+    override fun reset() { low = -1; high = -1 }
 
     /** One-shot checksum calculation for a complete byte array. */
     public companion object {
         private val POLY = 0xC96C5795D7870F42uL.toLong()
 
-        private val TABLE = LongArray(256) { n ->
-            var c = n.toLong()
-            repeat(8) { c = if (c and 1L != 0L) POLY xor (c ushr 1) else c ushr 1 }
-            c
+        private val TABLE_LOW = IntArray(256)
+        private val TABLE_HIGH = IntArray(256)
+
+        init {
+            // Construct the shared tables once; updates only use their Int halves.
+            for (n in 0 until 256) {
+                var c = n.toLong()
+                repeat(8) { c = if (c and 1L != 0L) POLY xor (c ushr 1) else c ushr 1 }
+                TABLE_LOW[n] = c.toInt()
+                TABLE_HIGH[n] = (c ushr 32).toInt()
+            }
         }
 
         /** Calculate the 64 checksum bits as a signed Long of all [data]. */

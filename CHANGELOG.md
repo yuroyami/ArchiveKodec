@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Adler-32 and CRC-64 no longer perform 64-bit arithmetic for each input byte.
+  Adler-32 bounds signed 32-bit sums with shorter blocks; CRC-64 keeps its state
+  and lookup tables in two 32-bit halves. Checksum values and streaming APIs are unchanged.
+
 - DEFLATE, LZ4 and Snappy decoders now copy non-overlapping matches in bulk.
   Overlapping matches keep their forward-copy semantics, including matches
   spanning LZ4 frame history and the current block; LZ4 single-byte runs use a fill.
