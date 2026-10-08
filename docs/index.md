@@ -104,7 +104,7 @@ or apply archive metadata to it.
 
 | Module | What it holds | Targets |
 | --- | --- | --- |
-| `archivekodec` | Codecs, archive readers, ZIP, ar and cpio writers, checksums, a sniffer and the safety checks. See the table below | All, see below |
+| `archivekodec` | Codecs, archive readers, ZIP, TAR, ar and cpio writers, checksums, a sniffer and the safety checks. See the table below | All, see below |
 | `archivekodec-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | All, see below |
 
 What `archivekodec` contains:
@@ -112,7 +112,7 @@ What `archivekodec` contains:
 | Area | Contents |
 | --- | --- |
 | Codecs | DEFLATE, gzip, zlib, LZ4 and Snappy |
-| Archives | ZIP reader and writer (ZIP64, STORE and DEFLATE), GNU ar reader and writer, cpio reader and newc/crc writer, plus a TAR reader |
+| Archives | ZIP reader and writer (ZIP64, STORE and DEFLATE), TAR reader and regular-file/directory writer, GNU ar reader and writer, and cpio reader and newc/crc writer |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Safety | A magic sniffer, default entry-count limits on listings, output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
 
@@ -129,7 +129,7 @@ Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 
 `CodecId` names bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd, and the sniffer
 recognizes several of them. None of them has an implementation, and
-`ArchiveKodec.codec(id)` returns `null` for those ids. ZIP, GNU ar and cpio have writers; TAR remains read-only.
+`ArchiveKodec.codec(id)` returns `null` for those ids. ZIP, TAR, GNU ar and cpio have writers. TAR writing currently covers regular files and directories.
 
 ## Where to go next
 

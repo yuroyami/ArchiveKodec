@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added `TarWriter` for regular files and directories, with ustar headers, prefix
+  splitting, GNU long-name records, header checksums, block padding and two EOF
+  blocks. Member descriptions own their payloads and expose stable builders; the
+  output composes with the existing gzip codec for `.tar.gz`.
+
 - Added `CpioWriter` for buffered newc and crc archives, with configurable Unix
   metadata, four-byte alignment, trailer records and owned member snapshots.
   Directories, symlinks, caller-described hard links and empty special records

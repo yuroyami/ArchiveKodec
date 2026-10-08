@@ -11,11 +11,25 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod;
 import io.github.yuroyami.archivekodec.archive.ar.ArWriter;
 import io.github.yuroyami.archivekodec.archive.cpio.CpioWriter;
+import io.github.yuroyami.archivekodec.archive.tar.TarWriter;
 import java.util.Collections;
 import kotlinx.io.RawSource;
 
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
+    public TarWriter.FileSpec tarFile(String name, byte[] data) {
+        return new TarWriter.FileSpec(name, data);
+    }
+
+    public byte[] writeTar(String name, byte[] data) throws Exception {
+        TarWriter.FileSpec.Builder builder = new TarWriter.FileSpec.Builder(name, data);
+        builder.setModificationTime(1700000000L);
+        builder.setUid(123);
+        builder.setGid(456);
+        builder.setMode(0755);
+        return TarWriter.INSTANCE.write(Collections.singletonList(builder.build()));
+    }
+
     public CpioWriter.FileSpec cpioFile(String name, byte[] data) {
         return new CpioWriter.FileSpec(name, data);
     }

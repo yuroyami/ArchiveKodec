@@ -19,7 +19,7 @@ before 0.2.0 use older coordinates: 0.1.0 is `io.github.yuroyami:kitearchive`.
 
 | Artifact | Coordinates | What it holds |
 | --- | --- | --- |
-| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP, ar and cpio writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP, TAR, ar and cpio writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
 | IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | Four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
 
 Both build for every target in [Targets](#targets).
@@ -103,7 +103,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, cpio read and write (newc/crc), plus a TAR reader |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), and cpio read and write (newc/crc) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -382,7 +382,7 @@ entry throws an unsupported-method error.
 | Format | Read | Write |
 | --- | --- | --- |
 | ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
-| TAR (v7, ustar, GNU) | yes | no |
+| TAR (v7, ustar, GNU) | yes | ustar + GNU long names; regular files/directories |
 | ar (GNU) | yes | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
 
@@ -407,6 +407,44 @@ an 8 KiB buffer, while output limits apply to the logical bytes returned.
 The readers read through the `RandomAccessSource` interface, which supports seek
 and read. `ByteArrayRandomAccessSource` is the only implementation in the
 library. The whole archive must therefore be in memory before you can open it.
+
+## Write TAR and tar.gz
+
+```kotlin
+import io.github.yuroyami.archivekodec.archive.tar.TarWriter
+
+val tar = TarWriter.write(
+    listOf(
+        TarWriter.FileSpec("dir/", byteArrayOf()) {
+            isDirectory = true
+            mode = 0x1ED // permission bits: octal 0755
+        },
+        TarWriter.FileSpec("dir/file.txt", bytes),
+    ),
+)
+val tarGzip = ArchiveKodec.gzip.compress(tar)
+```
+
+`TarWriter` writes regular files and directories using ustar headers, unsigned
+header checksums, 512-byte data padding and two zero blocks at the end. Names
+that exceed 100 UTF-8 bytes use the ustar prefix field when a path split fits;
+otherwise a GNU `L` long-name record preserves the complete name. No names are
+silently truncated. An empty archive is exactly two zero blocks.
+
+Member descriptions own their body snapshots. Use `FileSpec(name, data) { ... }`,
+`FileSpec.Builder(name, data).build()` or `file.copy { ... }` to configure
+`isDirectory`, `mode`, `uid`, `gid` and `modificationTime` (Unix seconds).
+Defaults are regular-file type, permission mode octal `0644` and time/IDs zero.
+Mode contains permission bits only, from octal `0000` through `7777`; uid/gid
+must fit seven octal digits and nonnegative timestamps eleven octal digits.
+Directories require empty bodies. A name ending in slash must explicitly be a
+directory, so readers cannot silently hide a regular file's data.
+
+The writer preserves names, duplicates and member order. Empty names, NUL and
+malformed Unicode are rejected. Paths are not sanitized for filesystem extraction.
+The result must fit in one `ByteArray`. Links, devices, pax metadata, sparse files
+and binary numeric fields are not emitted. Compression is a separate codec step,
+as shown above.
 
 ## Write GNU ar
 
@@ -923,7 +961,6 @@ between releases.
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under
   Limits.
-- [Writers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Acontainer-writers) for TAR.
 - [More containers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM.
 
 RAR, ACE, StuffIt and ALZ stay out of scope. See License below.

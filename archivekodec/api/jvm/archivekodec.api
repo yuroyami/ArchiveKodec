@@ -320,6 +320,51 @@ public final class io/github/yuroyami/archivekodec/archive/tar/TarReader : io/gi
 public final class io/github/yuroyami/archivekodec/archive/tar/TarReader$Companion {
 }
 
+public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter {
+	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/tar/TarWriter;
+	public final fun write (Ljava/util/List;)[B
+}
+
+public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec$Companion;
+	public fun <init> (Ljava/lang/String;[B)V
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()[B
+	public final fun getGid ()I
+	public final fun getMode ()I
+	public final fun getModificationTime ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getUid ()I
+	public fun hashCode ()I
+	public final fun isDirectory ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec$Builder {
+	public fun <init> (Ljava/lang/String;[B)V
+	public final fun build ()Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;
+	public final fun getData ()[B
+	public final fun getGid ()I
+	public final fun getMode ()I
+	public final fun getModificationTime ()J
+	public final fun getName ()Ljava/lang/String;
+	public final fun getUid ()I
+	public final fun isDirectory ()Z
+	public final fun setData ([B)V
+	public final fun setDirectory (Z)V
+	public final fun setGid (I)V
+	public final fun setMode (I)V
+	public final fun setModificationTime (J)V
+	public final fun setName (Ljava/lang/String;)V
+	public final fun setUid (I)V
+}
+
+public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec$Companion {
+	public final fun invoke (Ljava/lang/String;[BLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;
+}
+
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipMethod : java/lang/Enum {
 	public static final field DEFLATED Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;
 	public static final field STORED Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;
