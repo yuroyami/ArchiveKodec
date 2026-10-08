@@ -203,8 +203,16 @@ public object Inflate {
 
         fun copyBack(distance: Int, length: Int) {
             ensure(length)
+            val output = bytes
+            val end = size + length
             var source = size - distance
-            repeat(length) { bytes[size++] = bytes[source++] }
+            if (distance >= length) {
+                output.copyInto(output, size, source, source + length)
+            } else {
+                var destination = size
+                while (destination < end) output[destination++] = output[source++]
+            }
+            size = end
         }
 
         fun copyStored(input: ByteArray, offset: Int, length: Int) {

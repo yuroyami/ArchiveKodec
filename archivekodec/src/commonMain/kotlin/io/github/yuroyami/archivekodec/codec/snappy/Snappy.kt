@@ -104,7 +104,14 @@ public object Snappy {
                     needOutput(count.toLong())
                     if (out != null) {
                         var from = o - offset.toInt()
-                        repeat(count) { out[o++] = out[from++] } // overlapping copies are intentional
+                        val outputEnd = o + count
+                        if (offset >= count) {
+                            out.copyInto(out, o, from, from + count)
+                        } else {
+                            var destination = o
+                            while (destination < outputEnd) out[destination++] = out[from++]
+                        }
+                        o = outputEnd
                     } else {
                         o += count
                     }

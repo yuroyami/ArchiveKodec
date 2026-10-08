@@ -145,7 +145,20 @@ public object Lz4 {
                 o += historyLength
                 m += historyLength
             }
-            repeat(matchLen - historyLength) { out[o++] = out[m++] } // byte-by-byte: overlap-safe
+            val remaining = matchLen - historyLength
+            val output = out
+            val outputEnd = o + remaining
+            // A match wholly in prior history leaves no local bytes to copy.
+            if (remaining > 0 && offset >= remaining) {
+                output.copyInto(output, o, m, m + remaining)
+            } else if (remaining > 0 && offset == 1) {
+                // Every new byte repeats the same preceding byte, even across blocks.
+                output.fill(output[m], o, outputEnd)
+            } else {
+                var destination = o
+                while (destination < outputEnd) output[destination++] = output[m++]
+            }
+            o = outputEnd
             hasMatch = true
         }
         throw ArchiveFormatException("lz4: missing final literal sequence", sEnd.toLong())

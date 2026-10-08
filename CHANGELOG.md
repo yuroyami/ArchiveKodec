@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- DEFLATE, LZ4 and Snappy decoders now copy non-overlapping matches in bulk.
+  Overlapping matches keep their forward-copy semantics, including matches
+  spanning LZ4 frame history and the current block; LZ4 single-byte runs use a fill.
+
 - Added explicit Snappy framed encoding and decoding through `SNAPPY_FRAMED`
   and `Snappy.frameCompress`/`frameDecompress`, with CRC-32C validation, chunk and
   combined output limits, concatenation and skippable chunks. The sniffer now
