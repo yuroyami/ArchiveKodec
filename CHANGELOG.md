@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- LZ4 encoding now increases its search step after repeated misses, compresses
+  frame blocks directly from input slices, and extends matches four bytes at a
+  time. Block independence and the required final literals are preserved.
+
 - Snappy compression now finds repeated sequences and emits back-references,
   including all three offset encodings and split long matches. Its bounded hash
   table uses at most 64 KiB; raw-block APIs and decoding limits are unchanged.

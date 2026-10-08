@@ -24,7 +24,7 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * frame's declared content size, header and advertised block/content xxHash32 checksums.
  * Encoder writes a minimal frame (block-independent,
  * 4 MiB max block, no optional checksums) with a greedy block compressor that keeps
- * one match candidate per hash-table slot, and
+ * one match candidate per hash-table slot, skips more input after repeated misses, and
  * a stored-block fallback when a block doesn't shrink.
  */
 public object Lz4 {
@@ -151,36 +151,59 @@ public object Lz4 {
         throw ArchiveFormatException("lz4: missing final literal sequence", sEnd.toLong())
     }
 
-    /** Greedy LZ4 block compressor. Always produces a conformant block. */
+    /** Greedy LZ4 block compressor over a slice. Always produces a conformant block. */
     @Throws(ArchiveException::class)
-    internal fun blockCompress(data: ByteArray): ByteArray {
-        val n = data.size
-        val out = ByteArrayBuilder(maxOf(16, n / 2))
-        if (n < MF_LIMIT + 1) {
-            emitLastLiterals(out, data, 0, n)
+    internal fun blockCompress(data: ByteArray, offset: Int = 0, length: Int = data.size - offset): ByteArray {
+        require(offset >= 0 && length >= 0 && offset <= data.size && length <= data.size - offset) {
+            "lz4: invalid input slice"
+        }
+        val end = offset + length
+        val out = ByteArrayBuilder(maxOf(16, length / 2))
+        if (length < MF_LIMIT + 1) {
+            emitLastLiterals(out, data, offset, end)
             return out.toByteArray()
         }
         val table = IntArray(1 shl HASH_BITS) { -1 }
-        val mfLimit = n - MF_LIMIT
-        val matchLimit = n - LAST_LITERALS
-        var anchor = 0
-        var i = 0
+        val mfLimit = end - MF_LIMIT
+        val matchLimit = end - LAST_LITERALS
+        var anchor = offset
+        var i = offset
+        var misses = 0
         while (i < mfLimit) {
             val h = hash(readI32Le(data, i))
             val ref = table[h]
             table[h] = i
             if (ref >= 0 && i - ref <= 0xFFFF && readI32Le(data, ref) == readI32Le(data, i)) {
-                var len = MIN_MATCH
-                while (i + len < matchLimit && data[ref + len] == data[i + len]) len++
+                val len = matchLength(data, ref, i, matchLimit - i)
                 emitSequence(out, data, anchor, i, i - ref, len)
                 i += len
                 anchor = i
+                misses = 0
             } else {
-                i++
+                misses++
+                // Probe every byte near matches, then cross incompressible runs
+                // with a growing step. Cap the addition at the search boundary.
+                val step = 1 + (misses ushr 6)
+                i += minOf(step, mfLimit - i)
             }
         }
-        emitLastLiterals(out, data, anchor, n)
+        emitLastLiterals(out, data, anchor, end)
         return out.toByteArray()
+    }
+
+    /** The first four bytes already match; the final five literals are outside [maximum]. */
+    private fun matchLength(data: ByteArray, first: Int, second: Int, maximum: Int): Int {
+        var length = MIN_MATCH
+        while (length <= maximum - 4) {
+            val different = readI32Le(data, first + length) xor readI32Le(data, second + length)
+            if (different != 0) {
+                // Little-endian words put the first differing byte in the low bits.
+                return length + (different.countTrailingZeroBits() ushr 3)
+            }
+            length += 4
+        }
+        while (length < maximum && data[first + length] == data[second + length]) length++
+        return length
     }
 
     private fun emitSequence(out: ByteArrayBuilder, data: ByteArray, anchor: Int, matchPos: Int, offset: Int, matchLen: Int) {
@@ -232,17 +255,16 @@ public object Lz4 {
 
         var pos = 0
         while (pos < data.size) {
-            val end = minOf(pos + MAX_BLOCK, data.size)
-            val chunk = data.copyOfRange(pos, end)
-            val comp = blockCompress(chunk)
-            if (comp.size < chunk.size) {
+            val chunkLength = minOf(data.size - pos, MAX_BLOCK)
+            val comp = blockCompress(data, pos, chunkLength)
+            if (comp.size < chunkLength) {
                 out.le32(comp.size.toLong())
                 out.append(comp)
             } else {
-                out.le32(chunk.size.toLong() or 0x80000000L) // high bit = uncompressed
-                out.append(chunk)
+                out.le32(chunkLength.toLong() or 0x80000000L) // high bit = uncompressed
+                out.append(data, pos, chunkLength)
             }
-            pos = end
+            pos += chunkLength
         }
         out.le32(0L) // end mark
         return out.toByteArray()
