@@ -778,6 +778,11 @@ record ArchiveKodec after its rename and fixes.
 You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
 your SDK install.
 
+The committed `kotlin-js-store/yarn.lock` pins the npm dependencies used by the
+JavaScript toolchain. When deliberately updating them, run
+`./gradlew kotlinUpgradeYarnLock`, review the lockfile diff and commit it with
+the build change. API pages link declarations to their source files on `main`.
+
 Pull requests and main pushes run the `CI` workflow without path filters. Its
 `Verification` check requires all three platform lanes to succeed. The Linux lane
 runs the JVM, Android host, JS Node, wasmJs Node, wasmWasi Node and `linuxX64`

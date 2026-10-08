@@ -80,7 +80,14 @@ kotlin {
 
     js {
         browser()
-        nodejs()
+        nodejs {
+            testTask {
+                useMocha {
+                    // Adapter round trips exercise six codecs across 64 KiB boundaries.
+                    timeout = "30s"
+                }
+            }
+        }
         binaries.library()
     }
 
@@ -112,13 +119,6 @@ kotlin {
 
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     sourceSets {
-        all {
-            languageSettings {
-                optIn("kotlin.RequiresOptIn")
-                optIn("kotlin.experimental.ExperimentalNativeApi")
-            }
-        }
-
         commonMain.dependencies {
             api(projects.archivekodec)
             api(libs.kotlinx.io.core)

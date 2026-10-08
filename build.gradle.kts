@@ -77,6 +77,11 @@ allprojects {
                 if (moduleDoc.asFile.exists()) {
                     includes.from(moduleDoc)
                 }
+                sourceLink {
+                    localDirectory.set(layout.projectDirectory.dir("src"))
+                    remoteUrl("https://github.com/yuroyami/ArchiveKodec/blob/main/${project.name}/src")
+                    remoteLineSuffix.set("#L")
+                }
             }
 
         }
