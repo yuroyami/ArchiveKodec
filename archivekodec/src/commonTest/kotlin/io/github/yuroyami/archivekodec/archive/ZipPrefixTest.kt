@@ -167,7 +167,10 @@ class ZipPrefixTest {
 
     @Test fun recognizedHeaderFormatsKeepPriorityOverZipFooters() {
         val bytes = byteArrayOf(0x1f, 0x8b.toByte(), 8) + zipMetadataBase()
-        assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)) }
+        val malformedGzip = assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)) }
+        assertTrue(malformedGzip.message.orEmpty().contains("gzip", ignoreCase = true))
+        val bzip = hex("425a6839177245385090") + zipMetadataBase()
+        assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(ByteArrayRandomAccessSource(bzip)) }
         val zeroTar = ByteArray(512) + zipMetadataBase()
         ArchiveKodec.open(ByteArrayRandomAccessSource(zeroTar)).use { assertEquals(ArchiveFormat.TAR, it.format) }
     }

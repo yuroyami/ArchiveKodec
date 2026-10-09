@@ -96,7 +96,6 @@ import io.github.yuroyami.archivekodec.ArchiveKodec;
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry;
 import io.github.yuroyami.archivekodec.archive.ArchiveReader;
 import io.github.yuroyami.archivekodec.archive.ArchiveReaders;
-import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource;
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
 import io.github.yuroyami.archivekodec.checksum.Crc32;
 import io.github.yuroyami.archivekodec.security.ArchiveLimits;
@@ -115,8 +114,7 @@ public class Example {
         settings.setMaxEntries(100);
         byte[] zip = ZipWriter.write(Collections.singletonList(
             new ZipWriter.FileSpec("hello.txt", restored)));
-        ArchiveReader reader = ArchiveKodec.open(
-            new ByteArrayRandomAccessSource(zip), settings.build());
+        ArchiveReader reader = ArchiveKodec.open(zip, settings.build());
         try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
             ArchiveEntry entry = reader.entries().get(0);
             byte[] content = reader.read(entry); // Uses this reader's limits.
@@ -165,21 +163,19 @@ names. You must call `PathGuard` yourself before you use a name as a path.
 
 ```kotlin
 import io.github.yuroyami.archivekodec.ArchiveKodec
-import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
-import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.security.PathGuard
 
 val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
-val back = ArchiveKodec.gzip.decompress(gz)
+val back = ArchiveKodec.decompress(gz) // Detects the compressed stream format.
 
 val zipBytes = ZipWriter.write(
     listOf(ZipWriter.FileSpec("hello.txt", "Hello!".encodeToByteArray(), ZipMethod.STORED)),
 )
 
-ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
+ArchiveKodec.open(zipBytes).use { reader ->
     for (entry in reader.entries()) {
         // Archives of the current directory may contain a root directory entry.
         if (PathGuard.isRootDirectory(entry)) continue
@@ -199,8 +195,11 @@ ArchiveKodec.zlib.compress(bytes)      // zlib stream: PNG IDAT, PDF FlateDecode
 ArchiveKodec.deflate.compress(bytes)   // bare RFC 1951
 ArchiveKodec.store.compress(bytes)     // identity
 
-val lz4 = ArchiveKodec.codec(CodecId.LZ4)      // null for an unimplemented id
-val out = lz4!!.decompress(frameBytes)
+val out = ArchiveKodec.lz4.decompress(frameBytes)
+val detected = ArchiveKodec.decompress(compressedBytes) // gzip, zlib, LZ4 or framed Snappy
+
+ArchiveKodec.codec("lz4")                 // Same instance as ArchiveKodec.lz4
+ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzip
 ```
 
 | Codec | Decode | Encode |
@@ -219,8 +218,17 @@ symbol coverage and code-space occupancy before selecting a table. Raw DEFLATE,
 gzip, zlib and deflated ZIP all share this builder; compressed bytes are deterministic
 for the same input, but may change when encoder behavior is corrected.
 
-`gzip`, `zlib`, `deflate` and `store` have named accessors on `ArchiveKodec`. You
-reach LZ4 and Snappy through `ArchiveKodec.codec(id)`.
+`gzip`, `zlib`, `deflate`, `store`, `lz4`, `snappy` and `snappyFramed` have non-null
+accessors on `ArchiveKodec`; the corresponding `Codecs` fields are also available.
+Lookups by id, format or case-insensitive codec name use that same registry and
+return `null` for unavailable codecs. Names are codec identifiers, not HTTP aliases:
+`deflate` means raw DEFLATE, while `zlib` selects its RFC 1950 wrapper.
+
+`ArchiveKodec.decompress(bytes, limits)` detects gzip, zlib, LZ4 and framed Snappy
+and decodes one framing layer. It keeps each codec's concatenation and integrity
+rules. Containers and unsupported or unknown streams throw
+`ArchiveUnsupportedException` naming the detected format. Raw DEFLATE, raw Snappy,
+LZMA and brotli need an explicit codec because they cannot be reliably sniffed.
 
 `CodecId.SNAPPY` and `Codecs.SNAPPY` select raw Snappy blocks.
 `CodecId.SNAPPY_FRAMED` and `Codecs.SNAPPY_FRAMED` select standard `.sz` framing.
@@ -342,18 +350,37 @@ resource exhaustion and implementation bugs are outside that contract.
 ## Read an archive
 
 ```kotlin
-val reader = ArchiveKodec.open(ByteArrayRandomAccessSource(bytes))
+val reader = ArchiveKodec.open(bytes)
 reader.entries()          // parsed from the header or central directory only
 reader.read(entry)        // decode one entry
 ```
 
 `open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
-`CpioReader`. When the header is unknown, all `open` overloads search the last
+`CpioReader`. Byte-array overloads borrow plain archive bytes without copying;
+keep those bytes unchanged until the reader closes. Gzip input is fully decoded
+into an independent snapshot before the contained archive is opened. One gzip
+layer is supported, so `.tar.gz` and `.zip.gz` open directly:
+
+```kotlin
+ArchiveKodec.open(tarGzipBytes, limits).use { reader ->
+    val entries = reader.entries()
+}
+```
+
+The same policy bounds gzip output, entry listing and each entry read separately;
+it is not a cumulative extraction budget. Gzip decode failures use offsets in the
+compressed input; subsequent reader offsets refer to the unwrapped archive.
+For a `RandomAccessSource`, ownership transfers only after a successful open,
+and closing the returned reader also closes the original compressed source.
+Other compression wrappers require explicit decoding before opening the container.
+
+When the header is unknown, all `open` overloads search the last
 65,557 bytes for a ZIP end record with a complete EOF-terminated comment. This
 opens zipapps and other prefixed ZIPs; recognized header formats retain priority.
 An unknown source throws `ArchiveFormatException`, and a recognized format
 without a reader throws `ArchiveUnsupportedException`. `entries()`
-does not decompress entries. ZIP listing validates the central directory and
+does not decompress entries; opening gzip input has already decoded its outer layer.
+ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
 

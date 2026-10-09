@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added `ArchiveKodec.open(bytes)`, gzip-wrapped container opening, detected stream
+  decoding, codec lookups by name/format, and LZ4/Snappy accessors. Opening unwraps
+  one gzip layer under the supplied policy, then retains that policy on the reader.
+  Successful source opens transfer ownership through to reader close; failed opens
+  leave the source with the caller. Automatic stream decoding supports gzip, zlib,
+  LZ4 and framed Snappy; unsupported errors identify the detected format.
+
 - Added Java static utility calls, constant fields, interface convenience overloads
   and default-argument overloads for builders, copies and codec helpers. A reader's
   `read(entry)` retains its configured limits. JVM helper classes are now

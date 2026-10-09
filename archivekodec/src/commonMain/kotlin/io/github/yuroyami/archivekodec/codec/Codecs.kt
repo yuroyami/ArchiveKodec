@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.codec
 import kotlin.jvm.JvmField
 import kotlin.jvm.JvmStatic
 
+import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
@@ -80,6 +81,32 @@ public object Codecs {
     /** The codec for [id], or null if not yet implemented. */
     @JvmStatic
     public fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }
+
+    /**
+     * Look up a [CodecId.displayName], ignoring case. Unknown or unavailable names
+     * return null. Names are codec identifiers, not HTTP Content-Encoding aliases;
+     * `deflate` selects raw DEFLATE and `snappy` selects raw Snappy blocks.
+     */
+    @JvmStatic
+    public fun byName(name: String): Codec? = all.firstOrNull { it.id.displayName.equals(name, ignoreCase = true) }
+
+    /**
+     * Decoder for a compressed-stream [format], or null for containers, unknown
+     * formats and unavailable codecs. [ArchiveFormat.SNAPPY] selects framed Snappy.
+     */
+    @JvmStatic
+    public fun byFormat(format: ArchiveFormat): Codec? = when (format) {
+        ArchiveFormat.GZIP -> byId(CodecId.GZIP)
+        ArchiveFormat.ZLIB -> byId(CodecId.ZLIB)
+        ArchiveFormat.LZ4 -> byId(CodecId.LZ4)
+        ArchiveFormat.SNAPPY -> byId(CodecId.SNAPPY_FRAMED)
+        ArchiveFormat.BZIP2 -> byId(CodecId.BZIP2)
+        ArchiveFormat.XZ -> byId(CodecId.XZ)
+        ArchiveFormat.LZMA -> byId(CodecId.LZMA)
+        ArchiveFormat.ZSTD -> byId(CodecId.ZSTD)
+        ArchiveFormat.BROTLI -> byId(CodecId.BROTLI)
+        else -> null
+    }
 
     /** Ids of the codecs available right now. */
     @JvmStatic

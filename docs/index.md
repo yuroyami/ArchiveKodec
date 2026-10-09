@@ -65,20 +65,19 @@ for builders, resource cleanup and the renamed utility classes.
 
 ```kotlin
 import io.github.yuroyami.archivekodec.ArchiveKodec
-import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.security.PathGuard
 
 val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
-val back = ArchiveKodec.gzip.decompress(gz)
+val back = ArchiveKodec.decompress(gz)
 
 ArchiveKodec.sniff(gz) // -> ArchiveFormat.GZIP
 
 val zipBytes = ZipWriter.write(
     listOf(ZipWriter.FileSpec("hello.txt", back)),
 )
-ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
+ArchiveKodec.open(zipBytes).use { reader ->
     for (entry in reader.entries()) {
         // Archives of the current directory may contain a root directory entry.
         if (PathGuard.isRootDirectory(entry)) continue
@@ -89,6 +88,14 @@ ArchiveKodec.open(ByteArrayRandomAccessSource(zipBytes)).use { reader ->
 ```
 
 ## Two things to know first
+
+`ArchiveKodec.open(bytes, limits)` also opens gzip-wrapped containers such as
+`.tar.gz`, decoding one gzip layer before listing the contained archive. The
+policy applies separately to that decoding step, listing and each entry read.
+`ArchiveKodec.decompress(bytes, limits)` detects gzip, zlib, LZ4 and framed Snappy;
+raw streams require an explicit codec. `ArchiveKodec.lz4`, `snappy` and
+`snappyFramed` are non-null accessors; lookups by format or codec name return null
+when no implementation is available.
 
 **Everything is whole-array.** You pass a `ByteArray` and get a `ByteArray` back,
 so the payload sits fully in memory. There is no streaming API.

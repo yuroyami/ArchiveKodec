@@ -55,6 +55,10 @@ public final class JavaInteropSmoke {
         bytes(DATA, Snappy.frameDecompress(Snappy.frameCompress(DATA)));
         byte[] gzip = Gzip.compress(DATA);
         bytes(DATA, Gzip.decompress(gzip));
+        bytes(DATA, ArchiveKodec.decompress(gzip));
+        bytes(DATA, ArchiveKodec.decompress(gzip, ArchiveLimits.DEFAULT));
+        check(ArchiveKodec.codec("lz4") == ArchiveKodec.getLz4(), "codec name lookup");
+        check(ArchiveKodec.codec(ArchiveFormat.SNAPPY) == ArchiveKodec.getSnappyFramed(), "framed format lookup");
         try (GZIPInputStream input = new GZIPInputStream(new ByteArrayInputStream(gzip))) {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             byte[] buffer = new byte[16];
@@ -141,7 +145,7 @@ public final class JavaInteropSmoke {
             CpioWriter.write(Collections.singletonList(cpio)),
             CpioWriter.write(Collections.singletonList(cpio), CpioWriter.Dialect.CRC)};
         for (byte[] archive : archives) {
-            ArchiveReader reader = ArchiveKodec.open(new ByteArrayRandomAccessSource(archive));
+            ArchiveReader reader = ArchiveKodec.open(Gzip.compress(archive), ArchiveLimits.DEFAULT);
             try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
                 bytes(DATA, reader.read(reader.entries().get(0)));
             }

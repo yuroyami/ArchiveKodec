@@ -95,12 +95,12 @@ class ArchiveFacadeTest {
             ArchiveFormat.AR to foreign.ar, ArchiveFormat.CPIO to foreign.newc,
         )
         val unsupported = listOf(
-            ArchiveFormat.GZIP to hex("1f8b0800"), ArchiveFormat.ZLIB to hex("789c"),
+            ArchiveFormat.ZLIB to hex("789c"),
             ArchiveFormat.BZIP2 to hex("425a6839177245385090"), ArchiveFormat.XZ to hex("fd377a585a00"),
             ArchiveFormat.ZSTD to hex("28b52ffd"), ArchiveFormat.LZ4 to hex("04224d18"),
             ArchiveFormat.SEVEN_ZIP to hex("377abcaf271c"), ArchiveFormat.RAR to hex("526172211a0700"),
         )
-        for ((format, bytes) in supported + unsupported) {
+        for ((format, bytes) in supported + unsupported + (ArchiveFormat.GZIP to hex("1f8b0800"))) {
             assertEquals(format, ArchiveKodec.sniff(bytes))
             assertEquals(format, ArchiveKodec.sniff(ByteArrayRandomAccessSource(bytes)))
         }
@@ -152,6 +152,9 @@ class ArchiveFacadeTest {
         assertSame(Codecs.DEFLATE, ArchiveKodec.deflate)
         assertSame(Codecs.GZIP, ArchiveKodec.gzip)
         assertSame(Codecs.ZLIB, ArchiveKodec.zlib)
+        assertSame(Codecs.LZ4, ArchiveKodec.lz4)
+        assertSame(Codecs.SNAPPY, ArchiveKodec.snappy)
+        assertSame(Codecs.SNAPPY_FRAMED, ArchiveKodec.snappyFramed)
     }
 
 }

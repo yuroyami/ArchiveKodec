@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -281,10 +282,11 @@ class MagicSourceTest {
             ChunkedSource(ByteArray(512), intArrayOf(3), faultAt = 3, faultCount = -1),
             ChunkedSource(ByteArray(512), intArrayOf(3), faultAt = 3, faultError = failure),
             ChunkedSource(byteArrayOf(), size = -1),
+            ChunkedSource(hex("425a6839177245385090")),
         )
         for ((index, source) in cases.withIndex()) {
             when (index) {
-                1 -> assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(source) }
+                5 -> assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(source) }
                 3 -> assertSame(failure, assertFailsWith<ArchiveIOException> { ArchiveKodec.open(source) })
                 else -> assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(source) }
             }
