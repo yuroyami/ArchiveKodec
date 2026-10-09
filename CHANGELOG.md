@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Swift. Every Apple target now builds a framework, gathered into the
+  `ArchiveKodecKit` and `ArchiveKodecIo` XCFrameworks; `./gradlew swiftPackage` zips
+  them and writes a Swift package (local paths, or a hosted URL with checksums).
+  Breaking for Swift and Objective-C: the core framework is renamed from `ArchiveKodec`
+  to `ArchiveKodecKit`, so `import ArchiveKodecKit`, and Objective-C names take the
+  `ArchiveKodecKit` prefix; the `ArchiveKodec` type kept its name. On Apple platforms
+  `ArchiveKodec` gains `NSData` overloads (`compress`, `decompress`, `open`, `read`)
+  and `data(bytes:)`/`bytes(data:)` conversions, so Swift passes `Data` directly.
+
 - JavaScript and TypeScript. The JS build is now an ES module with generated TypeScript
   declarations, and exports a facade in the `io.github.yuroyami.archivekodec.js` package:
   `gzip`/`gunzip`, `deflate`/`inflate`, `zlib`/`unzlib`, `lz4`/`unlz4`, `compress`,

@@ -87,12 +87,9 @@ Callers outside Kotlin:
   `Gzip.compress(bytes)` and `ArchiveKodec.open(source)`, overloads such as
   `reader.read(entry)`, and fields such as `ArchiveLimits.DEFAULT`. Throwing
   methods declare their checked archive exceptions. See the [Java example](#java-example).
-- **Swift** has no published framework or XCFramework yet. Build the `ArchiveKodec`
-  or `ArchiveKodecIo` framework from this repository
-  (`./gradlew :archivekodec:linkReleaseFrameworkIosArm64`), or depend on the
-  artifact from a Kotlin Multiplatform module that your app already exports.
-  [Expected failures and Apple consumers](#expected-failures-and-apple-consumers)
-  shows the error bridge.
+- **Swift** imports the `ArchiveKodecKit` XCFramework (or `ArchiveKodecIo`, which
+  adds the kotlinx-io adapters) through Swift Package Manager, and passes `Data`
+  in and out. See [Swift](#swift).
 - **JavaScript and TypeScript** call a small exported facade, with TypeScript
   declarations. It is not on npm yet; build it from this repository. See
   [JavaScript and TypeScript](#javascript-and-typescript).
@@ -429,7 +426,7 @@ needed by its public methods; import `ArchiveKodecIo` when using that framework.
 
 ```swift
 import Foundation
-import ArchiveKodec
+import ArchiveKodecKit
 
 do {
     let output = try Gzip.shared.decompress(input: payload)
@@ -445,6 +442,62 @@ Custom `RandomAccessSource` and `Codec` implementations must report expected
 failures as `ArchiveException` subclasses. Recoverable source IO failures in the
 kotlinx-io adapter become `ArchiveIOException`. The bridge covers expected errors;
 resource exhaustion and implementation bugs are outside that contract.
+
+## Swift
+
+Swift apps use one of two XCFrameworks, built for every Apple target in the
+[target table](#targets):
+
+- `ArchiveKodecKit` holds the library: `import ArchiveKodecKit`. It is not named
+  `ArchiveKodec`, because Swift would then hide the module behind the `ArchiveKodec`
+  type, and `ArchiveKodec.Crc32` would not resolve.
+- `ArchiveKodecIo` holds the library plus the [`-io` artifact](#the--io-artifact):
+  `import ArchiveKodecIo`.
+
+Link one, not both: each carries its own Kotlin runtime.
+
+They are not published yet. `./gradlew swiftPackage` builds both on macOS. It zips
+them and writes a Swift package to `build/swiftpm/ArchiveKodec/`. Add that folder to
+Xcode as a local package, or depend on it from a `Package.swift`:
+
+```swift
+.package(path: "path/to/ArchiveKodec/build/swiftpm/ArchiveKodec"),
+// and in the target:
+.product(name: "ArchiveKodecKit", package: "ArchiveKodec"),
+```
+
+`./gradlew swiftPackage -PswiftPackageUrl=https://example.com/downloads/` writes a
+package for hosting instead. Each zip becomes a remote binary target pinned by its
+SHA-256, and `checksums.txt` lists the sums. Upload both zips to that address.
+
+`ArchiveKodec.shared` takes and returns `Data`, so payloads need no `KotlinByteArray`:
+
+```swift
+import Foundation
+import ArchiveKodecKit
+
+let kodec = ArchiveKodec.shared
+let packed = try kodec.compress(codec: kodec.gzip, data: Data("hello".utf8))
+let unpacked = try kodec.decompress(codec: kodec.gzip, data: packed)    // or decompress(data:) to detect the format
+
+let reader = try kodec.open(data: zipData)                             // Data; the reader keeps its own copy
+defer { try? reader.close() }
+for entry in try reader.entries() where !entry.isDirectory {
+    let contents: Data = try kodec.read(reader: reader, entry: entry)  // under the reader's limits
+    print(entry.name, contents.count)
+}
+```
+
+For other APIs, `kodec.bytes(data:)` turns `Data` into a `KotlinByteArray`, and
+`kodec.data(bytes:)` turns one back. Each makes one copy. Kotlin default arguments do
+not reach Swift, so the library has explicit overloads without them, such as
+`reader.read(entry:)` and `codec.decompress(data:)`. Those use `ArchiveLimits.DEFAULT`,
+or the reader's limits. Failures arrive as Swift errors; see
+[Expected failures and Apple consumers](#expected-failures-and-apple-consumers).
+
+`./gradlew swiftPackageTest` runs `integration-tests/swift-package` on macOS. That is a
+Swift-only package with XCTest cases for the calls above, and it depends on the
+generated package.
 
 ## Read an archive
 
@@ -1146,8 +1199,10 @@ codecs validate the remaining structure and payload.
 ## Targets
 
 Both artifacts build for the same targets, so both can go in one `commonMain`.
-The matrix covers every target KitePDF and ImageKodec declare. Neither artifact has
-platform-specific code, so each target compiles the same common sources.
+The matrix covers every target KitePDF and ImageKodec declare. The core is common
+code, apart from the [JavaScript exports](#javascript-and-typescript) and the
+[`Data` bridges for Swift](#swift); the `-io` file source has one implementation per
+platform family.
 
 | Target | Both artifacts |
 | --- | --- |
@@ -1508,7 +1563,7 @@ targets, and builds both Android AARs/JVM JARs, the core JS distribution and the
 downstream Java compile check, and runs the JavaScript and TypeScript consumers
 against that distribution. The macOS lane runs the iOS, macOS, tvOS and
 watchOS simulator suites, compiles the Apple device targets and runs the
-independent Swift consumers. The Windows lane runs both `mingwX64` suites.
+independent Swift consumers, including the SwiftPM package over the XCFrameworks. The Windows lane runs both `mingwX64` suites.
 All six Apple frameworks are built; device and x64 checks cover compilation and
 exported headers, while runtime checks use the arm64 iOS simulator. Android
 verification includes both host-test suites, compilation and packaging. Android

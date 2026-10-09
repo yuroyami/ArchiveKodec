@@ -1,5 +1,6 @@
 // Klib ABI Dump
 // Targets: [androidNativeArm32, androidNativeArm64, androidNativeX64, androidNativeX86, iosArm64, iosSimulatorArm64, iosX64, js, linuxArm64, linuxX64, macosArm64, mingwX64, tvosArm64, tvosSimulatorArm64, wasmJs, wasmWasi, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64]
+// Alias: apple => [iosArm64, iosSimulatorArm64, iosX64, macosArm64, tvosArm64, tvosSimulatorArm64, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64]
 // Rendering settings:
 // - Signature version: 2
 // - Show manifest properties: true
@@ -1496,6 +1497,39 @@ final object io.github.yuroyami.archivekodec/ArchiveKodec { // io.github.yuroyam
 final fun (io.github.yuroyami.archivekodec.archive/ArchiveReader).io.github.yuroyami.archivekodec.archive/asAutoCloseable(): kotlin/AutoCloseable // io.github.yuroyami.archivekodec.archive/asAutoCloseable|asAutoCloseable@io.github.yuroyami.archivekodec.archive.ArchiveReader(){}[0]
 final fun (io.github.yuroyami.archivekodec.archive/RandomAccessSource).io.github.yuroyami.archivekodec.archive/readFully(kotlin/Long, kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/readFully|readFully@io.github.yuroyami.archivekodec.archive.RandomAccessSource(kotlin.Long;kotlin.Int){}[0]
 final inline fun <#A: io.github.yuroyami.archivekodec.archive/ArchiveReader?, #B: kotlin/Any?> (#A).io.github.yuroyami.archivekodec.archive/use(kotlin/Function1<#A, #B>): #B // io.github.yuroyami.archivekodec.archive/use|use@0:0(kotlin.Function1<0:0,0:1>){0§<io.github.yuroyami.archivekodec.archive.ArchiveReader?>;1§<kotlin.Any?>}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/bytes(platform.Foundation/NSData): kotlin/ByteArray // io.github.yuroyami.archivekodec/bytes|bytes@io.github.yuroyami.archivekodec.ArchiveKodec(platform.Foundation.NSData){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/compress(io.github.yuroyami.archivekodec.codec/Codec, platform.Foundation/NSData): platform.Foundation/NSData // io.github.yuroyami.archivekodec/compress|compress@io.github.yuroyami.archivekodec.ArchiveKodec(io.github.yuroyami.archivekodec.codec.Codec;platform.Foundation.NSData){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/data(kotlin/ByteArray): platform.Foundation/NSData // io.github.yuroyami.archivekodec/data|data@io.github.yuroyami.archivekodec.ArchiveKodec(kotlin.ByteArray){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/decompress(io.github.yuroyami.archivekodec.codec/Codec, platform.Foundation/NSData): platform.Foundation/NSData // io.github.yuroyami.archivekodec/decompress|decompress@io.github.yuroyami.archivekodec.ArchiveKodec(io.github.yuroyami.archivekodec.codec.Codec;platform.Foundation.NSData){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/decompress(io.github.yuroyami.archivekodec.codec/Codec, platform.Foundation/NSData, io.github.yuroyami.archivekodec.security/ArchiveLimits): platform.Foundation/NSData // io.github.yuroyami.archivekodec/decompress|decompress@io.github.yuroyami.archivekodec.ArchiveKodec(io.github.yuroyami.archivekodec.codec.Codec;platform.Foundation.NSData;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/decompress(platform.Foundation/NSData): platform.Foundation/NSData // io.github.yuroyami.archivekodec/decompress|decompress@io.github.yuroyami.archivekodec.ArchiveKodec(platform.Foundation.NSData){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/decompress(platform.Foundation/NSData, io.github.yuroyami.archivekodec.security/ArchiveLimits): platform.Foundation/NSData // io.github.yuroyami.archivekodec/decompress|decompress@io.github.yuroyami.archivekodec.ArchiveKodec(platform.Foundation.NSData;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/open(platform.Foundation/NSData): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/open|open@io.github.yuroyami.archivekodec.ArchiveKodec(platform.Foundation.NSData){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/open(platform.Foundation/NSData, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/open|open@io.github.yuroyami.archivekodec.ArchiveKodec(platform.Foundation.NSData;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/open(platform.Foundation/NSData, kotlin/String?, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/open|open@io.github.yuroyami.archivekodec.ArchiveKodec(platform.Foundation.NSData;kotlin.String?;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
+
+// Targets: [apple]
+final fun (io.github.yuroyami.archivekodec/ArchiveKodec).io.github.yuroyami.archivekodec/read(io.github.yuroyami.archivekodec.archive/ArchiveReader, io.github.yuroyami.archivekodec.archive/ArchiveEntry): platform.Foundation/NSData // io.github.yuroyami.archivekodec/read|read@io.github.yuroyami.archivekodec.ArchiveKodec(io.github.yuroyami.archivekodec.archive.ArchiveReader;io.github.yuroyami.archivekodec.archive.ArchiveEntry){}[0]
 
 // Targets: [js]
 final class io.github.yuroyami.archivekodec.js/Archive { // io.github.yuroyami.archivekodec.js/Archive|null[0]

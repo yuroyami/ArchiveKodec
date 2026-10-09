@@ -2,13 +2,13 @@
 
 NSError * _Nullable NegativeLegacyLimitError(BOOL gzip) {
     NSError *error = nil;
-    ArchiveKodecKotlinByteArray *empty = [ArchiveKodecKotlinByteArray arrayWithSize:0];
+    ArchiveKodecKitKotlinByteArray *empty = [ArchiveKodecKitKotlinByteArray arrayWithSize:0];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (gzip) {
-        [ArchiveKodecGzip.shared decompressInput:empty maximumSize:-1 error:&error];
+        [ArchiveKodecKitGzip.shared decompressInput:empty maximumSize:-1 error:&error];
     } else {
-        [ArchiveKodecZlib.shared decompressInput:empty maximumSize:-1 error:&error];
+        [ArchiveKodecKitZlib.shared decompressInput:empty maximumSize:-1 error:&error];
     }
 #pragma clang diagnostic pop
     return error;
@@ -30,7 +30,7 @@ NSError * _Nullable NegativeLegacyLimitError(BOOL gzip) {
     if (error) { *error = _failure; }
     return NO;
 }
-- (int32_t)readOffset:(int64_t)offset into:(ArchiveKodecKotlinByteArray *)into intoOffset:(int32_t)intoOffset length:(int32_t)length error:(NSError * _Nullable * _Nullable)error {
+- (int32_t)readOffset:(int64_t)offset into:(ArchiveKodecKitKotlinByteArray *)into intoOffset:(int32_t)intoOffset length:(int32_t)length error:(NSError * _Nullable * _Nullable)error {
     if (error) { *error = nil; }
     return -1;
 }
@@ -38,14 +38,14 @@ NSError * _Nullable NegativeLegacyLimitError(BOOL gzip) {
 
 
 @implementation ShortReadSource {
-    ArchiveKodecKotlinByteArray *_data;
+    ArchiveKodecKitKotlinByteArray *_data;
     int32_t _chunk;
     int32_t _closes;
     int32_t _calls;
     int64_t _reportedSize;
 }
 @synthesize reportedSize = _reportedSize;
-- (instancetype)initWithData:(ArchiveKodecKotlinByteArray *)data chunk:(int32_t)chunk {
+- (instancetype)initWithData:(ArchiveKodecKitKotlinByteArray *)data chunk:(int32_t)chunk {
     self = [super init];
     if (self) {
         _data = data;
@@ -62,7 +62,7 @@ NSError * _Nullable NegativeLegacyLimitError(BOOL gzip) {
     if (error) { *error = nil; }
     return YES;
 }
-- (int32_t)readOffset:(int64_t)offset into:(ArchiveKodecKotlinByteArray *)into intoOffset:(int32_t)intoOffset length:(int32_t)length error:(NSError * _Nullable * _Nullable)error {
+- (int32_t)readOffset:(int64_t)offset into:(ArchiveKodecKitKotlinByteArray *)into intoOffset:(int32_t)intoOffset length:(int32_t)length error:(NSError * _Nullable * _Nullable)error {
     _calls++;
     if (error) { *error = nil; }
     NSParameterAssert(offset >= 0);

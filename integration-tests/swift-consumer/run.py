@@ -28,7 +28,7 @@ def verify_header(path, selectors, boolean_selectors=()):
     if policy and re.search(r"^[-+] .*\b(?:init\w*|component\d+|doCopyMax\w*)\b", policy.group(1), re.M):
         raise RuntimeError(f"Field-list policy construction or data-class methods exported in {path}")
     file_spec = re.search(r"@interface \w+ZipWriterFileSpec : [^\n]+\n(.*?)\n@end", text, re.S)
-    if path.name == "ArchiveKodec.h" and not file_spec:
+    if path.name == "ArchiveKodecKit.h" and not file_spec:
         raise RuntimeError(f"Missing immutable file model in {path}")
     if file_spec:
         body = file_spec.group(1)
@@ -73,11 +73,11 @@ def main():
         "decompressSrc", "sanitizeEntryName", "checkOutputSizeBytes", "checkRatioCompressedBytes",
         "checkEntryCountCount", "writeFiles", "updateData", "hashData", "decodeBytes",
         "doCopyAndReturnError", "buildAndReturnError", "invokeAndReturnError",
-        "invokeName",
+        "invokeName", "openData", "compressCodec", "decompressCodec", "bytesData", "readReader",
     ]
     io_selectors = ["readAllBytes", "toRandomAccessSource", "compress", "decompress"]
     for target in ("iosSimulatorArm64", "iosArm64", "iosX64"):
-        verify_header(ROOT / f"archivekodec/build/bin/{target}/debugFramework/ArchiveKodec.framework/Headers/ArchiveKodec.h", core_selectors,
+        verify_header(ROOT / f"archivekodec/build/bin/{target}/debugFramework/ArchiveKodecKit.framework/Headers/ArchiveKodecKit.h", core_selectors,
                       boolean_selectors=("isRootDirectoryEntry",))
         verify_header(ROOT / f"archivekodec-io/build/bin/{target}/debugFramework/ArchiveKodecIo.framework/Headers/ArchiveKodecIo.h", io_selectors)
     sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path", capture=True).strip()

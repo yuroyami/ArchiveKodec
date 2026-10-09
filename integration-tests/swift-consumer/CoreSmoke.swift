@@ -1,5 +1,5 @@
 import Foundation
-import ArchiveKodec
+import ArchiveKodecKit
 
 func bytes(_ values: [UInt8]) -> KotlinByteArray {
     let result = KotlinByteArray(size: Int32(values.count))
@@ -1054,5 +1054,20 @@ expectFailure("prefixed ZIP output limit", check: { $0 is DecompressionBombExcep
     _ = try boundedPrefixReader.read(entry: boundedPrefixEntry, limits: prefixBudget)
 }
 try boundedPrefixReader.close()
+
+// Foundation Data bridges: Data in and out, with no KotlinByteArray built by hand.
+let helloData = Data("hello".utf8)
+let gzipData = try ArchiveKodec.shared.compress(codec: ArchiveKodec.shared.gzip, data: helloData)
+let gunzipData = try ArchiveKodec.shared.decompress(codec: ArchiveKodec.shared.gzip, data: gzipData)
+let detectedData = try ArchiveKodec.shared.decompress(data: gzipData)
+precondition(gunzipData == helloData && detectedData == helloData)
+let dataZipReader = try ArchiveKodec.shared.open(data: Data(base64Encoded: "UEsDBBQAAAAIAIMYIliGphA2BwAAAAUAAAAFAAAAYS50eHTLSM3JyQcAUEsDBBQAAAAAAIMYIlgAAAAAAAAAAAAAAAAEAAAAZGlyL1BLAQIUAxQAAAAIAIMYIliGphA2BwAAAAUAAAAFAAAAAAAAAAAAAACAAQAAAABhLnR4dFBLAQIUAxQAAAAAAIMYIlgAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAACAASoAAABkaXIvUEsFBgAAAAACAAIAZQAAAEwAAAAAAA==")!)
+let dataZipEntries = try dataZipReader.entries()
+precondition(dataZipEntries.map { $0.name } == ["a.txt", "dir/"])
+let dataZipBytes = try dataZipReader.read(entry: dataZipEntries[0])
+let dataZipData = try ArchiveKodec.shared.read(reader: dataZipReader, entry: dataZipEntries[0])
+precondition(ArchiveKodec.shared.data(bytes: dataZipBytes) == helloData && dataZipData == helloData)
+try dataZipReader.close()
+expectFailure("Data archive") { _ = try ArchiveKodec.shared.open(data: Data(count: 64)) }
 
 print("Core Swift consumer passed: \(caught) catchable failures and valid decode/path calls")

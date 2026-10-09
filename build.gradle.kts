@@ -101,6 +101,30 @@ tasks.register<Exec>("swiftConsumerTest") {
     commandLine("python3", rootProject.file("integration-tests/swift-consumer/run.py").absolutePath, "--skip-build")
 }
 
+// Apple distribution: both XCFrameworks, zipped, with a Package.swift that serves them.
+tasks.register("assembleXCFrameworks") {
+    group = "build"
+    description = "Build the release ArchiveKodecKit and ArchiveKodecIo XCFrameworks for every Apple target"
+    dependsOn(":archivekodec:assembleArchiveKodecKitReleaseXCFramework", ":archivekodec-io:assembleArchiveKodecIoReleaseXCFramework")
+}
+
+tasks.register<Exec>("swiftPackage") {
+    group = "distribution"
+    description = "Zip the XCFrameworks and write build/swiftpm/ArchiveKodec/Package.swift (-PswiftPackageUrl=... for a release)"
+    dependsOn("assembleXCFrameworks")
+    val url = providers.gradleProperty("swiftPackageUrl").orNull
+    commandLine(listOfNotNull("python3", rootProject.file("integration-tests/swift-package/package.py").absolutePath,
+        url?.let { "--url=$it" }))
+}
+
+// A Swift-only app's view: a SwiftPM package that depends on the generated one and tests it on macOS.
+tasks.register<Exec>("swiftPackageTest") {
+    group = "verification"
+    description = "Run the SwiftPM consumer in integration-tests/swift-package against the generated package"
+    dependsOn("swiftPackage")
+    commandLine("swift", "test", "--package-path", rootProject.file("integration-tests/swift-package").absolutePath)
+}
+
 // Run plain JavaScript and strict TypeScript consumers against the built npm module.
 tasks.register<Exec>("jsConsumerTest") {
     group = "verification"

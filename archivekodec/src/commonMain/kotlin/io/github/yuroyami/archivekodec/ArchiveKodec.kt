@@ -25,7 +25,12 @@ import kotlin.jvm.JvmOverloads
  *
  * Pure `commonMain`, `kotlin-stdlib` only. The separate `:archivekodec-io` artifact
  * provides convenience adapters that drain a kotlinx-io `RawSource` into memory;
- * it does not provide streaming codecs or seekable file handles.
+ * it does not provide streaming codecs or seekable file handles. *
+ * Swift imports this object from the `ArchiveKodecKit` module as `ArchiveKodec.shared`.
+ * The framework is not named `ArchiveKodec` because a Swift type named like its module
+ * hides the module, so `ArchiveKodec.Crc32` would not resolve. On Apple platforms the
+ * object also takes and returns `NSData` (Swift `Data`): see `ArchiveKodec.data`,
+ * `bytes`, `compress`, `decompress`, `open` and `read` in `appleMain`.
  */
 public object ArchiveKodec {
 

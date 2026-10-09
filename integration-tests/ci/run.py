@@ -42,7 +42,7 @@ LANES = {
     "apple": (
         [":checkLegacyAbi", *APPLE_TESTS[0],
          *compiles("IosArm64", "TvosArm64", "WatchosArm32", "WatchosArm64", "WatchosDeviceArm64"),
-         "swiftConsumerTest"],
+         "swiftConsumerTest", "swiftPackageTest"],
         APPLE_TESTS[1],
     ),
     "windows": (WINDOWS_TESTS[0], WINDOWS_TESTS[1]),

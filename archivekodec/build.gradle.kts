@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -75,24 +76,29 @@ kotlin {
         }
     }
 
+    // One dynamic framework per Apple target, gathered into ArchiveKodecKit.xcframework by
+    // assembleArchiveKodecKitXCFramework (and its Debug/Release variants). The core module is
+    // named ArchiveKodecKit, not ArchiveKodec: a Swift type named like its module hides
+    // the module, so `ArchiveKodec.Crc32` would not resolve next to `object ArchiveKodec`.
+    val xcframework = XCFramework("ArchiveKodecKit")
     listOf(
         iosSimulatorArm64(),
         iosArm64(),
         iosX64(),
+        macosArm64(),
+        tvosArm64(),
+        tvosSimulatorArm64(),
+        watchosArm32(),
+        watchosArm64(),
+        watchosDeviceArm64(),
+        watchosSimulatorArm64(),
     ).forEach { target ->
         target.binaries.framework {
-            baseName = "ArchiveKodec"
+            baseName = "ArchiveKodecKit"
             isStatic = false
+            xcframework.add(this)
         }
     }
-
-    macosArm64()
-    tvosArm64()
-    tvosSimulatorArm64()
-    watchosArm32()
-    watchosArm64()
-    watchosDeviceArm64()
-    watchosSimulatorArm64()
 
     linuxX64()
     linuxArm64()
