@@ -25,7 +25,7 @@ import kotlin.jvm.JvmSynthetic
  * The direct constructor has a fixed three-argument signature. Other metadata is set
  * through a [Builder], the `ArchiveEntry(name, size, isDirectory) { ... }` factory or
  * [copy], so adding metadata never replaces a public construction or copy signature.
- * Value equality uses the eight metadata properties. Stored name bytes, [zipMethod]
+ * Value equality uses the public metadata properties. Stored name bytes, [zipMethod]
  * and the issuing reader survive [copy] but are not part of equality.
  */
 public class ArchiveEntry private constructor(builder: Builder) {
@@ -38,7 +38,11 @@ public class ArchiveEntry private constructor(builder: Builder) {
     /** Whether the container identifies this member as a directory. */
     public val isDirectory: Boolean = builder.isDirectory
 
-    /** Modification time in seconds since the Unix epoch, or null when the reader does not expose it. */
+    /**
+     * Modification time in seconds since the Unix epoch, UTC, or null when the archive holds
+     * none. ZIP prefers its extended-timestamp field and otherwise reads the zoneless DOS time
+     * as UTC; pax times round down to whole seconds.
+     */
     public val lastModifiedEpochSeconds: Long? = builder.lastModifiedEpochSeconds
 
     /** Encoded payload size in bytes; equals [size] for uncompressed members. */
@@ -52,6 +56,16 @@ public class ArchiveEntry private constructor(builder: Builder) {
 
     /** Unsigned CRC-32 in a Long, or null when no CRC-32 is exposed by the reader. */
     public val crc32: Long? = builder.crc32
+
+    /**
+     * Unix `st_mode`, including the file-type bits (for example `0o100755` for an executable
+     * file), or null when the archive stores none. ZIP exposes it only for entries made on
+     * Unix hosts. TAR and ar types come from the member type when the stored mode omits them.
+     */
+    public val unixMode: Int? = builder.unixMode
+
+    /** Per-entry comment, or null when the archive stores none. Only ZIP has entry comments. */
+    public val comment: String? = builder.comment
 
     private var storedNameBytes: ByteArray? = builder.origin?.storedNameBytes
     private var storedZipMethod: Int? = builder.origin?.storedZipMethod
@@ -114,6 +128,12 @@ public class ArchiveEntry private constructor(builder: Builder) {
         /** Unsigned CRC-32, initially null. */
         public var crc32: Long? = null
 
+        /** Unix `st_mode` including file-type bits, initially null. */
+        public var unixMode: Int? = null
+
+        /** Entry comment, initially null. */
+        public var comment: String? = null
+
         internal var origin: ArchiveEntry? = null
             private set
 
@@ -123,6 +143,8 @@ public class ArchiveEntry private constructor(builder: Builder) {
             codec = source.codec
             isEncrypted = source.isEncrypted
             crc32 = source.crc32
+            unixMode = source.unixMode
+            comment = source.comment
             origin = source
         }
 
@@ -172,13 +194,14 @@ public class ArchiveEntry private constructor(builder: Builder) {
     @JvmOverloads
     public fun copy(configure: Builder.() -> Unit = {}): ArchiveEntry = Builder(this).apply(configure).build()
 
-    /** Compare the eight metadata properties; stored names, ZIP methods and the issuing reader are not part of equality. */
+    /** Compare the metadata properties; stored names, ZIP methods and the issuing reader are not part of equality. */
     override fun equals(other: Any?): Boolean = this === other || other is ArchiveEntry &&
         name == other.name && size == other.size && isDirectory == other.isDirectory &&
         lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && compressedSize == other.compressedSize &&
-        codec == other.codec && isEncrypted == other.isEncrypted && crc32 == other.crc32
+        codec == other.codec && isEncrypted == other.isEncrypted && crc32 == other.crc32 &&
+        unixMode == other.unixMode && comment == other.comment
 
-    /** Hash the eight metadata properties used by [equals]. */
+    /** Hash the metadata properties used by [equals]. */
     override fun hashCode(): Int {
         var result = name.hashCode()
         result = 31 * result + size.hashCode()
@@ -187,13 +210,16 @@ public class ArchiveEntry private constructor(builder: Builder) {
         result = 31 * result + compressedSize.hashCode()
         result = 31 * result + codec.hashCode()
         result = 31 * result + isEncrypted.hashCode()
-        return 31 * result + (crc32?.hashCode() ?: 0)
+        result = 31 * result + (crc32?.hashCode() ?: 0)
+        result = 31 * result + (unixMode ?: 0)
+        return 31 * result + (comment?.hashCode() ?: 0)
     }
 
     /** Describe the member metadata with an escaped, bounded name; never reads its payload. */
     override fun toString(): String = "ArchiveEntry(name=\"${describeName(name)}\", size=$size, isDirectory=$isDirectory, " +
         "lastModifiedEpochSeconds=$lastModifiedEpochSeconds, compressedSize=$compressedSize, codec=$codec, " +
-        "isEncrypted=$isEncrypted, crc32=$crc32, zipMethod=$zipMethod)"
+        "isEncrypted=$isEncrypted, crc32=$crc32, unixMode=${unixMode?.toString(8)}, " +
+        "comment=${comment?.let { "\"${describeName(it)}\"" }}, zipMethod=$zipMethod)"
 
     /** Builder-based construction. */
     public companion object {

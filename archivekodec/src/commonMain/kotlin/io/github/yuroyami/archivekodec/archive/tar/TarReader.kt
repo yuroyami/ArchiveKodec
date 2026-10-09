@@ -197,11 +197,16 @@ public class TarReader(
                         val isDir = typeFlag == '5' || name.endsWith("/")
                         val sparse = if (isDir) null else oldSparse ?: paxSparse(pax, dataStart, size, pos)
                         val storedStart = dataStart + (sparse?.let { size - it.storedSize } ?: 0L)
-                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: numeric(hdr, 136, 12, pos)
+                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: optionalNumeric(hdr, 136, 12, pos)
+                        // The ustar mode field holds permission bits; the type flag supplies the file type.
+                        val mode = optionalNumeric(hdr, 100, 8, pos)?.let {
+                            (it and 0xFFF).toInt() or if (isDir) 0x4000 else 0x8000
+                        }
                         val logicalSize = if (isDir) 0L else sparse?.realSize ?: size
                         out.add(
                             ArchiveEntry(name, logicalSize, isDir) {
                                 lastModifiedEpochSeconds = mtime
+                                unixMode = mode
                                 compressedSize = if (isDir) 0L else sparse?.storedSize ?: size
                             }.withNameBytes(nameBytes).locatedAt(storedStart),
                         )
@@ -302,6 +307,12 @@ public class TarReader(
         val max = off + len
         while (end < max && b[end].toInt() != 0) end++
         return b.copyOfRange(off, end)
+    }
+
+    /** Like [numeric], but null for a field holding only NUL and space padding. */
+    private fun optionalNumeric(b: ByteArray, off: Int, len: Int, headerOffset: Long): Long? {
+        for (i in off until off + len) if (b[i].toInt() != 0 && b[i].toInt() != SPACE) return numeric(b, off, len, headerOffset)
+        return null
     }
 
     /**

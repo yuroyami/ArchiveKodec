@@ -24,6 +24,7 @@ import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.readI64Le
+import io.github.yuroyami.archivekodec.util.DosTime
 import io.github.yuroyami.archivekodec.util.readU16Le
 import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.text.CharacterCodingException
@@ -347,6 +348,16 @@ public class ZipReader(
                 unicodeName(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen, nameBytes, cdOffset, name)
             } else null
 
+            val extendedTime = extendedTimestamp(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen)
+            val modified = extendedTime ?: DosTime.toEpochSeconds(readU16Le(cd, p + 14), readU16Le(cd, p + 12))
+            // Version-made-by host 3 is Unix; its st_mode sits in the high external-attribute bits.
+            val unixMode = if (readU16Le(cd, p + 4) shr 8 == 3) (readU32Le(cd, p + 38) ushr 16).toInt().takeIf { it != 0 } else null
+            val comment = if (commentLen == 0) null else {
+                val commentStart = p + 46 + nameLen + extraLen
+                val bytes = cd.copyOfRange(commentStart, commentStart + commentLen)
+                (if (utf8) ArchiveNameDecoder.UTF8 else nameDecoder).decodeStoredName(bytes, cdOffset + commentStart)
+            }
+
             val zip64Output = uncompSize == 0xFFFFFFFFL
             val zip64Compressed = compSize == 0xFFFFFFFFL
             val zip64Offset = localOffset == 0xFFFFFFFFL
@@ -409,6 +420,9 @@ public class ZipReader(
                 codec = codecs.idForZipMethod(method) ?: CodecId("zip-method-$method")
                 isEncrypted = flags and 0x41 != 0 || method == 99
                 crc32 = crc
+                lastModifiedEpochSeconds = modified
+                this.unixMode = unixMode
+                this.comment = comment
             }.withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
             val localExtraLength = readU16Le(local, 28)
             validateLocalHeader(Member(provisional, nameBytes, method, flags, localExtraLength), local, source)
@@ -435,6 +449,26 @@ public class ZipReader(
         }
         validateMemberExtents(members.values, cdOffset)
         return Directory(entries.issuedBy(this, limits), members)
+    }
+
+    /**
+     * Modification time from an Info-ZIP extended-timestamp field (0x5455) in [bytes]
+     * between [start] and [end], or null. This optional field never fails a listing:
+     * malformed framing or a field without a modification time falls back to DOS time.
+     */
+    private fun extendedTimestamp(bytes: ByteArray, start: Int, end: Int): Long? {
+        var pos = start
+        while (end - pos >= 4) {
+            val id = readU16Le(bytes, pos)
+            val length = readU16Le(bytes, pos + 2)
+            val data = pos + 4
+            if (length > end - data) return null
+            if (id == 0x5455 && length >= 5 && bytes[data].toInt() and 1 != 0) {
+                return readU32Le(bytes, data + 1).toInt().toLong() // signed 32-bit Unix time
+            }
+            pos = data + length
+        }
+        return null
     }
 
     /** Optional Unicode payload failures fall back; broken framing and ambiguity do not. */

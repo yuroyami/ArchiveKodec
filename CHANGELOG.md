@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Entries now report `lastModifiedEpochSeconds` (UTC) from every reader, plus the
+  new `unixMode` (Unix `st_mode` with type bits) and `comment` (ZIP entry comment).
+  ZIP prefers the extended timestamp and reads DOS time as UTC; an empty TAR time
+  is null rather than 0. `ZipWriter.FileSpec` gains `lastModifiedEpochSeconds`,
+  `unixMode` and `comment`, and `ZipWriter.write(files, comment)` sets the archive
+  comment. Specs without them still produce byte-identical archives. Entry and
+  FileSpec equality include the new metadata.
+
 - `TarReader` now applies pax extended headers: `x` records to the next member and
   `g` records to every later one, overriding `path`, `size` and `mtime`. Sparse
   members (GNU `S`, pax GNU sparse 0.0, 0.1 and 1.0) list their expanded size and

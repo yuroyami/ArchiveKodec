@@ -226,6 +226,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
 
     final val codec // io.github.yuroyami.archivekodec.archive/ArchiveEntry.codec|{}codec[0]
         final fun <get-codec>(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.codec.<get-codec>|<get-codec>(){}[0]
+    final val comment // io.github.yuroyami.archivekodec.archive/ArchiveEntry.comment|{}comment[0]
+        final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.comment.<get-comment>|<get-comment>(){}[0]
     final val compressedSize // io.github.yuroyami.archivekodec.archive/ArchiveEntry.compressedSize|{}compressedSize[0]
         final fun <get-compressedSize>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.compressedSize.<get-compressedSize>|<get-compressedSize>(){}[0]
     final val crc32 // io.github.yuroyami.archivekodec.archive/ArchiveEntry.crc32|{}crc32[0]
@@ -242,6 +244,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
         final fun <get-nameBytes>(): kotlin/ByteArray? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.nameBytes.<get-nameBytes>|<get-nameBytes>(){}[0]
     final val size // io.github.yuroyami.archivekodec.archive/ArchiveEntry.size|{}size[0]
         final fun <get-size>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.size.<get-size>|<get-size>(){}[0]
+    final val unixMode // io.github.yuroyami.archivekodec.archive/ArchiveEntry.unixMode|{}unixMode[0]
+        final fun <get-unixMode>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.unixMode.<get-unixMode>|<get-unixMode>(){}[0]
     final val zipMethod // io.github.yuroyami.archivekodec.archive/ArchiveEntry.zipMethod|{}zipMethod[0]
         final fun <get-zipMethod>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.zipMethod.<get-zipMethod>|<get-zipMethod>(){}[0]
 
@@ -256,6 +260,9 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
         final var codec // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.codec|{}codec[0]
             final fun <get-codec>(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.codec.<get-codec>|<get-codec>(){}[0]
             final fun <set-codec>(io.github.yuroyami.archivekodec.codec/CodecId) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.codec.<set-codec>|<set-codec>(io.github.yuroyami.archivekodec.codec.CodecId){}[0]
+        final var comment // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.comment|{}comment[0]
+            final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.comment.<get-comment>|<get-comment>(){}[0]
+            final fun <set-comment>(kotlin/String?) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.comment.<set-comment>|<set-comment>(kotlin.String?){}[0]
         final var compressedSize // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.compressedSize|{}compressedSize[0]
             final fun <get-compressedSize>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.compressedSize.<get-compressedSize>|<get-compressedSize>(){}[0]
             final fun <set-compressedSize>(kotlin/Long) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.compressedSize.<set-compressedSize>|<set-compressedSize>(kotlin.Long){}[0]
@@ -277,6 +284,9 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
         final var size // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.size|{}size[0]
             final fun <get-size>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.size.<get-size>|<get-size>(){}[0]
             final fun <set-size>(kotlin/Long) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.size.<set-size>|<set-size>(kotlin.Long){}[0]
+        final var unixMode // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.unixMode|{}unixMode[0]
+            final fun <get-unixMode>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.unixMode.<get-unixMode>|<get-unixMode>(){}[0]
+            final fun <set-unixMode>(kotlin/Int?) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.unixMode.<set-unixMode>|<set-unixMode>(kotlin.Int?){}[0]
 
         final fun build(): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.build|build(){}[0]
     }
@@ -895,17 +905,24 @@ final object io.github.yuroyami.archivekodec.archive.tar/TarWriter { // io.githu
 
 final object io.github.yuroyami.archivekodec.archive.zip/ZipWriter { // io.github.yuroyami.archivekodec.archive.zip/ZipWriter|null[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.zip.ZipWriter.FileSpec>){}[0]
+    final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec>, kotlin/String): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.zip.ZipWriter.FileSpec>;kotlin.String){}[0]
 
     final class FileSpec { // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec|null[0]
         constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
         constructor <init>(kotlin/String, kotlin/ByteArray, io.github.yuroyami.archivekodec.archive.zip/ZipMethod) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.<init>|<init>(kotlin.String;kotlin.ByteArray;io.github.yuroyami.archivekodec.archive.zip.ZipMethod){}[0]
 
+        final val comment // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.comment|{}comment[0]
+            final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.comment.<get-comment>|<get-comment>(){}[0]
         final val data // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.data|{}data[0]
             final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.data.<get-data>|<get-data>(){}[0]
+        final val lastModifiedEpochSeconds // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.lastModifiedEpochSeconds|{}lastModifiedEpochSeconds[0]
+            final fun <get-lastModifiedEpochSeconds>(): kotlin/Long? // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.lastModifiedEpochSeconds.<get-lastModifiedEpochSeconds>|<get-lastModifiedEpochSeconds>(){}[0]
         final val method // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.method|{}method[0]
             final fun <get-method>(): io.github.yuroyami.archivekodec.archive.zip/ZipMethod // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.method.<get-method>|<get-method>(){}[0]
         final val name // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.name|{}name[0]
             final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.name.<get-name>|<get-name>(){}[0]
+        final val unixMode // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.unixMode|{}unixMode[0]
+            final fun <get-unixMode>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.unixMode.<get-unixMode>|<get-unixMode>(){}[0]
 
         final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.archive.zip.ZipWriter.FileSpec.Builder,kotlin.Unit>){}[0]
         final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.equals|equals(kotlin.Any?){}[0]
@@ -915,15 +932,24 @@ final object io.github.yuroyami.archivekodec.archive.zip/ZipWriter { // io.githu
         final class Builder { // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder|null[0]
             constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
 
+            final var comment // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.comment|{}comment[0]
+                final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.comment.<get-comment>|<get-comment>(){}[0]
+                final fun <set-comment>(kotlin/String?) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.comment.<set-comment>|<set-comment>(kotlin.String?){}[0]
             final var data // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.data|{}data[0]
                 final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.data.<get-data>|<get-data>(){}[0]
                 final fun <set-data>(kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.data.<set-data>|<set-data>(kotlin.ByteArray){}[0]
+            final var lastModifiedEpochSeconds // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.lastModifiedEpochSeconds|{}lastModifiedEpochSeconds[0]
+                final fun <get-lastModifiedEpochSeconds>(): kotlin/Long? // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.lastModifiedEpochSeconds.<get-lastModifiedEpochSeconds>|<get-lastModifiedEpochSeconds>(){}[0]
+                final fun <set-lastModifiedEpochSeconds>(kotlin/Long?) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.lastModifiedEpochSeconds.<set-lastModifiedEpochSeconds>|<set-lastModifiedEpochSeconds>(kotlin.Long?){}[0]
             final var method // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.method|{}method[0]
                 final fun <get-method>(): io.github.yuroyami.archivekodec.archive.zip/ZipMethod // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.method.<get-method>|<get-method>(){}[0]
                 final fun <set-method>(io.github.yuroyami.archivekodec.archive.zip/ZipMethod) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.method.<set-method>|<set-method>(io.github.yuroyami.archivekodec.archive.zip.ZipMethod){}[0]
             final var name // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.name|{}name[0]
                 final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.name.<get-name>|<get-name>(){}[0]
                 final fun <set-name>(kotlin/String) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.name.<set-name>|<set-name>(kotlin.String){}[0]
+            final var unixMode // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.unixMode|{}unixMode[0]
+                final fun <get-unixMode>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.unixMode.<get-unixMode>|<get-unixMode>(){}[0]
+                final fun <set-unixMode>(kotlin/Int?) // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.unixMode.<set-unixMode>|<set-unixMode>(kotlin.Int?){}[0]
 
             final fun build(): io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec // io.github.yuroyami.archivekodec.archive.zip/ZipWriter.FileSpec.Builder.build|build(){}[0]
         }

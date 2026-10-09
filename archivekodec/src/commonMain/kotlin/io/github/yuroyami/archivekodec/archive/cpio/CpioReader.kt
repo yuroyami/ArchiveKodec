@@ -224,6 +224,7 @@ public class CpioReader private constructor(
         val inode = field(0)
         val mode = field(1)
         val nlink = field(4)
+        val mtime = field(5)
         val fileSize = field(6)
         val major = field(7)
         val minor = field(8)
@@ -237,7 +238,7 @@ public class CpioReader private constructor(
             checkTrailer(fileSize, pos + 54, checksum, pos + 102)
             return ParsedRecord(dataStart, true)
         }
-        addEntry(out, links, nameBytes, nameStart, fileSize, mode, pos + 14, dataStart,
+        addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 14, dataStart,
             if (nlink > 1) LinkKey(false, major, minor, inode) else null, checksum, pos + 102)
         return ParsedRecord(align4(dataStart + fileSize), false)
     }
@@ -250,6 +251,7 @@ public class CpioReader private constructor(
         val inode = field(12)
         val mode = field(18)
         val nlink = field(36)
+        val mtime = field(48, 11)
         val nameSize = field(59)
         val fileSize = field(65, 11)
         val nameStart = pos + 76
@@ -260,14 +262,14 @@ public class CpioReader private constructor(
             checkTrailer(fileSize, pos + 65, null, pos)
             return ParsedRecord(dataStart, true)
         }
-        addEntry(out, links, nameBytes, nameStart, fileSize, mode, pos + 18, dataStart,
+        addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 18, dataStart,
             if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
         return ParsedRecord(dataStart + fileSize, false)
     }
 
     private fun addEntry(
         out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>, nameBytes: ByteArray,
-        nameStart: Long, size: Long, mode: Long, modeOffset: Long, dataStart: Long,
+        nameStart: Long, size: Long, mode: Long, mtime: Long, modeOffset: Long, dataStart: Long,
         key: LinkKey?, checksum: Long?, checksumOffset: Long,
     ) {
         try {
@@ -277,7 +279,10 @@ public class CpioReader private constructor(
         }
         val name = nameDecoder.decodeStoredName(nameBytes, nameStart)
         val isDir = (mode and 0xF000L) == 0x4000L // S_IFDIR
-        val entry = ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir).withNameBytes(nameBytes).locatedAt(dataStart)
+        val entry = ArchiveEntry(name, if (isDir) 0L else size, isDir) {
+            lastModifiedEpochSeconds = mtime
+            unixMode = mode.toInt()
+        }.withNameBytes(nameBytes).locatedAt(dataStart)
         if (size == 0L && checksum != null) checkSum(name, checksumOffset, checksum, 0)
         val record = Record(entry, size, mode and 0xF000L, modeOffset, checksum, checksumOffset)
         val linkKey = if (isDir) null else key

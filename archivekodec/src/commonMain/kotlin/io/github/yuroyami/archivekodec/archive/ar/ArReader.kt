@@ -89,6 +89,10 @@ public class ArReader(
             val size = sizeText.toLongOrNull()
                 ?: throw ArchiveFormatException("ar: member size overflows Long", pos + 48, rawName)
             val dataStart = pos + 60
+            // Optional metadata: unparseable fields are reported as absent rather than failing the listing.
+            val mtime = h.decodeToString(16, 28).trim().takeIf { it.isNotEmpty() && it.all { c -> c in '0'..'9' } }?.toLongOrNull()
+            val mode = h.decodeToString(40, 48).trim().takeIf { it.isNotEmpty() && it.all { c -> c in '0'..'7' } }
+                ?.toIntOrNull(8)?.let { if (it and 0xF000 == 0) it or 0x8000 else it }
             source.requireRange(dataStart, size)
             source.requireRange(dataStart + size, size and 1L)
 
@@ -120,7 +124,7 @@ public class ArReader(
                     if (pos != 8L || !isBsdSymbolTable(nameBytes.decodeToString())) {
                         limits.checkEntryCount(out.size + 1)
                         val name = nameDecoder.decodeStoredName(nameBytes, dataStart)
-                        out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false).withNameBytes(nameBytes).locatedAt(dataStart + nameLength))
+                        out.add(ArchiveEntry(name, size - nameLength, false) { lastModifiedEpochSeconds = mtime; unixMode = mode }.withNameBytes(nameBytes).locatedAt(dataStart + nameLength))
                     }
                 }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
@@ -134,13 +138,13 @@ public class ArReader(
                     val nameBytes = extractLongName(table, off, nulDelimitedNames, pos, rawName)
                     limits.checkEntryCount(out.size + 1)
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
-                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false).withNameBytes(nameBytes).locatedAt(dataStart))
+                    out.add(ArchiveEntry(name, size, false) { lastModifiedEpochSeconds = mtime; unixMode = mode }.withNameBytes(nameBytes).locatedAt(dataStart))
                 }
                 else -> {
                     limits.checkEntryCount(out.size + 1)
                     val nameBytes = if (nameField.lastOrNull()?.toInt() == 47) nameField.copyOf(nameField.size - 1) else nameField
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
-                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false).withNameBytes(nameBytes).locatedAt(dataStart))
+                    out.add(ArchiveEntry(name, size, false) { lastModifiedEpochSeconds = mtime; unixMode = mode }.withNameBytes(nameBytes).locatedAt(dataStart))
                 }
             }
             pos = dataStart + size + (size and 1L) // members are 2-byte aligned

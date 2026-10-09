@@ -844,7 +844,34 @@ in the first nonempty path component other than `.`; colons in later components
 are supported. Accepted names retain their exact bytes, including relative dot
 components, repeated forward slashes, trailing directory slashes, and empty
 anonymous names. The caller chooses the mapping from filesystem names.
-Both headers use the reproducible default timestamp 1980-01-01 00:00:00.
+Both headers use the reproducible default timestamp 1980-01-01 00:00:00 unless
+a time is set. Optional settings record a time, a Unix mode and comments:
+
+```kotlin
+val script = ZipWriter.FileSpec("run.sh", bytes, ZipMethod.STORED) {
+    lastModifiedEpochSeconds = 1_700_000_000
+    unixMode = 0b1000000111101101   // 0o100755: a regular, executable file
+    comment = "build script"
+}
+val zip = ZipWriter.write(listOf(script), "archive comment")
+```
+
+A set time is written as a UTC DOS time, clamped to 1980–2107 with odd seconds
+rounded down, and as an Info-ZIP extended timestamp when it fits 32 bits; readers
+prefer the latter, so the exact second survives. A set mode marks the entry as
+made on Unix (host 3) and stores `st_mode` in the high 16 bits of the external
+attributes, as Info-ZIP does. Comments are UTF-8 and must fit 65,535 bytes. A spec
+without these settings produces the same bytes as before.
+
+### Entry times and modes on read
+
+`lastModifiedEpochSeconds` is UTC seconds, or null when the archive holds no
+time. ZIP prefers the extended-timestamp field and otherwise reads the zoneless
+DOS time as UTC; an invalid DOS date gives null. TAR, ar and cpio read their
+mtime fields, and an empty TAR time field gives null. `unixMode` is the Unix
+`st_mode` including file-type bits, such as `0o100755`, or null when the archive
+stores none. ZIP reports it only for entries made on Unix; TAR and ar add the
+file-type bits their mode fields omit. `comment` holds a ZIP entry comment.
 
 ## Sanitize entry names before writing them
 
