@@ -154,17 +154,21 @@ class ZipHeaderConsistencyTest {
     }
 
     @Test
-    fun unknownEntryOffsetsAreRejectedBeforeSourceReads() {
+    fun entriesThisReaderDidNotListAreRejectedBeforeSourceReads() {
         val source = PayloadSource(zip())
         val reader = ZipReader(source)
         val entry = reader.entries().single()
+        val foreign = ZipReader(ByteArrayRandomAccessSource(zip())).use { it.entries().single() }
+        val handBuilt = ArchiveEntry(entry.name, entry.size, entry.isDirectory, entry.lastModifiedEpochSeconds,
+            entry.compressedSize, entry.codec, entry.isEncrypted, entry.crc32)
         source.armed = true
         val accesses = source.accesses
-        for (offset in listOf(-1L, 35L, Long.MAX_VALUE)) {
-            val member = entry.copy(dataOffset = offset)
+        for (member in listOf(handBuilt, foreign, foreign.copy())) {
+            assertEquals(entry, member)
             val error = assertFailsWith<ArchiveFormatException> { reader.read(member) }
             assertEquals(member.name, error.entryName)
-            assertEquals(offset, error.offset)
+            assertNull(error.offset)
+            assertTrue(error.message!!.contains("not listed by this reader"), error.message)
         }
         assertEquals(accesses, source.accesses)
         assertEquals(0, source.payloadReads)
@@ -192,7 +196,8 @@ class ZipHeaderConsistencyTest {
         val entry = listing.single()
         val changed = entry.copy(crc32 = null)
         @Suppress("UNCHECKED_CAST")
-        (listing as MutableList<ArchiveEntry>)[0] = changed
+        runCatching { (listing as MutableList<ArchiveEntry>)[0] = changed }
+        assertEquals(listOf(entry), reader.entries())
         assertFailsWith<ArchiveFormatException> { reader.read(changed) }
         assertContentEquals(payload, reader.read(entry))
     }

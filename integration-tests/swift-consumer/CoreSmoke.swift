@@ -195,7 +195,7 @@ precondition(cp437NameEntries[0].nameBytes!.get(index: 3) == Int8(bitPattern: 0x
 let copiedNameEntry = cp437NameEntries[0].doCopy(name: cp437NameEntries[0].name, size: cp437NameEntries[0].size,
     isDirectory: false, lastModifiedEpochSeconds: cp437NameEntries[0].lastModifiedEpochSeconds,
     compressedSize: cp437NameEntries[0].compressedSize, codec: cp437NameEntries[0].codec, isEncrypted: false,
-    crc32: cp437NameEntries[0].crc32, dataOffset: cp437NameEntries[0].dataOffset)
+    crc32: cp437NameEntries[0].crc32)
 precondition(copiedNameEntry.nameBytes!.get(index: 3) == Int8(bitPattern: 0x82))
 let copiedNamePayload = try cp437NameReader.read(entry: copiedNameEntry, limits: limits)
 precondition(copiedNamePayload.size == 3 && copiedNamePayload.get(index: 1) == 7)
@@ -442,7 +442,7 @@ precondition(rawDirectorySource.closes == 1)
 // Root directory entries are skipped explicitly; strict file destinations still fail.
 func pathEntry(_ name: String, directory: Bool) -> ArchiveEntry {
     ArchiveEntry(name: name, size: 0, isDirectory: directory, lastModifiedEpochSeconds: nil,
-                 compressedSize: 0, codec: CodecId.companion.STORE, isEncrypted: false, crc32: nil, dataOffset: -1)
+                 compressedSize: 0, codec: CodecId.companion.STORE, isEncrypted: false, crc32: nil)
 }
 for name in [".", "./", "./.", ".\\.\\"] {
     precondition(PathGuard.shared.isRootDirectory(entry: pathEntry(name, directory: true)))
@@ -578,7 +578,7 @@ let gnu64Entries = try gnu64Reader.entries()
 precondition(gnu64Reader.format == ArchiveFormat.companion.AR && gnu64Entries.count == 1)
 let gnu64Entry = gnu64Entries[0]
 precondition(gnu64Entry.name == "first-long-member-name.obj" && !gnu64Entry.isDirectory)
-precondition(gnu64Entry.dataOffset == 246 && gnu64Entry.size == Int64(gnu64Object.count))
+precondition(gnu64Entry.size == Int64(gnu64Object.count))
 let gnu64Payload = try gnu64Reader.read(entry: gnu64Entry, limits: limits)
 precondition(gnu64Payload.size == Int32(gnu64Object.count))
 for (index, value) in gnu64Object.enumerated() {
@@ -605,7 +605,6 @@ let coffReader = try ArchiveKodec.shared.open(source: coffSource)
 let coffEntries = try coffReader.entries()
 precondition(coffReader.format == ArchiveFormat.companion.AR)
 precondition(coffEntries.map { $0.name } == ["first-long-member-name.obj", "second-long-member-name.obj"])
-precondition(coffEntries.map { $0.dataOffset } == [388, 1056])
 for (index, entry) in coffEntries.enumerated() {
     let expected = coffObjects[index]
     precondition(!entry.isDirectory && entry.size == Int64(expected.count))
@@ -663,12 +662,11 @@ let bsdArchives: [(String, [Int64])] = [
     ("ITxhcmNoPgojMS8xMiAgICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMCAgICAgICA2OCAgICAgICAgYApfXy5TWU1ERUYAAAAQAAAAAAAAAIgAAAANAAAA6AIAABsAAABfZmlyc3RfcHJvYmUAX3NlY29uZF9wcm9iZQAAAAAAACMxLzI4ICAgICAgICAgICAwICAgICAgICAgICAwICAgICAwICAgICA2NDQgICAgIDU0OCAgICAgICBgCmZpcnN0LWxvbmctbWVtYmVyLW5hbWUubwAAAADP+u3+DAAAAQAAAAABAAAABAAAAGgBAAAAIAAAAAAAABkAAADoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAACIAQAAAAAAACgAAAAAAAAABwAAAAcAAAACAAAAAAAAAF9fdGV4dAAAAAAAAAAAAABfX1RFWFQAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAIgBAAACAAAAAAAAAAAAAAAABACAAAAAAAAAAAAAAAAAX19jb21wYWN0X3Vud2luZF9fTEQAAAAAAAAAAAAAAAAIAAAAAAAAACAAAAAAAAAAkAEAAAMAAACwAQAAAQAAAAAAAAIAAAAAAAAAAAAAAAAyAAAAGAAAAAEAAAAAABoAAAUaAAAAAAACAAAAGAAAALgBAAADAAAA6AEAACAAAAALAAAAUAAAAAAAAAACAAAAAgAAAAEAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAgFLAA1/WAAAAAAAAAAAIAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAQAABhQAAAAOAQAAAAAAAAAAAAAOAAAADgIAAAgAAAAAAAAAAQAAAA8BAAAAAAAAAAAAAABfZmlyc3RfcHJvYmUAbHRtcDEAbHRtcDAAAAAAAAAAIzEvMjggICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDY0NCAgICAgNTQ4ICAgICAgIGAKc2Vjb25kLWxvbmctbWVtYmVyLW5hbWUubwAAAM/67f4MAAABAAAAAAEAAAAEAAAAaAEAAAAgAAAAAAAAGQAAAOgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoAAAAAAAAAIgBAAAAAAAAKAAAAAAAAAAHAAAABwAAAAIAAAAAAAAAX190ZXh0AAAAAAAAAAAAAF9fVEVYVAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAiAEAAAIAAAAAAAAAAAAAAAAEAIAAAAAAAAAAAAAAAABfX2NvbXBhY3RfdW53aW5kX19MRAAAAAAAAAAAAAAAAAgAAAAAAAAAIAAAAAAAAACQAQAAAwAAALABAAABAAAAAAAAAgAAAAAAAAAAAAAAADIAAAAYAAAAAQAAAAAAGgAABRoAAAAAAAIAAAAYAAAAuAEAAAMAAADoAQAAIAAAAAsAAABQAAAAAAAAAAIAAAACAAAAAQAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQACAUsADX9YAAAAAAAAAAAgAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAGFQAAAA4BAAAAAAAAAAAAAA8AAAAOAgAACAAAAAAAAAABAAAADwEAAAAAAAAAAAAAAF9zZWNvbmRfcHJvYmUAbHRtcDEAbHRtcDAAAAAAAAA=", [224, 832]),
     ("ITxhcmNoPgojMS8xMiAgICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMCAgICAgICA5MiAgICAgICAgYApfXy5TWU1ERUZfNjQgAAAAAAAAAAAAAAAAAAAAoAAAAAAAAAANAAAAAAAAAAADAAAAAAAAGwAAAAAAAABfZmlyc3RfcHJvYmUAX3NlY29uZF9wcm9iZQAAAAAAACMxLzI4ICAgICAgICAgICAwICAgICAgICAgICAwICAgICAwICAgICA2NDQgICAgIDU0OCAgICAgICBgCmZpcnN0LWxvbmctbWVtYmVyLW5hbWUubwAAAADP+u3+DAAAAQAAAAABAAAABAAAAGgBAAAAIAAAAAAAABkAAADoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAAAAAAAAACIAQAAAAAAACgAAAAAAAAABwAAAAcAAAACAAAAAAAAAF9fdGV4dAAAAAAAAAAAAABfX1RFWFQAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAIgBAAACAAAAAAAAAAAAAAAABACAAAAAAAAAAAAAAAAAX19jb21wYWN0X3Vud2luZF9fTEQAAAAAAAAAAAAAAAAIAAAAAAAAACAAAAAAAAAAkAEAAAMAAACwAQAAAQAAAAAAAAIAAAAAAAAAAAAAAAAyAAAAGAAAAAEAAAAAABoAAAUaAAAAAAACAAAAGAAAALgBAAADAAAA6AEAACAAAAALAAAAUAAAAAAAAAACAAAAAgAAAAEAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAgFLAA1/WAAAAAAAAAAAIAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAQAABhQAAAAOAQAAAAAAAAAAAAAOAAAADgIAAAgAAAAAAAAAAQAAAA8BAAAAAAAAAAAAAABfZmlyc3RfcHJvYmUAbHRtcDEAbHRtcDAAAAAAAAAAIzEvMjggICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDY0NCAgICAgNTQ4ICAgICAgIGAKc2Vjb25kLWxvbmctbWVtYmVyLW5hbWUubwAAAM/67f4MAAABAAAAAAEAAAAEAAAAaAEAAAAgAAAAAAAAGQAAAOgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoAAAAAAAAAIgBAAAAAAAAKAAAAAAAAAAHAAAABwAAAAIAAAAAAAAAX190ZXh0AAAAAAAAAAAAAF9fVEVYVAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAiAEAAAIAAAAAAAAAAAAAAAAEAIAAAAAAAAAAAAAAAABfX2NvbXBhY3RfdW53aW5kX19MRAAAAAAAAAAAAAAAAAgAAAAAAAAAIAAAAAAAAACQAQAAAwAAALABAAABAAAAAAAAAgAAAAAAAAAAAAAAADIAAAAYAAAAAQAAAAAAGgAABRoAAAAAAAIAAAAYAAAAuAEAAAMAAADoAQAAIAAAAAsAAABQAAAAAAAAAAIAAAACAAAAAQAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQACAUsADX9YAAAAAAAAAAAgAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAGFQAAAA4BAAAAAAAAAAAAAA8AAAAOAgAACAAAAAAAAAABAAAADwEAAAAAAAAAAAAAAF9zZWNvbmRfcHJvYmUAbHRtcDEAbHRtcDAAAAAAAAA=", [248, 856])
 ]
-for (encoded, offsets) in bsdArchives {
+for (encoded, _) in bsdArchives {
     let source = ShortReadSource(data: bytes(Array(Data(base64Encoded: encoded)!)), chunk: 3)
     let reader = try ArchiveKodec.shared.open(source: source)
     let entries = try reader.entries()
     precondition(entries.map { $0.name } == ["first-long-member-name.o", "second-long-member-name.o"])
-    precondition(entries.map { $0.dataOffset } == offsets)
     for (index, entry) in entries.enumerated() {
         let expected = bsdObjects[index]
         precondition(!entry.isDirectory && entry.size == Int64(expected.count))
@@ -686,7 +684,6 @@ let bsdEdgesSource = ShortReadSource(data: bytes(bsdEdgesArchive), chunk: 3)
 let bsdEdgesReader = try ArchiveKodec.shared.open(source: bsdEdgesSource)
 let bsdEdgesEntries = try bsdEdgesReader.entries()
 precondition(bsdEdgesEntries.map { $0.name } == ["odd-long-member-name.o", "é long member.o", "雪-long-name-member.o", "trailing name ", "empty-long-member-name.o"])
-precondition(bsdEdgesEntries.map { $0.dataOffset } == [92, 170, 256, 336, 422])
 for (entry, text) in Swift.zip(bsdEdgesEntries, ["x", "yz", "abc", "q", ""]) {
     let expected = Array(text.utf8)
     precondition(entry.size == Int64(expected.count))
@@ -719,7 +716,7 @@ let bsdControlName = String(decoding: bsdControlNameBytes, as: UTF8.self)
 let bsdControlSource = ShortReadSource(data: bytes(bsdControlArchive), chunk: 3)
 let bsdControlReader = try ArchiveKodec.shared.open(source: bsdControlSource)
 let bsdControlEntries = try bsdControlReader.entries()
-precondition(bsdControlEntries[0].name == bsdControlName && bsdControlEntries[0].dataOffset == 92)
+precondition(bsdControlEntries[0].name == bsdControlName)
 let bsdControlPayload = try bsdControlReader.read(entry: bsdControlEntries[0], limits: limits)
 precondition(bsdControlPayload.size == 1 && bsdControlPayload.get(index: 0) == 120)
 precondition(!PathGuard.shared.isSafe(entryName: bsdControlName))
@@ -899,7 +896,7 @@ try zipReader.close()
 try zipReader.close()
 expectFailure("closed ZIP entries", check: { $0 is ArchiveClosedException }) { _ = try zipReader.entries() }
 expectFailure("closed ZIP payload", check: {
-    $0 is ArchiveClosedException && $0.entryName == "bad" && $0.offset?.int64Value == entry.dataOffset
+    $0 is ArchiveClosedException && $0.entryName == "bad" && $0.offset?.int64Value == 0
 }) { _ = try zipReader.read(entry: entry, limits: limits) }
 
 // Reuse a bridged Kotlin failure to exercise source cleanup through an
@@ -921,7 +918,7 @@ for (index, create) in constructors.enumerated() {
     precondition(source.closes == 1)
     expectFailure("reader \(index) closed entries", check: { $0 is ArchiveClosedException }) { _ = try reader.entries() }
     expectFailure("reader \(index) closed payload", check: {
-        $0 is ArchiveClosedException && $0.entryName == "bad" && $0.offset?.int64Value == entry.dataOffset
+        $0 is ArchiveClosedException && $0.entryName == "bad" && $0.offset?.int64Value == 0
     }) { _ = try reader.read(entry: entry, limits: limits) }
 }
 let concreteSource = ClosingSource(failure: closeError)
@@ -999,7 +996,7 @@ func verifyPrefixedZip(_ data: KotlinByteArray) throws {
     ]
     for reader in readers {
         let entry = try reader.entries()[0]
-        precondition(entry.name == "a.txt" && entry.dataOffset == 23)
+        precondition(entry.name == "a.txt")
         let output = try reader.read(entry: entry, limits: limits)
         precondition(output.size == 3 && output.get(index: 0) == 65 && output.get(index: 1) == 66 && output.get(index: 2) == 67)
         try reader.close()

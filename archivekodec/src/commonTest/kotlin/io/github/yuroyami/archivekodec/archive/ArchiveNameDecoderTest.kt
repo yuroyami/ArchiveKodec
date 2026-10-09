@@ -216,8 +216,8 @@ class ArchiveNameDecoderTest {
         assertNull(entry.zipMethod)
         assertNull(entry.copy().zipMethod)
         assertEquals(entry, entry.copy())
-        val (name, size, directory, modified, compressed, codec, encrypted, crc, offset) = entry
+        val (name, size, directory, modified, compressed, codec, encrypted, crc) = entry
         assertEquals("file", name); assertEquals(7L, size); assertFalse(directory); assertNull(modified)
-        assertEquals(7L, compressed); assertEquals(CodecId.STORE, codec); assertFalse(encrypted); assertNull(crc); assertEquals(-1L, offset)
+        assertEquals(7L, compressed); assertEquals(CodecId.STORE, codec); assertFalse(encrypted); assertNull(crc)
     }
 }

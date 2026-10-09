@@ -218,7 +218,7 @@ final class io.github.yuroyami.archivekodec.archive.zip/ZipReader : io.github.yu
 }
 
 final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.yuroyami.archivekodec.archive/ArchiveEntry|null[0]
-    constructor <init>(kotlin/String, kotlin/Long, kotlin/Boolean, kotlin/Long? = ..., kotlin/Long = ..., io.github.yuroyami.archivekodec.codec/CodecId = ..., kotlin/Boolean = ..., kotlin/Long? = ..., kotlin/Long = ...) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.<init>|<init>(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Long?;kotlin.Long;io.github.yuroyami.archivekodec.codec.CodecId;kotlin.Boolean;kotlin.Long?;kotlin.Long){}[0]
+    constructor <init>(kotlin/String, kotlin/Long, kotlin/Boolean, kotlin/Long? = ..., kotlin/Long = ..., io.github.yuroyami.archivekodec.codec/CodecId = ..., kotlin/Boolean = ..., kotlin/Long? = ...) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.<init>|<init>(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Long?;kotlin.Long;io.github.yuroyami.archivekodec.codec.CodecId;kotlin.Boolean;kotlin.Long?){}[0]
 
     final val codec // io.github.yuroyami.archivekodec.archive/ArchiveEntry.codec|{}codec[0]
         final fun <get-codec>(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.codec.<get-codec>|<get-codec>(){}[0]
@@ -226,8 +226,6 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
         final fun <get-compressedSize>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.compressedSize.<get-compressedSize>|<get-compressedSize>(){}[0]
     final val crc32 // io.github.yuroyami.archivekodec.archive/ArchiveEntry.crc32|{}crc32[0]
         final fun <get-crc32>(): kotlin/Long? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.crc32.<get-crc32>|<get-crc32>(){}[0]
-    final val dataOffset // io.github.yuroyami.archivekodec.archive/ArchiveEntry.dataOffset|{}dataOffset[0]
-        final fun <get-dataOffset>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.dataOffset.<get-dataOffset>|<get-dataOffset>(){}[0]
     final val isDirectory // io.github.yuroyami.archivekodec.archive/ArchiveEntry.isDirectory|{}isDirectory[0]
         final fun <get-isDirectory>(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.isDirectory.<get-isDirectory>|<get-isDirectory>(){}[0]
     final val isEncrypted // io.github.yuroyami.archivekodec.archive/ArchiveEntry.isEncrypted|{}isEncrypted[0]
@@ -251,8 +249,7 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
     final fun component6(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component6|component6(){}[0]
     final fun component7(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component7|component7(){}[0]
     final fun component8(): kotlin/Long? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component8|component8(){}[0]
-    final fun component9(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component9|component9(){}[0]
-    final fun copy(kotlin/String = ..., kotlin/Long = ..., kotlin/Boolean = ..., kotlin/Long? = ..., kotlin/Long = ..., io.github.yuroyami.archivekodec.codec/CodecId = ..., kotlin/Boolean = ..., kotlin/Long? = ..., kotlin/Long = ...): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.copy|copy(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Long?;kotlin.Long;io.github.yuroyami.archivekodec.codec.CodecId;kotlin.Boolean;kotlin.Long?;kotlin.Long){}[0]
+    final fun copy(kotlin/String = ..., kotlin/Long = ..., kotlin/Boolean = ..., kotlin/Long? = ..., kotlin/Long = ..., io.github.yuroyami.archivekodec.codec/CodecId = ..., kotlin/Boolean = ..., kotlin/Long? = ...): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.copy|copy(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Long?;kotlin.Long;io.github.yuroyami.archivekodec.codec.CodecId;kotlin.Boolean;kotlin.Long?){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.archive/ArchiveEntry.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveEntry.toString|toString(){}[0]

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Breaking:** `ArchiveEntry.dataOffset`, its constructor and `copy` parameter
+  and `component9` are removed. Positions are private reader state. Built-in
+  readers now only read entries they listed, or unchanged copies of them;
+  hand-built entries, entries from another reader and changed copies throw
+  `ArchiveFormatException` naming the entry before any payload read, instead of
+  reading from an unchecked offset. Entry equality no longer includes a position.
+  Built-in listings are read-only snapshots. Custom readers keep their own locators.
+
 - ZIP entries expose their raw compression method through nullable `zipMethod`,
   preserved by copies without changing the existing entry constructor or copy
   signatures. Unknown methods now report `zip-method-N` codec identifiers instead

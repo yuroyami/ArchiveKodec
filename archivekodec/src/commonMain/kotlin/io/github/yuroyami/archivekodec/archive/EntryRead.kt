@@ -29,3 +29,29 @@ internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Lon
         else -> ArchiveException(text, this, position, label)
     }
 }
+
+/**
+ * Mark each listed entry as [owner]'s, so [resolveIssued] accepts it and its unchanged
+ * copies. Returns a read-only snapshot, so a caller cannot replace a trusted entry.
+ */
+internal fun List<ArchiveEntry>.issuedBy(owner: Any): List<ArchiveEntry> {
+    val snapshot = toTypedArray()
+    snapshot.forEachIndexed { index, entry -> entry.issue(owner, index) }
+    return object : AbstractList<ArchiveEntry>() {
+        override val size: Int get() = snapshot.size
+        override fun get(index: Int): ArchiveEntry = snapshot[index]
+    }
+}
+
+/**
+ * Return [owner]'s listed entry for [entry]. Entries built by hand, issued by another
+ * reader, or copied with changed metadata fail with an exception naming the entry.
+ */
+internal fun List<ArchiveEntry>.resolveIssued(owner: Any, entry: ArchiveEntry, format: String): ArchiveEntry {
+    val listed = getOrNull(entry.slotIn(owner))
+        ?: throw ArchiveFormatException("$format: entry '${entry.name}' was not listed by this reader", null, entry.name)
+    if (listed != entry) {
+        throw ArchiveFormatException("$format: supplied entry metadata differs from this reader's listing", listed.dataOffset, listed.name)
+    }
+    return listed
+}

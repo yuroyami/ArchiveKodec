@@ -13,6 +13,8 @@ import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.requireRange
+import io.github.yuroyami.archivekodec.archive.issuedBy
+import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
@@ -103,10 +105,11 @@ public class ZipReader(
     override fun close(): Unit = ownedSource.close()
 
     /**
-     * Read a directory entry or an unchanged value copy; altered metadata is rejected.
+     * Read an entry this reader listed, or an unchanged copy of one; altered metadata
+     * and entries from elsewhere are rejected.
      *
      * @throws io.github.yuroyami.archivekodec.ArchiveClosedException if the reader is closed.
-     * @throws ArchiveFormatException for changed entry metadata, malformed headers or failed integrity checks.
+     * @throws ArchiveFormatException for an entry this reader did not list, changed entry metadata, malformed headers or failed integrity checks.
      * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for encryption or an unsupported ZIP method or feature.
      * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
@@ -114,13 +117,16 @@ public class ZipReader(
      * @throws ArchiveException if the underlying source or directory listing reports another archive failure.
      */
     @Throws(ArchiveException::class)
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
+        withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
+        val directory = directory()
+        val listed = directory.entries.resolveIssued(this, entry, "ZIP")
+        return readListed(directory.members.getValue(listed.dataOffset), limits)
+    }
+
+    private fun readListed(member: Member, limits: ArchiveLimits): ByteArray = withEntryContext(member.entry.name, member.entry.dataOffset) {
+        val entry = member.entry
         val source = ownedSource.source
-        val member = directory().members[entry.dataOffset]
-            ?: throw ArchiveFormatException("ZIP: entry is not in the central directory", entry.dataOffset, entry.name)
-        if (entry != member.entry) {
-            throw ArchiveFormatException("ZIP: supplied entry metadata differs from the central directory", member.entry.dataOffset, member.entry.name)
-        }
         val lh = source.readFully(entry.dataOffset, 30)
         val dataStart = validateLocalHeader(member, lh, source)
         if (entry.isEncrypted) {
@@ -405,8 +411,7 @@ public class ZipReader(
                 codec = codecs.idForZipMethod(method) ?: CodecId("zip-method-$method"),
                 isEncrypted = flags and 0x41 != 0 || method == 99,
                 crc32 = crc,
-                dataOffset = localOffset, // local header offset; resolved to data in read()
-            ).withZipMethod(method)
+            ).withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
             val localExtraLength = readU16Le(local, 28)
             validateLocalHeader(Member(provisional, nameBytes, method, flags, localExtraLength), local, source)
             val localUnicode = if (!utf8 && localExtraLength > 0) {
@@ -431,7 +436,7 @@ public class ZipReader(
             throw ArchiveFormatException("ZIP: central directory count $n differs from declared count $cdEntries", cdOffset)
         }
         validateMemberExtents(members.values, cdOffset)
-        return Directory(entries, members)
+        return Directory(entries.issuedBy(this), members)
     }
 
     /** Optional Unicode payload failures fall back; broken framing and ambiguity do not. */

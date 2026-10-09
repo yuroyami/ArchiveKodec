@@ -14,6 +14,8 @@ import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.requireRange
+import io.github.yuroyami.archivekodec.archive.issuedBy
+import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.jvm.JvmSynthetic
@@ -60,7 +62,7 @@ public class CpioReader private constructor(
         override fun get(index: Int): T = values[index]
     }
     private data class Directory(
-        val entries: List<ArchiveEntry>, val groups: Map<ArchiveEntry, Group>, val segments: List<InitramfsSegment>,
+        val entries: List<ArchiveEntry>, val groups: List<Group>, val segments: List<InitramfsSegment>,
     )
     private data class ParsedRecord(val endOffset: Long, val trailer: Boolean)
     private data class SegmentBounds(val start: Long, val end: Long, val first: Int, val last: Int, val trailer: Boolean)
@@ -85,15 +87,20 @@ public class CpioReader private constructor(
     override fun close(): Unit = ownedSource.close()
 
     @Throws(ArchiveException::class)
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
+        withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
+        val directory = directory()
+        val listed = directory.entries.resolveIssued(this, entry, "cpio")
+        return readListed(listed, directory.groups[listed.slotIn(this)], limits)
+    }
+
+    private fun readListed(entry: ArchiveEntry, group: Group, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
         if (entry.size > Int.MAX_VALUE) {
             throw ArchiveFormatException("cpio: range of ${entry.size} bytes cannot fit in a ByteArray", entry.dataOffset)
         }
-        val group = directory().groups[entry]
-            ?: throw ArchiveFormatException("cpio: entry does not match this reader's metadata", entry.dataOffset)
         val payload = group.payload
         val bytes = if (entry.isDirectory || entry.size == 0L) ByteArray(0)
             else source.readFullyChecked(payload.entry.dataOffset, payload.storedSize)
@@ -166,17 +173,17 @@ public class CpioReader private constructor(
         }
         if (segmentStart != null) bounds.add(SegmentBounds(segmentStart, recordEnd, segmentFirst, records.size, false))
         val entries = ArrayList<ArchiveEntry>(records.size)
-        val groups = HashMap<ArchiveEntry, Group>()
+        val groups = ArrayList<Group>(records.size)
         for ((record, group) in records) {
             val size = if (record.entry.isDirectory) 0L else group.payload.storedSize
-            val entry = record.entry.copy(size = size, compressedSize = size, dataOffset = group.payload.entry.dataOffset)
-            entries.add(entry)
-            groups[entry] = group
+            entries.add(record.entry.copy(size = size, compressedSize = size).locatedAt(group.payload.entry.dataOffset))
+            groups.add(group)
         }
+        val issued = entries.issuedBy(this)
         val segments = bounds.map { b ->
-            InitramfsSegment(b.start, b.end, b.trailer, ReadOnlyList(entries.subList(b.first, b.last)))
+            InitramfsSegment(b.start, b.end, b.trailer, ReadOnlyList(issued.subList(b.first, b.last)))
         }
-        return Directory(ReadOnlyList(entries), groups, ReadOnlyList(segments))
+        return Directory(issued, groups, ReadOnlyList(segments))
     }
 
     private fun skipZeros(start: Long, total: Long, buffer: ByteArray): Long {
@@ -270,7 +277,7 @@ public class CpioReader private constructor(
         }
         val name = nameDecoder.decodeStoredName(nameBytes, nameStart)
         val isDir = (mode and 0xF000L) == 0x4000L // S_IFDIR
-        val entry = ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir, dataOffset = dataStart).withNameBytes(nameBytes)
+        val entry = ArchiveEntry(name = name, size = if (isDir) 0L else size, isDirectory = isDir).withNameBytes(nameBytes).locatedAt(dataStart)
         if (size == 0L && checksum != null) checkSum(name, checksumOffset, checksum, 0)
         val record = Record(entry, size, mode and 0xF000L, modeOffset, checksum, checksumOffset)
         val linkKey = if (isDir) null else key

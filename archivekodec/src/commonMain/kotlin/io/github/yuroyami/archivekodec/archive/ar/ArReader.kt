@@ -13,6 +13,8 @@ import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.requireRange
+import io.github.yuroyami.archivekodec.archive.issuedBy
+import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -46,13 +48,18 @@ public class ArReader(
     override val format: ArchiveFormat = ArchiveFormat.AR
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse() }
+    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse().issuedBy(this) }
 
     @Throws(ArchiveException::class)
     override fun close(): Unit = ownedSource.close()
 
     @Throws(ArchiveException::class)
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
+        withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
+        return readListed(entries().resolveIssued(this, entry, "ar"), limits)
+    }
+
+    private fun readListed(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
@@ -113,7 +120,7 @@ public class ArReader(
                     if (pos != 8L || !isBsdSymbolTable(nameBytes.decodeToString())) {
                         limits.checkEntryCount(out.size + 1)
                         val name = nameDecoder.decodeStoredName(nameBytes, dataStart)
-                        out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false, dataOffset = dataStart + nameLength).withNameBytes(nameBytes))
+                        out.add(ArchiveEntry(name = name, size = size - nameLength, isDirectory = false).withNameBytes(nameBytes).locatedAt(dataStart + nameLength))
                     }
                 }
                 rawName.startsWith("/") && rawName.length > 1 && rawName[1].isDigit() -> {
@@ -127,13 +134,13 @@ public class ArReader(
                     val nameBytes = extractLongName(table, off, nulDelimitedNames, pos, rawName)
                     limits.checkEntryCount(out.size + 1)
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
-                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart).withNameBytes(nameBytes))
+                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false).withNameBytes(nameBytes).locatedAt(dataStart))
                 }
                 else -> {
                     limits.checkEntryCount(out.size + 1)
                     val nameBytes = if (nameField.lastOrNull()?.toInt() == 47) nameField.copyOf(nameField.size - 1) else nameField
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
-                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false, dataOffset = dataStart).withNameBytes(nameBytes))
+                    out.add(ArchiveEntry(name = name, size = size, isDirectory = false).withNameBytes(nameBytes).locatedAt(dataStart))
                 }
             }
             pos = dataStart + size + (size and 1L) // members are 2-byte aligned

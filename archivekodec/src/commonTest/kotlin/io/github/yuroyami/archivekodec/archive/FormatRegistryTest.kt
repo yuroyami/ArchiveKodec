@@ -43,7 +43,7 @@ class FormatRegistryTest {
         override fun entries(): List<ArchiveEntry> {
             limits.checkEntryCount(1)
             val name = options.nameDecoder?.decode("file".encodeToByteArray()) ?: "file"
-            return listOf(ArchiveEntry(name, source.size - 4, false, dataOffset = 4))
+            return listOf(ArchiveEntry(name, source.size - 4, false))
         }
         override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
             limits.checkOutputSize(entry.size)

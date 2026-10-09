@@ -62,16 +62,45 @@ class SourceBoundsTest {
     @Test
     fun directPayloadReadersRejectLargeWholeArrayEntriesWithoutNarrowing() {
         val large = 3L * 1024 * 1024 * 1024
-        val source = object : RandomAccessSource {
-            override val size = large + 100
-            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int =
-                error("large payload must never reach read")
-        }
-        val entry = ArchiveEntry("large", large, false, compressedSize = large, dataOffset = 0)
-        for (reader in listOf(ArReader(source), TarReader(source), CpioReader(source))) {
+        val readers = listOf(
+            ArReader(SparseSource(68 + large, 0L to arHeader(large))),
+            TarReader(SparseSource(512 + large, 0L to tarHeader(large))),
+            CpioReader(SparseSource(116 + large + 124, 0L to newc("large", large), 116 + large to newc("TRAILER!!!", 0))),
+        )
+        for (reader in readers) {
+            val entry = reader.entries().single()
+            assertEquals(large, entry.size)
             val e = assertFailsWith<ArchiveFormatException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
             kotlin.test.assertTrue(e.message!!.contains("ByteArray"), e.message)
         }
+    }
+
+    /** Serves only the listed header ranges; any payload read fails the test. */
+    private class SparseSource(override val size: Long, vararg val pieces: Pair<Long, ByteArray>) : RandomAccessSource {
+        override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+            val (start, bytes) = pieces.firstOrNull { (start, bytes) -> offset >= start && offset + length <= start + bytes.size }
+                ?: error("large payload must never reach read")
+            bytes.copyInto(into, intoOffset, (offset - start).toInt(), (offset - start).toInt() + length)
+            return length
+        }
+    }
+
+    private fun arHeader(size: Long): ByteArray =
+        ("!<arch>\n" + "large/".padEnd(16) + "0".padEnd(12) + "0".padEnd(6) + "0".padEnd(6) +
+            "644".padEnd(8) + size.toString().padEnd(10) + "`\n").encodeToByteArray()
+
+    private fun tarHeader(size: Long): ByteArray = ByteArray(512).also { h ->
+        fun put(offset: Int, text: String) = text.encodeToByteArray().copyInto(h, offset)
+        put(0, "large"); put(100, "0000644"); put(124, size.toString(8).padStart(11, '0'))
+        put(136, "00000000000"); h[156] = '0'.code.toByte(); put(257, "ustar"); put(263, "00")
+        put(148, "        ")
+        put(148, h.sumOf { it.toInt() and 0xFF }.toString(8).padStart(6, '0') + "\u0000 ")
+    }
+
+    private fun newc(name: String, size: Long): ByteArray {
+        val fields = longArrayOf(1, 0x81A4, 0, 0, 1, 0, size, 0, 0, 0, 0, name.length + 1L, 0)
+        val header = "070701" + fields.joinToString("") { it.toString(16).padStart(8, '0') } + name + "\u0000"
+        return header.encodeToByteArray().copyOf((header.length + 3) / 4 * 4)
     }
 
     @Test

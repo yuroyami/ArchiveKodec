@@ -13,6 +13,8 @@ import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.requireRange
+import io.github.yuroyami.archivekodec.archive.issuedBy
+import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -51,13 +53,18 @@ public class TarReader(
     override val format: ArchiveFormat = ArchiveFormat.TAR
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse() }
+    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse().issuedBy(this) }
 
     @Throws(ArchiveException::class)
     override fun close(): Unit = ownedSource.close()
 
     @Throws(ArchiveException::class)
-    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
+    override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
+        withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
+        return readListed(entries().resolveIssued(this, entry, "TAR"), limits)
+    }
+
+    private fun readListed(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
@@ -125,8 +132,7 @@ public class TarReader(
                                 size = if (isDir) 0L else size,
                                 isDirectory = isDir,
                                 lastModifiedEpochSeconds = numeric(hdr, 136, 12, pos),
-                                dataOffset = dataStart,
-                            ).withNameBytes(nameBytes),
+                            ).withNameBytes(nameBytes).locatedAt(dataStart),
                         )
                     }
                 }

@@ -423,6 +423,12 @@ ZIP listing validates the central directory and
 local headers, so custom sources must support those metadata reads. `read` seeks
 to one local header for a single-entry extract.
 
+Built-in readers only read entries they listed, or unchanged `copy()` results of
+them. An entry built with the public constructor, an entry from another reader
+(even of the same format and with equal metadata), or a copy with changed metadata
+throws `ArchiveFormatException` naming the entry, before any payload read. Source
+positions are private reader state; entries no longer expose `dataOffset`.
+
 Readers enforce a default ceiling of 100,000 listed entries during parsing,
 before retaining each additional entry. Directories and cpio hard-link records
 count; ar symbol/name tables, TAR metadata records and cpio trailers do not.
@@ -563,7 +569,7 @@ per entry.
 
 ZIP and ZIP64 support prepended launchers and self-extracting prefixes with
 ZIP-relative or already absolute offsets. Listing resolves stored offsets to
-physical source positions, including `ArchiveEntry.dataOffset` for local headers.
+physical source positions for the reader's private local-header locators.
 ZIP64 end records may contain a variable-length extensible sector; searches use
 bounded chunks rather than a fixed 56-byte assumption. Existing absolute-offset
 directory and locator gaps remain readable. Shifted local headers and payloads
@@ -644,7 +650,9 @@ val reader = ArchiveKodec.open(bytes, formats, options = options)
 filename decoder and codec registry through immutable `ArchiveOpenOptions`; it
 must enforce the policies relevant to that format. Null `nameDecoder` preserves
 each built-in reader's default. Closing the returned reader must close the source.
-A failed factory must leave the source open for the caller.
+A failed factory must leave the source open for the caller. `ArchiveEntry` has
+no public source position, so a custom reader keeps its own locators, for example
+in a list parallel to its listing or keyed by entry name.
 
 `with` returns an independent registry. The newest descriptor runs first and
 replaces an earlier descriptor with the same id. Detectors can read at any offset,
