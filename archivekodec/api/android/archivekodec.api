@@ -439,10 +439,15 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipMethod : java/
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
+	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
 	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)[B
@@ -588,9 +593,10 @@ public final class io/github/yuroyami/archivekodec/codec/Codec$DefaultImpls {
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 }
 
-public final class io/github/yuroyami/archivekodec/codec/CodecId : java/lang/Enum {
+public final class io/github/yuroyami/archivekodec/codec/CodecId {
 	public static final field BROTLI Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field BZIP2 Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public static final field Companion Lio/github/yuroyami/archivekodec/codec/CodecId$Companion;
 	public static final field DEFLATE Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field GZIP Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/codec/CodecId;
@@ -603,11 +609,31 @@ public final class io/github/yuroyami/archivekodec/codec/CodecId : java/lang/Enu
 	public static final field XZ Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field ZLIB Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field ZSTD Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDisplayName ()Ljava/lang/String;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public final fun getImplemented ()Z
-	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/codec/CodecId;
-	public static fun values ()[Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/CodecId$Companion {
+}
+
+public final class io/github/yuroyami/archivekodec/codec/CodecRegistry {
+	public static final field Companion Lio/github/yuroyami/archivekodec/codec/CodecRegistry$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun byFormat (Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;)Lio/github/yuroyami/archivekodec/codec/Codec;
+	public final fun byId (Lio/github/yuroyami/archivekodec/codec/CodecId;)Lio/github/yuroyami/archivekodec/codec/Codec;
+	public final fun byName (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/codec/Codec;
+	public final fun byZipMethod (I)Lio/github/yuroyami/archivekodec/codec/Codec;
+	public final fun getImplemented ()Ljava/util/List;
+	public final fun with (Lio/github/yuroyami/archivekodec/codec/Codec;)Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun with (Lio/github/yuroyami/archivekodec/codec/Codec;Ljava/lang/Integer;)Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public static synthetic fun with$default (Lio/github/yuroyami/archivekodec/codec/CodecRegistry;Lio/github/yuroyami/archivekodec/codec/Codec;Ljava/lang/Integer;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/CodecRegistry$Companion {
 }
 
 public final class io/github/yuroyami/archivekodec/codec/Codecs {

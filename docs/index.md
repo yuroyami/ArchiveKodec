@@ -97,6 +97,13 @@ raw streams require an explicit codec. `ArchiveKodec.lz4`, `snappy` and
 `snappyFramed` are non-null accessors; lookups by format or codec name return null
 when no implementation is available.
 
+For external or platform codec implementations, derive
+`CodecRegistry.DEFAULT.with(custom, zipMethod = 93)` and pass it to `ZipReader`.
+Registries are immutable; replacements do not change global defaults. `CodecId`
+is an open value identified by its lowercase name, and availability comes from
+registry lookups. See the [README](https://github.com/yuroyami/ArchiveKodec#compress-and-decompress)
+for registration, framing and limit requirements.
+
 **Everything is whole-array.** You pass a `ByteArray` and get a `ByteArray` back,
 so the payload sits fully in memory. There is no streaming API.
 

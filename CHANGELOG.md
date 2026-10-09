@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Breaking:** `CodecId` is now an open immutable class, with canonical lowercase
+  ASCII names and value equality. Existing constants and `displayName` remain;
+  enum `entries`/`values`/`valueOf`/ordinals and the `implemented` flag are removed.
+  Recompile consumers, add an `else` to identifier dispatch, and query registry
+  availability instead. `name` and `toString()` now return the lowercase codec name.
+- Added immutable `CodecRegistry.DEFAULT.with(codec, zipMethod)` registration and
+  per-`ZipReader` injection. Same-id replacements update existing ZIP bindings;
+  explicit method bindings support external codecs without changing global defaults.
+  Custom decoding retains ZIP header, output-size, policy and CRC validation.
+
 - Added `ArchiveKodec.open(bytes)`, gzip-wrapped container opening, detected stream
   decoding, codec lookups by name/format, and LZ4/Snappy accessors. Opening unwraps
   one gzip layer under the supplied policy, then retains that policy on the reader.

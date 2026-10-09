@@ -16,6 +16,7 @@ import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.CodecRegistry
 import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -37,7 +38,8 @@ import kotlin.text.CharacterCodingException
  * (CP437 by default). Conflicting valid Unicode names are malformed.
  * Masked local headers with
  * central-directory encryption are unsupported. This reader decodes STORE and
- * DEFLATE. Other methods appear in [entries], but [read] throws for them.
+ * DEFLATE by default. Supply [codecs] to add methods or replace engines. Other
+ * methods appear in [entries], but [read] throws when no decoder is registered.
  *
  * Security: local-header and compressed-data extents must be disjoint and end
  * before the central directory. Duplicate local-header offsets are also rejected
@@ -55,7 +57,17 @@ public class ZipReader(
     source: RandomAccessSource,
     private val nameDecoder: ArchiveNameDecoder,
     override val limits: ArchiveLimits,
+    /** Immutable decoder bindings for this reader; custom codecs must enforce the supplied limits. */
+    public val codecs: CodecRegistry,
 ) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits) :
+        this(source, nameDecoder, limits, CodecRegistry.DEFAULT)
+    public constructor(source: RandomAccessSource, codecs: CodecRegistry) :
+        this(source, ArchiveNameDecoder.CP437, ArchiveLimits.DEFAULT, codecs)
+    public constructor(source: RandomAccessSource, limits: ArchiveLimits, codecs: CodecRegistry) :
+        this(source, ArchiveNameDecoder.CP437, limits, codecs)
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, codecs: CodecRegistry) :
+        this(source, nameDecoder, ArchiveLimits.DEFAULT, codecs)
     public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.CP437)
     public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.CP437, limits)
@@ -119,25 +131,27 @@ public class ZipReader(
         limits.checkRatio(entry.compressedSize, entry.size)
 
         val method = member.method
-        val codecId = ZipFormat.codecForMethod(method)
+        val codecId = codecs.idForZipMethod(method)
             ?: throw ArchiveUnsupportedException("ZIP method $method not supported", entry.dataOffset + 8, entry.name)
-        val codec = Codecs.byId(codecId)
+        val codec = codecs.byZipMethod(method)
             ?: throw ArchiveUnsupportedException("ZIP method $method ($codecId) not implemented yet", entry.dataOffset + 8, entry.name)
-        if (codecId == CodecId.STORE && entry.compressedSize != entry.size) {
+        if (method == 0 && entry.compressedSize != entry.size) {
             throw ArchiveFormatException("ZIP: stored compressed size ${entry.compressedSize} differs from output size ${entry.size}", dataStart, entry.name)
         }
         val comp = source.readFullyChecked(dataStart, entry.compressedSize)
         val out = try {
-            when (codecId) {
-                CodecId.DEFLATE -> Inflate.inflateExact(comp, limits, entry.size)
+            when {
+                codec === Codecs.DEFLATE -> Inflate.inflateExact(comp, limits, entry.size)
                 // readFullyChecked allocated this result; no source storage is shared.
-                CodecId.STORE -> comp
+                codec === Codecs.STORE -> comp
                 else -> codec.decompress(comp, limits)
             }
         } catch (error: ArchiveException) {
             throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
         }
 
+        limits.checkOutputSize(out.size.toLong())
+        limits.checkRatio(entry.compressedSize, out.size.toLong())
         if (out.size.toLong() != entry.size) {
             throw ArchiveFormatException("ZIP: output size ${out.size} differs from declared size ${entry.size}", dataStart, entry.name)
         }
@@ -384,7 +398,7 @@ public class ZipReader(
                 size = uncompSize,
                 isDirectory = false,
                 compressedSize = compSize,
-                codec = ZipFormat.codecForMethod(method) ?: CodecId.STORE,
+                codec = codecs.idForZipMethod(method) ?: CodecId.STORE,
                 isEncrypted = flags and 0x41 != 0 || method == 99,
                 crc32 = crc,
                 dataOffset = localOffset, // local header offset; resolved to data in read()

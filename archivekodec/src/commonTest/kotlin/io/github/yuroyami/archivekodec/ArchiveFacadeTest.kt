@@ -10,6 +10,7 @@ import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipFormat
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.knownCodecIds
 import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.util.readI64Le
 import io.github.yuroyami.archivekodec.util.readU16Le
@@ -139,7 +140,7 @@ class ArchiveFacadeTest {
         )
         assertEquals(expected.size, ArchiveKodec.codecs.size)
         assertEquals(expected.keys, ArchiveKodec.codecs.toSet())
-        for (id in CodecId.entries) {
+        for (id in knownCodecIds) {
             val codec = ArchiveKodec.codec(id)
             if (id in expected) {
                 assertSame(expected.getValue(id), codec, id.toString())

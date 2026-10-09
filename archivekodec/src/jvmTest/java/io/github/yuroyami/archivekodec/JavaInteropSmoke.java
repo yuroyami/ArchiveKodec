@@ -5,6 +5,8 @@ import io.github.yuroyami.archivekodec.archive.ar.ArWriter;
 import io.github.yuroyami.archivekodec.archive.cpio.CpioWriter;
 import io.github.yuroyami.archivekodec.archive.tar.TarWriter;
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter;
+import io.github.yuroyami.archivekodec.archive.zip.ZipReader;
+import io.github.yuroyami.archivekodec.archive.zip.ZipMethod;
 import io.github.yuroyami.archivekodec.checksum.*;
 import io.github.yuroyami.archivekodec.codec.*;
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate;
@@ -85,6 +87,20 @@ public final class JavaInteropSmoke {
         };
         bytes(DATA, custom.decompress(DATA));
         check(supplied[0] == ArchiveLimits.DEFAULT, "Java implementation inherits default policy");
+        check(new CodecId("STORE").equals(CodecId.STORE), "open codec value identity");
+        CodecRegistry registry = CodecRegistry.DEFAULT.with(custom);
+        check(registry.byName("STORE") == custom, "Java registry name lookup");
+        check(registry.byZipMethod(0) == custom, "Java registry default method binding");
+        check(CodecRegistry.DEFAULT.byZipMethod(0) == Codecs.STORE, "immutable default registry");
+        check(registry.with(custom, 65535).byZipMethod(65535) == custom, "Java explicit method registration");
+        byte[] stored = ZipWriter.write(Collections.singletonList(new ZipWriter.FileSpec("a.txt", DATA, ZipMethod.STORED)));
+        ZipReader customReader = new ZipReader(new ByteArrayRandomAccessSource(stored), registry);
+        try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(customReader)) {
+            check(customReader.getCodecs() == registry, "Java custom reader constructor");
+            supplied[0] = null;
+            bytes(DATA, customReader.read(customReader.entries().get(0)));
+            check(supplied[0] == customReader.getLimits(), "ZIP invokes Java replacement codec");
+        }
         try {
             Gzip.decompress(new byte[0]);
             throw new AssertionError("malformed gzip accepted");

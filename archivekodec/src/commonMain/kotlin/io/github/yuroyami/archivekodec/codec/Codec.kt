@@ -7,7 +7,12 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * A single compression codec: a reversible byte transform. Every codec is buffered,
  * so it takes a whole array and returns a whole array. [decompress] takes an
  * [ArchiveLimits], so the decompression-bomb guard is part of the contract rather
- * than an option a caller can forget.
+ * than an option a caller can forget. Custom engines must enforce limits during
+ * decoding, keep [id] stable, and document their thread-safety. Register one with
+ * `CodecRegistry.DEFAULT.with(custom, zipMethod = 93)` and pass that registry to
+ * [io.github.yuroyami.archivekodec.archive.zip.ZipReader]. The ZIP reader retains
+ * header, output-size and CRC validation; it cannot bound a custom engine that
+ * ignores the decoding limits.
  */
 public interface Codec {
     /** Which codec this is. */

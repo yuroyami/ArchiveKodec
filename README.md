@@ -230,6 +230,45 @@ rules. Containers and unsupported or unknown streams throw
 `ArchiveUnsupportedException` naming the detected format. Raw DEFLATE, raw Snappy,
 LZMA and brotli need an explicit codec because they cannot be reliably sniffed.
 
+`CodecId` is an open immutable identifier: `CodecId("zstd") == CodecId.ZSTD`.
+Names are normalized to lowercase ASCII; `name` and `displayName` return that
+value. There is no `implemented` flag or exhaustive enum list. Ask the registry
+with `byId(id) != null`, or inspect its `implemented` snapshot.
+
+To supply an external decoder or replace a built-in engine, derive an immutable
+registry and pass it to the ZIP reader:
+
+```kotlin
+import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.use
+import io.github.yuroyami.archivekodec.archive.zip.ZipReader
+import io.github.yuroyami.archivekodec.codec.Codec
+import io.github.yuroyami.archivekodec.codec.CodecRegistry
+
+fun readWithZstd(zipBytes: ByteArray, zstd: Codec): ByteArray {
+    val codecs = CodecRegistry.DEFAULT.with(zstd, zipMethod = 93)
+    return ZipReader(ByteArrayRandomAccessSource(zipBytes), codecs).use { reader ->
+        reader.read(reader.entries().first())
+    }
+}
+```
+
+`with` returns a new registry and leaves the original and `DEFAULT` unchanged.
+A replacement with the same id takes over all existing method bindings for that
+id: `DEFAULT.with(myDeflate)` replaces method 8 when `myDeflate.id` equals
+`CodecId.DEFLATE`. An explicit `zipMethod` can also bind a new id to a known or
+private method number in `0..65535`. Known unavailable methods 12/14/93/98 already
+map to BZIP2/LZMA/ZSTD/PPMD, so adding one of those ids enables its method.
+Lookups by id, name, format and ZIP method all use the selected registry.
+`ArchiveKodec` and `Codecs` convenience lookups always use `DEFAULT`.
+
+Custom codecs must implement the registered ZIP method's exact payload framing,
+keep their id stable, and enforce the supplied limits while decoding. The reader
+still rejects encryption and inconsistent headers, and verifies output limits,
+size and CRC-32. Registry bindings are immutable; codec instances are shared and
+retain their own thread-safety rules. Registration does not change sniffing or
+add a compression method to `ZipWriter`.
+
 `CodecId.SNAPPY` and `Codecs.SNAPPY` select raw Snappy blocks.
 `CodecId.SNAPPY_FRAMED` and `Codecs.SNAPPY_FRAMED` select standard `.sz` framing.
 The low-level `Snappy` object also exposes `frameCompress` and `frameDecompress`.

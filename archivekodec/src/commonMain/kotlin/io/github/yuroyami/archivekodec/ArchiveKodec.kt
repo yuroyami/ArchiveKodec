@@ -54,7 +54,7 @@ public object ArchiveKodec {
     @JvmStatic
     public fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
 
-    /** The codec for [id], or null if not yet implemented. */
+    /** The codec in the immutable default registry for [id], or null if unavailable. */
     @JvmStatic
     public fun codec(id: CodecId): Codec? = Codecs.byId(id)
 

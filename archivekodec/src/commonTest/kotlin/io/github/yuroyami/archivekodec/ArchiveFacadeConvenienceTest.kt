@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.archive.tar.TarWriter
 import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.knownCodecIds
 import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
@@ -29,7 +30,7 @@ class ArchiveFacadeConvenienceTest {
 
     @Test
     fun namesAndFormatsUseTheSameRegisteredInstances() {
-        for (id in CodecId.entries) {
+        for (id in knownCodecIds) {
             assertSame(ArchiveKodec.codec(id), ArchiveKodec.codec(id.displayName), id.toString())
             assertSame(Codecs.byId(id), Codecs.byName(id.displayName.uppercase()), id.toString())
         }

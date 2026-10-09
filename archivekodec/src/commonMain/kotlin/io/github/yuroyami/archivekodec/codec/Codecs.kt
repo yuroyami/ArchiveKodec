@@ -13,8 +13,10 @@ import io.github.yuroyami.archivekodec.wrapper.Gzip
 import io.github.yuroyami.archivekodec.wrapper.Zlib
 
 /**
- * Registry of the codecs implemented today, each adapting a low-level engine
+ * Built-in codec implementations, each adapting a low-level engine
  * ([Deflate]/[Inflate], [Gzip], [Zlib], [Store]) to the [Codec] contract.
+ * Lookups delegate to [CodecRegistry.DEFAULT]. Customize an immutable registry
+ * with [CodecRegistry.with] and pass it to a ZIP reader to replace these engines.
  */
 public object Codecs {
 
@@ -76,11 +78,9 @@ public object Codecs {
             Snappy.frameDecompress(data, limits)
     }
 
-    private val all: List<Codec> = listOf(STORE, DEFLATE, GZIP, ZLIB, LZ4, SNAPPY, SNAPPY_FRAMED)
-
     /** The codec for [id], or null if not yet implemented. */
     @JvmStatic
-    public fun byId(id: CodecId): Codec? = all.firstOrNull { it.id == id }
+    public fun byId(id: CodecId): Codec? = CodecRegistry.DEFAULT.byId(id)
 
     /**
      * Look up a [CodecId.displayName], ignoring case. Unknown or unavailable names
@@ -88,27 +88,16 @@ public object Codecs {
      * `deflate` selects raw DEFLATE and `snappy` selects raw Snappy blocks.
      */
     @JvmStatic
-    public fun byName(name: String): Codec? = all.firstOrNull { it.id.displayName.equals(name, ignoreCase = true) }
+    public fun byName(name: String): Codec? = CodecRegistry.DEFAULT.byName(name)
 
     /**
      * Decoder for a compressed-stream [format], or null for containers, unknown
      * formats and unavailable codecs. [ArchiveFormat.SNAPPY] selects framed Snappy.
      */
     @JvmStatic
-    public fun byFormat(format: ArchiveFormat): Codec? = when (format) {
-        ArchiveFormat.GZIP -> byId(CodecId.GZIP)
-        ArchiveFormat.ZLIB -> byId(CodecId.ZLIB)
-        ArchiveFormat.LZ4 -> byId(CodecId.LZ4)
-        ArchiveFormat.SNAPPY -> byId(CodecId.SNAPPY_FRAMED)
-        ArchiveFormat.BZIP2 -> byId(CodecId.BZIP2)
-        ArchiveFormat.XZ -> byId(CodecId.XZ)
-        ArchiveFormat.LZMA -> byId(CodecId.LZMA)
-        ArchiveFormat.ZSTD -> byId(CodecId.ZSTD)
-        ArchiveFormat.BROTLI -> byId(CodecId.BROTLI)
-        else -> null
-    }
+    public fun byFormat(format: ArchiveFormat): Codec? = CodecRegistry.DEFAULT.byFormat(format)
 
     /** Ids of the codecs available right now. */
     @JvmStatic
-    public val implemented: List<CodecId> get() = all.map { it.id }
+    public val implemented: List<CodecId> get() = CodecRegistry.DEFAULT.implemented
 }

@@ -275,7 +275,7 @@ for (label, encoded) in invalidLz4Descriptors {
 }
 let declaredLz4Dictionary = bytes(Array(Data(base64Encoded: "BCJNGG1AVAAAAAAAAACYutz+4hQAAAAPNgAjQSBhbmRSAAxxAFBhZ2FpbgAAAADSu40A")!))
 let undeclaredLz4Dictionary = bytes(Array(Data(base64Encoded: "BCJNGGxAVAAAAAAAAACfFAAAAA82ACNBIGFuZFIADHEAUGFnYWluAAAAANK7jQA=")!))
-let lz4Protocol: Codec = ArchiveKodec.shared.codec(id: CodecId.lz4)!
+let lz4Protocol: Codec = ArchiveKodec.shared.codec(id: CodecId.companion.LZ4)!
 expectFailure("LZ4 declared dictionary through Codec", check: {
     $0 is ArchiveUnsupportedException && $0.offset?.int64Value == 24 && $0.message?.contains("dictionary ID 4275878552") == true
 }) { _ = try lz4Protocol.decompress(data: declaredLz4Dictionary, limits: limits) }
@@ -442,7 +442,7 @@ precondition(rawDirectorySource.closes == 1)
 // Root directory entries are skipped explicitly; strict file destinations still fail.
 func pathEntry(_ name: String, directory: Bool) -> ArchiveEntry {
     ArchiveEntry(name: name, size: 0, isDirectory: directory, lastModifiedEpochSeconds: nil,
-                 compressedSize: 0, codec: CodecId.store, isEncrypted: false, crc32: nil, dataOffset: -1)
+                 compressedSize: 0, codec: CodecId.companion.STORE, isEncrypted: false, crc32: nil, dataOffset: -1)
 }
 for name in [".", "./", "./.", ".\\.\\"] {
     precondition(PathGuard.shared.isRootDirectory(entry: pathEntry(name, directory: true)))
