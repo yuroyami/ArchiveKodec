@@ -5,8 +5,8 @@ import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
- * A single compression codec: a reversible byte transform. Every codec is buffered,
- * so it takes a whole array and returns a whole array. [decompress] takes an
+ * A single compression codec: a reversible byte transform. Codecs take a whole array;
+ * [decompress] can return a whole array or stream its output to a [ByteSink]. [decompress] takes an
  * [ArchiveLimits], so the decompression-bomb guard is part of the contract rather
  * than an option a caller can forget. Custom engines must enforce limits during
  * decoding, keep [id] stable, and document their thread-safety. Register one with
@@ -54,6 +54,26 @@ public interface Codec {
      */
     @Throws(ArchiveException::class)
     public fun decompress(data: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
+
+    /**
+     * Decompress [data], writing the output to [sink] in chunks rather than returning it,
+     * and return the number of bytes written. [limits] are checked before every write, so
+     * the sink never receives more than they allow; raise
+     * [ArchiveLimits.maxUncompressedBytes] for outputs above its 2 GiB default.
+     *
+     * DEFLATE, zlib and gzip stream, holding at most about 1 MiB of output at a time, so
+     * the output may be larger than memory. Other codecs decode fully in memory first and
+     * then write the result, which is also this default.
+     *
+     * @throws ArchiveException for the framing, decoding, integrity and limit failures documented by [decompress],
+     *   and for failures the sink reports. Output written before a failure stays written.
+     */
+    @Throws(ArchiveException::class)
+    public fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long {
+        val out = decompress(data, limits)
+        if (out.isNotEmpty()) sink.write(out, 0, out.size)
+        return out.size.toLong()
+    }
 
     /**
      * Decode with [ArchiveLimits.DEFAULT], including from Java and Swift.

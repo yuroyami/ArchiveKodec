@@ -31,6 +31,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.checksum.Checksum
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 import io.github.yuroyami.archivekodec.util.readI32Le
@@ -157,6 +158,14 @@ public object Inflate {
         return output.takeByteArray()
     }
 
+    /** Stream one raw DEFLATE stream's output to [sink]; return the byte count. */
+    internal fun inflateTo(input: ByteArray, limits: ArchiveLimits, sink: ByteSink, deflate64: Boolean = false): Long {
+        val output = Output(limits, input.size, sink = sink)
+        val end = inflateInto(input, 0, input.size, output, deflate64)
+        if (end != input.size) throw ArchiveFormatException("deflate: trailing bytes after stream", end.toLong())
+        return output.finish()
+    }
+
     /** ZIP's authoritative size constrains writes as well as the final stream length. */
     internal fun inflateExact(input: ByteArray, limits: ArchiveLimits, expectedSize: Long, deflate64: Boolean = false): ByteArray =
         inflateChecked(input, limits, expectedSize, deflate64)
@@ -205,11 +214,17 @@ public object Inflate {
         return s.consumedPosition
     }
 
-    /** Shared output across gzip members; each State still has a fresh dictionary. */
+    /**
+     * Shared output across gzip members; each State still has a fresh dictionary. With a
+     * [sink], output streams: all but the last [WINDOW] bytes are written to the sink as the
+     * buffer fills, and [finish] writes the rest. The limits are checked before every write
+     * to the sink, so it never receives more than they allow.
+     */
     internal class Output(
         private val limits: ArchiveLimits, private val compressedBytes: Int,
         private val expectedSize: Long? = null,
         sizeHint: Long? = expectedSize,
+        private val sink: ByteSink? = null,
     ) {
         private val maximum: Int
         private val hint: Int
@@ -232,16 +247,46 @@ public object Inflate {
             // The input's own size is safe to reserve, since the input is already in
             // memory, and DEFLATE rarely shrinks data: stored and incompressible
             // streams then decode without growth copies.
-            bytes = ByteArray(minOf(maxOf(if (hint > 0) minOf(4096, hint) else 256, compressedBytes), maximum))
+            bytes = if (sink != null) ByteArray(STREAM_BUFFER + WINDOW)
+                else ByteArray(minOf(maxOf(if (hint > 0) minOf(4096, hint) else 256, compressedBytes), maximum))
         }
 
         /** Bytes of preset dictionary at the start; they are history, not output. */
         private var base = 0
 
+        /** Streaming: output bytes already written to the sink, and where unwritten output starts. */
+        private var flushed = 0L
+        private var pending = 0
+
+        /** Where the current stream's reachable history starts; a State sets it, shifts move it. */
+        var streamOrigin = 0
+
+        private var running: Checksum? = null
+        private var runningFrom = 0
+
+        /** Output bytes produced so far, written to the sink or not. */
+        val produced: Long get() = flushed + (size - pending)
+
+        /** Start a checksum over the output that follows. */
+        fun startChecksum(checksum: Checksum) {
+            running = checksum
+            runningFrom = size
+        }
+
+        /** The value of the checksum started by [startChecksum], over the output since. */
+        fun checksumValue(): Long {
+            val checksum = running ?: error("no checksum started")
+            checksum.update(bytes, runningFrom, size - runningFrom)
+            runningFrom = size
+            running = null
+            return checksum.value()
+        }
+
         private fun ensure(extra: Int) {
             // Every allocation is capped by all three immutable budgets. Writes
             // within that capacity need no Long arithmetic or ratio division.
             if (extra <= bytes.size - size) return
+            if (sink != null) return makeRoom(extra)
             val required = size.toLong() - base + extra
             limits.checkOutputSize(required)
             limits.checkRatio(compressedBytes.toLong(), required)
@@ -254,12 +299,56 @@ public object Inflate {
             if (capacity != bytes.size) bytes = bytes.copyOf(capacity)
         }
 
+        /** Write output up to buffer index [upTo] to the sink, checking the limits first. */
+        private fun flush(upTo: Int) {
+            if (upTo <= pending) return
+            val count = upTo - pending
+            val total = flushed + count
+            limits.checkOutputSize(total)
+            limits.checkRatio(compressedBytes.toLong(), total)
+            if (expectedSize != null && total > expectedSize) {
+                throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
+            }
+            running?.let { checksum ->
+                if (runningFrom < upTo) {
+                    checksum.update(bytes, runningFrom, upTo - runningFrom)
+                    runningFrom = upTo
+                }
+            }
+            sink!!.write(bytes, pending, count)
+            flushed = total
+            pending = upTo
+        }
+
+        /** Streaming: write out all but the window, move the window to the front, then fit [extra]. */
+        private fun makeRoom(extra: Int) {
+            val keepFrom = maxOf(0, size - WINDOW)
+            flush(keepFrom)
+            if (keepFrom > 0) {
+                bytes.copyInto(bytes, 0, keepFrom, size)
+                size -= keepFrom
+                pending = maxOf(0, pending - keepFrom)
+                streamOrigin = maxOf(0, streamOrigin - keepFrom)
+                runningFrom = maxOf(0, runningFrom - keepFrom)
+                base = maxOf(0, base - keepFrom)
+            }
+            if (extra > bytes.size - size) bytes = bytes.copyOf(size + extra)
+        }
+
+        /** Streaming: write the remaining output to the sink and return the total produced. */
+        fun finish(): Long {
+            flush(size)
+            return produced
+        }
+
         /** Put a preset [dictionary] before any output, as history that matches may reach. */
         fun preload(dictionary: ByteArray) {
             check(size == 0)
-            bytes = dictionary.copyOf(dictionary.size + bytes.size)
+            if (dictionary.size > bytes.size) bytes = dictionary.copyOf(dictionary.size + bytes.size)
+            else dictionary.copyInto(bytes)
             size = dictionary.size
             base = dictionary.size
+            pending = dictionary.size
         }
 
         /** Bytes of history before the output; the dictionary length. */
@@ -301,11 +390,6 @@ public object Inflate {
             size += length
         }
 
-        fun checksum(checksum: Checksum, offset: Int = base): Long {
-            checksum.update(bytes, offset, size - offset)
-            return checksum.value()
-        }
-
         /** Snapshot the output without giving up ownership of its storage. */
         fun toByteArray(): ByteArray = bytes.copyOfRange(base, size)
 
@@ -317,6 +401,12 @@ public object Inflate {
             return result
         }
     }
+
+    /** Streaming keeps this much output as history: Deflate64's 64 KiB window. */
+    private const val WINDOW = 65536
+
+    /** Streaming writes to the sink in chunks of about this size. */
+    private const val STREAM_BUFFER = 1 shl 20
 
     /** Non-local "out of input" signal, replacing puff's setjmp/longjmp. */
     private class OutOfInput : Throwable()
@@ -331,9 +421,11 @@ public object Inflate {
         var bitbuf = 0
         var bitcnt = 0
         val consumedPosition: Int get() = position - (bitcnt ushr 3)
-        // A preset dictionary counts as earlier output that matches may reach.
-        private val outputStart = if (keepHistory) 0 else output.size - output.history
-        val outcnt: Int get() = output.size - outputStart
+        init {
+            // A preset dictionary counts as earlier output that matches may reach.
+            output.streamOrigin = if (keepHistory) 0 else output.size - output.history
+        }
+        val outcnt: Int get() = output.size - output.streamOrigin
         val inAvailable: Int get() = end - position
 
         fun nextByte(): Int {

@@ -6,10 +6,12 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlinx.io.IOException
 import kotlinx.io.Buffer
+import kotlinx.io.RawSink
 import kotlinx.io.RawSource
 import kotlinx.io.readByteArray
 import kotlin.jvm.JvmName
@@ -21,8 +23,9 @@ import kotlin.jvm.JvmOverloads
  * a source. They live in a separate artifact so the kotlinx-io dependency never
  * reaches the core or consumers who only want the codecs.
  *
- * There is no `RawSink` bridge. Every function here reads its source fully into
- * memory; for a seekable file, use [FileRandomAccessSource].
+ * Every function here reads its source fully into memory; for a seekable file, use
+ * [FileRandomAccessSource]. Decompressing into a `RawSink` streams the output, for codecs
+ * that stream (DEFLATE, zlib, gzip), so it may be larger than memory.
  *
  * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's concern.
  * These helpers operate on whatever source the app already holds.
@@ -100,5 +103,62 @@ public fun Codec.decompress(
     source: RawSource,
     limits: ArchiveLimits = ArchiveLimits.DEFAULT,
 ): ByteArray = decompress(source.readAllBytes(), limits)
+
+/**
+ * Decompress all bytes drained from [source]'s current position into [sink], enforcing
+ * [limits] before every write; return the number of bytes written. DEFLATE, zlib and gzip
+ * stream their output, holding about 1 MiB at a time; other codecs decode in memory first
+ * (see [Codec.decompress] with a `ByteSink`). The caller owns both and must close them;
+ * the sink is flushed but not closed. Output written before a failure stays written.
+ *
+ * @throws ArchiveIOException if the source or sink reports an IO failure.
+ * @throws ArchiveException for the decoding, integrity and limit failures of [Codec.decompress].
+ */
+@Throws(ArchiveException::class)
+@JvmOverloads
+public fun Codec.decompress(
+    source: RawSource,
+    sink: RawSink,
+    limits: ArchiveLimits = ArchiveLimits.DEFAULT,
+): Long {
+    val input = source.readAllBytes()
+    val buffer = Buffer()
+    val written = decompress(input, ByteSink { bytes, offset, length ->
+        buffer.write(bytes, offset, offset + length)
+        try {
+            sink.write(buffer, buffer.size)
+        } catch (error: IOException) {
+            throw ArchiveIOException("sink write failed: ${error.message}", error)
+        }
+    }, limits)
+    try {
+        sink.flush()
+    } catch (error: IOException) {
+        throw ArchiveIOException("sink flush failed: ${error.message}", error)
+    }
+    return written
+}
+
+/**
+ * Compress all bytes drained from [source]'s current position and write them to [sink];
+ * return the compressed size. Compression is not streamed: input and output are held in
+ * memory. The caller owns both and must close them; the sink is flushed but not closed.
+ *
+ * @throws ArchiveIOException if the source or sink reports an IO failure.
+ * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the output cannot fit in one ByteArray.
+ */
+@Throws(ArchiveException::class)
+public fun Codec.compress(source: RawSource, sink: RawSink): Long {
+    val output = compress(source.readAllBytes())
+    try {
+        val buffer = Buffer()
+        buffer.write(output)
+        sink.write(buffer, buffer.size)
+        sink.flush()
+    } catch (error: IOException) {
+        throw ArchiveIOException("sink write failed: ${error.message}", error)
+    }
+    return output.size.toLong()
+}
 
 private const val CHUNK = 64L * 1024

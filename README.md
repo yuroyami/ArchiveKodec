@@ -210,6 +210,19 @@ ArchiveKodec.codec("lz4")                 // Same instance as ArchiveKodec.lz4
 ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzip
 ```
 
+Decompressing into a `ByteSink` writes the output in chunks instead of returning one
+array. DEFLATE, Deflate64, zlib and gzip stream, holding about 1 MiB of output at a time,
+so the output can be larger than memory; other codecs decode in memory and then write.
+The limits are checked before every write, so raise `maxUncompressedBytes` for outputs
+above its 2 GiB default. `archivekodec-io` adds the same call for kotlinx-io sources and
+sinks.
+
+```kotlin
+val written: Long = ArchiveKodec.gzip.decompress(gzBytes, ByteSink { bytes, offset, length ->
+    file.write(bytes, offset, length)
+}, ArchiveLimits { maxUncompressedBytes = 16L shl 30 })
+```
+
 | Codec | Decode | Encode |
 | --- | --- | --- |
 | store | yes | yes |
@@ -1182,16 +1195,22 @@ fun Codec.compress(source: RawSource): ByteArray
 fun Codec.decompress(source: RawSource, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 ```
 
+```kotlin
+fun Codec.decompress(source: RawSource, sink: RawSink, limits: ArchiveLimits = ArchiveLimits.DEFAULT): Long
+fun Codec.compress(source: RawSource, sink: RawSink): Long
+```
+
 `toRandomAccessSource()` drains the entire source into a `ByteArray` and wraps it;
-use `FileRandomAccessSource` for files. There is no `RawSink` bridge yet, and a
-member is still read into one `ByteArray`.
+use `FileRandomAccessSource` for files. Decompressing into a `RawSink` streams the
+output for DEFLATE, zlib and gzip; the compressed input is always read whole, and
+compression is not streamed.
 
 ## Limits
 
-- Whole-array output. Codecs take and return a `ByteArray`, and a member is read
-  into one `ByteArray`. Archives can be opened from a file without loading them
-  (`FileRandomAccessSource` in `archivekodec-io`), but there is no streaming or
-  suspend API for the output yet.
+- Whole-array input. Codecs take a whole `ByteArray`; DEFLATE, zlib and gzip can stream
+  their output to a `ByteSink`, other codecs return or write one array, and an archive
+  member is read into one `ByteArray`. Archives can be opened from a file without loading
+  them (`FileRandomAccessSource` in `archivekodec-io`). There is no suspend API.
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).

@@ -859,10 +859,15 @@ public final class io/github/yuroyami/archivekodec/checksum/XxHash32 {
 	public static synthetic fun hash$default ([BIIIILjava/lang/Object;)J
 }
 
+public abstract interface class io/github/yuroyami/archivekodec/codec/ByteSink {
+	public abstract fun write ([BII)V
+}
+
 public abstract interface class io/github/yuroyami/archivekodec/codec/Codec {
 	public abstract fun compress ([B)[B
 	public fun compress ([BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
 	public fun decompress ([B)[B
+	public fun decompress ([BLio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public abstract fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 	public abstract fun getId ()Lio/github/yuroyami/archivekodec/codec/CodecId;
@@ -871,6 +876,7 @@ public abstract interface class io/github/yuroyami/archivekodec/codec/Codec {
 public final class io/github/yuroyami/archivekodec/codec/Codec$DefaultImpls {
 	public static fun compress (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
 	public static fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;[B)[B
+	public static fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 }
 
@@ -949,6 +955,7 @@ public final class io/github/yuroyami/archivekodec/codec/Store : io/github/yuroy
 	public fun compress ([B)[B
 	public fun compress ([BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
 	public fun decompress ([B)[B
+	public fun decompress ([BLio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public fun getId ()Lio/github/yuroyami/archivekodec/codec/CodecId;
 }

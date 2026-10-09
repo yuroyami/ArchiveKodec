@@ -107,6 +107,10 @@ abstract fun interface io.github.yuroyami.archivekodec.archive/FormatReaderFacto
     abstract fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec.archive/FormatReaderFactory.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
 }
 
+abstract fun interface io.github.yuroyami.archivekodec.codec/ByteSink { // io.github.yuroyami.archivekodec.codec/ByteSink|null[0]
+    abstract fun write(kotlin/ByteArray, kotlin/Int, kotlin/Int) // io.github.yuroyami.archivekodec.codec/ByteSink.write|write(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+}
+
 abstract fun interface io.github.yuroyami.archivekodec.crypto/ArchivePasswordProvider { // io.github.yuroyami.archivekodec.crypto/ArchivePasswordProvider|null[0]
     abstract fun password(kotlin/String?): kotlin/CharArray? // io.github.yuroyami.archivekodec.crypto/ArchivePasswordProvider.password|password(kotlin.String?){}[0]
 
@@ -154,6 +158,7 @@ abstract interface io.github.yuroyami.archivekodec.codec/Codec { // io.github.yu
     abstract fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec/Codec.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     open fun compress(kotlin/ByteArray, io.github.yuroyami.archivekodec.codec/CodecOptions): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec/Codec.compress|compress(kotlin.ByteArray;io.github.yuroyami.archivekodec.codec.CodecOptions){}[0]
     open fun decompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec/Codec.decompress|decompress(kotlin.ByteArray){}[0]
+    open fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/Long // io.github.yuroyami.archivekodec.codec/Codec.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 }
 
 abstract interface io.github.yuroyami.archivekodec.codec/CodecOptions // io.github.yuroyami.archivekodec.codec/CodecOptions|null[0]

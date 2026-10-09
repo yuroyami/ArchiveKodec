@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import kotlin.jvm.JvmStatic
 
 import io.github.yuroyami.archivekodec.ArchiveException
@@ -176,22 +177,36 @@ public object Gzip {
         // covers one member modulo 2^32, not the combined output of all members.
         val sizeHint = if (input.size >= 18) readU32Le(input, input.size - 4) else null
         val output = Inflate.Output(limits, input.size, sizeHint = sizeHint)
+        decodeMembers(input, output)
+        return output.takeByteArray()
+    }
+
+    /** Stream the output of every member to [sink]; return the byte count. */
+    internal fun decompressTo(input: ByteArray, limits: ArchiveLimits, sink: ByteSink): Long {
+        if (input.size < 2 || u(input, 0) != MAGIC0 || u(input, 1) != MAGIC1) return Zlib.decompressTo(input, limits, sink)
+        val output = Inflate.Output(limits, input.size, sink = sink)
+        decodeMembers(input, output)
+        return output.finish()
+    }
+
+    /** Decode every member into [output], checking each member's CRC-32 and ISIZE. */
+    private fun decodeMembers(input: ByteArray, output: Inflate.Output) {
         var position = 0
         do {
             val payload = gzipHeader(input, position)
-            val outputStart = output.size
+            val memberStart = output.produced
+            output.startChecksum(Crc32())
             val trailer = Inflate.inflateInto(input, payload, input.size, output)
             if (input.size - trailer < 8) throw ArchiveFormatException("gzip: truncated trailer", trailer.toLong())
-            if (readU32Le(input, trailer) != output.checksum(Crc32(), outputStart)) {
+            if (readU32Le(input, trailer) != output.checksumValue()) {
                 throw ArchiveFormatException("gzip: CRC-32 mismatch", trailer.toLong())
             }
-            if (readU32Le(input, trailer + 4) != (output.size - outputStart).toLong()) {
+            if (readU32Le(input, trailer + 4) != (output.produced - memberStart) and 0xFFFFFFFFL) {
                 throw ArchiveFormatException("gzip: ISIZE mismatch", (trailer + 4).toLong())
             }
             position = trailer + 8
             while (position < input.size && input[position] == 0.toByte()) position++
         } while (position < input.size)
-        return output.takeByteArray()
     }
 
     /**

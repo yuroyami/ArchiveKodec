@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.wrapper
 
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import kotlin.jvm.JvmStatic
 
 import io.github.yuroyami.archivekodec.ArchiveException
@@ -109,12 +110,24 @@ public object Zlib {
     @Throws(ArchiveException::class)
     @JvmStatic
     public fun decompress(input: ByteArray, limits: ArchiveLimits, dictionary: ByteArray?): ByteArray {
+        val output = Inflate.Output(limits, input.size)
+        decode(input, dictionary, output)
+        return output.takeByteArray()
+    }
+
+    /** Stream the output to [sink]; return the byte count. */
+    internal fun decompressTo(input: ByteArray, limits: ArchiveLimits, sink: ByteSink): Long {
+        val output = Inflate.Output(limits, input.size, sink = sink)
+        decode(input, null, output)
+        return output.finish()
+    }
+
+    private fun decode(input: ByteArray, dictionary: ByteArray?, output: Inflate.Output) {
         if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
         if (!hasZlibHeader(input)) {
             throw ArchiveFormatException("zlib: invalid header", 0)
         }
         var start = 2
-        val output = Inflate.Output(limits, input.size)
         if (input[1].toInt() and 0x20 != 0) {
             if (input.size < 6) throw ArchiveFormatException("zlib: truncated dictionary ID", 2)
             val id = readU32Be(input, 2)
@@ -125,12 +138,12 @@ public object Zlib {
             output.preload(dictionary)
             start = 6
         }
+        output.startChecksum(Adler32())
         val trailer = Inflate.inflateInto(input, start, input.size, output)
         if (input.size - trailer < 4) throw ArchiveFormatException("zlib: truncated Adler-32 trailer", trailer.toLong())
         val expected = readU32Be(input, trailer)
-        if (expected != output.checksum(Adler32())) throw ArchiveFormatException("zlib: Adler-32 mismatch", trailer.toLong())
+        if (expected != output.checksumValue()) throw ArchiveFormatException("zlib: Adler-32 mismatch", trailer.toLong())
         if (input.size - trailer != 4) throw ArchiveFormatException("zlib: trailing bytes after stream", (trailer + 4).toLong())
-        return output.takeByteArray()
     }
 
     /**

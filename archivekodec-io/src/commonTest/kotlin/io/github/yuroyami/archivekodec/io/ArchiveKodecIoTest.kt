@@ -8,6 +8,7 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlinx.io.IOException
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
+import kotlinx.io.readByteArray
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -137,5 +138,40 @@ class ArchiveKodecIoTest {
             closed = true
             buffer.close()
         }
+    }
+}
+
+class StreamingAdapterTest {
+    @kotlin.test.Test
+    fun decompressesIntoARawSinkInChunks() {
+        val data = kotlin.random.Random(11).nextBytes(3_000_000)
+        for (codec in listOf(io.github.yuroyami.archivekodec.codec.Codecs.GZIP, io.github.yuroyami.archivekodec.codec.Codecs.LZ4)) {
+            val compressed = kotlinx.io.Buffer()
+            val size = codec.compress(kotlinx.io.Buffer().apply { write(data) }, compressed)
+            kotlin.test.assertEquals(compressed.size, size)
+            var writes = 0
+            val target = kotlinx.io.Buffer()
+            val counting = object : kotlinx.io.RawSink {
+                override fun write(source: kotlinx.io.Buffer, byteCount: Long) { writes++; target.write(source, byteCount) }
+                override fun flush() {}
+                override fun close() {}
+            }
+            kotlin.test.assertEquals(data.size.toLong(), codec.decompress(compressed, counting))
+            kotlin.test.assertContentEquals(data, target.readByteArray())
+            if (codec === io.github.yuroyami.archivekodec.codec.Codecs.GZIP) kotlin.test.assertTrue(writes >= 2, "gzip wrote $writes times")
+        }
+    }
+
+    @kotlin.test.Test
+    fun sinkFailuresKeepTheirCause() {
+        val original = IOException("disk full")
+        val failing = object : RawSource, kotlinx.io.RawSink {
+            override fun readAtMostTo(sink: Buffer, byteCount: Long): Long = -1
+            override fun write(source: Buffer, byteCount: Long) = throw original
+            override fun flush() {}
+            override fun close() {}
+        }
+        val gz = Buffer().apply { write(Codecs.GZIP.compress("payload".encodeToByteArray())) }
+        assertSame(original, assertFailsWith<ArchiveIOException> { Codecs.GZIP.decompress(gz, failing as kotlinx.io.RawSink) }.cause)
     }
 }

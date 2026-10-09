@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Streaming decompression. `Codec.decompress(data, sink, limits)` writes the output to a
+  new `ByteSink` in chunks and returns the byte count. DEFLATE, Deflate64, zlib and gzip
+  stream, holding about 1 MiB of output plus a 64 KiB window, so the output can be larger
+  than memory; other codecs keep the buffered default. Limits are checked before every
+  write. `archivekodec-io` adds `Codec.decompress(source, sink, limits)` and
+  `Codec.compress(source, sink)` for kotlinx-io `RawSource`/`RawSink`.
+
 - Faster decoding, mostly on Kotlin/JS. LZ4 and Snappy decode loops work out their limit
   budget once per block and keep to Int arithmetic (Long is emulated on Kotlin/JS), and
   the shared output builder skips its growth check when there is room: on Node, LZ4 text

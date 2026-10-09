@@ -45,6 +45,7 @@ public object Codecs {
         override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Deflate.encode(data, deflateOptions(id, options))
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Inflate.inflate(data, limits)
+        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink)
     }
 
     private fun deflateOptions(id: CodecId, options: CodecOptions): DeflateOptions =
@@ -59,6 +60,7 @@ public object Codecs {
         override val id = CodecId.DEFLATE64
         override fun compress(data: ByteArray): ByteArray = Deflate.encode64(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Inflate.inflate64(data, limits)
+        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink, deflate64 = true)
     }
 
     /**
@@ -151,6 +153,7 @@ public object Codecs {
             Gzip.compress(data, GzipHeader.DEFAULT, deflateOptions(id, options))
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Gzip.decompress(data, limits)
+        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Gzip.decompressTo(data, limits, sink)
     }
 
     /**
@@ -164,6 +167,7 @@ public object Codecs {
         override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Zlib.compress(data, deflateOptions(id, options))
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Zlib.decompress(data, limits)
+        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Zlib.decompressTo(data, limits, sink)
     }
 
     /** LZ4 frame codec; decoding supports linked blocks and concatenated frames. */
