@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- RAR5 decompression. `RarReader` now reads compressed RAR5 members of every method,
+  including solid archives (members read in listing order decode the stream once) and the
+  delta, x86 E8/E8E9 and ARM filters, checked against their CRC-32. The window follows the
+  declared dictionary, capped by the stream's size and refused above
+  `ArchiveLimits.maxDecoderMemory`.
+
 - RAR reader. `RarReader` lists RAR4 and RAR5 archives (names including RAR4's compact
   Unicode form, sizes, times, Unix modes, encryption) and reads stored members with
   their CRC-32 checked; RAR5 symbolic links read as their target and hard links as the

@@ -17,6 +17,8 @@ import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.rar.Rar5Unpacker
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.DosTime
 import io.github.yuroyami.archivekodec.util.readU16Le
@@ -27,10 +29,13 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * `Rar!\x1A\x07\x00`) and RAR 5.0 and later ("RAR5", `Rar!\x1A\x07\x01\x00`).
  *
  * It lists every file and directory, with sizes, modification times, Unix modes for
- * archives made on Unix, and encryption. Stored members are read and checked against their
- * CRC-32. Compressed members, encrypted members and members split across volumes are listed
- * but refused on read with an [ArchiveUnsupportedException] that names the reason, as are
- * archives whose headers are encrypted. RAR5 symbolic links read as their target text, and
+ * archives made on Unix, and encryption. Stored members and RAR5 compressed members
+ * (including solid archives and the delta, x86 and ARM filters) are read and checked against
+ * their CRC-32; a solid member decodes the members before it, and reading in listing order
+ * decodes each once. RAR4 compressed members, RAR 7 compression with dictionaries over 4 GB,
+ * encrypted members and members split across volumes are listed but refused on read with an
+ * [ArchiveUnsupportedException] that names the reason, as are archives whose headers are
+ * encrypted. The RAR5 window is refused above [ArchiveLimits.maxDecoderMemory]. RAR5 symbolic links read as their target text, and
  * hard links and file copies read as the member they point to. RAR4 names use `/` for the
  * stored `\` separator; RAR4 names without a Unicode form are
  * decoded with [nameDecoder] (UTF-8 by default). DOS times are read as UTC.
@@ -50,6 +55,8 @@ public class RarReader(
     private class Item(
         val dataOffset: Long, val packed: Long, val crc: Long?,
         val refusal: String? = null, val target: ByteArray? = null, val linkTo: String? = null,
+        /** RAR5 compression information when the member is compressed, else -1. */
+        val compression: Long = -1, val size: Long = 0,
     )
 
     private class Directory(val entries: List<ArchiveEntry>, val items: List<Item>)
@@ -68,7 +75,15 @@ public class RarReader(
     private fun directory(): Directory = ownedSource.metadata { parse() }
 
     @Throws(ArchiveException::class)
-    override fun close(): Unit = ownedSource.close()
+    override fun close() {
+        unpacker = null
+        ownedSource.close()
+    }
+
+    /** The solid stream decoded so far: its first member and the last member fed to it. */
+    private var unpacker: Rar5Unpacker? = null
+    private var unpackerStart = -1
+    private var unpackerLast = -1
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
@@ -87,6 +102,12 @@ public class RarReader(
                 item.target != null -> item.target!!.copyOf()
                 item.refusal != null -> throw ArchiveUnsupportedException("RAR: ${item.refusal}", item.dataOffset)
                 listed.isDirectory -> ByteArray(0)
+                item.compression >= 0 -> {
+                    limits.checkRatio(item.packed, listed.size)
+                    val data = unpack(directory.items, directory.items.indexOf(item), limits)
+                    if (item.crc != null && Crc32.of(data) != item.crc) throw ArchiveFormatException("RAR: CRC-32 mismatch", item.dataOffset)
+                    data
+                }
                 else -> {
                     limits.checkOutputSize(item.packed)
                     limits.checkRatio(item.packed, item.packed)
@@ -99,6 +120,65 @@ public class RarReader(
     }
 
     private fun fail(message: String, offset: Long? = null): Nothing = throw ArchiveFormatException("RAR: $message", offset)
+
+    /**
+     * Decode compressed RAR5 member [index]. A solid member needs every compressed member
+     * before it back to the start of its stream, so the unpacker is kept: reading members in
+     * order decodes each once.
+     */
+    private fun unpack(items: List<Item>, index: Int, limits: ArchiveLimits): ByteArray {
+        fun solid(i: Int) = items[i].compression and SOLID_FLAG != 0L
+        var start = index
+        if (solid(index)) {
+            var j = index - 1
+            while (j >= 0) {
+                if (items[j].compression >= 0) {
+                    start = j
+                    if (!solid(j)) break
+                } else if (items[j].refusal != null && items[j].packed > 0) {
+                    throw ArchiveUnsupportedException("RAR: this solid member follows one that cannot be decoded: ${items[j].refusal}", items[index].dataOffset)
+                }
+                j--
+            }
+        }
+        val current = unpacker
+        val resume = current != null && unpackerStart == start && unpackerLast < index
+        val worker = if (resume) current!! else {
+            var total = 0L
+            var j = start
+            while (j < items.size && (j == start || items[j].compression < 0 || solid(j))) {
+                if (items[j].compression >= 0) total += items[j].size
+                j++
+            }
+            val dictionary = DICTIONARY_UNIT shl ((items[start].compression ushr 10) and 15).toInt()
+            val needed = maxOf(1L, minOf(dictionary, total))
+            var window = 1L
+            while (window < needed) window = window shl 1
+            if (window > limits.maxDecoderMemory || window > MAX_WINDOW) {
+                throw DecompressionBombException(
+                    "RAR: a $window B window exceeds the decoder memory limit ${minOf(limits.maxDecoderMemory, MAX_WINDOW)} B")
+            }
+            Rar5Unpacker(window.toInt(), dictionary)
+        }
+        unpacker = worker
+        unpackerStart = start
+        var result: ByteArray? = null
+        for (j in (if (resume) unpackerLast + 1 else start)..index) {
+            val item = items[j]
+            if (item.compression < 0) continue
+            unpackerLast = j
+            if (j == index) limits.checkOutputSize(item.size)
+            if (item.size > Int.MAX_VALUE || item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", item.dataOffset)
+            val data = source.readFullyChecked(item.dataOffset, item.packed)
+            try {
+                result = worker.unpack(data, 0, data.size, item.size.toInt(), keep = j == index)
+            } catch (error: ArchiveException) {
+                unpacker = null
+                throw error
+            }
+        }
+        return result ?: throw ArchiveFormatException("RAR: member has no compressed data", items[index].dataOffset)
+    }
 
     private fun parse(): Directory {
         val start = source.readFully(0, minOf(source.size, 8L).toInt())
@@ -326,7 +406,8 @@ public class RarReader(
                 flags and (SPLIT_BEFORE5 or SPLIT_AFTER5) != 0 -> "the member continues in another volume; multi-volume archives are not supported"
                 encrypted -> "the member is encrypted; RAR encryption is not supported"
                 isDirectory || target != null || linkTo != null -> null
-                method != 0 -> "compression method $method of RAR 5 is not supported; only stored members are read"
+                method != 0 && compression and 0x3F != 0L -> "RAR 7 compression (algorithm version ${compression and 0x3F}) is not supported"
+                method != 0 -> null
                 dataSize != unpacked -> "a stored member holds $dataSize bytes for $unpacked"
                 else -> null
             }
@@ -337,7 +418,8 @@ public class RarReader(
                 isEncrypted = encrypted
                 unixMode = if (host == HOST5_UNIX) attributes.toInt() and 0xFFFF else null
             }.withNameBytes(raw).locatedAt(dataOffset)
-            add(entries, items, entry, Item(dataOffset, dataSize, crc, refusal, target, linkTo))
+            val compressed = refusal == null && method != 0 && !isDirectory && target == null && linkTo == null
+            add(entries, items, entry, Item(dataOffset, dataSize, crc, refusal, target, linkTo, if (compressed) compression else -1, unpacked))
         }
     }
 
@@ -391,6 +473,9 @@ public class RarReader(
         const val REDIRECT_HARD_LINK = 4
         const val REDIRECT_FILE_COPY = 5
         const val FILETIME_EPOCH = 116_444_736_000_000_000L
+        const val SOLID_FLAG = 0x40L
+        const val DICTIONARY_UNIT = 128L * 1024
+        const val MAX_WINDOW = 1L shl 30
 
         /**
          * RAR4's compact Unicode name, after the NUL that ends the 8-bit name: a high byte for

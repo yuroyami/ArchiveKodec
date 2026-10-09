@@ -159,7 +159,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), CAB read (stored, MSZIP, LZX), WIM read (XPRESS, LZX), and SquashFS 4.0 read (gzip, LZMA, LZO, xz, LZ4, zstd), and RAR4/RAR5 listing with stored members read |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), CAB read (stored, MSZIP, LZX), WIM read (XPRESS, LZX), and SquashFS 4.0 read (gzip, LZMA, LZO, xz, LZ4, zstd), and RAR read (RAR4 stored; RAR5 stored and compressed, including solid) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -702,7 +702,7 @@ The readers call it synchronously; browsers offer only the asynchronous WebCrypt
 | CAB | yes (stored, MSZIP and LZX folders, each decoded once; Quantum and files that span cabinets are listed but refused on read) | no |
 | WIM | yes (uncompressed, XPRESS and LZX; deduplicated resources and SHA-1 checks; several images as `1/`, `2/`; LZMS and solid `.esd` images refused) | no |
 | SquashFS 4.0 | yes (gzip, LZMA, LZO, xz with the x86 BCJ filter, LZ4, zstd; fragments, sparse blocks, symlinks read as their target, devices and FIFOs listed) | no |
-| RAR4 and RAR5 | listing; stored members, links and directories read with CRC checks. Compressed, encrypted and multi-volume members, and archives with encrypted headers, are refused on read | never |
+| RAR4 and RAR5 | yes: stored members of both, and RAR5 compressed members (all methods, solid archives, delta, x86 and ARM filters), with CRC checks. RAR4 compression, encrypted and multi-volume members, and archives with encrypted headers are refused on read | never |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version
