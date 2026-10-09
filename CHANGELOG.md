@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- The DEFLATE encoder (also behind gzip, zlib and `ZipWriter`) now writes blocks of
+  16,384 symbols, each stored, fixed or dynamic, whichever is smallest, and keeps its
+  match chain in a ring over the 32 KiB window. Working memory no longer grows with the
+  input (16 MiB of text allocates 9 MB instead of 111 MB), random data is stored rather
+  than inflated, and mixed input compresses within 0.1% of zlib level 6. Output bytes
+  change for inputs longer than one block.
+
 - Encrypted archives. ZIP reads ZipCrypto and WinZip AES (AE-1 and AE-2, 128 to 256
   bits) and writes WinZip AES through `ZipWriter.write(files, ZipEncryption(...))`; the
   7z reader decrypts AES-256 data and encrypted headers. Passwords come from the new

@@ -213,7 +213,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | Codec | Decode | Encode |
 | --- | --- | --- |
 | store | yes | yes |
-| DEFLATE (RFC 1951) | yes | yes (fixed and dynamic Huffman, whichever is smaller) |
+| DEFLATE (RFC 1951) | yes | yes (blocks of 16,384 symbols, each stored, fixed or dynamic, whichever is smallest; memory beyond the output is fixed) |
 | Deflate64 (ZIP method 9) | yes (64 KiB window, long matches) | yes (DEFLATE-compatible codes, 32 KiB window) |
 | bzip2 | yes (any level, concatenated streams, randomised blocks, CRC-checked) | yes (level 9; ZIP method 12 reads) |
 | LZMA (`.lzma`) | yes (known size or end marker) | yes (greedy/lazy parser, no end marker) |

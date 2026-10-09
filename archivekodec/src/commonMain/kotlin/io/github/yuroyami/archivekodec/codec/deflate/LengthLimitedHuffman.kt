@@ -9,9 +9,30 @@ package io.github.yuroyami.archivekodec.codec.deflate
  * Lists need at most 2n-2 items. Primitive node arrays use O(n * maxLen) space;
  * reverse node traversal expands the selected packages without recursion. Weight
  * ties prefer leaves, then original symbol order, for deterministic output.
+ *
+ * An encoder that builds many trees passes one [Workspace], so the node arrays are
+ * allocated once rather than per block.
  */
 internal object LengthLimitedHuffman {
-    fun codeLengths(frequencies: IntArray, maxLen: Int): IntArray {
+    /** Reusable node arrays; not thread-safe, so keep one per encoder. */
+    class Workspace {
+        internal var weights = LongArray(0)
+        internal var left = IntArray(0)
+        internal var right = IntArray(0)
+        internal var listA = IntArray(0)
+        internal var listB = IntArray(0)
+        internal var packages = IntArray(0)
+        internal var occurrences = IntArray(0)
+
+        internal fun ensure(count: Int, capacity: Int) {
+            if (weights.size < capacity) {
+                weights = LongArray(capacity); left = IntArray(capacity); right = IntArray(capacity); occurrences = IntArray(capacity)
+            }
+            if (listA.size < 2 * count) { listA = IntArray(2 * count); listB = IntArray(2 * count); packages = IntArray(2 * count) }
+        }
+    }
+
+    fun codeLengths(frequencies: IntArray, maxLen: Int, workspace: Workspace = Workspace()): IntArray {
         require(maxLen in 1..15) { "DEFLATE code length limit must be in 1..15" }
         require(frequencies.all { it >= 0 }) { "negative Huffman frequency" }
         val lengths = IntArray(frequencies.size)
@@ -30,17 +51,22 @@ internal object LengthLimitedHuffman {
 
         val levels = minOf(maxLen, count - 1)
         val capacity = count + (levels - 1) * (count - 1)
-        val weights = LongArray(capacity)
-        val left = IntArray(capacity)
-        val right = IntArray(capacity)
+        workspace.ensure(count, capacity)
+        val weights = workspace.weights
+        val left = workspace.left
+        val right = workspace.right
+        val packages = workspace.packages
         for (i in 0 until count) weights[i] = frequencies[symbols[i]].toLong()
         var nodes = count
-        var list = IntArray(count) { it }
+        var list = workspace.listA
+        var spare = workspace.listB
+        for (i in 0 until count) list[i] = i
+        var listSize = count
         val selectedCount = 2 * count - 2
 
         repeat(levels - 1) {
-            val packages = IntArray(list.size / 2)
-            for (i in packages.indices) {
+            val packageCount = listSize / 2
+            for (i in 0 until packageCount) {
                 val a = list[2 * i]
                 val b = list[2 * i + 1]
                 packages[i] = nodes
@@ -50,22 +76,26 @@ internal object LengthLimitedHuffman {
                 nodes++
             }
             // Pair sums remain sorted because their source list is sorted.
-            val merged = IntArray(minOf(selectedCount, count + packages.size))
+            val mergedSize = minOf(selectedCount, count + packageCount)
             var leaf = 0
             var pack = 0
-            for (i in merged.indices) {
-                merged[i] = if (leaf < count &&
-                    (pack == packages.size || weights[leaf] <= weights[packages[pack]])) {
+            for (i in 0 until mergedSize) {
+                spare[i] = if (leaf < count &&
+                    (pack == packageCount || weights[leaf] <= weights[packages[pack]])) {
                     leaf++
                 } else {
                     packages[pack++]
                 }
             }
+            val merged = spare
+            spare = list
             list = merged
+            listSize = mergedSize
         }
-        check(list.size == selectedCount) { "incomplete Huffman package list" }
-        val occurrences = IntArray(nodes)
-        for (node in list) occurrences[node]++
+        check(listSize == selectedCount) { "incomplete Huffman package list" }
+        val occurrences = workspace.occurrences
+        occurrences.fill(0, 0, nodes)
+        for (i in 0 until listSize) occurrences[list[i]]++
         // Parents have larger ids than their children, so one backward pass
         // propagates every selected occurrence down to its constituent leaves.
         for (node in nodes - 1 downTo count) {

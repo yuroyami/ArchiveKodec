@@ -22,7 +22,8 @@ class DeflateLengthLimitRoundTripTest {
     @Test
     fun rawDeflateRoundTripsTheOversubscribedTreeRegression() {
         val compressed = Deflate.encode(deflateLengthLimitInput)
-        assertEquals(5, compressed[0].toInt() and 7, "expected a final dynamic block")
+        // The encoder now cuts blocks of 16,384 symbols; the first is dynamic and not final.
+        assertEquals(4, compressed[0].toInt() and 7, "expected a non-final dynamic first block")
         assertContentEquals(deflateLengthLimitInput, Inflate.inflate(compressed))
         assertContentEquals(compressed, Deflate.encode(deflateLengthLimitInput), "deterministic encoding")
     }

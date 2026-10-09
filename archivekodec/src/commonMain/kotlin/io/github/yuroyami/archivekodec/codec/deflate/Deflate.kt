@@ -36,14 +36,17 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 /**
  * Pure-Kotlin RFC 1951 DEFLATE *deflater*, the inverse of [Inflate].
  *
- * Pipeline: greedy hash-chained LZ77 over a 32 KiB window → one final block,
- * emitted with whichever of **fixed** (BTYPE=01) or **dynamic** (BTYPE=10) Huffman
- * codes is smaller for this input. Dynamic trees use optimal binary package-merge
- * lengths, capped at 15 bits (7 for the code-length code). Symbol coverage, length
- * bounds and Kraft equality are checked before the tables can be selected.
+ * Pipeline: greedy hash-chained LZ77 over a 32 KiB window, cut into blocks of at most
+ * 16,384 symbols (zlib's default). Each block is written as whichever of **stored**
+ * (BTYPE=00), **fixed** (BTYPE=01) or **dynamic** (BTYPE=10) is smallest, so each part
+ * of a mixed input gets its own codes and incompressible stretches are stored. Dynamic
+ * trees use optimal binary package-merge lengths, capped at 15 bits (7 for the
+ * code-length code). Symbol coverage, length bounds and Kraft equality are checked
+ * before the tables can be selected.
  *
- * This encoder never emits stored (BTYPE=00) blocks and never splits its output into
- * several blocks. One dynamic or fixed block encodes an input of any size.
+ * Working memory is bounded: the match chain is a ring over the 32 KiB window and one
+ * block's symbols are buffered at a time, so beyond the output only a few hundred
+ * kilobytes are used whatever the input size.
  *
  * Output is bare DEFLATE; the gzip/zlib framers wrap it. It decodes byte-for-byte
  * through [Inflate] and through stock zlib.
@@ -76,22 +79,32 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
     private var bitBuf = 0
     private var bitCount = 0
 
-    // LZ77 token stream, packed one Int per token (see [MATCH_FLAG]).
-    private var tokens = IntArray(256)
+    // One block's LZ77 tokens, packed one Int per token (see [MATCH_FLAG]).
+    private val tokens = IntArray(BLOCK_TOKENS)
     private var tokenCount = 0
 
-    // Symbol frequencies gathered during LZ77.
+    // The current block's symbol frequencies and extra-bit total.
     private val llFreq = IntArray(286)   // literals 0..255, EOB 256, length codes 257..285
     private val dFreq = IntArray(30)     // distance codes
+    private var extraBits = 0L
+    private var blockStart = 0           // first input byte of the current block
+    private val workspace = LengthLimitedHuffman.Workspace()
 
     @Throws(ArchiveException::class)
     fun encode(): ByteArray {
         lz77()
+        flushBlock(data.size, final = true)
+        flushToByte()
+        return out.toByteArray()
+    }
+
+    /** Write the buffered tokens, covering input [blockStart] until [end], as the smallest block type. */
+    private fun flushBlock(end: Int, final: Boolean) {
         llFreq[END_OF_BLOCK]++           // every block ends with one EOB
 
         // Build dynamic tables.
-        val llLen = LengthLimitedHuffman.codeLengths(llFreq, MAX_BITS)
-        val dLenRaw = LengthLimitedHuffman.codeLengths(dFreq, MAX_BITS)
+        val llLen = LengthLimitedHuffman.codeLengths(llFreq, MAX_BITS, workspace)
+        val dLenRaw = LengthLimitedHuffman.codeLengths(dFreq, MAX_BITS, workspace)
         val dLen = if (dLenRaw.any { it > 0 }) dLenRaw else IntArray(30).also { it[0] = 1 }
 
         val hlit = maxIndex(llLen, minTop = END_OF_BLOCK) + 1   // >= 257
@@ -101,27 +114,64 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         val clSeq = buildCodeLengthSequence(llLen, hlit, dLen, hdist)
         val clFreq = IntArray(19)
         for (i in clSeq.indices step 3) clFreq[clSeq[i]]++
-        val clLen = LengthLimitedHuffman.codeLengths(clFreq, MAX_CL_BITS)
+        val clLen = LengthLimitedHuffman.codeLengths(clFreq, MAX_CL_BITS, workspace)
         var numCl = 19
         while (numCl > 4 && clLen[ORDER[numCl - 1]] == 0) numCl--
 
-        // Pick the smaller of dynamic vs fixed (extra bits cancel, so compare the rest).
-        val dynamicBits = dynamicHeaderBits(numCl, clSeq, clLen) + symbolBits(llLen, dLen)
-        val fixedBits = fixedSymbolBits()
-        val useDynamic = dynamicBits < fixedBits
-
-        // BFINAL=1, then BTYPE (LSB-first).
-        writeBits(1, 1)
-        if (useDynamic) {
-            writeBits(0b10, 2)
-            writeDynamicHeader(hlit, hdist, numCl, clSeq, clLen)
-            emitData(canonicalCodes(llLen), llLen, canonicalCodes(dLen), dLen)
-        } else {
-            writeBits(0b01, 2)
-            emitData(FIXED_LITLEN_CODE, FIXED_LITLEN_LEN, FIXED_DIST_CODE, FIXED_DIST_LEN)
+        // Pick the smallest of stored, fixed and dynamic.
+        val dynamicBits = 3 + dynamicHeaderBits(numCl, clSeq, clLen) + symbolBits(llLen, dLen) + extraBits
+        val fixedBits = 3 + fixedSymbolBits() + extraBits
+        val storedBits = storedBits(end - blockStart)
+        val finalBit = if (final) 1 else 0
+        when {
+            storedBits < minOf(dynamicBits, fixedBits) -> writeStored(blockStart, end, final)
+            dynamicBits < fixedBits -> {
+                writeBits(finalBit, 1)
+                writeBits(0b10, 2)
+                writeDynamicHeader(hlit, hdist, numCl, clSeq, clLen)
+                emitData(canonicalCodes(llLen), llLen, canonicalCodes(dLen), dLen)
+            }
+            else -> {
+                writeBits(finalBit, 1)
+                writeBits(0b01, 2)
+                emitData(FIXED_LITLEN_CODE, FIXED_LITLEN_LEN, FIXED_DIST_CODE, FIXED_DIST_LEN)
+            }
         }
-        flushToByte()
-        return out.toByteArray()
+        tokenCount = 0
+        llFreq.fill(0)
+        dFreq.fill(0)
+        extraBits = 0
+        blockStart = end
+    }
+
+    /** Bits to store [length] bytes: stored blocks hold at most 65,535 bytes after a byte-aligned header. */
+    private fun storedBits(length: Int): Long {
+        var bits = 0L
+        var remaining = length
+        var first = true
+        do {
+            val chunk = minOf(remaining, MAX_STORED)
+            val pad = if (first) (8 - (bitCount + 3) % 8) % 8 else 5
+            bits += 3 + pad + 32 + 8L * chunk
+            remaining -= chunk
+            first = false
+        } while (remaining > 0)
+        return bits
+    }
+
+    private fun writeStored(start: Int, end: Int, final: Boolean) {
+        var position = start
+        do {
+            val chunk = minOf(end - position, MAX_STORED)
+            val last = position + chunk == end
+            writeBits(if (final && last) 1 else 0, 1)
+            writeBits(0b00, 2)
+            flushToByte()
+            writeBits(chunk, 16)
+            writeBits(chunk.inv() and 0xFFFF, 16)
+            out.append(data, position, chunk)
+            position += chunk
+        } while (position < end)
     }
 
     /* ─── LZ77 (greedy, hash-chained): gathers tokens + frequencies ──────── */
@@ -130,7 +180,10 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         val n = data.size
         if (n == 0) return
         val head = EncoderMatchTable(HASH_BITS, n)
-        val prev = IntArray(n)
+        // Each position's predecessor in its hash chain. Only positions inside the window
+        // are followed, and those slots have not been reused yet, so a ring suffices.
+        val prev = IntArray(minOf(n, WINDOW_SIZE))
+        val mask = WINDOW_SIZE - 1
 
         fun hash(i: Int): Int {
             val a = data[i].toInt() and 0xFF
@@ -141,7 +194,7 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         fun insert(i: Int) {
             if (i > n - MIN_MATCH) return
             val h = hash(i)
-            prev[i] = head.put(h, i)
+            prev[i and mask] = head.put(h, i)
         }
 
         var pos = 0
@@ -161,7 +214,7 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
                         bestDist = pos - cand
                         if (l >= maxLen) break
                     }
-                    cand = prev[cand]
+                    cand = prev[cand and mask]
                 }
             }
             if (bestLen >= MIN_MATCH) {
@@ -173,6 +226,7 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
                 insert(pos)
                 pos++
             }
+            if (tokenCount == BLOCK_TOKENS && pos < n) flushBlock(pos, final = false)
         }
     }
 
@@ -183,12 +237,14 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
 
     private fun addMatch(length: Int, distance: Int) {
         appendToken(MATCH_FLAG or (length shl 16) or distance)
-        llFreq[END_OF_BLOCK + 1 + lengthCode(length)]++  // 257 + lc
-        dFreq[distCode(distance)]++
+        val lc = lengthCode(length)
+        val dc = distCode(distance)
+        llFreq[END_OF_BLOCK + 1 + lc]++  // 257 + lc
+        dFreq[dc]++
+        extraBits += LENGTH_EXTRA[lc] + DIST_EXTRA[dc]
     }
 
     private fun appendToken(t: Int) {
-        if (tokenCount == tokens.size) tokens = tokens.copyOf(tokens.size * 2)
         tokens[tokenCount++] = t
     }
 
@@ -349,6 +405,8 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         private const val HASH_BITS = 15
         private const val HASH_SIZE = 1 shl HASH_BITS
         private const val MAX_CHAIN = 128
+        private const val BLOCK_TOKENS = 16_384
+        private const val MAX_STORED = 65_535
 
         private const val END_OF_BLOCK = 256
         private const val MAX_BITS = 15        // max bits for lit/len + dist codes
