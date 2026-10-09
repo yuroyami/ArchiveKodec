@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Deflate64 (PKWARE "enhanced deflate"): `Codecs.DEFLATE64`,
+  `CodecId.DEFLATE64`, `ArchiveKodec.deflate64` and a default binding for ZIP
+  method 9, so method-9 entries now read. Decoding supports the 64 KiB window and
+  long matches; encoding emits DEFLATE-compatible codes that Deflate64 decoders
+  accept. Unknown-method examples now use method 11.
+
 - Entries now report `lastModifiedEpochSeconds` (UTC) from every reader, plus the
   new `unixMode` (Unix `st_mode` with type bits) and `comment` (ZIP entry comment).
   ZIP prefers the extended timestamp and reads DOS time as UTC; an empty TAR time

@@ -151,15 +151,16 @@ This is what works today:
 
 | Area | What is implemented |
 | --- | --- |
-| Codecs | DEFLATE both directions, gzip and zlib framing, LZ4 and Snappy both directions |
+| Codecs | DEFLATE and Deflate64 both directions, gzip and zlib framing, LZ4 and Snappy both directions |
 | Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), and cpio read and write (newc/crc) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
 Two things apply to every entry point. First, everything is whole-array. You
 pass a `ByteArray` and get a `ByteArray` back, so the whole payload stays in
-memory, and there is no streaming API. Second, the readers do not sanitize entry
-names. You must call `PathGuard` yourself before you use a name as a path.
+memory, and there is no streaming API. Second, readers refuse unsafe entry names
+by default but keep the stored spelling. Join `PathGuard.sanitize(entry.name)`,
+not the raw name, to an output directory.
 
 ```kotlin
 import io.github.yuroyami.archivekodec.ArchiveKodec
@@ -206,6 +207,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | --- | --- | --- |
 | store | yes | yes |
 | DEFLATE (RFC 1951) | yes | yes (fixed and dynamic Huffman, whichever is smaller) |
+| Deflate64 (ZIP method 9) | yes (64 KiB window, long matches) | yes (DEFLATE-compatible codes, 32 KiB window) |
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
@@ -596,8 +598,8 @@ unsupported. Masked local headers used with central-directory encryption
 `ArchiveEntry.zipMethod` exposes the original central-directory method number,
 including 99 for AES; it is null for other containers and manually constructed
 entries, and survives entry copies. Known methods retain their codec ids, while
-an unbound method uses `CodecId("zip-method-N")` (for example, `zip-method-9` for
-method 9), rather than STORE. A custom ZIP binding reports the registered id and
+an unbound method uses `CodecId("zip-method-N")` (for example, `zip-method-11` for
+method 11), rather than STORE. A custom ZIP binding reports the registered id and
 retains the original number. Check `reader.codecs.byZipMethod(entry.zipMethod!!)`
 for decoder availability; registering an id alone does not bind an unknown wire
 method. Reading an unbound method throws `ArchiveUnsupportedException` before
@@ -605,7 +607,7 @@ fetching its payload. Encryption is refused even when a custom decoder is bound.
 
 | Format | Read | Write |
 | --- | --- | --- |
-| ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
+| ZIP and ZIP64 | yes (STORE, DEFLATE and Deflate64) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU, pax) | yes | ustar + GNU long names; regular files/directories |
 | ar (GNU) | yes | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |

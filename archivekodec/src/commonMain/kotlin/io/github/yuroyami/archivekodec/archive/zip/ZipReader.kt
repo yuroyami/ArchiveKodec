@@ -154,6 +154,7 @@ public class ZipReader(
         val out = try {
             when {
                 codec === Codecs.DEFLATE -> Inflate.inflateExact(comp, limits, entry.size)
+                codec === Codecs.DEFLATE64 -> Inflate.inflateExact(comp, limits, entry.size, deflate64 = true)
                 // readFullyChecked allocated this result; no source storage is shared.
                 codec === Codecs.STORE -> comp
                 else -> codec.decompress(comp, limits)

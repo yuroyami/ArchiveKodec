@@ -63,23 +63,23 @@ class ZipCodecRegistryTest {
     }
 
     @Test fun unknownCodecMetadataDoesNotCreateAWireMethodBinding() {
-        val bytes = patchMethod(zip(), 9)
-        val id = CodecId("zip-method-9")
+        val bytes = patchMethod(zip(), 11)
+        val id = CodecId("zip-method-11")
         val engine = Decoder(id) { input, limits -> Codecs.STORE.decompress(input, limits) }
         val unbound = CodecRegistry.DEFAULT.with(engine)
         assertSame(engine, unbound.byId(id))
-        assertNull(unbound.byZipMethod(9))
+        assertNull(unbound.byZipMethod(11))
         ZipReader(ByteArrayRandomAccessSource(bytes), unbound).use { reader ->
             val entry = reader.entries().single()
             assertEquals(id, entry.codec)
-            assertEquals(9, entry.zipMethod)
+            assertEquals(11, entry.zipMethod)
             assertFailsWith<ArchiveUnsupportedException> { reader.read(entry.copy()) }
         }
         assertEquals(0, engine.calls)
-        ZipReader(ByteArrayRandomAccessSource(bytes), unbound.with(engine, 9)).use { reader ->
+        ZipReader(ByteArrayRandomAccessSource(bytes), unbound.with(engine, 11)).use { reader ->
             val entry = reader.entries().single()
             assertEquals(id, entry.codec)
-            assertEquals(9, entry.zipMethod)
+            assertEquals(11, entry.zipMethod)
             assertContentEquals(data, reader.read(entry.copy()))
         }
         assertEquals(1, engine.calls)

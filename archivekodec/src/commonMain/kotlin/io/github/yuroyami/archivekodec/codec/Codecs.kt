@@ -33,6 +33,17 @@ public object Codecs {
             Inflate.inflate(data, limits)
     }
 
+    /**
+     * Raw Deflate64 (PKWARE "enhanced deflate", ZIP method 9). Decoding handles the 64 KiB
+     * window and long matches; encoding emits DEFLATE-compatible codes within 32 KiB.
+     */
+    @JvmField
+    public val DEFLATE64: Codec = object : Codec {
+        override val id = CodecId.DEFLATE64
+        override fun compress(data: ByteArray): ByteArray = Deflate.encode64(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Inflate.inflate64(data, limits)
+    }
+
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */
     @JvmField
     public val GZIP: Codec = object : Codec {

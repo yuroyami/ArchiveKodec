@@ -62,9 +62,15 @@ public object Deflate {
     @Throws(ArchiveException::class)
     @JvmStatic
     public fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
+
+    /**
+     * Compress [data] to a Deflate64 stream. Deflate64 shares DEFLATE's codes except length
+     * code 285, so capping matches at 257 bytes makes the DEFLATE output valid Deflate64.
+     */
+    internal fun encode64(data: ByteArray): ByteArray = Deflater(data, maxMatch = 257).encode()
 }
 
-private class Deflater(private val data: ByteArray) {
+private class Deflater(private val data: ByteArray, private val maxMatch: Int = 258) {
 
     private val out = ByteArrayBuilder(maxOf(64, data.size / 3))
     private var bitBuf = 0
@@ -143,7 +149,7 @@ private class Deflater(private val data: ByteArray) {
             var bestLen = 0
             var bestDist = 0
             if (pos <= n - MIN_MATCH) {
-                val maxLen = minOf(MAX_MATCH, n - pos)
+                val maxLen = minOf(maxMatch, n - pos)
                 val minPos = maxOf(0, pos - WINDOW_SIZE)
                 var cand = head[hash(pos)]
                 var chain = MAX_CHAIN

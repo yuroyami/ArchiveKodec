@@ -66,13 +66,13 @@ class ArchiveErrorContractTest {
     @Test
     fun unsupportedZipMethodsAndBudgetFailuresRetainEntryContext() {
         val bytes = ZipWriter.write(listOf(ZipWriter.FileSpec("a", byteArrayOf(65), ZipMethod.STORED)))
-        bytes[8] = 9 // Deflate64, consistently unsupported in both headers.
-        bytes[readU32Le(bytes, bytes.size - 6).toInt() + 10] = 9
+        bytes[8] = 11 // A reserved method, consistently unsupported in both headers.
+        bytes[readU32Le(bytes, bytes.size - 6).toInt() + 10] = 11
         val reader = ZipReader(ByteArrayRandomAccessSource(bytes))
         val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(reader.entries().single()) }
         assertEquals("a", error.entryName)
         assertEquals(8L, error.offset)
-        assertTrue(error.message!!.contains("method 9"))
+        assertTrue(error.message!!.contains("method 11"))
         val valid = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(listOf(ZipWriter.FileSpec("b", byteArrayOf(65), ZipMethod.STORED)))))
         val bomb = assertFailsWith<DecompressionBombException> {
             valid.read(valid.entries().single(), ArchiveLimits { maxUncompressedBytes = 0 })

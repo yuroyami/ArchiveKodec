@@ -44,6 +44,8 @@ public class CodecId @Throws(IllegalArgumentException::class) public constructor
         @JvmField public val STORE: CodecId = CodecId("store")
         /** Raw DEFLATE compression as defined by RFC 1951. */
         @JvmField public val DEFLATE: CodecId = CodecId("deflate")
+        /** PKWARE Deflate64 ("enhanced deflate"), ZIP method 9: a 64 KiB window and longer matches. */
+        @JvmField public val DEFLATE64: CodecId = CodecId("deflate64")
         /** DEFLATE with RFC 1950 zlib framing. */
         @JvmField public val ZLIB: CodecId = CodecId("zlib")
         /** DEFLATE with RFC 1952 gzip framing. */

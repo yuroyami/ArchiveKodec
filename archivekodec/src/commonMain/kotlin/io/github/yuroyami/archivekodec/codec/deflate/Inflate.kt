@@ -73,7 +73,8 @@ public object Inflate {
     private const val MAXBITS = 15        // maximum bits in a code
     private const val MAXLCODES = 286     // maximum number of literal/length codes
     private const val MAXDCODES = 30      // maximum number of distance codes
-    private const val MAXCODES = MAXLCODES + MAXDCODES
+    private const val MAXDCODES64 = 32    // Deflate64 also uses distance codes 30 and 31
+    private const val MAXCODES = MAXLCODES + MAXDCODES64
     private const val FIXLCODES = 288     // number of fixed literal/length codes
 
     // Size base for length codes 257..285 (puff `lens[]`).
@@ -98,6 +99,11 @@ public object Inflate {
         7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
         12, 12, 13, 13,
     )
+    // Deflate64 (PKWARE "enhanced deflate", ZIP method 9) differs in three places: distance
+    // codes 30 and 31 reach back 64 KiB, and length code 285 means 3 plus 16 extra bits.
+    private val DISTS64 = IntArray(MAXDCODES64) { if (it < 30) DISTS[it].toInt() else if (it == 30) 32769 else 49153 }
+    private val DEXT64 = IntArray(MAXDCODES64) { if (it < 30) DEXT[it].toInt() else 14 }
+
     // Permutation of the code length codes in a dynamic block (puff `order[]`).
     private val ORDER = intArrayOf(
         16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
@@ -131,12 +137,15 @@ public object Inflate {
     public fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null)
 
     /** ZIP's authoritative size constrains writes as well as the final stream length. */
-    internal fun inflateExact(input: ByteArray, limits: ArchiveLimits, expectedSize: Long): ByteArray =
-        inflateChecked(input, limits, expectedSize)
+    internal fun inflateExact(input: ByteArray, limits: ArchiveLimits, expectedSize: Long, deflate64: Boolean = false): ByteArray =
+        inflateChecked(input, limits, expectedSize, deflate64)
 
-    private fun inflateChecked(input: ByteArray, limits: ArchiveLimits, expectedSize: Long?): ByteArray {
+    /** Inflate one complete Deflate64 stream, the format of ZIP method 9. */
+    internal fun inflate64(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null, true)
+
+    private fun inflateChecked(input: ByteArray, limits: ArchiveLimits, expectedSize: Long?, deflate64: Boolean = false): ByteArray {
         val output = Output(limits, input.size, expectedSize)
-        val end = inflateInto(input, 0, input.size, output)
+        val end = inflateInto(input, 0, input.size, output, deflate64)
         if (end != input.size) throw ArchiveFormatException("deflate: trailing bytes after stream", end.toLong())
         if (expectedSize != null && output.size.toLong() != expectedSize) {
             throw ArchiveFormatException("deflate: output size ${output.size} differs from expected size $expectedSize", end.toLong())
@@ -145,9 +154,9 @@ public object Inflate {
     }
 
     /** Return the first byte after the final block, including its partial final byte. */
-    internal fun inflateInto(input: ByteArray, offset: Int, end: Int, output: Output): Int {
+    internal fun inflateInto(input: ByteArray, offset: Int, end: Int, output: Output, deflate64: Boolean = false): Int {
         require(offset >= 0 && end >= offset && end <= input.size) { "Invalid DEFLATE input slice" }
-        val s = State(input, offset, end, output)
+        val s = State(input, offset, end, output, deflate64)
         try {
             var last: Int
             do {
@@ -260,7 +269,7 @@ public object Inflate {
     /** Per-stream input and bit cursor, with a dictionary starting at [outputStart]. */
     private class State(
         private val inBuf: ByteArray, offset: Int, private val end: Int,
-        private val output: Output,
+        private val output: Output, val deflate64: Boolean,
     ) {
         var position = offset
             private set
@@ -491,11 +500,15 @@ public object Inflate {
                 symbol > 256 -> {
                     var sym = symbol - 257
                     if (sym >= 29) return InflateError.INVALID_LITERAL_OR_DISTANCE_CODE.code
-                    val len = LENS[sym].toInt() + s.bits(LEXT[sym].toInt())
+                    val len = if (sym == 28 && s.deflate64) 3 + s.bits(16) else LENS[sym].toInt() + s.bits(LEXT[sym].toInt())
 
                     sym = decode(s, distcode)
                     if (sym < 0) return sym
-                    val dist = DISTS[sym].toInt() + s.bits(DEXT[sym].toInt())
+                    val dist = when {
+                        s.deflate64 -> DISTS64[sym] + s.bits(DEXT64[sym])
+                        sym >= MAXDCODES -> return InflateError.INVALID_LITERAL_OR_DISTANCE_CODE.code
+                        else -> DISTS[sym].toInt() + s.bits(DEXT[sym].toInt())
+                    }
                     if (dist > s.outcnt) return InflateError.DISTANCE_TOO_FAR_BACK.code
                     s.copyBack(dist, len)
                 }
@@ -521,7 +534,12 @@ public object Inflate {
         construct(table, ShortArray(MAXDCODES) { 5 }, MAXDCODES)
     }
 
-    private fun fixed(s: State): Int = codes(s, fixedLiteral, fixedDistance)
+    // Deflate64's fixed block assigns codes 30 and 31 instead of reserving them.
+    private val fixedDistance64 = Huffman(MAXDCODES64).also { table ->
+        construct(table, ShortArray(MAXDCODES64) { 5 }, MAXDCODES64)
+    }
+
+    private fun fixed(s: State): Int = codes(s, fixedLiteral, if (s.deflate64) fixedDistance64 else fixedDistance)
 
     private fun dynamic(s: State): Int {
         val lengths = ShortArray(MAXCODES)
@@ -529,7 +547,7 @@ public object Inflate {
         val nlen = s.bits(5) + 257
         val ndist = s.bits(5) + 1
         val ncode = s.bits(4) + 4
-        if (nlen > MAXLCODES || ndist > MAXDCODES) {
+        if (nlen > MAXLCODES || ndist > (if (s.deflate64) MAXDCODES64 else MAXDCODES)) {
             return InflateError.TOO_MANY_LENGTH_OR_DISTANCE_CODES.code
         }
 
@@ -578,9 +596,9 @@ public object Inflate {
             return InflateError.INVALID_LITERAL_LENGTH_CODE_LENGTHS.code
         }
 
-        val distLengths = ShortArray(MAXDCODES)
+        val distLengths = ShortArray(MAXDCODES64)
         for (i in 0 until ndist) distLengths[i] = lengths[nlen + i]
-        val distcode = Huffman(MAXDCODES)
+        val distcode = Huffman(MAXDCODES64)
         err = construct(distcode, distLengths, ndist)
         if (err != 0 && (err < 0 || ndist != distcode.count[0].toInt() + distcode.count[1].toInt())) {
             return InflateError.INVALID_DISTANCE_CODE_LENGTHS.code

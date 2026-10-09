@@ -102,6 +102,9 @@ public object ArchiveKodec {
     /** Raw DEFLATE codec, without gzip or zlib framing. */
     @JvmStatic
     public val deflate: Codec get() = Codecs.DEFLATE
+    /** Raw Deflate64 codec, ZIP method 9. */
+    @JvmStatic
+    public val deflate64: Codec get() = Codecs.DEFLATE64
     /** Gzip encoder and decoder; decoding also accepts one zlib stream. */
     @JvmStatic
     public val gzip: Codec get() = Codecs.GZIP

@@ -41,6 +41,7 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static final fun getCodecs ()Ljava/util/List;
 	public static final fun getDeflate ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getDeflate64 ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getGzip ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLz4 ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getSnappy ()Lio/github/yuroyami/archivekodec/codec/Codec;
@@ -720,6 +721,7 @@ public final class io/github/yuroyami/archivekodec/codec/CodecId {
 	public static final field BZIP2 Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field Companion Lio/github/yuroyami/archivekodec/codec/CodecId$Companion;
 	public static final field DEFLATE Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public static final field DEFLATE64 Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field GZIP Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field LZMA Lio/github/yuroyami/archivekodec/codec/CodecId;
@@ -760,6 +762,7 @@ public final class io/github/yuroyami/archivekodec/codec/CodecRegistry$Companion
 
 public final class io/github/yuroyami/archivekodec/codec/Codecs {
 	public static final field DEFLATE Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final field DEFLATE64 Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field GZIP Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/Codecs;
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/codec/Codec;

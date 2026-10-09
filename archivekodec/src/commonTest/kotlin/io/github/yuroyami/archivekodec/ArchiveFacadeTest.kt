@@ -134,7 +134,7 @@ class ArchiveFacadeTest {
     fun registryAndConveniencePropertiesExposeExactlyTheAvailableCodecs() {
         val expected = mapOf(
             CodecId.STORE to Codecs.STORE, CodecId.DEFLATE to Codecs.DEFLATE,
-            CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
+            CodecId.DEFLATE64 to Codecs.DEFLATE64, CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
             CodecId.LZ4 to Codecs.LZ4, CodecId.SNAPPY to Codecs.SNAPPY,
             CodecId.SNAPPY_FRAMED to Codecs.SNAPPY_FRAMED,
         )
@@ -151,6 +151,7 @@ class ArchiveFacadeTest {
         }
         assertSame(Codecs.STORE, ArchiveKodec.store)
         assertSame(Codecs.DEFLATE, ArchiveKodec.deflate)
+        assertSame(Codecs.DEFLATE64, ArchiveKodec.deflate64)
         assertSame(Codecs.GZIP, ArchiveKodec.gzip)
         assertSame(Codecs.ZLIB, ArchiveKodec.zlib)
         assertSame(Codecs.LZ4, ArchiveKodec.lz4)

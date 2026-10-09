@@ -47,7 +47,7 @@ class CodecRegistryTest {
     }
 
     @Test fun supportComesFromTheRegistryAndFacadeUsesDefault() {
-        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.GZIP, Codecs.ZLIB,
+        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.GZIP, Codecs.ZLIB,
             Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED)
         assertEquals(expected.map { it.id }, defaults.implemented)
         assertEquals(defaults.implemented, Codecs.implemented)
@@ -63,7 +63,8 @@ class CodecRegistryTest {
         for (format in FormatRegistry.DEFAULT.formats.map { it.id } + ArchiveFormat.UNKNOWN) assertSame(defaults.byFormat(format), ArchiveKodec.codec(format))
         assertSame(Codecs.STORE, defaults.byZipMethod(0))
         assertSame(Codecs.DEFLATE, defaults.byZipMethod(8))
-        for (method in listOf(-1, 9, 12, 14, 93, 98, 65535, 65536)) assertNull(defaults.byZipMethod(method))
+        assertSame(Codecs.DEFLATE64, defaults.byZipMethod(9))
+        for (method in listOf(-1, 11, 12, 14, 93, 98, 65535, 65536)) assertNull(defaults.byZipMethod(method))
     }
 
     @Test fun derivedRegistriesAndReturnedIdListsCannotChangeEarlierBindings() {
