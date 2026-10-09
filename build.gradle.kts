@@ -101,6 +101,14 @@ tasks.register<Exec>("swiftConsumerTest") {
     commandLine("python3", rootProject.file("integration-tests/swift-consumer/run.py").absolutePath, "--skip-build")
 }
 
+// Run plain JavaScript and strict TypeScript consumers against the built npm module.
+tasks.register<Exec>("jsConsumerTest") {
+    group = "verification"
+    description = "Run JavaScript and TypeScript consumers against the production JS library and its .d.mts"
+    dependsOn(":archivekodec:jsNodeProductionLibraryDistribution", "kotlinNpmInstall")
+    commandLine("python3", rootProject.file("integration-tests/js-consumer/run.py").absolutePath, "--skip-build")
+}
+
 // AGP's external Android target is not included by KGP's legacy Android
 // collector. Read the final AAR classes using the same public ABI toolchain.
 val abiTools = configurations.create("abiTools") {

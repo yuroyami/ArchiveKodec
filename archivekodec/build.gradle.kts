@@ -115,6 +115,9 @@ kotlin {
             }
         }
         binaries.library()
+        // The ArchiveKodecJs facade in jsMain is the exported surface; see the README.
+        useEsModules()
+        generateTypeScriptDefinitions()
     }
 
     @OptIn(ExperimentalWasmDsl::class)

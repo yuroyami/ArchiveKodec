@@ -93,8 +93,9 @@ Callers outside Kotlin:
   artifact from a Kotlin Multiplatform module that your app already exports.
   [Expected failures and Apple consumers](#expected-failures-and-apple-consumers)
   shows the error bridge.
-- **JavaScript and TypeScript** cannot call the library directly. No declaration
-  is exported with `@JsExport`, so it is usable from Kotlin/JS and Kotlin/Wasm code only.
+- **JavaScript and TypeScript** call a small exported facade, with TypeScript
+  declarations. It is not on npm yet; build it from this repository. See
+  [JavaScript and TypeScript](#javascript-and-typescript).
 
 ### Java example
 
@@ -1237,6 +1238,61 @@ use `FileRandomAccessSource` for files. Decompressing into a `RawSink` streams t
 output for DEFLATE, zlib and gzip; the compressed input is always read whole, and
 compression is not streamed.
 
+## JavaScript and TypeScript
+
+The Kotlin/JS build is also an ES module for plain JavaScript and TypeScript, with a
+generated `.d.mts`. It exports a small surface made of types JavaScript has: bytes are
+`Int8Array` (Kotlin's `ByteArray`), sizes are numbers, and failures throw an `Error`
+with a message. The Kotlin API is not exported as it is, because Kotlin collections,
+`Long` and interface default arguments have no JavaScript form.
+
+The module is not published to npm yet. Build it with
+`./gradlew :archivekodec:jsNodeProductionLibraryDistribution`; it lands in
+`archivekodec/build/dist/js/productionLibrary/`, with a `package.json` to install
+from that folder.
+
+```js
+import { gzip, gunzip, open, zip, ZipMember } from "./ArchiveKodec-KMP-archivekodec.mjs";
+
+// A Uint8Array goes in as an Int8Array view over the same memory, without a copy.
+const u8 = new TextEncoder().encode("hello");
+const bytes = new Int8Array(u8.buffer, u8.byteOffset, u8.length);
+
+const packed = gzip(bytes);              // level 6; gzip(bytes, 9) for smaller output
+const unpacked = gunzip(packed);         // at most 2 GiB; gunzip(packed, maxBytes) for less
+
+const archive = open(zip([new ZipMember("notes/a.txt", bytes)]));
+for (const entry of archive.entries) {
+    console.log(entry.name, entry.size, entry.isDirectory);
+}
+const data = archive.read("notes/a.txt"); // or archive.readAt(entry.index)
+archive.close();
+
+// And back to a Uint8Array:
+const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
+```
+
+| Export | What it does |
+| --- | --- |
+| `gzip`/`gunzip`, `deflate`/`inflate`, `zlib`/`unzlib`, `lz4`/`unlz4` | One codec each. Compressors take an optional `level` (DEFLATE family, 0–9); decompressors take an optional `maxBytes` |
+| `compress(codec, data, level?)`, `decompress(codec, data, maxBytes?)` | Any codec by id; `codecs()` lists the ids |
+| `decompressAny(data, maxBytes?)` | Detects the compressed format, like `ArchiveKodec.decompress` |
+| `sniff(data)` | The format id the bytes start with, such as `"zip"`, or `"unknown"` |
+| `open(data, format?, password?, maxBytes?)` | An `Archive` over any readable format; `format` skips detection |
+| `Archive` | `format`, `entries` (an array of `Entry`), `read(name)`, `readAt(index)`, `close()` |
+| `Entry` | `index`, `name`, `size`, `compressedSize`, `isDirectory`, `isEncrypted`, `isSymbolicLink`, `isHardLink`, `linkTarget`, `lastModified` (milliseconds, for `new Date`), `crc32`, `unixMode`, `codec`, `comment` |
+| `zip(members)`, `ZipMember(name, data)` | Write a DEFLATE-compressed ZIP |
+| `version()` | The library version |
+
+Every decoding call has [ArchiveLimits.DEFAULT](#limits), with the output cap set by
+`maxBytes`. Entry names are stored names, not safe paths: check them as
+[Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them)
+describes before writing files. The `wasmJs` build exports nothing: Kotlin/Wasm can
+export only top-level functions over numbers, so JavaScript callers use the JS build.
+
+`./gradlew jsConsumerTest` runs a plain JavaScript file and a `--strict` TypeScript file
+against the built module (`integration-tests/js-consumer/`).
+
 ## Limits
 
 - Whole-array input. Codecs take a whole `ByteArray`; DEFLATE, zlib and gzip can stream
@@ -1449,7 +1505,8 @@ Pull requests and main pushes run the `CI` workflow without path filters. Its
 runs the JVM, Android host, JS Node, wasmJs Node, wasmWasi Node and `linuxX64`
 suites of both modules. It compiles `linuxArm64` and the four androidNative
 targets, and builds both Android AARs/JVM JARs, the core JS distribution and the
-downstream Java compile check. The macOS lane runs the iOS, macOS, tvOS and
+downstream Java compile check, and runs the JavaScript and TypeScript consumers
+against that distribution. The macOS lane runs the iOS, macOS, tvOS and
 watchOS simulator suites, compiles the Apple device targets and runs the
 independent Swift consumers. The Windows lane runs both `mingwX64` suites.
 All six Apple frameworks are built; device and x64 checks cover compilation and

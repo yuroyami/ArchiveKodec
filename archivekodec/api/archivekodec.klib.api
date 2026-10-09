@@ -1496,3 +1496,105 @@ final object io.github.yuroyami.archivekodec/ArchiveKodec { // io.github.yuroyam
 final fun (io.github.yuroyami.archivekodec.archive/ArchiveReader).io.github.yuroyami.archivekodec.archive/asAutoCloseable(): kotlin/AutoCloseable // io.github.yuroyami.archivekodec.archive/asAutoCloseable|asAutoCloseable@io.github.yuroyami.archivekodec.archive.ArchiveReader(){}[0]
 final fun (io.github.yuroyami.archivekodec.archive/RandomAccessSource).io.github.yuroyami.archivekodec.archive/readFully(kotlin/Long, kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/readFully|readFully@io.github.yuroyami.archivekodec.archive.RandomAccessSource(kotlin.Long;kotlin.Int){}[0]
 final inline fun <#A: io.github.yuroyami.archivekodec.archive/ArchiveReader?, #B: kotlin/Any?> (#A).io.github.yuroyami.archivekodec.archive/use(kotlin/Function1<#A, #B>): #B // io.github.yuroyami.archivekodec.archive/use|use@0:0(kotlin.Function1<0:0,0:1>){0§<io.github.yuroyami.archivekodec.archive.ArchiveReader?>;1§<kotlin.Any?>}[0]
+
+// Targets: [js]
+final class io.github.yuroyami.archivekodec.js/Archive { // io.github.yuroyami.archivekodec.js/Archive|null[0]
+    final val entries // io.github.yuroyami.archivekodec.js/Archive.entries|{}entries[0]
+        final fun <get-entries>(): kotlin/Array<io.github.yuroyami.archivekodec.js/Entry> // io.github.yuroyami.archivekodec.js/Archive.entries.<get-entries>|<get-entries>(){}[0]
+    final val format // io.github.yuroyami.archivekodec.js/Archive.format|{}format[0]
+        final fun <get-format>(): kotlin/String // io.github.yuroyami.archivekodec.js/Archive.format.<get-format>|<get-format>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.js/Archive.close|close(){}[0]
+    final fun read(kotlin/String): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/Archive.read|read(kotlin.String){}[0]
+    final fun readAt(kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/Archive.readAt|readAt(kotlin.Int){}[0]
+}
+
+// Targets: [js]
+final class io.github.yuroyami.archivekodec.js/Entry { // io.github.yuroyami.archivekodec.js/Entry|null[0]
+    final val codec // io.github.yuroyami.archivekodec.js/Entry.codec|{}codec[0]
+        final fun <get-codec>(): kotlin/String // io.github.yuroyami.archivekodec.js/Entry.codec.<get-codec>|<get-codec>(){}[0]
+    final val comment // io.github.yuroyami.archivekodec.js/Entry.comment|{}comment[0]
+        final fun <get-comment>(): kotlin/String? // io.github.yuroyami.archivekodec.js/Entry.comment.<get-comment>|<get-comment>(){}[0]
+    final val compressedSize // io.github.yuroyami.archivekodec.js/Entry.compressedSize|{}compressedSize[0]
+        final fun <get-compressedSize>(): kotlin/Double // io.github.yuroyami.archivekodec.js/Entry.compressedSize.<get-compressedSize>|<get-compressedSize>(){}[0]
+    final val crc32 // io.github.yuroyami.archivekodec.js/Entry.crc32|{}crc32[0]
+        final fun <get-crc32>(): kotlin/Double? // io.github.yuroyami.archivekodec.js/Entry.crc32.<get-crc32>|<get-crc32>(){}[0]
+    final val index // io.github.yuroyami.archivekodec.js/Entry.index|{}index[0]
+        final fun <get-index>(): kotlin/Int // io.github.yuroyami.archivekodec.js/Entry.index.<get-index>|<get-index>(){}[0]
+    final val isDirectory // io.github.yuroyami.archivekodec.js/Entry.isDirectory|{}isDirectory[0]
+        final fun <get-isDirectory>(): kotlin/Boolean // io.github.yuroyami.archivekodec.js/Entry.isDirectory.<get-isDirectory>|<get-isDirectory>(){}[0]
+    final val isEncrypted // io.github.yuroyami.archivekodec.js/Entry.isEncrypted|{}isEncrypted[0]
+        final fun <get-isEncrypted>(): kotlin/Boolean // io.github.yuroyami.archivekodec.js/Entry.isEncrypted.<get-isEncrypted>|<get-isEncrypted>(){}[0]
+    final val isHardLink // io.github.yuroyami.archivekodec.js/Entry.isHardLink|{}isHardLink[0]
+        final fun <get-isHardLink>(): kotlin/Boolean // io.github.yuroyami.archivekodec.js/Entry.isHardLink.<get-isHardLink>|<get-isHardLink>(){}[0]
+    final val isSymbolicLink // io.github.yuroyami.archivekodec.js/Entry.isSymbolicLink|{}isSymbolicLink[0]
+        final fun <get-isSymbolicLink>(): kotlin/Boolean // io.github.yuroyami.archivekodec.js/Entry.isSymbolicLink.<get-isSymbolicLink>|<get-isSymbolicLink>(){}[0]
+    final val lastModified // io.github.yuroyami.archivekodec.js/Entry.lastModified|{}lastModified[0]
+        final fun <get-lastModified>(): kotlin/Double? // io.github.yuroyami.archivekodec.js/Entry.lastModified.<get-lastModified>|<get-lastModified>(){}[0]
+    final val linkTarget // io.github.yuroyami.archivekodec.js/Entry.linkTarget|{}linkTarget[0]
+        final fun <get-linkTarget>(): kotlin/String? // io.github.yuroyami.archivekodec.js/Entry.linkTarget.<get-linkTarget>|<get-linkTarget>(){}[0]
+    final val name // io.github.yuroyami.archivekodec.js/Entry.name|{}name[0]
+        final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.js/Entry.name.<get-name>|<get-name>(){}[0]
+    final val size // io.github.yuroyami.archivekodec.js/Entry.size|{}size[0]
+        final fun <get-size>(): kotlin/Double // io.github.yuroyami.archivekodec.js/Entry.size.<get-size>|<get-size>(){}[0]
+    final val unixMode // io.github.yuroyami.archivekodec.js/Entry.unixMode|{}unixMode[0]
+        final fun <get-unixMode>(): kotlin/Int? // io.github.yuroyami.archivekodec.js/Entry.unixMode.<get-unixMode>|<get-unixMode>(){}[0]
+}
+
+// Targets: [js]
+final class io.github.yuroyami.archivekodec.js/ZipMember { // io.github.yuroyami.archivekodec.js/ZipMember|null[0]
+    constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.js/ZipMember.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
+
+    final val data // io.github.yuroyami.archivekodec.js/ZipMember.data|{}data[0]
+        final fun <get-data>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/ZipMember.data.<get-data>|<get-data>(){}[0]
+    final val name // io.github.yuroyami.archivekodec.js/ZipMember.name|{}name[0]
+        final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.js/ZipMember.name.<get-name>|<get-name>(){}[0]
+}
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/codecs(): kotlin/Array<kotlin/String> // io.github.yuroyami.archivekodec.js/codecs|codecs(){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/compress(kotlin/String, kotlin/ByteArray, kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/compress|compress(kotlin.String;kotlin.ByteArray;kotlin.Int){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/decompress(kotlin/String, kotlin/ByteArray, kotlin/Double = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/decompress|decompress(kotlin.String;kotlin.ByteArray;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/decompressAny(kotlin/ByteArray, kotlin/Double = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/decompressAny|decompressAny(kotlin.ByteArray;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/deflate(kotlin/ByteArray, kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/deflate|deflate(kotlin.ByteArray;kotlin.Int){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/gunzip(kotlin/ByteArray, kotlin/Double = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/gunzip|gunzip(kotlin.ByteArray;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/gzip(kotlin/ByteArray, kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/gzip|gzip(kotlin.ByteArray;kotlin.Int){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/inflate(kotlin/ByteArray, kotlin/Double = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/inflate|inflate(kotlin.ByteArray;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/lz4(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/lz4|lz4(kotlin.ByteArray){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/open(kotlin/ByteArray, kotlin/String? = ..., kotlin/String? = ..., kotlin/Double = ...): io.github.yuroyami.archivekodec.js/Archive // io.github.yuroyami.archivekodec.js/open|open(kotlin.ByteArray;kotlin.String?;kotlin.String?;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/sniff(kotlin/ByteArray): kotlin/String // io.github.yuroyami.archivekodec.js/sniff|sniff(kotlin.ByteArray){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/unlz4(kotlin/ByteArray, kotlin/Double = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/unlz4|unlz4(kotlin.ByteArray;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/unzlib(kotlin/ByteArray, kotlin/Double = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/unzlib|unzlib(kotlin.ByteArray;kotlin.Double){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/version(): kotlin/String // io.github.yuroyami.archivekodec.js/version|version(){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/zip(kotlin/Array<io.github.yuroyami.archivekodec.js/ZipMember>): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/zip|zip(kotlin.Array<io.github.yuroyami.archivekodec.js.ZipMember>){}[0]
+
+// Targets: [js]
+final fun io.github.yuroyami.archivekodec.js/zlib(kotlin/ByteArray, kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/zlib|zlib(kotlin.ByteArray;kotlin.Int){}[0]

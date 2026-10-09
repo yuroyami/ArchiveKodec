@@ -52,8 +52,8 @@ Gradle module metadata, so a Maven project depends on `archivekodec-jvm` (and
 
 Requirements: Kotlin 2.1 or newer, Java 8 or newer on the JVM, and Android
 minSdk 21. Java calls the JVM artifact directly. Swift has no published framework
-yet, and JavaScript cannot call the library because nothing is exported with
-`@JsExport`. The [README's Install section](https://github.com/yuroyami/ArchiveKodec#install)
+yet. JavaScript and TypeScript call an exported facade (`gzip`, `gunzip`, `open` and
+so on) with TypeScript declarations, built from the repository, not yet on npm. The [README's Install section](https://github.com/yuroyami/ArchiveKodec#install)
 covers these callers and the reasons behind each requirement.
 
 Java callers can use `Gzip.compress(bytes)`, `Crc32.of(bytes)`,

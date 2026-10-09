@@ -35,7 +35,8 @@ LANES = {
                    "AndroidNativeX64"),
          ":archivekodec:jvmJar", ":archivekodec-io:jvmJar",
          ":archivekodec:bundleAndroidMainAar", ":archivekodec-io:bundleAndroidMainAar",
-         ":archivekodec:jsNodeProductionLibraryDistribution", ":io-consumer-test:compileJava"],
+         ":archivekodec:jsNodeProductionLibraryDistribution", ":io-consumer-test:compileJava",
+         "jsConsumerTest"],
         PORTABLE_TESTS[1],
     ),
     "apple": (

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- JavaScript and TypeScript. The JS build is now an ES module with generated TypeScript
+  declarations, and exports a facade in the `io.github.yuroyami.archivekodec.js` package:
+  `gzip`/`gunzip`, `deflate`/`inflate`, `zlib`/`unzlib`, `lz4`/`unlz4`, `compress`,
+  `decompress`, `decompressAny`, `sniff`, `open` (returning an `Archive` of `Entry`
+  objects), `zip` and `version`. Bytes are `Int8Array` and sizes are numbers.
+  `./gradlew jsConsumerTest` runs JavaScript and strict TypeScript consumers against it.
+  Kotlin/JS consumers of the klib are unaffected, apart from the new package.
+
 - Links. `ArchiveEntry` gains `isSymbolicLink`, `isHardLink` and `linkTarget`; a symlink
   `unixMode` implies `isSymbolicLink`. TAR now lists symbolic links (reading as their target)
   and hard links (reading as the member they name), following GNU long link names and pax
