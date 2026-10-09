@@ -1238,8 +1238,8 @@ compression is not streamed.
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
 - Built-in reader listings enforce `maxEntries`; initramfs listings additionally
-  enforce `maxSegments`, including empty segments. Buffered APIs do not recurse
-  into nested archives, so `maxNestingDepth` remains reserved. `maxDecoderMemory`
+  enforce `maxSegments`, including empty segments. No API opens archives nested
+  inside other archives, so there is no nesting-depth limit. `maxDecoderMemory`
   caps memory a header asks a decoder to allocate up front: the PPMd model and the RAR5 window. Every implemented codec
   applies `checkRatio` before output allocation or growth. ZIP checks each entry;
   uncompressed TAR/ar/cpio reads check their known 1:1 ratio.

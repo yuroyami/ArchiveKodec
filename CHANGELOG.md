@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Breaking: `ArchiveLimits.maxNestingDepth` and its builder setting are removed. No code
+  read them: no API opens an archive found inside another, and `extract` does not either.
+  Delete the setting from limits you build.
+
 - Extraction. `suspend fun ArchiveReader.extract(entries, limits, progress, passwords, into)`
   in `archivekodec-io` writes a chosen set of entries to sinks in listing order, so solid
   blocks decode once, reports progress through `ProgressSink`, stops when its coroutine is

@@ -74,12 +74,11 @@ precondition(suffixHash == copiedHash)
 let limits = ArchiveLimits.companion.DEFAULT
 
 func makeLimits(maxUncompressedBytes: Int64 = 2147483648, maxCompressionRatio: Int32 = 10000,
-                maxEntries: Int32 = 100000, maxNestingDepth: Int32 = 8) throws -> ArchiveLimits {
+                maxEntries: Int32 = 100000) throws -> ArchiveLimits {
     let builder = ArchiveLimits.Builder()
     builder.maxUncompressedBytes = maxUncompressedBytes
     builder.maxCompressionRatio = maxCompressionRatio
     builder.maxEntries = maxEntries
-    builder.maxNestingDepth = maxNestingDepth
     return try builder.build()
 }
 
@@ -106,7 +105,6 @@ for (name, configure) in [
     ("maxUncompressedBytes", { (builder: ArchiveLimits.Builder) in builder.maxUncompressedBytes = -1 }),
     ("maxCompressionRatio", { (builder: ArchiveLimits.Builder) in builder.maxCompressionRatio = -1 }),
     ("maxEntries", { (builder: ArchiveLimits.Builder) in builder.maxEntries = -1 }),
-    ("maxNestingDepth", { (builder: ArchiveLimits.Builder) in builder.maxNestingDepth = -1 }),
     ("maxDecoderMemory", { (builder: ArchiveLimits.Builder) in builder.maxDecoderMemory = -1 })
 ] {
     let builder = ArchiveLimits.Builder()
@@ -338,11 +336,11 @@ lz4CorruptSecond[24] ^= 1
 expectFailure("LZ4 second content checksum", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 46 }) {
     _ = try lz4Protocol.decompress(data: bytes(lz4First + lz4CorruptSecond), limits: limits)
 }
-let lz4CombinedLimit = try makeLimits(maxUncompressedBytes: 11, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+let lz4CombinedLimit = try makeLimits(maxUncompressedBytes: 11, maxCompressionRatio: 10000, maxEntries: 100000)
 expectFailure("LZ4 combined output limit", check: { $0 is DecompressionBombException }) {
     _ = try lz4Protocol.decompress(data: bytes(lz4First + lz4Second), limits: lz4CombinedLimit)
 }
-let lz4RatioLimit = try makeLimits(maxUncompressedBytes: 10000, maxCompressionRatio: 2, maxEntries: 100000, maxNestingDepth: 8)
+let lz4RatioLimit = try makeLimits(maxUncompressedBytes: 10000, maxCompressionRatio: 2, maxEntries: 100000)
 let lz4HighRatio = Array(Data(base64Encoded: "BCJNGHxA6AMAAAAAAAA9IQAAANdoZWxsbyB3b3JsZCwgDQAXCgwADxkA////r1BvcmxkClB+pm0AAAAAjnmROQ==")!)
 let lz4Padding: [UInt8] = [0x50, 0x2a, 0x4d, 0x18, 0, 0x10, 0, 0] + [UInt8](repeating: 0, count: 4096)
 expectFailure("LZ4 skippable padding cannot dilute ratio", check: { $0 is DecompressionBombException }) {
@@ -378,7 +376,7 @@ expectFailure("LZ4 linked history resets at frame boundary", check: {
 expectFailure("LZ4 linked missing dictionary", check: {
     $0 is ArchiveUnsupportedException && $0.offset?.int64Value == 16 && $0.message?.contains("dictionary ID 4275878552") == true
 }) { _ = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: "BCJNGEFAmLrc/gYKAAAADwEAAFAxMjM0NQAAAAA=")!)), limits: limits) }
-let lz4HistoryOutputLimit = try makeLimits(maxUncompressedBytes: 107, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+let lz4HistoryOutputLimit = try makeLimits(maxUncompressedBytes: 107, maxCompressionRatio: 10000, maxEntries: 100000)
 expectFailure("LZ4 linked output limit", check: { $0 is DecompressionBombException }) {
     _ = try lz4Protocol.decompress(data: bytes(Array(Data(base64Encoded: "BCJNGEBAwAMAAIBhYmMKAAAADwMAUVAxMjM0NQAAAAA=")!)), limits: lz4HistoryOutputLimit)
 }
@@ -945,7 +943,7 @@ let concreteReader = ZipReader(source: concreteSource)
 expectFailure("concrete ZIP cleanup", check: { $0 is ArchiveFormatException }) { try concreteReader.close() }
 try concreteReader.close()
 precondition(concreteSource.closes == 1)
-let zero = try makeLimits(maxUncompressedBytes: 0, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+let zero = try makeLimits(maxUncompressedBytes: 0, maxCompressionRatio: 10000, maxEntries: 100000)
 let compressed = try Gzip.shared.compress(data: bytes([65, 66, 67]))
 expectFailure("output budget", check: { $0 is DecompressionBombException }) { _ = try Gzip.shared.decompress(input: compressed, limits: zero) }
 expectFailure("limit guard", check: { $0 is DecompressionBombException }) { try zero.checkOutputSize(bytes: 1) }
@@ -977,7 +975,7 @@ for encoded in cpioLinkArchives {
 let crcLinkBytes = bytes(Array(Data(base64Encoded: cpioLinkArchives[2])!))
 let crcLinkReader: ArchiveReader = CpioReader(source: ByteArrayRandomAccessSource(data: crcLinkBytes))
 let crcLinkEntries = try crcLinkReader.entries()
-let cpioLimit = try makeLimits(maxUncompressedBytes: 7, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+let cpioLimit = try makeLimits(maxUncompressedBytes: 7, maxCompressionRatio: 10000, maxEntries: 100000)
 for entry in crcLinkEntries {
     expectFailure("cpio logical alias limit", check: { $0 is DecompressionBombException && $0.entryName == entry.name }) {
         _ = try crcLinkReader.read(entry: entry, limits: cpioLimit)
@@ -1051,7 +1049,7 @@ expectFailure("prefixed ZIP64 locator offset", check: {
 }) { _ = try ZipReader(source: ByteArrayRandomAccessSource(data: invalidPrefixLocator)).entries() }
 let boundedPrefixReader: ArchiveReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes(Array(Data(base64Encoded: prefixedZipArchives[0])!))))
 let boundedPrefixEntry = try boundedPrefixReader.entries()[0]
-let prefixBudget = try makeLimits(maxUncompressedBytes: 2, maxCompressionRatio: 10000, maxEntries: 100000, maxNestingDepth: 8)
+let prefixBudget = try makeLimits(maxUncompressedBytes: 2, maxCompressionRatio: 10000, maxEntries: 100000)
 expectFailure("prefixed ZIP output limit", check: { $0 is DecompressionBombException && $0.entryName == "a.txt" }) {
     _ = try boundedPrefixReader.read(entry: boundedPrefixEntry, limits: prefixBudget)
 }

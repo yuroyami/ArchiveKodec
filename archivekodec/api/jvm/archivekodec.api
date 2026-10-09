@@ -1192,7 +1192,6 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public final fun getMaxCompressionRatio ()I
 	public final fun getMaxDecoderMemory ()J
 	public final fun getMaxEntries ()I
-	public final fun getMaxNestingDepth ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
 	public final fun getRejectUnsafeNames ()Z
@@ -1208,14 +1207,12 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Builde
 	public final fun getMaxCompressionRatio ()I
 	public final fun getMaxDecoderMemory ()J
 	public final fun getMaxEntries ()I
-	public final fun getMaxNestingDepth ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
 	public final fun getRejectUnsafeNames ()Z
 	public final fun setMaxCompressionRatio (I)V
 	public final fun setMaxDecoderMemory (J)V
 	public final fun setMaxEntries (I)V
-	public final fun setMaxNestingDepth (I)V
 	public final fun setMaxSegments (I)V
 	public final fun setMaxUncompressedBytes (J)V
 	public final fun setRejectUnsafeNames (Z)V

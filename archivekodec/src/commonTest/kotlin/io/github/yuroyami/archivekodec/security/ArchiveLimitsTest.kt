@@ -20,14 +20,13 @@ class ArchiveLimitsTest {
         assertEquals(10_000, defaults.maxCompressionRatio)
         assertEquals(100_000, defaults.maxEntries)
         assertEquals(100_000, defaults.maxSegments)
-        assertEquals(8, defaults.maxNestingDepth)
         assertEquals(256L * 1024 * 1024, defaults.maxDecoderMemory)
         val zero = ArchiveLimits {
             maxUncompressedBytes = 0
             maxCompressionRatio = 0
             maxEntries = 0
             maxSegments = 0
-            maxNestingDepth = 0
+            maxDecoderMemory = 0
         }
         zero.checkOutputSize(0)
         zero.checkRatio(1, 0)
@@ -39,7 +38,6 @@ class ArchiveLimitsTest {
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxCompressionRatio)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxEntries)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxSegments)
-        assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxNestingDepth)
         assertEquals(Long.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxDecoderMemory)
         ArchiveLimits.UNBOUNDED.checkOutputSize(Long.MAX_VALUE)
         ArchiveLimits.UNBOUNDED.checkEntryCount(Int.MAX_VALUE)
@@ -52,7 +50,7 @@ class ArchiveLimitsTest {
             maxCompressionRatio = 3
             maxEntries = 5
             maxSegments = 6
-            maxNestingDepth = 2
+            maxDecoderMemory = 2
         }
         val first = builder.build()
         val hash = first.hashCode()
@@ -60,7 +58,7 @@ class ArchiveLimitsTest {
         builder.maxCompressionRatio = 4
         builder.maxEntries = 6
         builder.maxSegments = 7
-        builder.maxNestingDepth = 1
+        builder.maxDecoderMemory = 1
         val second = builder.build()
         assertEquals(listOf(7L, 3L, 5L, 6L, 2L), values(first))
         assertEquals(listOf(8L, 4L, 6L, 7L, 1L), values(second))
@@ -75,7 +73,7 @@ class ArchiveLimitsTest {
             maxCompressionRatio = 3
             maxEntries = 5
             maxSegments = 6
-            maxNestingDepth = 2
+            maxDecoderMemory = 2
         }
         lateinit var configuration: ArchiveLimits.Builder
         val changed = original.copy {
@@ -102,7 +100,7 @@ class ArchiveLimitsTest {
         assertTrue(!policy.equals("ArchiveLimits"))
         val description = ArchiveLimits.UNBOUNDED.toString()
         assertTrue(description.length < 260)
-        for (field in listOf("maxUncompressedBytes", "maxCompressionRatio", "maxEntries", "maxSegments", "maxNestingDepth", "maxDecoderMemory")) {
+        for (field in listOf("maxUncompressedBytes", "maxCompressionRatio", "maxEntries", "maxSegments", "maxDecoderMemory")) {
             assertTrue(description.contains("$field="))
         }
         assertTrue(description.contains(Long.MAX_VALUE.toString()))
@@ -145,7 +143,7 @@ class ArchiveLimitsTest {
 
     private fun values(limits: ArchiveLimits): List<Long> = listOf(
         limits.maxUncompressedBytes, limits.maxCompressionRatio.toLong(),
-        limits.maxEntries.toLong(), limits.maxSegments.toLong(), limits.maxNestingDepth.toLong(),
+        limits.maxEntries.toLong(), limits.maxSegments.toLong(), limits.maxDecoderMemory,
     )
 
     private fun invalidSettings(value: Long): List<Pair<String, ArchiveLimits.Builder.() -> Unit>> = listOf(
@@ -153,7 +151,6 @@ class ArchiveLimitsTest {
         "maxCompressionRatio" to { maxCompressionRatio = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxEntries" to { maxEntries = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxSegments" to { maxSegments = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
-        "maxNestingDepth" to { maxNestingDepth = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxDecoderMemory" to { maxDecoderMemory = value },
     )
 
