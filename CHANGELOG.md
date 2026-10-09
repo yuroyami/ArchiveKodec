@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added `ExtractionBudget`, an archive-wide output cap shared across reads:
+  `reader.read(entry, budget = budget)` decodes under the bytes the budget has left
+  and charges what it produced, so a loop over every entry cannot pass the total.
+
 - GNU thin `ar` archives (`!<thin>`) are now sniffed and listed. Their members are
   read through the new `ExternalMemberResolver`, passed to `ArReader` or through
   `ArchiveOpenOptions.externalMembers`; without one, reading refuses clearly.

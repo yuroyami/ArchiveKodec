@@ -12,9 +12,10 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * from this policy. Results never retain the mutable builder and can be shared.
  *
  * Output and ratio checks apply during each buffered decode/read, before output
- * growth. Separate calls do not share an archive-wide byte budget. Built-in readers
- * apply [maxEntries] while listing and use their policy as the default for each
- * read. Initramfs listings also apply [maxSegments]. Current buffered APIs do not
+ * growth. These limits are per reader (listing) and per call (output, ratio): separate
+ * calls do not add up. Pass an [ExtractionBudget] to a reader's read to cap the total
+ * output of the reads that share it. Built-in readers apply [maxEntries] while listing
+ * and use their policy as the default for each read. Initramfs listings also apply [maxSegments]. Current buffered APIs do not
  * recurse into nested archives or apply [maxNestingDepth].
  *
  * [rejectUnsafeNames] makes built-in readers run [PathGuard] on every listed name.
@@ -39,8 +40,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
      * legitimate input; choose a lower value when ratio-based rejection is required.
      *
      * [maxUncompressedBytes] is the effective default output bound and applies to one
-     * decode/read call. Callers must separately bound cumulative output across reads;
-     * there is no shared archive-wide budget in this policy.
+     * decode/read call. Bound cumulative output across reads with an [ExtractionBudget].
      */
     public val maxCompressionRatio: Int = builder.maxCompressionRatio
 

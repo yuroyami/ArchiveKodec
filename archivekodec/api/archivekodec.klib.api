@@ -86,6 +86,7 @@ abstract interface io.github.yuroyami.archivekodec.archive/ArchiveReader { // io
     abstract fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     open fun close() // io.github.yuroyami.archivekodec.archive/ArchiveReader.close|close(){}[0]
     open fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry){}[0]
+    open fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.security/ExtractionBudget): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.security.ExtractionBudget){}[0]
 }
 
 abstract interface io.github.yuroyami.archivekodec.archive/RandomAccessSource { // io.github.yuroyami.archivekodec.archive/RandomAccessSource|null[0]
@@ -627,6 +628,21 @@ final class io.github.yuroyami.archivekodec.security/ArchivePathException : io.g
 final class io.github.yuroyami.archivekodec.security/DecompressionBombException : io.github.yuroyami.archivekodec/ArchiveException { // io.github.yuroyami.archivekodec.security/DecompressionBombException|null[0]
     constructor <init>(kotlin/String) // io.github.yuroyami.archivekodec.security/DecompressionBombException.<init>|<init>(kotlin.String){}[0]
     constructor <init>(kotlin/String, kotlin/Long?, kotlin/String?, kotlin/Throwable?) // io.github.yuroyami.archivekodec.security/DecompressionBombException.<init>|<init>(kotlin.String;kotlin.Long?;kotlin.String?;kotlin.Throwable?){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.security/ExtractionBudget { // io.github.yuroyami.archivekodec.security/ExtractionBudget|null[0]
+    constructor <init>(kotlin/Long) // io.github.yuroyami.archivekodec.security/ExtractionBudget.<init>|<init>(kotlin.Long){}[0]
+
+    final val maxBytes // io.github.yuroyami.archivekodec.security/ExtractionBudget.maxBytes|{}maxBytes[0]
+        final fun <get-maxBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ExtractionBudget.maxBytes.<get-maxBytes>|<get-maxBytes>(){}[0]
+    final val remainingBytes // io.github.yuroyami.archivekodec.security/ExtractionBudget.remainingBytes|{}remainingBytes[0]
+        final fun <get-remainingBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ExtractionBudget.remainingBytes.<get-remainingBytes>|<get-remainingBytes>(){}[0]
+
+    final var usedBytes // io.github.yuroyami.archivekodec.security/ExtractionBudget.usedBytes|{}usedBytes[0]
+        final fun <get-usedBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ExtractionBudget.usedBytes.<get-usedBytes>|<get-usedBytes>(){}[0]
+
+    final fun charge(kotlin/Long) // io.github.yuroyami.archivekodec.security/ExtractionBudget.charge|charge(kotlin.Long){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.security/ExtractionBudget.toString|toString(){}[0]
 }
 
 final class io.github.yuroyami.archivekodec.wrapper/GzipHeader { // io.github.yuroyami.archivekodec.wrapper/GzipHeader|null[0]

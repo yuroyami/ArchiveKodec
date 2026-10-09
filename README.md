@@ -470,7 +470,20 @@ Each concrete reader also accepts `(source, limits)` or
 Existing constructor and `open` calls still use `ArchiveLimits.DEFAULT`.
 An explicit policy on `read(entry, limits)` overrides the reader's read policy;
 it does not relax the ceiling used to parse its listing. Byte limits apply per
-read, and separate calls do not share an archive-wide output budget.
+read. To cap the total across reads, share an `ExtractionBudget`:
+
+```kotlin
+val budget = ExtractionBudget(64L * 1024 * 1024)
+for (entry in reader.entries()) {
+    val bytes = reader.read(entry, budget = budget) // throws once the total passes 64 MiB
+}
+```
+
+Each budgeted read decodes with its output ceiling lowered to the bytes the budget
+has left, so it stops as soon as the total would pass, then charges what it
+produced; a failed read charges nothing. The reader keeps no running total, so the
+same reader can serve several budgets. A budget is mutable and meant for one
+extraction on one thread.
 
 ### Browse an uncompressed Linux initramfs
 
@@ -1107,9 +1120,8 @@ artifact and a kotlinx-io dependency.
   255:1, Snappy (raw or framed) below 64:3, and STORE is 1:1. The default preserves
   highly compressible legitimate input; lower it when ratio-based rejection is
   required. It can still reject impossible declared sizes before decoding.
-  The default 2 GiB output cap applies to each decode/read separately. Callers must
-  enforce their own cumulative byte budget across reads; there is no built-in
-  archive-wide budget.
+  The default 2 GiB output cap applies to each decode/read separately. Pass an
+  `ExtractionBudget` to `read` to cap the cumulative output of several reads.
 - `ArchiveEntry.size` stays a `Long` during parsing. Readers validate source
   ranges before allocation, including ZIP local-header and payload extents.
   Configured output limits apply first; a whole-array read above `Int.MAX_VALUE`

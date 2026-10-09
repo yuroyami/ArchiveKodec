@@ -5,6 +5,8 @@ package io.github.yuroyami.archivekodec.archive
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.security.ExtractionBudget
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.jvm.JvmName
 import kotlin.native.HiddenFromObjC
@@ -71,6 +73,32 @@ public interface ArchiveReader {
      */
     @Throws(ArchiveException::class)
     public fun read(entry: ArchiveEntry): ByteArray = read(entry, limits)
+
+    /**
+     * Read one entry and charge its size to [budget], an archive-wide total shared across
+     * reads. The decode runs with its output ceiling lowered to the budget's remaining bytes,
+     * so it stops as soon as the budget would be passed. A failed read charges nothing.
+     * In Kotlin, `reader.read(entry, budget = budget)` keeps this reader's [limits].
+     *
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if the entry
+     *   would pass the budget, or for any limit failure documented by [read].
+     * @throws ArchiveException for the listing, decoding and integrity failures documented by [read].
+     */
+    @Throws(ArchiveException::class)
+    public fun read(entry: ArchiveEntry, limits: ArchiveLimits = this.limits, budget: ExtractionBudget): ByteArray {
+        val remaining = budget.remainingBytes
+        if (remaining >= limits.maxUncompressedBytes) return read(entry, limits).also { budget.charge(it.size.toLong()) }
+        val bytes = try {
+            read(entry, limits.copy { maxUncompressedBytes = remaining })
+        } catch (e: DecompressionBombException) {
+            throw DecompressionBombException(
+                "${e.message} (read under an extraction budget with $remaining B of ${budget.maxBytes} B left)",
+                e.offset, e.entryName, e,
+            )
+        }
+        budget.charge(bytes.size.toLong())
+        return bytes
+    }
 
     /**
      * Release the underlying source and cached metadata. Built-in readers mark

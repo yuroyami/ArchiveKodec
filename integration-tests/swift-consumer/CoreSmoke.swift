@@ -161,6 +161,14 @@ let fileSpecEntries = try fileSpecReader.entries()
 let firstFileSpecPayload = try fileSpecReader.read(entry: fileSpecEntries[0], limits: limits)
 let secondFileSpecPayload = try fileSpecReader.read(entry: fileSpecEntries[1], limits: limits)
 precondition(fileSpecEntries.count == 2 && firstFileSpecPayload.get(index: 0) == 1 && secondFileSpecPayload.get(index: 1) == 4)
+let extractionBudget = ExtractionBudget(maxBytes: 4)
+_ = try fileSpecReader.read(entry: fileSpecEntries[0], limits: limits, budget: extractionBudget)
+precondition(extractionBudget.usedBytes == 3 && extractionBudget.remainingBytes == 1)
+do {
+    _ = try fileSpecReader.read(entry: fileSpecEntries[1], limits: limits, budget: extractionBudget)
+    preconditionFailure("the budget must refuse a second entry")
+} catch {}
+precondition(extractionBudget.usedBytes == 3)
 try fileSpecReader.close()
 let hugeFileSpec = try ZipWriter.FileSpec(name: String(repeating: "😀", count: 1000),
     data: KotlinByteArray(size: 1_000_000), method: ZipMethod.stored)
