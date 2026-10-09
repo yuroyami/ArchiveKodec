@@ -32,6 +32,8 @@ include(":archivekodec")
 // off the core and off consumers that don't want it. The same targets as :archivekodec.
 include(":archivekodec-io")
 
+include(":archivekodec-crypto")
+
 // Compile a downstream JVM consumer against only the IO module's public dependencies.
 include(":io-consumer-test")
 project(":io-consumer-test").projectDir = file("integration-tests/io-consumer")

@@ -44,6 +44,7 @@ val checkReadmeVersion = tasks.register("checkReadmeVersion") {
 dependencies {
     dokka(project(":archivekodec"))
     dokka(project(":archivekodec-io"))
+    dokka(project(":archivekodec-crypto"))
 }
 
 dokka {
@@ -111,7 +112,7 @@ dependencies {
 }
 
 data class PortableAbiBinary(val module: String, val target: String, val file: File)
-val portableAbiBinaries = listOf("archivekodec", "archivekodec-io").flatMap { module ->
+val portableAbiBinaries = listOf("archivekodec", "archivekodec-io", "archivekodec-crypto").flatMap { module ->
     listOf(
         PortableAbiBinary(module, "jvm", file("$module/build/libs/$module-jvm-${project.version}.jar")),
         PortableAbiBinary(module, "android", file("$module/build/outputs/aar/$module.aar")),
@@ -121,8 +122,8 @@ fun PortableAbiBinary.referenceFile(): File = file("$module/api/$target/$module.
 fun PortableAbiBinary.actualFile(): File = layout.buildDirectory.file("abi/portable/$module/$target/$module.api").get().asFile
 
 val dumpPortableAbi = tasks.register("dumpPortableAbi") {
-    dependsOn(":archivekodec:jvmJar", ":archivekodec-io:jvmJar",
-        ":archivekodec:bundleAndroidMainAar", ":archivekodec-io:bundleAndroidMainAar")
+    dependsOn(":archivekodec:jvmJar", ":archivekodec-io:jvmJar", ":archivekodec-crypto:jvmJar",
+        ":archivekodec:bundleAndroidMainAar", ":archivekodec-io:bundleAndroidMainAar", ":archivekodec-crypto:bundleAndroidMainAar")
     inputs.files(portableAbiBinaries.map { it.file }).withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.files(abiTools).withNormalizer(ClasspathNormalizer::class.java)
     outputs.files(portableAbiBinaries.map { it.actualFile() })
@@ -187,7 +188,7 @@ val updateAndroidAbi = tasks.register("updateAndroidAbi") {
 tasks.register("checkKotlinAbi") {
     group = "verification"
     description = "Check every compiled JVM, Android, JS and iOS public ABI"
-    dependsOn(":archivekodec:checkKotlinAbi", ":archivekodec-io:checkKotlinAbi", checkPortableAbi)
+    dependsOn(":archivekodec:checkKotlinAbi", ":archivekodec-io:checkKotlinAbi", ":archivekodec-crypto:checkKotlinAbi", checkPortableAbi)
 }
 tasks.register("checkLegacyAbi") {
     group = "verification"
@@ -197,12 +198,12 @@ tasks.register("checkLegacyAbi") {
 tasks.register("updateKotlinAbi") {
     group = "verification"
     description = "Deliberately update every current ABI reference on a host supporting all targets"
-    dependsOn(":archivekodec:updateKotlinAbi", ":archivekodec-io:updateKotlinAbi", updateAndroidAbi)
+    dependsOn(":archivekodec:updateKotlinAbi", ":archivekodec-io:updateKotlinAbi", ":archivekodec-crypto:updateKotlinAbi", updateAndroidAbi)
 }
 
 tasks.named("check") {
     group = "verification"
-    dependsOn(":archivekodec:check", ":archivekodec-io:check", "checkKotlinAbi", checkReadmeVersion)
+    dependsOn(":archivekodec:check", ":archivekodec-io:check", ":archivekodec-crypto:check", "checkKotlinAbi", checkReadmeVersion)
 }
 subprojects {
     tasks.matching { it.name == "check" }.configureEach {

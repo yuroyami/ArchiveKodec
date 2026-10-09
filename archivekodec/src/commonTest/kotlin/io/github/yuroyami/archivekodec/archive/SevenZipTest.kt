@@ -336,8 +336,8 @@ class SevenZipTest {
         open(aes).use { reader ->
             val entry = reader.entries().first()
             assertTrue(entry.isEncrypted)
-            val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
-            assertTrue(error.message!!.contains("AES"), error.message)
+            val error = assertFailsWith<io.github.yuroyami.archivekodec.ArchivePasswordException> { reader.read(entry) }
+            assertTrue(error.message!!.contains("password"), error.message)
         }
     }
 

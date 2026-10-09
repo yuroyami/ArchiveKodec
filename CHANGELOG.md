@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Encrypted archives. ZIP reads ZipCrypto and WinZip AES (AE-1 and AE-2, 128 to 256
+  bits) and writes WinZip AES through `ZipWriter.write(files, ZipEncryption(...))`; the
+  7z reader decrypts AES-256 data and encrypted headers. Passwords come from the new
+  `ArchiveOpenOptions.password` (`ArchivePasswordProvider`), AES from
+  `ArchiveOpenOptions.crypto` (`CryptoProvider`). WinZip AES tags are verified before
+  any decompression. New `ArchiveEntry.encryption`, `ArchiveEncryption`,
+  `ArchivePasswordException`, `ArchiveAuthenticationException`, and `ZipReader` and
+  `SevenZipReader` constructors that take `ArchiveOpenOptions`.
+- New artifact `archivekodec-crypto`: `CryptographyKotlinProvider`, backed by
+  cryptography-kotlin, so the core stays free of hand-written AES.
+
 - Added PPMd. `Codecs.PPMD` and `ArchiveKodec.ppmd` are var.I revision 1 in ZIP's
   method 98 framing, so ZIP PPMd entries now read; decoding supports the restart and
   cut-off restore methods. The 7z reader now decodes PPMd var.H folders. Both models

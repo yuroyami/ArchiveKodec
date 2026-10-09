@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec.archive
 
+import io.github.yuroyami.archivekodec.ArchiveAuthenticationException
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ArchivePasswordException
 import io.github.yuroyami.archivekodec.ArchiveClosedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
@@ -28,6 +30,8 @@ internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Lon
         is DecompressionBombException -> DecompressionBombException(text, position, label, this)
         is ArchiveUnsupportedException -> ArchiveUnsupportedException(text, position, label, this)
         is ArchiveIOException -> ArchiveIOException(text, this, position, label)
+        is ArchivePasswordException -> ArchivePasswordException(text, position, label, this)
+        is ArchiveAuthenticationException -> ArchiveAuthenticationException(text, position, label, this)
         is ArchiveFormatException, is InflateException -> ArchiveFormatException(text, position, label, this)
         else -> ArchiveException(text, this, position, label)
     }

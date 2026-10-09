@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.crypto.ArchiveEncryption
 import io.github.yuroyami.archivekodec.util.describeName
 import kotlin.jvm.JvmOverloads
 import kotlin.jvm.JvmStatic
@@ -51,8 +52,18 @@ public class ArchiveEntry private constructor(builder: Builder) {
     /** Registered or known compression codec; unknown ZIP methods use `zip-method-N`, with their raw number in [zipMethod]. */
     public val codec: CodecId = builder.codec
 
-    /** Whether encryption is advertised; built-in readers cannot decrypt encrypted payloads. */
+    /**
+     * Whether encryption is advertised. Built-in readers decrypt ZipCrypto, WinZip AES and
+     * 7z AES given a password and, for AES, a crypto provider; see [encryption].
+     */
     public val isEncrypted: Boolean = builder.isEncrypted
+
+    /**
+     * The encryption scheme protecting this member, or null when it is not encrypted or the
+     * reader does not know. [ArchiveEncryption.ZIP_CRYPTO_INSECURE] marks broken legacy ZIP
+     * encryption; treat such members as unprotected.
+     */
+    public val encryption: ArchiveEncryption? = builder.encryption
 
     /** Unsigned CRC-32 in a Long, or null when no CRC-32 is exposed by the reader. */
     public val crc32: Long? = builder.crc32
@@ -125,6 +136,9 @@ public class ArchiveEntry private constructor(builder: Builder) {
         /** Whether encryption is advertised, initially false. */
         public var isEncrypted: Boolean = false
 
+        /** Encryption scheme, initially null. */
+        public var encryption: ArchiveEncryption? = null
+
         /** Unsigned CRC-32, initially null. */
         public var crc32: Long? = null
 
@@ -142,6 +156,7 @@ public class ArchiveEntry private constructor(builder: Builder) {
             compressedSize = source.compressedSize
             codec = source.codec
             isEncrypted = source.isEncrypted
+            encryption = source.encryption
             crc32 = source.crc32
             unixMode = source.unixMode
             comment = source.comment
@@ -198,7 +213,7 @@ public class ArchiveEntry private constructor(builder: Builder) {
     override fun equals(other: Any?): Boolean = this === other || other is ArchiveEntry &&
         name == other.name && size == other.size && isDirectory == other.isDirectory &&
         lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && compressedSize == other.compressedSize &&
-        codec == other.codec && isEncrypted == other.isEncrypted && crc32 == other.crc32 &&
+        codec == other.codec && isEncrypted == other.isEncrypted && encryption == other.encryption && crc32 == other.crc32 &&
         unixMode == other.unixMode && comment == other.comment
 
     /** Hash the metadata properties used by [equals]. */
@@ -210,6 +225,7 @@ public class ArchiveEntry private constructor(builder: Builder) {
         result = 31 * result + compressedSize.hashCode()
         result = 31 * result + codec.hashCode()
         result = 31 * result + isEncrypted.hashCode()
+        result = 31 * result + (encryption?.hashCode() ?: 0)
         result = 31 * result + (crc32?.hashCode() ?: 0)
         result = 31 * result + (unixMode ?: 0)
         return 31 * result + (comment?.hashCode() ?: 0)
@@ -218,7 +234,7 @@ public class ArchiveEntry private constructor(builder: Builder) {
     /** Describe the member metadata with an escaped, bounded name; never reads its payload. */
     override fun toString(): String = "ArchiveEntry(name=\"${describeName(name)}\", size=$size, isDirectory=$isDirectory, " +
         "lastModifiedEpochSeconds=$lastModifiedEpochSeconds, compressedSize=$compressedSize, codec=$codec, " +
-        "isEncrypted=$isEncrypted, crc32=$crc32, unixMode=${unixMode?.toString(8)}, " +
+        "isEncrypted=$isEncrypted, encryption=$encryption, crc32=$crc32, unixMode=${unixMode?.toString(8)}, " +
         "comment=${comment?.let { "\"${describeName(it)}\"" }}, zipMethod=$zipMethod)"
 
     /** Builder-based construction. */

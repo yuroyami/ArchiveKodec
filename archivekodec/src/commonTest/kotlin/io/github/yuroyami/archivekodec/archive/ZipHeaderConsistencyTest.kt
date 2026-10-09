@@ -235,10 +235,16 @@ class ZipHeaderConsistencyTest {
                 assertEquals(number, entry.zipMethod)
                 assertEquals(number, entry.copy().zipMethod)
                 source.armed = true
-                val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
+                // ZipCrypto asks for a password; strong encryption and AES without its extra field are unsupported.
+                val error = assertFailsWith<io.github.yuroyami.archivekodec.ArchiveException> { reader.read(entry) }
+                if (flag == 0x801 && number != 99) {
+                    assertTrue(error is io.github.yuroyami.archivekodec.ArchivePasswordException, "$error")
+                } else {
+                    assertTrue(error is ArchiveUnsupportedException, "$error")
+                }
                 assertEquals("a.txt", error.entryName)
                 assertEquals(if (number == 99) 8L else 6L, error.offset)
-                assertTrue(error.message!!.contains("encryption"))
+                assertTrue(error.message!!.contains("encrypt"))
                 assertEquals(0, source.payloadReads)
             }
         }
@@ -278,12 +284,19 @@ class ZipHeaderConsistencyTest {
         assertEquals(CodecId.DEFLATE, entry.codec)
         assertEquals(8, entry.zipMethod)
         assertTrue(entry.isEncrypted)
+        assertEquals(io.github.yuroyami.archivekodec.crypto.ArchiveEncryption.ZIP_CRYPTO_INSECURE, entry.encryption)
         source.armed = true
-        val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
+        val error = assertFailsWith<io.github.yuroyami.archivekodec.ArchivePasswordException> { reader.read(entry) }
         assertEquals("a.txt", error.entryName)
         assertEquals(6L, error.offset)
-        assertTrue(error.message!!.contains("encryption"))
+        assertTrue(error.message!!.contains("no password"))
         assertEquals(0, source.payloadReads)
+        val options = io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions {
+            password = io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider.of("secret")
+        }
+        ZipReader(io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource(bytes), options).use { decrypting ->
+            assertEquals("hello hello hello hello hello", decrypting.read(decrypting.entries().single()).decodeToString())
+        }
     }
 
     @Test

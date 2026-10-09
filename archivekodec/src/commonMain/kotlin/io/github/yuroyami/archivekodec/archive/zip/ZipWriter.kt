@@ -7,6 +7,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
+import io.github.yuroyami.archivekodec.crypto.WinZipAes
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.DosTime
 import io.github.yuroyami.archivekodec.util.checkedArraySize
@@ -196,6 +197,8 @@ public object ZipWriter {
         val spec: FileSpec,
         val dosDateTime: Int,
         val extra: ByteArray,
+        val flags: Int,
+        val versionNeeded: Int,
     )
 
     private const val MAX_COMMENT_BYTES = 0xFFFF
@@ -220,6 +223,14 @@ public object ZipWriter {
     }
 
     private const val UTF8_FLAG = 0x0800
+    private const val ENCRYPTED_FLAG = 0x0001
+    private const val AES_METHOD = 99
+    private const val AES_EXTRA_SIZE = 11
+
+    /** The WinZip AES extra field: AE-2, the key strength and the real compression method. */
+    private fun aesExtra(strength: Int, method: Int): ByteArray = byteArrayOf(
+        0x01, 0x99.toByte(), 7, 0, 2, 0, 'A'.code.toByte(), 'E'.code.toByte(), strength.toByte(), method.toByte(), (method ushr 8).toByte(),
+    )
     private const val MAX_NAME_BYTES = 0xFFFF
     private const val DEFAULT_DOS_DATE = 0x0021 // 1980-01-01
 
@@ -298,14 +309,37 @@ public object ZipWriter {
     @JvmStatic
     public fun write(files: List<FileSpec>, comment: String): ByteArray = write(files, encodeComment(comment, "archive comment"))
 
-    private fun write(files: List<FileSpec>, archiveComment: ByteArray): ByteArray {
+    /**
+     * Write [files] with WinZip AES [encryption]; see [ZipEncryption].
+     *
+     * @throws ArchiveFormatException if a name violates the rules documented on [write].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun write(files: List<FileSpec>, encryption: ZipEncryption): ByteArray = write(files, ByteArray(0), encryption)
+
+    /**
+     * Write [files] with an archive [comment] and WinZip AES [encryption]. The comment is not encrypted.
+     *
+     * @throws IllegalArgumentException if [comment] is not valid Unicode or its UTF-8 form exceeds 65535 bytes.
+     * @throws ArchiveFormatException if a name violates the rules documented on [write].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    @JvmStatic
+    public fun write(files: List<FileSpec>, comment: String, encryption: ZipEncryption): ByteArray =
+        write(files, encodeComment(comment, "archive comment"), encryption)
+
+    private fun write(files: List<FileSpec>, archiveComment: ByteArray, encryption: ZipEncryption? = null): ByteArray {
         // Include both headers and the end records before constructing any output.
         var plannedSize = 22L + archiveComment.size + (if (files.size > 0xFFFF) 76 else 0) + files.size.toLong() * 76
         checkedArraySize(plannedSize)
         val prepared = ArrayList<PreparedFile>(files.size)
         for (f in files) {
             val nameBytes = encodeName(f.name)
-            plannedSize += nameBytes.size * 2L + extendedTimestamp(f.lastModifiedEpochSeconds).size * 2L + (f.commentBytes?.size ?: 0)
+            plannedSize += nameBytes.size * 2L + extendedTimestamp(f.lastModifiedEpochSeconds).size * 2L + (f.commentBytes?.size ?: 0) +
+                (if (encryption != null) 2L * AES_EXTRA_SIZE + WinZipAes.overhead(encryption.strength) else 0L)
             if (f.method == ZipMethod.STORED) plannedSize += f.payload.size
             checkedArraySize(plannedSize)
             prepared.add(PreparedFile(f, nameBytes))
@@ -318,21 +352,34 @@ public object ZipWriter {
             val data = f.payload
             val offset = out.size.toLong()
             val nameBytes = file.nameBytes
-            val crc = Crc32.of(data)
-            val method = f.method.code
-            val comp = when (f.method) {
+            val encrypt = encryption != null && !f.name.endsWith('/')
+            // AE-2 stores no CRC: the authentication code covers the data instead.
+            val crc = if (encrypt) 0L else Crc32.of(data)
+            val compressed = when (f.method) {
                 ZipMethod.STORED -> data
                 ZipMethod.DEFLATED -> Deflate.encode(data)
             }
             if (f.method != ZipMethod.STORED) {
-                plannedSize += comp.size
+                plannedSize += compressed.size
                 checkedArraySize(plannedSize)
             }
+            val comp = if (encrypt) {
+                val password = encryption!!.password()
+                try {
+                    WinZipAes.encrypt(encryption.crypto, password, encryption.strength, compressed)
+                } finally {
+                    password.fill('\u0000')
+                }
+            } else compressed
+            val method = if (encrypt) AES_METHOD else f.method.code
+            val flags = if (encrypt) UTF8_FLAG or ENCRYPTED_FLAG else UTF8_FLAG
+            val versionNeeded = if (encrypt) 51 else 20
             val dosDateTime = f.lastModifiedEpochSeconds?.let(DosTime::fromEpochSeconds) ?: (DEFAULT_DOS_DATE shl 16)
-            val extra = extendedTimestamp(f.lastModifiedEpochSeconds)
+            val extra = extendedTimestamp(f.lastModifiedEpochSeconds) +
+                (if (encrypt) aesExtra(encryption!!.strength, f.method.code) else ByteArray(0))
             out.le32(ZipFormat.LOC)
-            out.le16(20)                       // version needed
-            out.le16(UTF8_FLAG)                // flags: UTF-8 name
+            out.le16(versionNeeded)
+            out.le16(flags)                    // UTF-8 name, and encryption
             out.le16(method)
             out.le16(dosDateTime and 0xFFFF); out.le16(dosDateTime ushr 16) // DOS time, then date
             out.le32(crc)
@@ -343,7 +390,7 @@ public object ZipWriter {
             out.append(extra)
             out.append(comp)
 
-            recs.add(Rec(nameBytes, method, crc, comp.size.toLong(), data.size.toLong(), offset, f, dosDateTime, extra))
+            recs.add(Rec(nameBytes, method, crc, comp.size.toLong(), data.size.toLong(), offset, f, dosDateTime, extra, flags, versionNeeded))
         }
 
         val cdStart = out.size.toLong()
@@ -351,9 +398,10 @@ public object ZipWriter {
             val mode = r.spec.unixMode
             val comment = r.spec.commentBytes ?: ByteArray(0)
             out.le32(ZipFormat.CEN)
-            out.le16(if (mode == null) 45 else UNIX_HOST or 45) // version made by, host 3 = Unix
-            out.le16(20)                       // version needed
-            out.le16(UTF8_FLAG)                // flags: UTF-8 name and comment
+            val madeBy = maxOf(45, r.versionNeeded)
+            out.le16(if (mode == null) madeBy else UNIX_HOST or madeBy) // version made by, host 3 = Unix
+            out.le16(r.versionNeeded)
+            out.le16(r.flags)                  // UTF-8 name and comment, and encryption
             out.le16(r.method)
             out.le16(r.dosDateTime and 0xFFFF); out.le16(r.dosDateTime ushr 16)
             out.le32(r.crc)

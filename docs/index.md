@@ -23,6 +23,7 @@ There are no JNI or cinterop dependencies. The core artifact depends on
 | --- | --- |
 | Core | `io.github.yuroyami:archivekodec:0.2.0` |
 | kotlinx-io adapters | `io.github.yuroyami:archivekodec-io:0.2.0` |
+| AES for encrypted archives | `io.github.yuroyami:archivekodec-crypto:0.2.0` |
 
 ```kotlin
 kotlin {
@@ -134,6 +135,7 @@ or apply archive metadata to it.
 | --- | --- | --- |
 | `archivekodec` | Codecs, archive readers, ZIP, TAR, ar and cpio writers, checksums, a sniffer and the safety checks. See the table below | All, see below |
 | `archivekodec-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | All, see below |
+| `archivekodec-crypto` | `CryptographyKotlinProvider`: platform AES, HMAC and PBKDF2 for WinZip AES and 7z AES, via cryptography-kotlin | All but JS, wasmJs and wasmWasi |
 
 What `archivekodec` contains:
 

@@ -66,7 +66,7 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
                 TarReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
             },
             FormatSpec.builtin(ArchiveFormat.ZIP) { source, options ->
-                ZipReader(source, options.nameDecoder ?: ArchiveNameDecoder.CP437, options.limits, options.codecs)
+                ZipReader(source, options)
             },
             FormatSpec.builtin(ArchiveFormat.AR) { source, options ->
                 ArReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits, options.externalMembers)
@@ -78,7 +78,7 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
             FormatSpec.builtin(ArchiveFormat.BZIP2), FormatSpec.builtin(ArchiveFormat.XZ),
             FormatSpec.builtin(ArchiveFormat.LZMA), FormatSpec.builtin(ArchiveFormat.ZSTD),
             FormatSpec.builtin(ArchiveFormat.LZ4),
-            FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP) { source, options -> SevenZipReader(source, options.limits) },
+            FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP) { source, options -> SevenZipReader(source, options) },
             FormatSpec.builtin(ArchiveFormat.RAR), FormatSpec.builtin(ArchiveFormat.BROTLI),
             FormatSpec.builtin(ArchiveFormat.SNAPPY),
         ))

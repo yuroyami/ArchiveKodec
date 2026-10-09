@@ -1,0 +1,19 @@
+// Klib ABI Dump
+// Targets: [androidNativeArm32, androidNativeArm64, androidNativeX64, androidNativeX86, iosArm64, iosSimulatorArm64, iosX64, linuxArm64, linuxX64, macosArm64, mingwX64, tvosArm64, tvosSimulatorArm64, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.yuroyami:archivekodec-crypto>
+final class io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider : io.github.yuroyami.archivekodec.crypto/CryptoProvider { // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider|null[0]
+    constructor <init>() // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.<init>|<init>(){}[0]
+    constructor <init>(dev.whyoleg.cryptography/CryptographyProvider) // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.<init>|<init>(dev.whyoleg.cryptography.CryptographyProvider){}[0]
+
+    final fun aesCbcDecrypt(kotlin/ByteArray, kotlin/ByteArray, kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.aesCbcDecrypt|aesCbcDecrypt(kotlin.ByteArray;kotlin.ByteArray;kotlin.ByteArray){}[0]
+    final fun aesEcbEncrypt(kotlin/ByteArray, kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.aesEcbEncrypt|aesEcbEncrypt(kotlin.ByteArray;kotlin.ByteArray){}[0]
+    final fun hmacSha1(kotlin/ByteArray, kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.hmacSha1|hmacSha1(kotlin.ByteArray;kotlin.ByteArray){}[0]
+    final fun pbkdf2HmacSha1(kotlin/ByteArray, kotlin/ByteArray, kotlin/Int, kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.pbkdf2HmacSha1|pbkdf2HmacSha1(kotlin.ByteArray;kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+    final fun randomBytes(kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.randomBytes|randomBytes(kotlin.Int){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.crypto/CryptographyKotlinProvider.toString|toString(){}[0]
+}

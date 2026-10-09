@@ -1,3 +1,11 @@
+public final class io/github/yuroyami/archivekodec/ArchiveAuthenticationException : io/github/yuroyami/archivekodec/ArchiveException {
+	public fun <init> (Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Long;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
 public final class io/github/yuroyami/archivekodec/ArchiveClosedException : io/github/yuroyami/archivekodec/ArchiveException {
 	public fun <init> (Ljava/lang/String;)V
 	public fun <init> (Ljava/lang/String;Ljava/lang/Long;)V
@@ -84,6 +92,14 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final fun sniff ([BLio/github/yuroyami/archivekodec/archive/FormatRegistry;)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 }
 
+public final class io/github/yuroyami/archivekodec/ArchivePasswordException : io/github/yuroyami/archivekodec/ArchiveException {
+	public fun <init> (Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Long;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
 public final class io/github/yuroyami/archivekodec/ArchiveSizeException : io/github/yuroyami/archivekodec/ArchiveException {
 	public fun <init> (Ljava/lang/String;)V
 }
@@ -110,6 +126,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry {
 	public final fun getComment ()Ljava/lang/String;
 	public final fun getCompressedSize ()J
 	public final fun getCrc32 ()Ljava/lang/Long;
+	public final fun getEncryption ()Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
 	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getNameBytes ()[B
@@ -130,6 +147,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Builder 
 	public final fun getComment ()Ljava/lang/String;
 	public final fun getCompressedSize ()J
 	public final fun getCrc32 ()Ljava/lang/Long;
+	public final fun getEncryption ()Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
 	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getSize ()J
@@ -142,6 +160,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Builder 
 	public final fun setCrc32 (Ljava/lang/Long;)V
 	public final fun setDirectory (Z)V
 	public final fun setEncrypted (Z)V
+	public final fun setEncryption (Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;)V
 	public final fun setLastModifiedEpochSeconds (Ljava/lang/Long;)V
 	public final fun setName (Ljava/lang/String;)V
 	public final fun setSize (J)V
@@ -198,9 +217,11 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions {
 	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun getCrypto ()Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
 	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
+	public final fun getPassword ()Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;
 	public static final fun invoke ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public static final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 }
@@ -209,13 +230,17 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Bu
 	public fun <init> ()V
 	public final fun build ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun getCrypto ()Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
 	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
+	public final fun getPassword ()Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;
 	public final fun setCodecs (Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
+	public final fun setCrypto (Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;)V
 	public final fun setExternalMembers (Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;)V
 	public final fun setLimits (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public final fun setNameDecoder (Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public final fun setPassword (Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;)V
 }
 
 public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Companion {
@@ -501,6 +526,7 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/InitramfsSegment
 public final class io/github/yuroyami/archivekodec/archive/sevenzip/SevenZipReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/sevenzip/SevenZipReader$Companion;
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
@@ -581,6 +607,15 @@ public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpe
 	public final fun invoke (Ljava/lang/String;[BLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;
 }
 
+public final class io/github/yuroyami/archivekodec/archive/zip/ZipEncryption {
+	public fun <init> ([CLio/github/yuroyami/archivekodec/crypto/CryptoProvider;)V
+	public fun <init> ([CLio/github/yuroyami/archivekodec/crypto/CryptoProvider;I)V
+	public synthetic fun <init> ([CLio/github/yuroyami/archivekodec/crypto/CryptoProvider;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getCrypto ()Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
+	public final fun getKeyBits ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipMethod : java/lang/Enum {
 	public static final field DEFLATED Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;
 	public static final field STORED Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;
@@ -596,6 +631,7 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipReader : io/gi
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
@@ -613,7 +649,9 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipReader : io/gi
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipWriter {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/zip/ZipWriter;
 	public static final fun write (Ljava/util/List;)[B
+	public static final fun write (Ljava/util/List;Lio/github/yuroyami/archivekodec/archive/zip/ZipEncryption;)[B
 	public static final fun write (Ljava/util/List;Ljava/lang/String;)[B
+	public static final fun write (Ljava/util/List;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/zip/ZipEncryption;)[B
 }
 
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipWriter$FileSpec {
@@ -895,6 +933,44 @@ public final class io/github/yuroyami/archivekodec/codec/snappy/Snappy {
 	public static final fun frameDecompress ([B)[B
 	public static final fun frameDecompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun frameDecompress$default ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
+}
+
+public final class io/github/yuroyami/archivekodec/crypto/ArchiveEncryption {
+	public static final field Companion Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption$Companion;
+	public static final field SEVEN_ZIP_AES_256 Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public static final field UNSUPPORTED Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public static final field WINZIP_AES_128 Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public static final field WINZIP_AES_192 Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public static final field WINZIP_AES_256 Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public static final field ZIP_CRYPTO_INSECURE Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/crypto/ArchiveEncryption$Companion {
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider {
+	public static final field Companion Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider$Companion;
+	public static fun of (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;
+	public static fun of ([C)Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;
+	public abstract fun password (Ljava/lang/String;)[C
+}
+
+public final class io/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider$Companion {
+	public final fun of (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;
+	public final fun of ([C)Lio/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider;
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/crypto/CryptoProvider {
+	public abstract fun aesCbcDecrypt ([B[B[B)[B
+	public abstract fun aesEcbEncrypt ([B[B)[B
+	public abstract fun hmacSha1 ([B[B)[B
+	public abstract fun pbkdf2HmacSha1 ([B[BII)[B
+	public abstract fun randomBytes (I)[B
 }
 
 public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {

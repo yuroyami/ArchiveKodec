@@ -169,8 +169,10 @@ class ZipCodecRegistryTest {
                 val entry = reader.entries().single()
                 assertTrue(entry.isEncrypted)
                 assertEquals(method, entry.zipMethod)
-                val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
-                assertTrue(error.message.orEmpty().contains("encryption"))
+                // ZipCrypto asks for a password; strong encryption and AES without its field are unsupported.
+                val error = assertFailsWith<io.github.yuroyami.archivekodec.ArchiveException> { reader.read(entry) }
+                assertTrue(error is io.github.yuroyami.archivekodec.ArchivePasswordException || error is ArchiveUnsupportedException, "$error")
+                assertTrue(error.message.orEmpty().contains("encrypt"))
             }
             assertEquals(0, engine.calls)
         }

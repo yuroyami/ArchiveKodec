@@ -48,3 +48,16 @@ public class ArchiveIOException @JvmOverloads public constructor(
 public class ArchiveClosedException @JvmOverloads public constructor(
     message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
 ) : ArchiveException(message, cause, offset, entryName)
+
+/** A member is encrypted and no password was supplied, or the supplied one is wrong. */
+public class ArchivePasswordException @JvmOverloads public constructor(
+    message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
+) : ArchiveException(message, cause, offset, entryName)
+
+/**
+ * Encrypted data failed its authentication code: it was altered or damaged after it was
+ * encrypted. Raised before any decompression runs on the data.
+ */
+public class ArchiveAuthenticationException @JvmOverloads public constructor(
+    message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
+) : ArchiveException(message, cause, offset, entryName)

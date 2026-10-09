@@ -9,10 +9,16 @@ dokka = "2.2.0"
 # Tier 2 (:archivekodec-io) only. The :archivekodec core stays kotlin-stdlib-only.
 kotlinxIo = "0.9.1"
 
+# Tier 2 (:archivekodec-crypto) only: platform AES, HMAC and PBKDF2.
+cryptography = "0.6.0"
+
 [libraries] ######################################################################################
 # Tier 2 I/O — kotlinx-io provides the RawSource/RawSink + filesystem the core
 # deliberately doesn't touch.
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
+# Tier 2 crypto — cryptography-kotlin, backed by the JDK, OpenSSL 3 or Apple's libraries.
+cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
+cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }
 
 [plugins] ########################################################################################
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

@@ -229,7 +229,7 @@ class ZipPrefixTest {
         assertEquals(prefix.size.toLong() + 35, assertFailsWith<ArchiveFormatException> { read(corrupt) }.offset)
         putLe(base, 6, 1, 2); putLe(base, central(base) + 8, 1, 2)
         val encrypted = prefix + base
-        assertEquals(prefix.size.toLong() + 6, assertFailsWith<ArchiveUnsupportedException> { read(encrypted) }.offset)
+        assertEquals(prefix.size.toLong() + 6, assertFailsWith<io.github.yuroyami.archivekodec.ArchivePasswordException> { read(encrypted) }.offset)
     }
 
     @Test fun shiftedOverlapsAndInconsistentOffsetConventionsRemainInvalid() {

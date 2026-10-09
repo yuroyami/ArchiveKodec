@@ -2,10 +2,12 @@ package io.github.yuroyami.archivekodec.archive.zip
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchivePasswordException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
@@ -17,12 +19,19 @@ import io.github.yuroyami.archivekodec.archive.issuedBy
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.CodecRegistry
 import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lzma.ZipLzma
 import io.github.yuroyami.archivekodec.codec.ppmd.PpmdZip
+import io.github.yuroyami.archivekodec.crypto.ArchiveEncryption
+import io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider
+import io.github.yuroyami.archivekodec.crypto.CryptoProvider
+import io.github.yuroyami.archivekodec.crypto.WinZipAes
+import io.github.yuroyami.archivekodec.crypto.ZipCrypto
+import io.github.yuroyami.archivekodec.crypto.utf8
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.readI64Le
@@ -47,8 +56,11 @@ import kotlin.text.CharacterCodingException
  * methods appear in [entries], but [read] throws when no decoder is registered.
  * [ArchiveEntry.zipMethod] preserves the numeric method; unbound methods use a
  * `zip-method-N` codec identifier instead of STORE. Encryption flags or method 99
- * set [ArchiveEntry.isEncrypted]; encrypted payloads are refused before decoding,
- * including when a custom codec is registered for that method.
+ * set [ArchiveEntry.isEncrypted] and [ArchiveEntry.encryption]. With a password from
+ * [ArchiveOpenOptions.password], ZipCrypto members are decrypted, and WinZip AES members
+ * too when [ArchiveOpenOptions.crypto] supplies AES; their authentication code is checked
+ * before any decompression. A WinZip AES entry reports its underlying compression codec.
+ * PKWARE strong encryption is refused.
  *
  * Security: local-header and compressed-data extents must be disjoint and end
  * before the central directory. Duplicate local-header offsets are also rejected
@@ -82,12 +94,29 @@ public class ZipReader(
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.CP437)
     public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.CP437, limits)
 
+    /**
+     * Read with [options]: its name decoder (CP437 when null), limits and codecs, plus the
+     * [ArchiveOpenOptions.password] and [ArchiveOpenOptions.crypto] that encrypted members need.
+     */
+    public constructor(source: RandomAccessSource, options: ArchiveOpenOptions) :
+        this(source, options.nameDecoder ?: ArchiveNameDecoder.CP437, options.limits, options.codecs) {
+        passwords = options.password
+        crypto = options.crypto
+    }
+
+    private var passwords: ArchivePasswordProvider? = null
+    private var crypto: CryptoProvider? = null
+
     private class Member(
         val entry: ArchiveEntry,
         val nameBytes: ByteArray,
         val method: Int,
         val flags: Int,
         val localExtraLength: Int,
+        /** WinZip AES fields from the 0x9901 extra field; [aesStrength] is 0 without one. */
+        val aesVersion: Int = 0,
+        val aesStrength: Int = 0,
+        val aesMethod: Int = 0,
     )
 
     private class Directory(val entries: List<ArchiveEntry>, val members: Map<Long, Member>)
@@ -133,9 +162,10 @@ public class ZipReader(
         val source = ownedSource.source
         val lh = source.readFully(entry.dataOffset, 30)
         val dataStart = validateLocalHeader(member, lh, source)
-        if (entry.isEncrypted) {
+        val encryption = entry.encryption
+        if (entry.isEncrypted && (encryption == null || encryption == ArchiveEncryption.UNSUPPORTED)) {
             val field = if (member.method == 99) 8 else 6
-            throw ArchiveUnsupportedException("ZIP encryption is not supported", entry.dataOffset + field, entry.name)
+            throw ArchiveUnsupportedException("ZIP: this encryption scheme is not supported", entry.dataOffset + field, entry.name)
         }
         if (member.flags and 0x20 != 0) {
             throw ArchiveUnsupportedException("ZIP compressed patched data is not supported", entry.dataOffset + 6, entry.name)
@@ -144,15 +174,64 @@ public class ZipReader(
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.compressedSize, entry.size)
 
-        val method = member.method
+        val method = if (member.aesStrength != 0) member.aesMethod else member.method
         val codecId = codecs.idForZipMethod(method)
             ?: throw ArchiveUnsupportedException("ZIP method $method not supported", entry.dataOffset + 8, entry.name)
         val codec = codecs.byZipMethod(method)
             ?: throw ArchiveUnsupportedException("ZIP method $method ($codecId) not implemented yet", entry.dataOffset + 8, entry.name)
-        if (method == 0 && entry.compressedSize != entry.size) {
+        if (!entry.isEncrypted && method == 0 && entry.compressedSize != entry.size) {
             throw ArchiveFormatException("ZIP: stored compressed size ${entry.compressedSize} differs from output size ${entry.size}", dataStart, entry.name)
         }
-        val comp = source.readFullyChecked(dataStart, entry.compressedSize)
+        // Ask for the password, and check AES has a provider, before reading any ciphertext.
+        val password = if (entry.isEncrypted) {
+            val field = entry.dataOffset + if (member.method == 99) 8 else 6
+            val password = passwords?.password(entry.name)
+                ?: throw ArchivePasswordException("ZIP: entry is encrypted and no password was supplied", field, entry.name)
+            if (member.aesStrength != 0 && crypto == null) {
+                password.fill('\u0000')
+                throw ArchiveUnsupportedException(
+                    "ZIP: WinZip AES needs a CryptoProvider, such as CryptographyKotlinProvider from archivekodec-crypto", field, entry.name,
+                )
+            }
+            password
+        } else null
+        val stored = source.readFullyChecked(dataStart, entry.compressedSize)
+        val comp = if (password != null) decrypt(member, lh, stored, dataStart, password) else stored
+        if (method == 0 && comp.size.toLong() != entry.size) {
+            throw ArchiveFormatException("ZIP: stored compressed size ${comp.size} differs from output size ${entry.size}", dataStart, entry.name)
+        }
+        // ZipCrypto has no authentication, so a wrong password that passes its one-byte check
+        // surfaces as undecodable data or a CRC mismatch; report that as a password problem.
+        if (encryption == ArchiveEncryption.ZIP_CRYPTO_INSECURE) {
+            try {
+                return@withEntryContext decode(member, codec, method, comp, dataStart, limits)
+            } catch (error: ArchiveException) {
+                if (error is DecompressionBombException) throw error
+                throw ArchivePasswordException("ZIP: wrong password or corrupt data", dataStart, entry.name, error)
+            }
+        }
+        return@withEntryContext decode(member, codec, method, comp, dataStart, limits)
+    }
+
+    private fun decrypt(member: Member, local: ByteArray, stored: ByteArray, dataStart: Long, password: CharArray): ByteArray {
+        val entry = member.entry
+        try {
+            return if (member.aesStrength != 0) {
+                WinZipAes.decrypt(crypto!!, password, member.aesStrength, stored)
+            } else {
+                val check = ((entry.crc32 ?: 0L) ushr 24).toInt() and 0xFF
+                val timeCheck = if (member.flags and 0x08 != 0) readU16Le(local, 10) ushr 8 else null
+                ZipCrypto(password.utf8()).decrypt(stored, check, timeCheck)
+            }
+        } catch (error: ArchiveException) {
+            throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+        } finally {
+            password.fill('\u0000')
+        }
+    }
+
+    private fun decode(member: Member, codec: Codec, method: Int, comp: ByteArray, dataStart: Long, limits: ArchiveLimits): ByteArray {
+        val entry = member.entry
         val out = try {
             when {
                 codec === Codecs.DEFLATE -> Inflate.inflateExact(comp, limits, entry.size)
@@ -174,12 +253,15 @@ public class ZipReader(
             throw ArchiveFormatException("ZIP: output size ${out.size} differs from declared size ${entry.size}", dataStart, entry.name)
         }
 
-        entry.crc32?.let { expected ->
-            if (Crc32.of(out) != expected) {
-                throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
+        // WinZip AE-2 stores no CRC; its authentication code covers the data instead.
+        if (member.aesVersion != 2) {
+            entry.crc32?.let { expected ->
+                if (Crc32.of(out) != expected) {
+                    throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
+                }
             }
         }
-        return@withEntryContext out
+        return out
     }
 
     private fun validateLocalHeader(member: Member, local: ByteArray, source: RandomAccessSource): Long =
@@ -421,10 +503,23 @@ public class ZipReader(
                 throw DecompressionBombException("ZIP: multiple entries reference local header offset $localOffset", localOffset, name, null)
             }
 
+            val aes = if (method == 99) winZipAes(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen, cdOffset, name) else null
+            val dataMethod = aes?.get(2) ?: method
             val provisional = ArchiveEntry(name, uncompSize, false) {
                 compressedSize = compSize
-                codec = codecs.idForZipMethod(method) ?: CodecId("zip-method-$method")
+                codec = codecs.idForZipMethod(dataMethod) ?: CodecId("zip-method-$dataMethod")
                 isEncrypted = flags and 0x41 != 0 || method == 99
+                encryption = when {
+                    method == 99 -> when (aes?.get(1)) {
+                        1 -> ArchiveEncryption.WINZIP_AES_128
+                        2 -> ArchiveEncryption.WINZIP_AES_192
+                        3 -> ArchiveEncryption.WINZIP_AES_256
+                        else -> ArchiveEncryption.UNSUPPORTED
+                    }
+                    flags and 0x40 != 0 -> ArchiveEncryption.UNSUPPORTED
+                    flags and 0x01 != 0 -> ArchiveEncryption.ZIP_CRYPTO_INSECURE
+                    else -> null
+                }
                 crc32 = crc
                 lastModifiedEpochSeconds = modified
                 this.unixMode = unixMode
@@ -443,7 +538,7 @@ public class ZipReader(
             name = if (utf8) ArchiveNameDecoder.UTF8.decodeStoredName(nameBytes, nameOffset)
                 else centralUnicode ?: localUnicode ?: nameDecoder.decodeStoredName(nameBytes, nameOffset)
             val entry = provisional.copy { this.name = name; isDirectory = name.endsWith("/") }.withNameBytes(nameBytes)
-            val member = Member(entry, nameBytes, method, flags, localExtraLength)
+            val member = Member(entry, nameBytes, method, flags, localExtraLength, aes?.get(0) ?: 0, aes?.get(1) ?: 0, aes?.get(2) ?: 0)
             members[localOffset] = member
             entries.add(entry)
             p += 46 + nameLen + extraLen + commentLen
@@ -455,6 +550,29 @@ public class ZipReader(
         }
         validateMemberExtents(members.values, cdOffset)
         return Directory(entries.issuedBy(this, limits), members)
+    }
+
+    /**
+     * The WinZip AES extra field (0x9901) between [start] and [end] as (vendor version,
+     * strength, actual method), or null when absent or malformed; reading then refuses it.
+     */
+    private fun winZipAes(bytes: ByteArray, start: Int, end: Int, base: Long, name: String): IntArray? {
+        var pos = start
+        while (end - pos >= 4) {
+            val id = readU16Le(bytes, pos)
+            val length = readU16Le(bytes, pos + 2)
+            val data = pos + 4
+            if (length > end - data) return null
+            if (id == 0x9901) {
+                if (length < 7 || bytes[data + 2] != 'A'.code.toByte() || bytes[data + 3] != 'E'.code.toByte()) return null
+                val version = readU16Le(bytes, data)
+                val strength = bytes[data + 4].toInt() and 0xFF
+                if (version !in 1..2 || strength !in 1..3) return null
+                return intArrayOf(version, strength, readU16Le(bytes, data + 5))
+            }
+            pos = data + length
+        }
+        return null
     }
 
     /**

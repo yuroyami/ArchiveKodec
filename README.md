@@ -14,15 +14,18 @@ examples, plus the generated API reference.
 
 ## Install
 
-Both artifacts are on Maven Central under the group `io.github.yuroyami`. Versions
+The artifacts are on Maven Central under the group `io.github.yuroyami`. Versions
 before 0.2.0 use older coordinates: 0.1.0 is `io.github.yuroyami:kitearchive`.
 
 | Artifact | Coordinates | What it holds |
 | --- | --- | --- |
 | Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP, TAR, ar and cpio writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
 | IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | Four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
+| Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0` | `CryptographyKotlinProvider`, the platform AES, HMAC and PBKDF2 that WinZip AES and 7z AES need. Adds cryptography-kotlin and the core as API dependencies |
 
-Both build for every target in [Targets](#targets).
+The core and the IO adapters build for every target in [Targets](#targets). The crypto
+artifact builds for all of them except JS, wasmJs and wasmWasi; see
+[Encrypted archives](#encrypted-archives).
 
 Kotlin Multiplatform, in the shared source set:
 
@@ -33,6 +36,10 @@ kotlin {
             implementation("io.github.yuroyami:archivekodec:0.2.0")
             // Only if you already use kotlinx-io. See "The -io artifact".
             implementation("io.github.yuroyami:archivekodec-io:0.2.0")
+        }
+        // Only to read or write AES-encrypted archives; not available on JS or Wasm.
+        jvmMain.dependencies {
+            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
         }
     }
 }
@@ -272,8 +279,8 @@ Lookups by id, name, format and ZIP method all use the selected registry.
 
 Custom codecs must implement the registered ZIP method's exact payload framing,
 keep their id stable, and enforce the supplied limits while decoding. The reader
-still rejects encryption and inconsistent headers, and verifies output limits,
-size and CRC-32. Registry bindings are immutable; codec instances are shared and
+decrypts and authenticates encrypted entries before a codec sees their data, rejects
+inconsistent headers, and verifies output limits, size and CRC-32. Registry bindings are immutable; codec instances are shared and
 retain their own thread-safety rules. Registration does not change sniffing or
 add a compression method to `ZipWriter`.
 
@@ -614,9 +621,11 @@ directory and locator gaps remain readable. Shifted local headers and payloads
 still undergo the same range, overlap, metadata, size, ratio and CRC32 checks.
 
 Entries with encryption bit 0, strong-encryption bit 6, or the AES method marker
-99 have `isEncrypted = true`. Reading them throws `ArchiveUnsupportedException`
-before decoding ciphertext. Compressed patched data (bit 5) is likewise
-unsupported. Masked local headers used with central-directory encryption
+99 have `isEncrypted = true`, and `ArchiveEntry.encryption` names the scheme. ZipCrypto
+and WinZip AES entries are decrypted given a password; see
+[Encrypted archives](#encrypted-archives). PKWARE strong encryption throws
+`ArchiveUnsupportedException` before any ciphertext is read. Compressed patched data
+(bit 5) is likewise unsupported. Masked local headers used with central-directory encryption
 (bit 13) throw `ArchiveUnsupportedException` during listing.
 
 `ArchiveEntry.zipMethod` exposes the original central-directory method number,
@@ -627,7 +636,46 @@ method 11), rather than STORE. A custom ZIP binding reports the registered id an
 retains the original number. Check `reader.codecs.byZipMethod(entry.zipMethod!!)`
 for decoder availability; registering an id alone does not bind an unknown wire
 method. Reading an unbound method throws `ArchiveUnsupportedException` before
-fetching its payload. Encryption is refused even when a custom decoder is bound.
+fetching its payload. A custom decoder bound to a method only ever receives decrypted,
+authenticated data.
+
+### Encrypted archives
+
+ZIP and 7z archives protected by a password are read with two options: the password and,
+for AES, a `CryptoProvider`. The core has no AES of its own: a table-driven AES written in
+Kotlin is slow and leaks key bits through cache timing. `archivekodec-crypto` supplies
+`CryptographyKotlinProvider`, which runs the platform's implementation through
+cryptography-kotlin (the JDK, a bundled OpenSSL 3, or Apple's libraries).
+
+```kotlin
+val options = ArchiveOpenOptions {
+    password = ArchivePasswordProvider.of(secret)   // or a callback per entry name
+    crypto = CryptographyKotlinProvider()
+}
+ArchiveKodec.open(bytes, null, options).use { reader ->
+    for (entry in reader.entries()) println("${entry.name} ${entry.encryption}")
+    val data = reader.read(reader.entries().first())
+}
+
+// Writing: WinZip AES-256 for every file.
+val zip = ZipWriter.write(files, ZipEncryption(password, CryptographyKotlinProvider()))
+```
+
+| Scheme | Read | Write | Notes |
+| --- | --- | --- | --- |
+| WinZip AES (AE-1, AE-2; 128, 192, 256-bit) | yes | yes (AE-2) | The HMAC-SHA1 tag is checked before any decompression; a mismatch is `ArchiveAuthenticationException` |
+| ZipCrypto | yes, no provider needed | never | Broken; reported as `ArchiveEncryption.ZIP_CRYPTO_INSECURE` |
+| 7z AES-256 | yes, including encrypted headers | no | No authentication: a wrong password shows up as data that fails to decode or to match its CRC |
+| PKWARE strong encryption | no | no | `ArchiveUnsupportedException` |
+
+A missing or wrong password is `ArchivePasswordException`. The password callback gets
+the entry name, or null for 7z encrypted headers, which are needed just to list the
+archive. Passwords are hashed as UTF-8 for ZIP and UTF-16LE for 7z, as 7-Zip does. 7z
+key derivation is capped at 2^24 SHA-256 rounds (7-Zip writes 2^19).
+
+`CryptoProvider` is a plain interface, so any other implementation can be passed instead.
+The readers call it synchronously; browsers offer only the asynchronous WebCrypto, so
+`archivekodec-crypto` has no JS or Wasm build.
 
 | Format | Read | Write |
 | --- | --- | --- |

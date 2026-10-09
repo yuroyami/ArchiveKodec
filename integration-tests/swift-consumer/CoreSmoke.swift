@@ -875,8 +875,9 @@ encrypted.set(index: 46, value: 1)
 let encryptedReader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: encrypted))
 let encryptedEntry = try encryptedReader.entries()[0]
 precondition(encryptedEntry.isEncrypted)
-expectFailure("ZIP encryption", check: {
-    $0 is ArchiveUnsupportedException && $0.entryName == "a.txt" && $0.offset?.int64Value == 6 && $0.message?.contains("encryption") == true
+precondition(encryptedEntry.encryption == ArchiveEncryption.companion.ZIP_CRYPTO_INSECURE)
+expectFailure("ZIP encryption without a password", check: {
+    $0 is ArchivePasswordException && $0.entryName == "a.txt" && $0.offset?.int64Value == 6 && $0.message?.contains("password") == true
 }) { _ = try encryptedReader.read(entry: encryptedEntry, limits: limits) }
 try encryptedReader.close()
 let overlapHex = "504b03041400000000000000210021f8f5ad2d0000002d0000000100000061504b03041400000000000000210024e8d09f0e0000000e00000001000000625348415245442d5041594c4f4144504b010214001400000000000000210021f8f5ad2d0000002d00000001000000000000000000000000000000000061504b010214001400000000000000210024e8d09f0e0000000e00000001000000000000000000000000001f00000062504b050600000000020002005e0000004c0000000000"

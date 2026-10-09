@@ -1,6 +1,8 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.codec.CodecRegistry
+import io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider
+import io.github.yuroyami.archivekodec.crypto.CryptoProvider
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.jvm.JvmField
 import kotlin.jvm.JvmOverloads
@@ -21,6 +23,10 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
     public val codecs: CodecRegistry = builder.codecs
     /** Supplies members stored outside the archive, such as GNU thin `ar` members; null refuses them. */
     public val externalMembers: ExternalMemberResolver? = builder.externalMembers
+    /** Supplies passwords for encrypted ZIP and 7z members; null refuses encrypted data. */
+    public val password: ArchivePasswordProvider? = builder.password
+    /** AES, HMAC and PBKDF2 for WinZip AES and 7z AES; null refuses them. ZipCrypto needs none. */
+    public val crypto: CryptoProvider? = builder.crypto
 
     /** Mutable single-thread configuration; [build] snapshots the property values. */
     public class Builder public constructor() {
@@ -32,12 +38,18 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
         public var codecs: CodecRegistry = CodecRegistry.DEFAULT
         /** Resolver for externally stored members, initially null. */
         public var externalMembers: ExternalMemberResolver? = null
+        /** Password source for encrypted members, initially null. */
+        public var password: ArchivePasswordProvider? = null
+        /** Crypto primitives for AES-encrypted members, initially null. */
+        public var crypto: CryptoProvider? = null
 
         internal constructor(source: ArchiveOpenOptions) : this() {
             limits = source.limits
             nameDecoder = source.nameDecoder
             codecs = source.codecs
             externalMembers = source.externalMembers
+            password = source.password
+            crypto = source.crypto
         }
 
         /** Snapshot settings, reserving an argument-validation error contract for future options. */
