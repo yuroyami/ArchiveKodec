@@ -30,7 +30,7 @@ class LzmaXzTest {
     private val helloSha256 = b64("/Td6WFoAAArh+wyhAgAhARYAAAB0L+WjAQAKaGVsbG8gd29ybGQAALlNJ7mTTT4IpS5S19p9q/rEhO/jelOA7pCI96zi783pAAE7C5uD5osYm0uaAQAAAAAKWVo=")         // xz -C sha256
     private val helloNone = b64("/Td6WFoAAAD/EtlBAgAhARYAAAB0L+WjAQAKaGVsbG8gd29ybGQAAAABGws5p2IeBnKeegEAAAAAAFla")             // xz -C none
     private val helloDelta = b64("/Td6WFoAAATm1rRGAgEDAQEhARYcR3hW4ADbABVdADQZPIBP52HL6jBRULoWe8v1v0AAAAAAAAA7NpgdnCJNRwABMdwBAAAA6PXK+LHEZ/sCAAAAAARZWg==")           // xz --delta=dist=2 --lzma2, of "hello world" × 20
-    private val helloX86 = b64("/Td6WFoAAATm1rRGAgEEACEBFgANhjUfAQAKaGVsbG8gd29ybGQAANpSI+/NfgNTAAEjC8Ib/QkftvN9AQAAAAAEWVo=")               // xz --x86 --lzma2
+    private val helloArm = b64("/Td6WFoAAATm1rRGAgEHACEBFgCj9KGZAQAKaGVsbG8gd29ybGQAANpSI+/NfgNTAAEjC8Ib/QkftvN9AQAAAAAEWVo=")     // xz --arm --lzma2
     private val helloLzma2 = b64("AQAKaGVsbG8gd29ybGQA")           // raw LZMA2 from CPython
     private val zip14 = b64("UEsDBD8AAgAOABAbSV1Kjpg0NgEAAOITAAAIAAAAbm90ZS50eHQJBAUAXQAAgAAANh6J3X1JPjRU9RYF9B6eEy+hwsGHNfhPQS1bPK/AYkLasPlYCpjkmdWyAWugg1dd4P2hvTY8/qeGgHjXdmytKv6NYEb9vEYi7Sw+Mmum0BVocqDi/R/r9C8u9hAQdMQJD/eBcYRhARFae3OdEl/rJfMdMDjAWup+8MjF6i2prcKTowVT+XrxucyivXSu6RhqRuUKB9TIOvomCPPUGH5ucaWoWu6hZA97RS33+p6BlwBecSmXSHk448oqZ6Dfe6y3/Mdb5OSS+oHydue4IlctI+5hug0vbaYCbsbIAcif0AazNRY96esk6/YobrxhDMemmcALrne06AfS86sR8WYyEUzoI3FVjijunfNHd3PDF4DLKtXrJoHyjUp9i0+hPLL/2nYV5Qf9///3EJGXUEsBAj8DPwACAA4AEBtJXUqOmDQ2AQAA4hMAAAgAAAAAAAAAAAAAAIABAAAAAG5vdGUudHh0UEsFBgAAAAABAAEANgAAAFwBAAAAAA==")                      // CPython zipfile ZIP_LZMA, 200 lines
 
@@ -525,9 +525,9 @@ class LzmaXzTest {
     }
 
     @Test
-    fun bcjFiltersAreRefusedByName() {
-        val error = assertFailsWith<ArchiveUnsupportedException> { Codecs.XZ.decompress(helloX86) }
-        assertTrue(error.message!!.contains("x86"), error.message)
+    fun unsupportedBcjFiltersAreRefusedByName() {
+        val error = assertFailsWith<ArchiveUnsupportedException> { Codecs.XZ.decompress(helloArm) }
+        assertTrue(error.message!!.contains("ARM"), error.message)
     }
 
     @Test

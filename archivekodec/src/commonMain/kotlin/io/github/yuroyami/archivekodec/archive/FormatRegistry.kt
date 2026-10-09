@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.archive
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
+import io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import kotlin.jvm.JvmField
@@ -54,7 +55,7 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
     /** Default detection rules and registered reader factories. */
     public companion object {
         /**
-         * Built-in magic rules, TAR/ZIP/ar/cpio readers and the facade's single gzip
+         * Built-in magic rules, TAR/ZIP/ar/cpio/7z readers and the facade's single gzip
          * wrapper. Other recognized streams remain detectable but need an explicit
          * decoder or replacement descriptor to open. LZMA and BROTLI never sniff
          * automatically, but can be replaced and selected explicitly by id.
@@ -76,7 +77,8 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
             FormatSpec.builtin(ArchiveFormat.GZIP), FormatSpec.builtin(ArchiveFormat.ZLIB),
             FormatSpec.builtin(ArchiveFormat.BZIP2), FormatSpec.builtin(ArchiveFormat.XZ),
             FormatSpec.builtin(ArchiveFormat.LZMA), FormatSpec.builtin(ArchiveFormat.ZSTD),
-            FormatSpec.builtin(ArchiveFormat.LZ4), FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP),
+            FormatSpec.builtin(ArchiveFormat.LZ4),
+            FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP) { source, options -> SevenZipReader(source, options.limits) },
             FormatSpec.builtin(ArchiveFormat.RAR), FormatSpec.builtin(ArchiveFormat.BROTLI),
             FormatSpec.builtin(ArchiveFormat.SNAPPY),
         ))

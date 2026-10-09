@@ -13,7 +13,8 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * The .xz container (Tukaani "The .xz File Format" 1.1.0): stream header, blocks whose
  * filter chain ends in LZMA2 (optionally after a delta filter), an index and a footer.
  * Every block check (CRC-32, CRC-64 or SHA-256) and the index are verified. Concatenated
- * streams and stream padding are decoded. BCJ branch filters are refused by name.
+ * streams and stream padding are decoded, as are the delta and x86 BCJ filters. Other branch
+ * filters are refused by name.
  */
 internal object Xz {
     private val MAGIC = byteArrayOf(0xFD.toByte(), '7'.code.toByte(), 'z'.code.toByte(), 'X'.code.toByte(), 'Z'.code.toByte(), 0)
@@ -22,6 +23,7 @@ internal object Xz {
     private const val CHECK_CRC64 = 4
     private const val CHECK_SHA256 = 10
     private const val FILTER_DELTA = 0x03L
+    private const val FILTER_X86 = 0x04L
     private const val FILTER_LZMA2 = 0x21L
 
     private fun checkSize(id: Int): Int = when (id) {
@@ -150,7 +152,7 @@ internal object Xz {
         val uncompressedSize = if (flags and 0x80 != 0) c.varint() else -1L
         val filterCount = (flags and 0x03) + 1
         var dictionarySize = -1L
-        var deltaDistance = 0
+        val filters = ArrayList<Pair<Long, Int>>() // non-last filters in encoding order: id and delta distance
         for (i in 0 until filterCount) {
             val id = c.varint()
             val propertiesSize = c.varint()
@@ -165,12 +167,19 @@ internal object Xz {
                     if (bits > 40) c.fail("invalid LZMA2 dictionary size", propertiesStart)
                     dictionarySize = lzma2DictionarySize(bits)
                 }
-                id == FILTER_DELTA && !last && deltaDistance == 0 -> {
+                id == FILTER_DELTA && !last -> {
                     if (propertiesSize != 1L) c.fail("delta properties must be one byte")
-                    deltaDistance = (input[propertiesStart].toInt() and 0xFF) + 1
+                    filters.add(FILTER_DELTA to (input[propertiesStart].toInt() and 0xFF) + 1)
                 }
-                id == FILTER_LZMA2 || id == FILTER_DELTA -> c.fail("unsupported filter order")
-                id in 0x04L..0x0BL -> throw ArchiveUnsupportedException(
+                id == FILTER_X86 && !last -> {
+                    if (propertiesSize == 4L && readU32Le(input, propertiesStart) != 0L) {
+                        throw ArchiveUnsupportedException("xz: x86 filter start offsets are not supported", propertiesStart.toLong())
+                    }
+                    if (propertiesSize != 0L && propertiesSize != 4L) c.fail("x86 filter properties must be empty or four bytes")
+                    filters.add(FILTER_X86 to 0)
+                }
+                id == FILTER_LZMA2 || id == FILTER_DELTA || id == FILTER_X86 -> c.fail("unsupported filter order")
+                id in 0x05L..0x0BL -> throw ArchiveUnsupportedException(
                     "xz: BCJ filter ${BCJ_NAMES[(id - 4).toInt()]} is not supported", propertiesStart.toLong())
                 else -> throw ArchiveUnsupportedException("xz: filter 0x${id.toString(16)} is not supported", propertiesStart.toLong())
             }
@@ -188,10 +197,16 @@ internal object Xz {
         val actualUncompressed = (out.size - outputStart).toLong()
         if (compressedSize >= 0 && compressedSize != actualCompressed) c.fail("block compressed size differs from its header", blockStart)
         if (uncompressedSize >= 0 && uncompressedSize != actualUncompressed) c.fail("block uncompressed size differs from its header", blockStart)
-        if (deltaDistance > 0) {
+        // Undo the other filters in reverse order of encoding. Each block starts a fresh dictionary,
+        // so rewriting this block's output in place cannot disturb a later block's matches.
+        for ((id, distance) in filters.asReversed()) {
             val bytes = out.bytes
-            for (i in outputStart until out.size) {
-                if (i - deltaDistance >= outputStart) bytes[i] = (bytes[i] + bytes[i - deltaDistance]).toByte()
+            if (id == FILTER_DELTA) {
+                for (i in outputStart + distance until out.size) bytes[i] = (bytes[i] + bytes[i - distance]).toByte()
+            } else {
+                val block = bytes.copyOfRange(outputStart, out.size)
+                Bcj.x86Decode(block)
+                block.copyInto(bytes, outputStart)
             }
         }
         while ((c.pos - dataStart) % 4 != 0) if (c.byte() != 0) c.fail("nonzero block padding", c.pos - 1)

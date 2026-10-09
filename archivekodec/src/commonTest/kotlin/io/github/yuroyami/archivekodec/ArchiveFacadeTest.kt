@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
@@ -99,8 +100,14 @@ class ArchiveFacadeTest {
             ArchiveFormat.ZLIB to hex("789c"),
             ArchiveFormat.BZIP2 to hex("425a6839177245385090"), ArchiveFormat.XZ to hex("fd377a585a00"),
             ArchiveFormat.ZSTD to hex("28b52ffd"), ArchiveFormat.LZ4 to hex("04224d18"),
-            ArchiveFormat.SEVEN_ZIP to hex("377abcaf271c"), ArchiveFormat.RAR to hex("526172211a0700"),
+            ArchiveFormat.RAR to hex("526172211a0700"),
         )
+        // 7z now has a reader: a bare signature opens, and listing then reports the truncation.
+        assertEquals(ArchiveFormat.SEVEN_ZIP, ArchiveKodec.sniff(hex("377abcaf271c")))
+        ArchiveKodec.open(hex("377abcaf271c")).use { reader ->
+            assertEquals(ArchiveFormat.SEVEN_ZIP, reader.format)
+            assertFailsWith<ArchiveFormatException> { reader.entries() }
+        }
         for ((format, bytes) in supported + unsupported + (ArchiveFormat.GZIP to hex("1f8b0800"))) {
             assertEquals(format, ArchiveKodec.sniff(bytes))
             assertEquals(format, ArchiveKodec.sniff(ByteArrayRandomAccessSource(bytes)))

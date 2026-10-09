@@ -211,7 +211,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | bzip2 | yes (any level, concatenated streams, randomised blocks, CRC-checked) | yes (level 9; ZIP method 12 reads) |
 | LZMA (`.lzma`) | yes (known size or end marker) | yes (greedy/lazy parser, no end marker) |
 | LZMA2 (raw chunks) | yes | yes (LZMA chunks, stored when incompressible) |
-| xz | yes (CRC-32, CRC-64, SHA-256, delta filter, index, concatenated streams; BCJ refused) | yes (one LZMA2 block, CRC-64) |
+| xz | yes (CRC-32, CRC-64, SHA-256, delta and x86 BCJ filters, index, concatenated streams; other BCJ refused) | yes (one LZMA2 block, CRC-64) |
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
@@ -412,8 +412,8 @@ reader.entries()          // parsed from the header or central directory only
 reader.read(entry)        // decode one entry
 ```
 
-`open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader` or
-`CpioReader`. Byte-array overloads borrow plain archive bytes without copying;
+`open` sniffs the format and returns a `ZipReader`, `TarReader`, `ArReader`,
+`CpioReader` or `SevenZipReader`. Byte-array overloads borrow plain archive bytes without copying;
 keep those bytes unchanged until the reader closes. Gzip input is fully decoded
 into an independent snapshot before the contained archive is opened. One gzip
 layer is supported, so `.tar.gz` and `.zip.gz` open directly:
@@ -613,6 +613,7 @@ fetching its payload. Encryption is refused even when a custom decoder is bound.
 | --- | --- | --- |
 | ZIP and ZIP64 | yes (STORE, DEFLATE, Deflate64, bzip2 and LZMA) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU, pax) | yes | ustar + GNU long names; regular files/directories |
+| 7z | yes (copy, LZMA, LZMA2, Deflate, Deflate64, bzip2, delta, BCJ x86; compressed headers; solid folders decoded once) | no |
 | ar (GNU) | yes | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
 
@@ -1020,8 +1021,8 @@ identifier and first block byte; explicit decompression still reports a typed
 unsupported-dictionary error.
 
 A match is format evidence, not full archive or stream validation. Readers and
-codecs validate the remaining structure and payload. The sniffer names zstd, 7z
-and RAR, and ArchiveKodec cannot decode any of those three formats.
+codecs validate the remaining structure and payload. The sniffer names zstd and
+RAR, and ArchiveKodec cannot decode either of those formats.
 
 ## Targets
 
@@ -1301,7 +1302,6 @@ issue, so the tracker is the current answer instead of a file that goes stale
 between releases.
 
 - [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): zstd, brotli and PPMd.
-- [7z](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Alzma-family), on top of the LZMA family.
 - [Streaming and extraction](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Astreaming-api): reading from a file, and
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under

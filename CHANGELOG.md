@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added `SevenZipReader`, also returned by `ArchiveKodec.open` for 7z archives. It
+  decodes compressed headers and folders using copy, LZMA, LZMA2, Deflate,
+  Deflate64, bzip2, delta and BCJ x86 coders, verifies folder and file CRCs, and
+  caches the last decoded folder so a solid block is decoded once for sequential
+  reads. AES, BCJ2, other branch filters and PPMd are refused by name. The xz
+  decoder now also accepts the x86 BCJ filter.
+
 - Added the LZMA family: `Codecs.LZMA` (`.lzma`), `Codecs.LZMA2` (raw chunks) and
   `Codecs.XZ`, with `ArchiveKodec.lzma`, `.lzma2` and `.xz`, on a shared range coder.
   xz decoding verifies CRC-32, CRC-64 and SHA-256 checks and the index, accepts the

@@ -179,6 +179,23 @@ final class io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment { // i
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.toString|toString(){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+    final val format // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.format|{}format[0]
+        final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.limits.<get-limits>|<get-limits>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.close|close(){}[0]
+    final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.toString|toString(){}[0]
+
+    final object Companion // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.Companion|null[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive.tar/TarReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.tar/TarReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
