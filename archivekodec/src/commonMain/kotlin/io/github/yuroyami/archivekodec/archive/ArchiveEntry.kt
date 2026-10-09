@@ -12,7 +12,7 @@ import io.github.yuroyami.archivekodec.codec.CodecId
  *
  * This ordinary class retains the original constructor, copy and destructuring
  * API. Value equality uses the nine original metadata properties. Supplementary
- * stored bytes survive [copy] without expanding those public signatures.
+ * stored bytes and [zipMethod] survive [copy] without expanding those public signatures.
  */
 public class ArchiveEntry(
     /** Decoded stored filename, including a directory slash when present; not a sanitized filesystem path. */
@@ -25,7 +25,7 @@ public class ArchiveEntry(
     public val lastModifiedEpochSeconds: Long? = null,
     /** Encoded payload size in bytes; equals [size] for uncompressed members. */
     public val compressedSize: Long = size,
-    /** Reported compression codec. Unknown ZIP methods currently fall back to STORE here but are refused by the reader. */
+    /** Registered or known compression codec; unknown ZIP methods use `zip-method-N`, with their raw number in [zipMethod]. */
     public val codec: CodecId = CodecId.STORE,
     /** Whether encryption is advertised; built-in readers cannot decrypt encrypted payloads. */
     public val isEncrypted: Boolean = false,
@@ -35,9 +35,19 @@ public class ArchiveEntry(
     public val dataOffset: Long = -1L,
 ) {
     private var storedNameBytes: ByteArray? = null
+    private var storedZipMethod: Int? = null
 
     /** Defensive copy of the stored name; null on manually constructed entries. */
     public val nameBytes: ByteArray? get() = storedNameBytes?.copyOf()
+
+    /**
+     * ZIP central-directory compression method in `0..65535`, or null for other
+     * containers and manually constructed entries. Preserves the wire number even
+     * when a custom codec is registered. Method 99 remains the AES marker, not its
+     * underlying compression method. Decoder availability belongs to the reader's
+     * [io.github.yuroyami.archivekodec.codec.CodecRegistry.byZipMethod].
+     */
+    public val zipMethod: Int? get() = storedZipMethod
 
     internal fun withNameBytes(bytes: ByteArray): ArchiveEntry {
         check(storedNameBytes == null)
@@ -45,7 +55,13 @@ public class ArchiveEntry(
         return this
     }
 
-    /** Copy the original value properties and preserve the immutable stored-name snapshot. */
+    internal fun withZipMethod(method: Int): ArchiveEntry {
+        check(storedZipMethod == null && method in 0..65535)
+        storedZipMethod = method
+        return this
+    }
+
+    /** Copy the original value properties and preserve stored names and the raw ZIP method. */
     public fun copy(
         name: String = this.name,
         size: Long = this.size,
@@ -59,6 +75,7 @@ public class ArchiveEntry(
     ): ArchiveEntry = ArchiveEntry(name, size, isDirectory, lastModifiedEpochSeconds,
         compressedSize, codec, isEncrypted, crc32, dataOffset).also {
         it.storedNameBytes = storedNameBytes
+        it.storedZipMethod = storedZipMethod
     }
 
     /** Return [name] for positional destructuring. */
@@ -80,7 +97,7 @@ public class ArchiveEntry(
     /** Return [dataOffset] for positional destructuring. */
     public operator fun component9(): Long = dataOffset
 
-    /** Compare the nine original metadata properties; stored filename bytes are not part of equality. */
+    /** Compare the nine original metadata properties; supplementary stored names and ZIP methods are not part of equality. */
     override fun equals(other: Any?): Boolean = other is ArchiveEntry &&
         name == other.name && size == other.size && isDirectory == other.isDirectory &&
         lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && compressedSize == other.compressedSize &&
@@ -102,5 +119,5 @@ public class ArchiveEntry(
     /** Describe the member metadata without reading its payload. */
     override fun toString(): String = "ArchiveEntry(name=$name, size=$size, isDirectory=$isDirectory, " +
         "lastModifiedEpochSeconds=$lastModifiedEpochSeconds, compressedSize=$compressedSize, codec=$codec, " +
-        "isEncrypted=$isEncrypted, crc32=$crc32, dataOffset=$dataOffset)"
+        "isEncrypted=$isEncrypted, crc32=$crc32, dataOffset=$dataOffset, zipMethod=$zipMethod)"
 }

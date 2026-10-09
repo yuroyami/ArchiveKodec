@@ -111,6 +111,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry {
 	public final fun getName ()Ljava/lang/String;
 	public final fun getNameBytes ()[B
 	public final fun getSize ()J
+	public final fun getZipMethod ()Ljava/lang/Integer;
 	public fun hashCode ()I
 	public final fun isDirectory ()Z
 	public final fun isEncrypted ()Z

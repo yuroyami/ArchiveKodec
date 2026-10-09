@@ -28,6 +28,7 @@ class Zip64EntryMetadataTest {
             assertEquals(3L, entry.size)
             assertEquals(3L, entry.compressedSize)
             assertEquals(0L, entry.dataOffset)
+            assertEquals(0, entry.zipMethod)
             assertEquals("ABC", reader.read(entry).decodeToString())
         }
     }

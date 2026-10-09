@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- ZIP entries expose their raw compression method through nullable `zipMethod`,
+  preserved by copies without changing the existing entry constructor or copy
+  signatures. Unknown methods now report `zip-method-N` codec identifiers instead
+  of STORE. Custom codec bindings retain the original method number; encrypted
+  entries remain marked and refused before payload decoding.
+
 - **Breaking:** `ArchiveFormat` is now an open immutable identifier class. Recompile
   consumers, add fallback branches to dispatch, and replace enum enumeration/ordinal
   usage with registered descriptors.

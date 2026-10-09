@@ -157,6 +157,7 @@ public final class JavaInteropSmoke {
         ArchiveReader reader = ArchiveKodec.open(source, ArchiveNameDecoder.CP437, builder.build());
         try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
             ArchiveEntry entry = reader.entries().get(0);
+            check(Integer.valueOf(8).equals(entry.getZipMethod()), "Java raw ZIP compression method");
             try {
                 reader.read(entry);
                 throw new AssertionError("reader policy ignored by short overload");

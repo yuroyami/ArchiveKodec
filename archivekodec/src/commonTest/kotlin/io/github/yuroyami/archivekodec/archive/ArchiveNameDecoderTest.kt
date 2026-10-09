@@ -123,6 +123,7 @@ class ArchiveNameDecoderTest {
             }
             ArchiveKodec.open(ByteArrayRandomAccessSource(data), decoder).use { reader ->
                 val entry = reader.entries().single()
+                assertEquals(if (reader.format == ArchiveFormat.ZIP) 0 else null, entry.zipMethod)
                 val original = entry.nameBytes!!
                 entry.nameBytes!!.fill(0)
                 val copy = entry.copy()
@@ -130,6 +131,8 @@ class ArchiveNameDecoderTest {
                 assertContentEquals(original, entry.nameBytes)
                 assertContentEquals(original, copy.nameBytes)
                 assertContentEquals(original, entry.copy(name = "changed").nameBytes)
+                assertEquals(entry.zipMethod, copy.zipMethod)
+                assertEquals(entry.zipMethod, entry.copy(name = "changed").zipMethod)
                 assertEquals(entry, copy)
                 assertEquals(entry.hashCode(), copy.hashCode())
                 assertEquals(listOf(entry), reader.entries())
@@ -210,6 +213,8 @@ class ArchiveNameDecoderTest {
         val entry = ArchiveEntry("file", 7, false)
         assertNull(entry.nameBytes)
         assertNull(entry.copy().nameBytes)
+        assertNull(entry.zipMethod)
+        assertNull(entry.copy().zipMethod)
         assertEquals(entry, entry.copy())
         val (name, size, directory, modified, compressed, codec, encrypted, crc, offset) = entry
         assertEquals("file", name); assertEquals(7L, size); assertFalse(directory); assertNull(modified)

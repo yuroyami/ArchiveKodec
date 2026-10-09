@@ -40,6 +40,10 @@ import kotlin.text.CharacterCodingException
  * central-directory encryption are unsupported. This reader decodes STORE and
  * DEFLATE by default. Supply [codecs] to add methods or replace engines. Other
  * methods appear in [entries], but [read] throws when no decoder is registered.
+ * [ArchiveEntry.zipMethod] preserves the numeric method; unbound methods use a
+ * `zip-method-N` codec identifier instead of STORE. Encryption flags or method 99
+ * set [ArchiveEntry.isEncrypted]; encrypted payloads are refused before decoding,
+ * including when a custom codec is registered for that method.
  *
  * Security: local-header and compressed-data extents must be disjoint and end
  * before the central directory. Duplicate local-header offsets are also rejected
@@ -398,11 +402,11 @@ public class ZipReader(
                 size = uncompSize,
                 isDirectory = false,
                 compressedSize = compSize,
-                codec = codecs.idForZipMethod(method) ?: CodecId.STORE,
+                codec = codecs.idForZipMethod(method) ?: CodecId("zip-method-$method"),
                 isEncrypted = flags and 0x41 != 0 || method == 99,
                 crc32 = crc,
                 dataOffset = localOffset, // local header offset; resolved to data in read()
-            )
+            ).withZipMethod(method)
             val localExtraLength = readU16Le(local, 28)
             validateLocalHeader(Member(provisional, nameBytes, method, flags, localExtraLength), local, source)
             val localUnicode = if (!utf8 && localExtraLength > 0) {

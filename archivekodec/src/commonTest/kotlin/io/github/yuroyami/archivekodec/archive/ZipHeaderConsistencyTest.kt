@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.util.readU16Le
 import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
@@ -13,6 +14,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ZipHeaderConsistencyTest {
@@ -176,6 +178,8 @@ class ZipHeaderConsistencyTest {
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertFalse(entry.isEncrypted)
+                assertEquals(if (method == ZipMethod.STORED) 0 else 8, entry.zipMethod)
+                assertEquals(entry.zipMethod, entry.copy().zipMethod)
                 assertContentEquals(payload, reader.read(entry.copy()))
             }
         }
@@ -214,6 +218,8 @@ class ZipHeaderConsistencyTest {
                 val reader = ZipReader(source)
                 val entry = reader.entries().single()
                 assertTrue(entry.isEncrypted, "flags $flag method $number")
+                assertEquals(number, entry.zipMethod)
+                assertEquals(number, entry.copy().zipMethod)
                 source.armed = true
                 val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
                 assertEquals("a.txt", error.entryName)
@@ -232,6 +238,9 @@ class ZipHeaderConsistencyTest {
         val reader = ZipReader(source)
         val entry = reader.entries().single()
         assertTrue(entry.isEncrypted)
+        assertEquals(99, entry.zipMethod)
+        assertEquals(CodecId("zip-method-99"), entry.codec)
+        assertNull(Codecs.byId(entry.codec))
         source.armed = true
         val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
         assertEquals("a.txt", error.entryName)
@@ -253,6 +262,7 @@ class ZipHeaderConsistencyTest {
         assertEquals(29L, entry.size)
         assertEquals(23L, entry.compressedSize)
         assertEquals(CodecId.DEFLATE, entry.codec)
+        assertEquals(8, entry.zipMethod)
         assertTrue(entry.isEncrypted)
         source.armed = true
         val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
@@ -295,13 +305,21 @@ class ZipHeaderConsistencyTest {
 
     @Test
     fun otherConsistentUnsupportedMethodsReachTheDirectoryMethodError() {
-        for (number in listOf(9, 12, 14, 93, 98, 65535)) {
+        for ((number, expectedCodec) in listOf(
+            9 to CodecId("zip-method-9"), 12 to CodecId.BZIP2,
+            14 to CodecId.LZMA, 93 to CodecId.ZSTD, 98 to CodecId.PPMD,
+            65535 to CodecId("zip-method-65535"),
+        )) {
             val bytes = zip()
             method(bytes, number)
             val source = PayloadSource(bytes)
             val reader = ZipReader(source)
             val entry = reader.entries().single()
             assertFalse(entry.isEncrypted)
+            assertEquals(expectedCodec, entry.codec)
+            assertEquals(number, entry.zipMethod)
+            assertEquals(number, entry.copy().zipMethod)
+            assertNull(Codecs.byId(entry.codec))
             source.armed = true
             val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
             assertEquals("a.txt", error.entryName)

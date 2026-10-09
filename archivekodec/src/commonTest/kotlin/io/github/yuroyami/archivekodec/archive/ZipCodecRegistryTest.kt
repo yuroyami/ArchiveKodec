@@ -16,6 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -46,6 +47,8 @@ class ZipCodecRegistryTest {
                 assertSame(registry, reader.codecs)
                 val entry = reader.entries().single()
                 assertEquals(id, entry.codec)
+                assertEquals(method, entry.zipMethod)
+                assertEquals(method, entry.copy(name = "renamed").zipMethod)
                 assertContentEquals(data, reader.read(entry))
             }
             assertEquals(1, engine.calls)
@@ -57,6 +60,29 @@ class ZipCodecRegistryTest {
             }
             assertEquals(1, engine.calls)
         }
+    }
+
+    @Test fun unknownCodecMetadataDoesNotCreateAWireMethodBinding() {
+        val bytes = patchMethod(zip(), 9)
+        val id = CodecId("zip-method-9")
+        val engine = Decoder(id) { input, limits -> Codecs.STORE.decompress(input, limits) }
+        val unbound = CodecRegistry.DEFAULT.with(engine)
+        assertSame(engine, unbound.byId(id))
+        assertNull(unbound.byZipMethod(9))
+        ZipReader(ByteArrayRandomAccessSource(bytes), unbound).use { reader ->
+            val entry = reader.entries().single()
+            assertEquals(id, entry.codec)
+            assertEquals(9, entry.zipMethod)
+            assertFailsWith<ArchiveUnsupportedException> { reader.read(entry.copy()) }
+        }
+        assertEquals(0, engine.calls)
+        ZipReader(ByteArrayRandomAccessSource(bytes), unbound.with(engine, 9)).use { reader ->
+            val entry = reader.entries().single()
+            assertEquals(id, entry.codec)
+            assertEquals(9, entry.zipMethod)
+            assertContentEquals(data, reader.read(entry.copy()))
+        }
+        assertEquals(1, engine.calls)
     }
 
     @Test fun replacingDeflateAndStoreUsesTheRegisteredInstances() {
@@ -142,6 +168,7 @@ class ZipCodecRegistryTest {
             ZipReader(ByteArrayRandomAccessSource(bytes), CodecRegistry.DEFAULT.with(engine, method)).use { reader ->
                 val entry = reader.entries().single()
                 assertTrue(entry.isEncrypted)
+                assertEquals(method, entry.zipMethod)
                 val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(entry) }
                 assertTrue(error.message.orEmpty().contains("encryption"))
             }

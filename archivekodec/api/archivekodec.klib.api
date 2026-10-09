@@ -240,6 +240,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
         final fun <get-nameBytes>(): kotlin/ByteArray? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.nameBytes.<get-nameBytes>|<get-nameBytes>(){}[0]
     final val size // io.github.yuroyami.archivekodec.archive/ArchiveEntry.size|{}size[0]
         final fun <get-size>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.size.<get-size>|<get-size>(){}[0]
+    final val zipMethod // io.github.yuroyami.archivekodec.archive/ArchiveEntry.zipMethod|{}zipMethod[0]
+        final fun <get-zipMethod>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.zipMethod.<get-zipMethod>|<get-zipMethod>(){}[0]
 
     final fun component1(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component1|component1(){}[0]
     final fun component2(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component2|component2(){}[0]

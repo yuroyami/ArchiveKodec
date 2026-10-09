@@ -573,9 +573,17 @@ Entries with encryption bit 0, strong-encryption bit 6, or the AES method marker
 99 have `isEncrypted = true`. Reading them throws `ArchiveUnsupportedException`
 before decoding ciphertext. Compressed patched data (bit 5) is likewise
 unsupported. Masked local headers used with central-directory encryption
-(bit 13) throw `ArchiveUnsupportedException` during listing. The public codec
-field still falls back to STORE for an unknown numeric ZIP method; reading that
-entry throws an unsupported-method error.
+(bit 13) throw `ArchiveUnsupportedException` during listing.
+
+`ArchiveEntry.zipMethod` exposes the original central-directory method number,
+including 99 for AES; it is null for other containers and manually constructed
+entries, and survives entry copies. Known methods retain their codec ids, while
+an unbound method uses `CodecId("zip-method-N")` (for example, `zip-method-9` for
+method 9), rather than STORE. A custom ZIP binding reports the registered id and
+retains the original number. Check `reader.codecs.byZipMethod(entry.zipMethod!!)`
+for decoder availability; registering an id alone does not bind an unknown wire
+method. Reading an unbound method throws `ArchiveUnsupportedException` before
+fetching its payload. Encryption is refused even when a custom decoder is bound.
 
 | Format | Read | Write |
 | --- | --- | --- |
