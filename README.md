@@ -1302,6 +1302,22 @@ round-trips ZIPs in both directions against
 `JavaInteropTest` executes Java source covering static utility calls, interface
 overloads, reader limits, builders, checked exceptions and resource cleanup.
 
+Real-world data comes from the standard compression corpora. `CorpusSliceTest`
+runs on every target over slices of four Canterbury Corpus files (text, a SPARC
+binary, a spreadsheet and C source, each over 32 KiB where the file allows): every
+encoder must round-trip them and, except STORE and raw Snappy, make them smaller, and
+DEFLATE runs every level at two window sizes. On the JVM, `CorpusRoundTripTest` does
+the same over the whole Canterbury Corpus (2.8 MB, committed under
+`src/jvmTest/resources/canterbury` with SHA-256 sums), and decodes our DEFLATE, zlib
+and gzip with `java.util.zip` and the JDK's with ours, at levels 1, 6 and 9, holding
+our size within 0.5% of zlib's. The 212 MB Silesia Corpus is too large to commit, so
+it runs on request:
+
+```bash
+scripts/fetch-silesia.sh /tmp/silesia
+ARCHIVEKODEC_SILESIA=/tmp/silesia ./gradlew :archivekodec:jvmTest --tests '*CorpusRoundTripTest*'
+```
+
 `XxHash32Test` checks upstream known-answer vectors across accumulator and tail
 boundaries, unsigned results, nonzero seeds and unaligned slices. The expected
 values are independent of the Kotlin implementation.

@@ -179,4 +179,9 @@ tasks.named<Jar>("jvmJar") {
 
 tasks.withType<Test>().configureEach {
     systemProperty("archivekodec.expectedVersion", providers.gradleProperty("version").get())
+    // The opt-in Silesia corpus run (see README) holds 50 MB files and their encodings at once.
+    providers.environmentVariable("ARCHIVEKODEC_SILESIA").orNull?.let { silesia ->
+        inputs.property("silesia", silesia)
+        maxHeapSize = "4g"
+    }
 }
