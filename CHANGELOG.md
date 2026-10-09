@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `TarReader` now applies pax extended headers: `x` records to the next member and
+  `g` records to every later one, overriding `path`, `size` and `mtime`. Sparse
+  members (GNU `S`, pax GNU sparse 0.0, 0.1 and 1.0) list their expanded size and
+  read with zero-filled holes, instead of returning the compacted stored bytes.
+
 - **Breaking:** built-in readers now run `PathGuard` while listing. With the
   default policy, `entries()` throws `ArchivePathException` for an empty,
   absolute, drive-letter, `..` traversal or control-character name; root

@@ -606,7 +606,7 @@ fetching its payload. Encryption is refused even when a custom decoder is bound.
 | Format | Read | Write |
 | --- | --- | --- |
 | ZIP and ZIP64 | yes (STORE and DEFLATE) | yes (STORE and DEFLATE) |
-| TAR (v7, ustar, GNU) | yes | ustar + GNU long names; regular files/directories |
+| TAR (v7, ustar, GNU, pax) | yes | ustar + GNU long names; regular files/directories |
 | ar (GNU) | yes | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
 
@@ -1069,7 +1069,15 @@ artifact and a kotlinx-io dependency.
   sum and the legacy signed-byte sum. Complete records may end without the EOF
   trailer; a partial header or invalid checksum throws `ArchiveFormatException`
   at that record's offset. An empty source is accepted as an empty archive.
-- TAR skips pax `x` and `g` extended headers and does not handle sparse files.
+- TAR applies pax `x` records to the next member and `g` records to every later
+  member. `path`, `size` and `mtime` override the ustar fields; pax names are
+  UTF-8 unless `hdrcharset=BINARY`. Other keywords are ignored. A pax header
+  above 16 MiB throws `ArchiveUnsupportedException`; a malformed record throws
+  `ArchiveFormatException`.
+- TAR sparse members (GNU `S`, pax GNU sparse 0.0, 0.1 and 1.0) list their
+  expanded `size`, with `compressedSize` holding the stored bytes, and read with
+  zero-filled holes. Holes count toward `maxUncompressedBytes` but not toward the
+  compression ratio. An inconsistent sparse map throws `ArchiveFormatException`.
 - `CpioReader` stops at the first trailer; the explicit `InitramfsReader` continues
   across uncompressed newc/crc segments. Both byte orders of the old binary dialect are
   recognized but listing throws `ArchiveUnsupportedException`. Empty input and
