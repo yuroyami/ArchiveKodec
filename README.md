@@ -1311,7 +1311,7 @@ the same over the whole Canterbury Corpus (2.8 MB, committed under
 `src/jvmTest/resources/canterbury` with SHA-256 sums), and decodes our DEFLATE, zlib
 and gzip with `java.util.zip` and the JDK's with ours, at levels 1, 6 and 9, holding
 our size within 0.5% of zlib's. The 212 MB Silesia Corpus is too large to commit, so
-it runs on request:
+it runs on request; every encoder and the JDK checks take about 11 minutes on the JVM:
 
 ```bash
 scripts/fetch-silesia.sh /tmp/silesia
