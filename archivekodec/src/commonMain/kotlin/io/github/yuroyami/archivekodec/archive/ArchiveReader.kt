@@ -45,6 +45,7 @@ public interface ArchiveReader {
      * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed metadata or invalid filename encoding.
      * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for an unsupported container dialect or directory feature.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if the entry count exceeds this reader's policy.
+     * @throws io.github.yuroyami.archivekodec.security.ArchivePathException for an unsafe name when the policy's `rejectUnsafeNames` is set.
      * @throws ArchiveException if the source or a custom filename decoder reports another archive failure.
      */
     @Throws(ArchiveException::class)

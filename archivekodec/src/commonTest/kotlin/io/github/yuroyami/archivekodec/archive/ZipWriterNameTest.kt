@@ -12,6 +12,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.text.CharacterCodingException
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class ZipWriterNameTest {
     private val methods = listOf(ZipMethod.STORED, ZipMethod.DEFLATED)
@@ -76,7 +80,7 @@ class ZipWriterNameTest {
             val central = readU32Le(bytes, bytes.size - 6).toInt()
             assertContentEquals(encoded, bytes.copyOfRange(30, 30 + readU16Le(bytes, 26)), name)
             assertContentEquals(encoded, bytes.copyOfRange(central + 46, central + 46 + readU16Le(bytes, central + 28)), name)
-            ZipReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
+            ZipReader(ByteArrayRandomAccessSource(bytes), RAW_NAMES).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertContentEquals(encoded, entry.nameBytes)
@@ -109,7 +113,7 @@ class ZipWriterNameTest {
     fun readersRetainForeignNamesForCallerPathDecisions() {
         for (name in listOf("a\\b.txt", "/abs.txt", "./C:/file", "../up.txt", "a\u0000b", "a\u007fb", "RAM:file")) {
             val data = byteArrayOf(65, 66, 67)
-            ZipReader(ByteArrayRandomAccessSource(zipForeignStoredName(name, data))).use { reader ->
+            ZipReader(ByteArrayRandomAccessSource(zipForeignStoredName(name, data)), RAW_NAMES).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertContentEquals(name.encodeToByteArray(), entry.nameBytes)

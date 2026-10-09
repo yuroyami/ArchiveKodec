@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Breaking:** built-in readers now run `PathGuard` while listing. With the
+  default policy, `entries()` throws `ArchivePathException` for an empty,
+  absolute, drive-letter, `..` traversal or control-character name; root
+  directory entries such as `./` stay allowed and names keep their stored
+  spelling. The new `ArchiveLimits.rejectUnsafeNames` (default true, false in
+  `UNBOUNDED`) turns the check off for callers that apply their own policy.
+
 - **Breaking:** `ArchiveEntry` construction is now fixed: a three-argument
   `(name, size, isDirectory)` constructor, `ArchiveEntry.Builder`, the
   `ArchiveEntry(name, size, isDirectory) { ... }` factory and `copy { ... }`.

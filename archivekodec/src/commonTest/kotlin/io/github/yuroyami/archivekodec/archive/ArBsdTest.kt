@@ -11,6 +11,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class ArBsdTest {
     private val magic = "!<arch>\n".encodeToByteArray()
@@ -101,7 +105,7 @@ class ArBsdTest {
     @Test
     fun inlineNamesKeepEmbeddedControlsForPathValidation() {
         for (name in listOf("line\nname", "nul\u0000name", "safe/\u0000../escape", "tail\n")) {
-            ArReader(ByteArrayRandomAccessSource(magic + inline(name, byteArrayOf(42), 4))).use { reader ->
+            ArReader(ByteArrayRandomAccessSource(magic + inline(name, byteArrayOf(42), 4)), RAW_NAMES).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertContentEquals(byteArrayOf(42), reader.read(entry))
@@ -114,7 +118,7 @@ class ArBsdTest {
     @Test
     fun shortNameFieldsTrimOnlyAsciiSpacePadding() {
         for (name in listOf("a\n", "a\t", "a\r", "a\u0000", "safe/\n")) {
-            ArReader(ByteArrayRandomAccessSource(magic + member(name, byteArrayOf(42)))).use { reader ->
+            ArReader(ByteArrayRandomAccessSource(magic + member(name, byteArrayOf(42))), RAW_NAMES).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertFalse(PathGuard.isSafe(entry.name))
@@ -244,7 +248,7 @@ class ArBsdTest {
             Triple(member("#1/0", byteArrayOf(42)), byteArrayOf(42), 68L),
             Triple(member("#1/3", ByteArray(3)), byteArrayOf(), 71L),
         )) {
-            ArReader(ByteArrayRandomAccessSource(magic + stored)).use { reader ->
+            ArReader(ByteArrayRandomAccessSource(magic + stored), RAW_NAMES).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals("", entry.name)
                 assertEquals(offset, entry.dataOffset)

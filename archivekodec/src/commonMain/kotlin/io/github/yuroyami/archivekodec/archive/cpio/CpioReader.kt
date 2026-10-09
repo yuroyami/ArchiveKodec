@@ -179,7 +179,7 @@ public class CpioReader private constructor(
             entries.add(record.entry.copy { this.size = size; compressedSize = size }.locatedAt(group.payload.entry.dataOffset))
             groups.add(group)
         }
-        val issued = entries.issuedBy(this)
+        val issued = entries.issuedBy(this, limits)
         val segments = bounds.map { b ->
             InitramfsSegment(b.start, b.end, b.trailer, ReadOnlyList(issued.subList(b.first, b.last)))
         }

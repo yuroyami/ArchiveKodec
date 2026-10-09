@@ -48,7 +48,7 @@ public class ArReader(
     override val format: ArchiveFormat = ArchiveFormat.AR
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse().issuedBy(this) }
+    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse().issuedBy(this, limits) }
 
     @Throws(ArchiveException::class)
     override fun close(): Unit = ownedSource.close()

@@ -848,11 +848,22 @@ Both headers use the reproducible default timestamp 1980-01-01 00:00:00.
 
 ## Sanitize entry names before writing them
 
-`ZipReader`, `TarReader`, `ArReader` and `CpioReader` return decoded
-`ArchiveEntry.name` without path sanitization. A name of
-`../../etc/passwd` or `/etc/passwd` arrives unchanged. Directory names retain
-every stored trailing slash, including `e//` and `./`. Use `isDirectory` to
-identify directories; a type-5 TAR directory need not end in a slash.
+By default, `ZipReader`, `TarReader`, `ArReader` and `CpioReader` refuse a
+listing that contains a name `PathGuard.sanitize` would reject: `entries()`
+throws `ArchivePathException` naming the first such entry. That covers
+`../../etc/passwd`, `/etc/passwd`, `C:/x`, empty names and control characters.
+Directory entries naming the root, such as `./` or `.`, are allowed. Accepted
+names keep their stored spelling: directory names retain every stored trailing
+slash, including `e//` and `./`, and `./a` is not rewritten. Use `isDirectory`
+to identify directories; a type-5 TAR directory need not end in a slash.
+
+To list hostile names as stored, for inspection or your own policy, opt out:
+
+```kotlin
+ArchiveKodec.open(source, ArchiveLimits { rejectUnsafeNames = false })
+```
+
+`ArchiveLimits.UNBOUNDED` also turns the check off.
 
 ZIP uses strict UTF-8 when bit 11 is set. Otherwise a valid version-1 Unicode
 Path extra field (`0x7075`, matching the stored name's CRC32) takes precedence
@@ -882,16 +893,14 @@ callback exceptions are translated to contextual archive failures.
 container padding or terminators. TAR prefixes and base names are joined with
 the stored slash; GNU long names retain their full path bytes. ZIP retains the
 header bytes even when a Unicode Path field supplies the displayed name.
-The property is null on manually constructed entries. `ArchiveEntry` is an
-ordinary class retaining its original constructor, `copy`, destructuring,
-equality, hash and string representation; copies preserve the stored-byte
-snapshot. Stored bytes do not participate in the original value equality.
+The property is null on manually constructed entries. Copies preserve the
+stored-byte snapshot. Stored bytes do not participate in value equality.
 
-Joining such a name to an output directory is the Zip-Slip vulnerability.
+Joining an unchecked name to an output directory is the Zip-Slip vulnerability.
 Zip-Slip means an archive entry escapes the folder you meant to extract into, and
-overwrites a file somewhere else on disk. The library will not stop you.
-
-`PathGuard` is the check, and it only runs when you call it:
+overwrites a file somewhere else on disk. The default listing check prevents
+traversal names from reaching you, but it does not normalize them. Join the
+result of `sanitize`, not the raw name, and keep doing so when you opt out:
 
 ```kotlin
 val safe = PathGuard.sanitize(entry.name)     // throws ArchivePathException

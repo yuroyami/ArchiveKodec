@@ -845,6 +845,7 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public final fun getMaxNestingDepth ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
+	public final fun getRejectUnsafeNames ()Z
 	public fun hashCode ()I
 	public static final fun invoke ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public static final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
@@ -859,11 +860,13 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Builde
 	public final fun getMaxNestingDepth ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
+	public final fun getRejectUnsafeNames ()Z
 	public final fun setMaxCompressionRatio (I)V
 	public final fun setMaxEntries (I)V
 	public final fun setMaxNestingDepth (I)V
 	public final fun setMaxSegments (I)V
 	public final fun setMaxUncompressedBytes (J)V
+	public final fun setRejectUnsafeNames (Z)V
 }
 
 public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Companion {

@@ -10,12 +10,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.ArchivePathException
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class CpioWriterTest {
     private val dialects = CpioWriter.Dialect.entries
 
-    private fun read(bytes: ByteArray): Pair<List<ArchiveEntry>, List<ByteArray>> {
-        val reader = CpioReader(ByteArrayRandomAccessSource(bytes))
+    private fun read(bytes: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): Pair<List<ArchiveEntry>, List<ByteArray>> {
+        val reader = CpioReader(ByteArrayRandomAccessSource(bytes), limits)
         try {
             val entries = reader.entries()
             return entries to entries.map { reader.read(it) }
@@ -173,7 +178,9 @@ class CpioWriterTest {
         }
         val names = listOf(".", "./a", "a/b", "雪", "same", "same")
         val files = names.map { CpioWriter.FileSpec(it, byteArrayOf()) }
-        assertEquals(names, read(CpioWriter.write(files)).first.map { it.name })
+        assertEquals(names, read(CpioWriter.write(files), RAW_NAMES).first.map { it.name })
+        // A regular file named "." names no path, so the default policy refuses the listing.
+        assertEquals(".", assertFailsWith<ArchivePathException> { read(CpioWriter.write(files)) }.entryName)
     }
 
     @Test

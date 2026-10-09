@@ -8,6 +8,10 @@ import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.security.PathGuard
 import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.*
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class ZipUnicodePathTest {
     private val stored = "fallback.txt".encodeToByteArray()
@@ -123,7 +127,7 @@ class ZipUnicodePathTest {
     fun directorySlashAndUnsafeUnicodeNamesRemainVisibleToPathGuard() {
         for (name in listOf("雪//", "../雪", "a\u0000b")) {
             val data = zip(centralExtra = extra(name.encodeToByteArray()))
-            ZipReader(ByteArrayRandomAccessSource(data)).use { reader ->
+            ZipReader(ByteArrayRandomAccessSource(data), RAW_NAMES).use { reader ->
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertEquals(name.endsWith('/'), entry.isDirectory)

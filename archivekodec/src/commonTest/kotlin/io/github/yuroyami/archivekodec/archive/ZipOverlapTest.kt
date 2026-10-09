@@ -15,6 +15,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
+
 class ZipOverlapTest {
     private fun overlap(bytes: ByteArray, boundary: Long) {
         val error = assertFailsWith<ArchiveFormatException> { ZipReader(ByteArrayRandomAccessSource(bytes)).entries() }
@@ -113,7 +116,7 @@ class ZipOverlapTest {
     fun exactAdjacencyAndZeroSizeMembersRemainReadable() {
         for (method in listOf(ZipMethod.STORED, ZipMethod.DEFLATED)) {
             val files = listOf("", "a", "é/文件😀", "dir/").map { ZipWriter.FileSpec(it, byteArrayOf(), method) }
-            val reader = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(files)))
+            val reader = ZipReader(ByteArrayRandomAccessSource(ZipWriter.write(files)), RAW_NAMES)
             assertEquals(files.map { it.name }, reader.entries().map { it.name })
             for (entry in reader.entries()) assertContentEquals(byteArrayOf(), reader.read(entry))
         }

@@ -8,9 +8,11 @@ import kotlin.jvm.JvmSynthetic
 
 /**
  * One member of a container. [name] is the decoded stored name, including trailing
- * directory slashes. Use [isDirectory] to identify directories. Always run the name through
- * [io.github.yuroyami.archivekodec.security.PathGuard] before joining it to an output
- * directory. [nameBytes] preserves the stored filename without format padding or
+ * directory slashes. Use [isDirectory] to identify directories. Built-in readers refuse
+ * unsafe names by default (see
+ * [io.github.yuroyami.archivekodec.security.ArchiveLimits.rejectUnsafeNames]) but keep the
+ * stored spelling: join [io.github.yuroyami.archivekodec.security.PathGuard.sanitize]'s
+ * result, not the raw name, to an output directory. [nameBytes] preserves the stored filename without format padding or
  * terminators. It may differ from [name]'s UTF-8 encoding.
  *
  * Built-in readers only read entries they listed themselves, or unchanged [copy]

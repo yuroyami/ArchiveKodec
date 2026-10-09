@@ -17,7 +17,9 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * read. Initramfs listings also apply [maxSegments]. Current buffered APIs do not
  * recurse into nested archives or apply [maxNestingDepth].
  *
- * Every setting is nonnegative. Zero permits only zero output, a zero ratio,
+ * [rejectUnsafeNames] makes built-in readers run [PathGuard] on every listed name.
+ *
+ * Every numeric setting is nonnegative. Zero permits only zero output, a zero ratio,
  * zero entries, zero segments or zero nesting depth respectively. [DEFAULT] preserves the default
  * values; [UNBOUNDED] raises every ceiling for trusted input.
  *
@@ -51,6 +53,14 @@ public class ArchiveLimits private constructor(builder: Builder) {
     /** Reserved nested-archive depth ceiling; buffered APIs do not enforce it. Default 8. */
     public val maxNestingDepth: Int = builder.maxNestingDepth
 
+    /**
+     * Whether built-in readers reject a listing that contains a name [PathGuard.sanitize]
+     * refuses: empty, absolute, drive-letter, `..` traversal or control-character names.
+     * Directory entries naming the root, such as `./`, are allowed. Listed names keep
+     * their stored spelling; run [PathGuard.sanitize] for the normalized path. Default true.
+     */
+    public val rejectUnsafeNames: Boolean = builder.rejectUnsafeNames
+
     init {
         require(maxUncompressedBytes >= 0) { "archive limits: maxUncompressedBytes must be nonnegative" }
         require(maxCompressionRatio >= 0) { "archive limits: maxCompressionRatio must be nonnegative" }
@@ -82,12 +92,16 @@ public class ArchiveLimits private constructor(builder: Builder) {
         /** See [ArchiveLimits.maxNestingDepth]. Must be nonnegative at build time. */
         public var maxNestingDepth: Int = 8
 
+        /** See [ArchiveLimits.rejectUnsafeNames]. */
+        public var rejectUnsafeNames: Boolean = true
+
         internal constructor(source: ArchiveLimits) : this() {
             maxUncompressedBytes = source.maxUncompressedBytes
             maxCompressionRatio = source.maxCompressionRatio
             maxEntries = source.maxEntries
             maxSegments = source.maxSegments
             maxNestingDepth = source.maxNestingDepth
+            rejectUnsafeNames = source.rejectUnsafeNames
         }
 
         /**
@@ -111,7 +125,8 @@ public class ArchiveLimits private constructor(builder: Builder) {
     /** Compare all configured policy ceilings. */
     override fun equals(other: Any?): Boolean = other is ArchiveLimits &&
         maxUncompressedBytes == other.maxUncompressedBytes && maxCompressionRatio == other.maxCompressionRatio &&
-        maxEntries == other.maxEntries && maxSegments == other.maxSegments && maxNestingDepth == other.maxNestingDepth
+        maxEntries == other.maxEntries && maxSegments == other.maxSegments && maxNestingDepth == other.maxNestingDepth &&
+        rejectUnsafeNames == other.rejectUnsafeNames
 
     /** Hash the policy ceilings used by [equals]. */
     override fun hashCode(): Int {
@@ -119,12 +134,14 @@ public class ArchiveLimits private constructor(builder: Builder) {
         result = 31 * result + maxCompressionRatio
         result = 31 * result + maxEntries
         result = 31 * result + maxSegments
-        return 31 * result + maxNestingDepth
+        result = 31 * result + maxNestingDepth
+        return 31 * result + rejectUnsafeNames.hashCode()
     }
 
     /** Describe each configured policy ceiling. */
     override fun toString(): String = "ArchiveLimits(maxUncompressedBytes=$maxUncompressedBytes, " +
-        "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxSegments=$maxSegments, maxNestingDepth=$maxNestingDepth)"
+        "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxSegments=$maxSegments, maxNestingDepth=$maxNestingDepth, " +
+        "rejectUnsafeNames=$rejectUnsafeNames)"
 
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
     @Throws(ArchiveException::class)
@@ -171,13 +188,14 @@ public class ArchiveLimits private constructor(builder: Builder) {
 
         /**
          * Policy applied when a caller does not supply one. Bounds each call's output
-         * and each reader's entry count, plus initramfs segments; its ratio ceiling cannot reject valid streams
+         * and each reader's entry count, plus initramfs segments, and rejects unsafe
+         * entry names; its ratio ceiling cannot reject valid streams
          * from the current codecs. See [maxCompressionRatio] before relying on it.
          */
         @JvmField
         public val DEFAULT: ArchiveLimits = ArchiveLimits()
 
-        /** Opt-out for trusted input: every guard relaxed to its maximum. */
+        /** Opt-out for trusted input: every guard relaxed to its maximum, and names unchecked. */
         @JvmField
         public val UNBOUNDED: ArchiveLimits = ArchiveLimits {
             maxUncompressedBytes = Long.MAX_VALUE
@@ -185,6 +203,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
             maxEntries = Int.MAX_VALUE
             maxSegments = Int.MAX_VALUE
             maxNestingDepth = Int.MAX_VALUE
+            rejectUnsafeNames = false
         }
     }
 }

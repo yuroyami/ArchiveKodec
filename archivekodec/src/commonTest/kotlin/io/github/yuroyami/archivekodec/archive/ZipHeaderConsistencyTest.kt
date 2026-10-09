@@ -16,6 +16,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class ZipHeaderConsistencyTest {
     private val payload = "ABC".encodeToByteArray()
@@ -183,7 +187,7 @@ class ZipHeaderConsistencyTest {
     fun unchangedValueCopiesAndUtf8OrEmptyNamesRemainReadable() {
         for (method in ZipMethod.entries) {
             for (name in listOf("", "a.txt", "é/文件😀.txt")) {
-                val reader = ZipReader(ByteArrayRandomAccessSource(zip(method, name)))
+                val reader = ZipReader(ByteArrayRandomAccessSource(zip(method, name)), RAW_NAMES)
                 val entry = reader.entries().single()
                 assertEquals(name, entry.name)
                 assertFalse(entry.isEncrypted)

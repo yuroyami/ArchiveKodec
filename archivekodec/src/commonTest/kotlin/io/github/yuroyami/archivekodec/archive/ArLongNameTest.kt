@@ -12,6 +12,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class ArLongNameTest {
     private val magic = "!<arch>\n".encodeToByteArray()
@@ -73,7 +77,7 @@ class ArLongNameTest {
             val table = firstBytes + (second + '\u0000').encodeToByteArray() + byteArrayOf(10)
             val bytes = magic + member("//", table) + member("/0", byteArrayOf(1)) +
                 member("/${firstBytes.size}", byteArrayOf(2))
-            ArReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
+            ArReader(ByteArrayRandomAccessSource(bytes), RAW_NAMES).use { reader ->
                 val entries = reader.entries()
                 assertEquals(listOf(first, second), entries.map { it.name })
                 assertContentEquals(byteArrayOf(1), reader.read(entries[0]))

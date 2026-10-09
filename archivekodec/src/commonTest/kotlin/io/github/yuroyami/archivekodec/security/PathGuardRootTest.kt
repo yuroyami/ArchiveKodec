@@ -93,6 +93,9 @@ class PathGuardRootTest {
         for (name in listOf("../", "/", "./C:/", ".\\..\\/")) {
             val bytes = zipForeignStoredName(name)
             ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { reader ->
+                assertEquals(name, assertFailsWith<ArchivePathException>(name) { reader.entries() }.entryName)
+            }
+            ArchiveKodec.open(ByteArrayRandomAccessSource(bytes), ArchiveLimits { rejectUnsafeNames = false }).use { reader ->
                 for (entry in reader.entries()) {
                     assertTrue(entry.isDirectory)
                     assertFalse(PathGuard.isRootDirectory(entry), name)

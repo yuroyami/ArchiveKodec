@@ -6,7 +6,10 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.codec.deflate.InflateException
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.ArchivePathException
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.security.PathGuard
 
 /** Attach known source context without losing the failure category or original cause. */
 internal inline fun <T> withEntryContext(name: String, offset: Long, operation: () -> T): T = try {
@@ -16,7 +19,7 @@ internal inline fun <T> withEntryContext(name: String, offset: Long, operation: 
 }
 
 internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Long, relativeOffset: Boolean = false): ArchiveException {
-    if (entryName != null && offset != null) return this
+    if (entryName != null && offset != null || this is ArchivePathException) return this
     val position = if (relativeOffset && offset != null) fallbackOffset + offset else offset ?: fallbackOffset
     val label = entryName ?: name
     val text = "${message} (entry '$label', source offset $position)"
@@ -31,10 +34,17 @@ internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Lon
 }
 
 /**
- * Mark each listed entry as [owner]'s, so [resolveIssued] accepts it and its unchanged
- * copies. Returns a read-only snapshot, so a caller cannot replace a trusted entry.
+ * Check every name against [limits], then mark each listed entry as [owner]'s, so
+ * [resolveIssued] accepts it and its unchanged copies. Returns a read-only snapshot,
+ * so a caller cannot replace a trusted entry.
+ *
+ * @throws io.github.yuroyami.archivekodec.security.ArchivePathException for an unsafe
+ * name when [ArchiveLimits.rejectUnsafeNames] is set.
  */
-internal fun List<ArchiveEntry>.issuedBy(owner: Any): List<ArchiveEntry> {
+internal fun List<ArchiveEntry>.issuedBy(owner: Any, limits: ArchiveLimits): List<ArchiveEntry> {
+    if (limits.rejectUnsafeNames) {
+        for (entry in this) if (!PathGuard.isRootDirectory(entry)) PathGuard.sanitize(entry.name)
+    }
     val snapshot = toTypedArray()
     snapshot.forEachIndexed { index, entry -> entry.issue(owner, index) }
     return object : AbstractList<ArchiveEntry>() {

@@ -641,7 +641,15 @@ precondition(outsideCoffSource.closes == 1)
 // A COFF NUL delimiter preserves an embedded LF for strict path validation.
 let coffControlArchive = Array(Data(base64Encoded: "ITxhcmNoPgovICAgICAgICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMTAwNjQ0ICA0ICAgICAgICAgYAoAAAAALyAgICAgICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDEwMDY0NCAgOCAgICAgICAgIGAKAAAAAAAAAAAvLyAgICAgICAgICAgICAgMCAgICAgICAgICAgMCAgICAgMCAgICAgMTAwNjQ0ICA1MSAgICAgICAgYApmaXJzdApsb25nLW1lbWJlci1uYW1lLm8Ac2Vjb25kLWxvbmctbWVtYmVyLW5hbWUubwAKLzAgICAgICAgICAgICAgIDAgICAgICAgICAgIDAgICAgIDAgICAgIDEwMDY0NCAgMSAgICAgICAgIGAKeAo=")!)
 let coffControlSource = ShortReadSource(data: bytes(coffControlArchive), chunk: 3)
-let coffControlReader = try ArchiveKodec.shared.open(source: coffControlSource)
+// Default listings refuse unsafe names; opt out to inspect the stored spelling.
+let rawNamesBuilder = ArchiveLimits.Builder()
+rawNamesBuilder.rejectUnsafeNames = false
+let rawNames = try rawNamesBuilder.build()
+precondition(ArchiveLimits.companion.DEFAULT.rejectUnsafeNames && !rawNames.rejectUnsafeNames)
+expectFailure("default COFF control listing", check: { $0 is ArchivePathException && $0.entryName == "first\nlong-member-name.o" }) {
+    _ = try ArchiveKodec.shared.open(source: ShortReadSource(data: bytes(coffControlArchive), chunk: 3)).entries()
+}
+let coffControlReader = try ArchiveKodec.shared.open(source: coffControlSource, limits: rawNames)
 let coffControlEntries = try coffControlReader.entries()
 precondition(coffControlEntries.count == 1 && coffControlEntries[0].name == "first\nlong-member-name.o")
 let coffControlPayload = try coffControlReader.read(entry: coffControlEntries[0], limits: limits)
@@ -715,7 +723,7 @@ bsdControlArchive[71] = 10
 bsdControlArchive[72] = 0
 let bsdControlName = String(decoding: bsdControlNameBytes, as: UTF8.self)
 let bsdControlSource = ShortReadSource(data: bytes(bsdControlArchive), chunk: 3)
-let bsdControlReader = try ArchiveKodec.shared.open(source: bsdControlSource)
+let bsdControlReader = try ArchiveKodec.shared.open(source: bsdControlSource, limits: rawNames)
 let bsdControlEntries = try bsdControlReader.entries()
 precondition(bsdControlEntries[0].name == bsdControlName)
 let bsdControlPayload = try bsdControlReader.read(entry: bsdControlEntries[0], limits: limits)

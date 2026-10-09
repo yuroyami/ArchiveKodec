@@ -50,8 +50,9 @@ import kotlin.text.CharacterCodingException
  * Security: local-header and compressed-data extents must be disjoint and end
  * before the central directory. Duplicate local-header offsets are also rejected
  * at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
- * the central-directory output size and stored CRC-32. This reader returns entry names raw. Run them through
- * [io.github.yuroyami.archivekodec.security.PathGuard] before writing to disk.
+ * the central-directory output size and stored CRC-32. Listing refuses unsafe names
+ * unless [ArchiveLimits.rejectUnsafeNames] is off; names keep their stored spelling, so
+ * join [io.github.yuroyami.archivekodec.security.PathGuard.sanitize]'s result when writing to disk.
  * [limits] caps the listing count and supplies the default policy for each read.
  *
  * Owns the supplied source; close this reader to release it, including after a
@@ -433,7 +434,7 @@ public class ZipReader(
             throw ArchiveFormatException("ZIP: central directory count $n differs from declared count $cdEntries", cdOffset)
         }
         validateMemberExtents(members.values, cdOffset)
-        return Directory(entries.issuedBy(this), members)
+        return Directory(entries.issuedBy(this, limits), members)
     }
 
     /** Optional Unicode payload failures fall back; broken framing and ambiguity do not. */

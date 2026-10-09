@@ -5,6 +5,10 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class TarDirectoryNameTest {
     private fun header(name: String, type: Char = '5', marker: String = "ustar\u000000", prefix: String = "", size: Int = 0): ByteArray =
@@ -24,7 +28,7 @@ class TarDirectoryNameTest {
         header + data + ByteArray((512 - data.size % 512) % 512)
 
     private fun assertDirectories(bytes: ByteArray, names: List<String>) {
-        ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { reader ->
+        ArchiveKodec.open(ByteArrayRandomAccessSource(bytes), RAW_NAMES).use { reader ->
             val entries = reader.entries()
             assertEquals(names, entries.map { it.name })
             assertEquals(entries, reader.entries())

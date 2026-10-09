@@ -10,6 +10,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class ArSymbolIndexTest {
     private val magic = "!<arch>\n".encodeToByteArray()
@@ -86,7 +90,7 @@ class ArSymbolIndexTest {
         val table = "/SYM64/\n".encodeToByteArray()
         val bytes = magic + raw.fold(byteArrayOf()) { acc, name -> acc + member(name, byteArrayOf(42)) } +
             member("//", table) + member("/0", byteArrayOf(43))
-        ArReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
+        ArReader(ByteArrayRandomAccessSource(bytes), RAW_NAMES).use { reader ->
             val entries = reader.entries()
             assertEquals(raw.map { it.removeSuffix("/") } + "/SYM64", entries.map { it.name })
             for (entry in entries.dropLast(1)) assertContentEquals(byteArrayOf(42), reader.read(entry))

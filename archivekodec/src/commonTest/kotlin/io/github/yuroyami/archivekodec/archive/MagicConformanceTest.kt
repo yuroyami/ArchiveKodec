@@ -11,6 +11,10 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+
+/** Lists names as stored, so tests can check raw-name preservation for PathGuard. */
+private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class MagicConformanceTest {
     // Independent v7 reference header: "f.txt", size 1, mode 0644.
@@ -45,7 +49,7 @@ class MagicConformanceTest {
 
     private fun openTar(bytes: ByteArray, expectedName: String, decoder: ArchiveNameDecoder? = null) {
         val source = ByteArrayRandomAccessSource(bytes)
-        val opened = if (decoder == null) ArchiveKodec.open(source) else ArchiveKodec.open(source, decoder)
+        val opened = if (decoder == null) ArchiveKodec.open(source, RAW_NAMES) else ArchiveKodec.open(source, decoder, RAW_NAMES)
         opened.use { reader ->
             assertEquals(ArchiveFormat.TAR, reader.format)
             val entry = reader.entries().single()
