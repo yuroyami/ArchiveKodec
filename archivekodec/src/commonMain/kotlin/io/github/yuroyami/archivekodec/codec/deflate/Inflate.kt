@@ -136,6 +136,27 @@ public object Inflate {
     @JvmStatic
     public fun inflate(input: ByteArray, limits: ArchiveLimits): ByteArray = inflateChecked(input, limits, null)
 
+    /**
+     * Inflate one raw DEFLATE stream that was compressed with a preset [dictionary], such as
+     * [Deflate.encode] with [DeflateOptions.dictionary]. The dictionary is history the stream
+     * may refer back to; it is not part of the output and does not count against [limits].
+     *
+     * @throws InflateException on malformed or truncated DEFLATE input.
+     * @throws ArchiveFormatException if bytes remain after the stream.
+     * @throws ArchiveSizeException if the output cannot fit in a single ByteArray.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or whole-input compression ratio exceeds [limits].
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun inflate(input: ByteArray, limits: ArchiveLimits, dictionary: ByteArray): ByteArray {
+        val output = Output(limits, input.size)
+        output.preload(dictionary)
+        val end = inflateInto(input, 0, input.size, output)
+        if (end != input.size) throw ArchiveFormatException("deflate: trailing bytes after stream", end.toLong())
+        return output.takeByteArray()
+    }
+
     /** ZIP's authoritative size constrains writes as well as the final stream length. */
     internal fun inflateExact(input: ByteArray, limits: ArchiveLimits, expectedSize: Long, deflate64: Boolean = false): ByteArray =
         inflateChecked(input, limits, expectedSize, deflate64)
@@ -206,20 +227,35 @@ public object Inflate {
             bytes = ByteArray(minOf(if (hint > 0) minOf(4096, hint) else 256, maximum))
         }
 
+        /** Bytes of preset dictionary at the start; they are history, not output. */
+        private var base = 0
+
         private fun ensure(extra: Int) {
             // Every allocation is capped by all three immutable budgets. Writes
             // within that capacity need no Long arithmetic or ratio division.
             if (extra <= bytes.size - size) return
-            val required = size.toLong() + extra
+            val required = size.toLong() - base + extra
             limits.checkOutputSize(required)
             limits.checkRatio(compressedBytes.toLong(), required)
             if (expectedSize != null && required > expectedSize) {
                 throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
             }
             val growthMaximum = if (required <= hint) hint else maximum
-            val capacity = byteArrayCapacity(bytes.size, size, extra, growthMaximum, hint)
+            fun shifted(value: Int) = (value.toLong() + base).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            val capacity = byteArrayCapacity(bytes.size, size, extra, shifted(growthMaximum), shifted(hint))
             if (capacity != bytes.size) bytes = bytes.copyOf(capacity)
         }
+
+        /** Put a preset [dictionary] before any output, as history that matches may reach. */
+        fun preload(dictionary: ByteArray) {
+            check(size == 0)
+            bytes = dictionary.copyOf(dictionary.size + bytes.size)
+            size = dictionary.size
+            base = dictionary.size
+        }
+
+        /** Bytes of history before the output; the dictionary length. */
+        val history: Int get() = base
 
         fun writeByte(value: Int) {
             ensure(1)
@@ -246,17 +282,17 @@ public object Inflate {
             size += length
         }
 
-        fun checksum(checksum: Checksum, offset: Int = 0): Long {
+        fun checksum(checksum: Checksum, offset: Int = base): Long {
             checksum.update(bytes, offset, size - offset)
             return checksum.value()
         }
 
         /** Snapshot the output without giving up ownership of its storage. */
-        fun toByteArray(): ByteArray = bytes.copyOf(size)
+        fun toByteArray(): ByteArray = bytes.copyOfRange(base, size)
 
         /** Transfer a finished buffer without retaining a mutable alias. */
         fun takeByteArray(): ByteArray {
-            val result = if (size == bytes.size) bytes else bytes.copyOf(size)
+            val result = if (base == 0 && size == bytes.size) bytes else bytes.copyOfRange(base, size)
             bytes = ByteArray(0)
             size = 0
             return result
@@ -276,7 +312,8 @@ public object Inflate {
         var bitbuf = 0
         var bitcnt = 0
         val consumedPosition: Int get() = position - (bitcnt ushr 3)
-        private val outputStart = output.size
+        // A preset dictionary counts as earlier output that matches may reach.
+        private val outputStart = output.size - output.history
         val outcnt: Int get() = output.size - outputStart
         val inAvailable: Int get() = end - position
 

@@ -664,6 +664,7 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipWriter$FileSpe
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getComment ()Ljava/lang/String;
 	public final fun getData ()[B
+	public final fun getDeflateOptions ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
 	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
 	public final fun getMethod ()Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;
 	public final fun getName ()Ljava/lang/String;
@@ -680,12 +681,14 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipWriter$FileSpe
 	public final fun build ()Lio/github/yuroyami/archivekodec/archive/zip/ZipWriter$FileSpec;
 	public final fun getComment ()Ljava/lang/String;
 	public final fun getData ()[B
+	public final fun getDeflateOptions ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
 	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
 	public final fun getMethod ()Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getUnixMode ()Ljava/lang/Integer;
 	public final fun setComment (Ljava/lang/String;)V
 	public final fun setData ([B)V
+	public final fun setDeflateOptions (Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;)V
 	public final fun setLastModifiedEpochSeconds (Ljava/lang/Long;)V
 	public final fun setMethod (Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;)V
 	public final fun setName (Ljava/lang/String;)V
@@ -785,6 +788,7 @@ public final class io/github/yuroyami/archivekodec/checksum/XxHash32 {
 
 public abstract interface class io/github/yuroyami/archivekodec/codec/Codec {
 	public abstract fun compress ([B)[B
+	public fun compress ([BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
 	public fun decompress ([B)[B
 	public abstract fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
@@ -792,6 +796,7 @@ public abstract interface class io/github/yuroyami/archivekodec/codec/Codec {
 }
 
 public final class io/github/yuroyami/archivekodec/codec/Codec$DefaultImpls {
+	public static fun compress (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
 	public static fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;[B)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
 }
@@ -822,6 +827,9 @@ public final class io/github/yuroyami/archivekodec/codec/CodecId {
 }
 
 public final class io/github/yuroyami/archivekodec/codec/CodecId$Companion {
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/codec/CodecOptions {
 }
 
 public final class io/github/yuroyami/archivekodec/codec/CodecRegistry {
@@ -866,6 +874,7 @@ public final class io/github/yuroyami/archivekodec/codec/Codecs {
 public final class io/github/yuroyami/archivekodec/codec/Store : io/github/yuroyami/archivekodec/codec/Codec {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/Store;
 	public fun compress ([B)[B
+	public fun compress ([BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
 	public fun decompress ([B)[B
 	public fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public fun getId ()Lio/github/yuroyami/archivekodec/codec/CodecId;
@@ -874,12 +883,61 @@ public final class io/github/yuroyami/archivekodec/codec/Store : io/github/yuroy
 public final class io/github/yuroyami/archivekodec/codec/deflate/Deflate {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/deflate/Deflate;
 	public static final fun encode ([B)[B
+	public static final fun encode ([BLio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;)[B
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/DeflateOptions : io/github/yuroyami/archivekodec/codec/CodecOptions {
+	public static final field Companion Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public final fun copy ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDictionary ()[B
+	public final fun getLevel ()I
+	public final fun getStrategy ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public final fun getWindowBits ()I
+	public fun hashCode ()I
+	public static final fun invoke ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public static final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/DeflateOptions$Builder {
+	public fun <init> ()V
+	public final fun build ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public final fun getDictionary ()[B
+	public final fun getLevel ()I
+	public final fun getStrategy ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public final fun getWindowBits ()I
+	public final fun setDictionary ([B)V
+	public final fun setLevel (I)V
+	public final fun setStrategy (Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;)V
+	public final fun setWindowBits (I)V
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/DeflateOptions$Companion {
+	public final fun invoke ()Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+	public static synthetic fun invoke$default (Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy : java/lang/Enum {
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public static final field FILTERED Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public static final field FIXED Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public static final field HUFFMAN_ONLY Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public static final field RLE Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
+	public static fun values ()[Lio/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/deflate/Inflate {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/deflate/Inflate;
 	public static final fun inflate ([B)[B
 	public static final fun inflate ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public static final fun inflate ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;[B)[B
 }
 
 public final class io/github/yuroyami/archivekodec/codec/deflate/InflateError : java/lang/Enum {
@@ -918,9 +976,61 @@ public final class io/github/yuroyami/archivekodec/codec/deflate/InflateExceptio
 public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4 {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/lz4/Lz4;
 	public static final fun frameCompress ([B)[B
+	public static final fun frameCompress ([BLio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;)[B
 	public static final fun frameDecompress ([B)[B
 	public static final fun frameDecompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun frameDecompress$default ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
+}
+
+public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize : java/lang/Enum {
+	public static final field KB_256 Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public static final field KB_64 Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public static final field MB_1 Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public static final field MB_4 Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public final fun getBytes ()I
+	public final fun getCode ()I
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public static fun values ()[Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4Options : io/github/yuroyami/archivekodec/codec/CodecOptions {
+	public static final field Companion Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public final fun copy ()Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBlockChecksum ()Z
+	public final fun getBlockSize ()Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public final fun getContentChecksum ()Z
+	public final fun getContentSize ()Z
+	public final fun getLinkedBlocks ()Z
+	public fun hashCode ()I
+	public static final fun invoke ()Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public static final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4Options$Builder {
+	public fun <init> ()V
+	public final fun build ()Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public final fun getBlockChecksum ()Z
+	public final fun getBlockSize ()Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;
+	public final fun getContentChecksum ()Z
+	public final fun getContentSize ()Z
+	public final fun getLinkedBlocks ()Z
+	public final fun setBlockChecksum (Z)V
+	public final fun setBlockSize (Lio/github/yuroyami/archivekodec/codec/lz4/Lz4BlockSize;)V
+	public final fun setContentChecksum (Z)V
+	public final fun setContentSize (Z)V
+	public final fun setLinkedBlocks (Z)V
+}
+
+public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4Options$Companion {
+	public final fun invoke ()Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
+	public static synthetic fun invoke$default (Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/lz4/Lz4Options;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/snappy/Snappy {
@@ -1053,6 +1163,7 @@ public final class io/github/yuroyami/archivekodec/wrapper/Gzip {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/wrapper/Gzip;
 	public static final fun compress ([B)[B
 	public static final fun compress ([BLio/github/yuroyami/archivekodec/wrapper/GzipHeader;)[B
+	public static final fun compress ([BLio/github/yuroyami/archivekodec/wrapper/GzipHeader;Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;)[B
 	public static final fun decompress ([B)[B
 	public static final fun decompress ([BJ)[B
 	public static final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
@@ -1111,9 +1222,11 @@ public final class io/github/yuroyami/archivekodec/wrapper/GzipHeader$Companion 
 public final class io/github/yuroyami/archivekodec/wrapper/Zlib {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/wrapper/Zlib;
 	public static final fun compress ([B)[B
+	public static final fun compress ([BLio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;)[B
 	public static final fun decompress ([B)[B
 	public static final fun decompress ([BJ)[B
 	public static final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public static final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;[B)[B
 	public static synthetic fun decompress$default ([BJILjava/lang/Object;)[B
 }
 

@@ -7,6 +7,9 @@ import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Decoder
 import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Encoder
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
+import io.github.yuroyami.archivekodec.wrapper.GzipHeader
+import io.github.yuroyami.archivekodec.codec.lz4.Lz4Options
+import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.codec.lzma.Lzma2
 import io.github.yuroyami.archivekodec.codec.lzma.LzmaAlone
 import io.github.yuroyami.archivekodec.codec.lzma.Xz
@@ -39,9 +42,13 @@ public object Codecs {
     public val DEFLATE: Codec = object : Codec {
         override val id = CodecId.DEFLATE
         override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
+        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Deflate.encode(data, deflateOptions(id, options))
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Inflate.inflate(data, limits)
     }
+
+    private fun deflateOptions(id: CodecId, options: CodecOptions): DeflateOptions =
+        options as? DeflateOptions ?: throw IllegalArgumentException("$id takes DeflateOptions, not ${options::class.simpleName}")
 
     /**
      * Raw Deflate64 (PKWARE "enhanced deflate", ZIP method 9). Decoding handles the 64 KiB
@@ -140,15 +147,21 @@ public object Codecs {
     public val GZIP: Codec = object : Codec {
         override val id = CodecId.GZIP
         override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
+        override fun compress(data: ByteArray, options: CodecOptions): ByteArray =
+            Gzip.compress(data, GzipHeader.DEFAULT, deflateOptions(id, options))
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Gzip.decompress(data, limits)
     }
 
-    /** Zlib framing with Adler-32 validation and no preset dictionary support. */
+    /**
+     * Zlib framing with Adler-32 validation. Options may set a preset dictionary; decoding one
+     * needs `Zlib.decompress(stream, limits, dictionary)`, since this codec takes none.
+     */
     @JvmField
     public val ZLIB: Codec = object : Codec {
         override val id = CodecId.ZLIB
         override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
+        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Zlib.compress(data, deflateOptions(id, options))
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Zlib.decompress(data, limits)
     }
@@ -158,6 +171,9 @@ public object Codecs {
     public val LZ4: Codec = object : Codec {
         override val id = CodecId.LZ4
         override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
+        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Lz4.frameCompress(
+            data, options as? Lz4Options ?: throw IllegalArgumentException("$id takes Lz4Options, not ${options::class.simpleName}"),
+        )
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Lz4.frameDecompress(data, limits)
     }

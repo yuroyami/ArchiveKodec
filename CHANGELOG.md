@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Encoder options. `DeflateOptions` sets zlib's levels 0 to 9 (greedy at 1 to 3, lazy at
+  4 to 9), strategies (filtered, Huffman-only, RLE, fixed), 9 to 15 window bits and a
+  preset dictionary, for `Deflate.encode`, `Zlib.compress`, `Gzip.compress` and ZIP
+  entries. zlib writes FDICT, and `Zlib.decompress` and `Inflate.inflate` take the
+  dictionary to read it. `Lz4Options` sets the LZ4 block size, checksums, content size
+  and linked blocks. `Codec.compress(data, options)` passes either through. The default
+  is now zlib's level 6 with lazy matching, so default DEFLATE output changes; sizes
+  match zlib's within bytes at levels 1, 6 and 9, and level 1 encodes about five times
+  faster than the old fixed encoder.
+
 - The DEFLATE encoder (also behind gzip, zlib and `ZipWriter`) now writes blocks of
   16,384 symbols, each stored, fixed or dynamic, whichever is smallest, and keeps its
   match chain in a ring over the 32 KiB window. Working memory no longer grows with the

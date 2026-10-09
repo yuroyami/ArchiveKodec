@@ -36,7 +36,8 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 /**
  * Pure-Kotlin RFC 1951 DEFLATE *deflater*, the inverse of [Inflate].
  *
- * Pipeline: greedy hash-chained LZ77 over a 32 KiB window, cut into blocks of at most
+ * Pipeline: hash-chained LZ77 over a window of up to 32 KiB, greedy at levels 1 to 3 and
+ * lazy at 4 to 9 with zlib's search limits (see [DeflateOptions]), cut into blocks of at most
  * 16,384 symbols (zlib's default). Each block is written as whichever of **stored**
  * (BTYPE=00), **fixed** (BTYPE=01) or **dynamic** (BTYPE=10) is smallest, so each part
  * of a mixed input gets its own codes and incompressible stretches are stored. Dynamic
@@ -67,15 +68,42 @@ public object Deflate {
     public fun encode(data: ByteArray): ByteArray = Deflater(data).encode()
 
     /**
+     * Compress [data] to a bare DEFLATE stream with [options]: level, strategy, window and
+     * preset dictionary. A dictionary-primed stream decodes only with the same dictionary,
+     * as `Inflate.inflate(stream, limits, dictionary)` takes it.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun encode(data: ByteArray, options: DeflateOptions): ByteArray = Deflater(data, options).encode()
+
+    /**
      * Compress [data] to a Deflate64 stream. Deflate64 shares DEFLATE's codes except length
      * code 285, so capping matches at 257 bytes makes the DEFLATE output valid Deflate64.
      */
     internal fun encode64(data: ByteArray): ByteArray = Deflater(data, maxMatch = 257).encode()
 }
 
-private class Deflater(private val data: ByteArray, private val maxMatch: Int = 258) {
+private class Deflater(input: ByteArray, private val options: DeflateOptions = DeflateOptions.DEFAULT, private val maxMatch: Int = 258) {
 
-    private val out = ByteArrayBuilder(maxOf(64, data.size / 3))
+    private val windowSize = 1 shl options.windowBits
+    private val mask = windowSize - 1
+
+    /** The window buffer: the dictionary's last [windowSize] bytes, then the input. */
+    private val data: ByteArray
+    private val start: Int
+
+    init {
+        val dictionary = options.dictionaryBytes
+        start = if (dictionary == null) 0 else minOf(dictionary.size, windowSize)
+        data = if (start == 0) input else ByteArray(start + input.size).also {
+            dictionary!!.copyInto(it, 0, dictionary.size - start)
+            input.copyInto(it, start)
+        }
+    }
+
+    private val out = ByteArrayBuilder(maxOf(64, input.size / 3))
     private var bitBuf = 0
     private var bitCount = 0
 
@@ -87,21 +115,44 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
     private val llFreq = IntArray(286)   // literals 0..255, EOB 256, length codes 257..285
     private val dFreq = IntArray(30)     // distance codes
     private var extraBits = 0L
-    private var blockStart = 0           // first input byte of the current block
+    private var blockStart = start       // first input byte of the current block
+    private var emitted = start          // input covered by the tokens so far
     private val workspace = LengthLimitedHuffman.Workspace()
+
+    // zlib's configuration for this level: a longer previous match than goodLength
+    // quarters the search; lazy evaluation stops above maxLazy (for greedy levels,
+    // longer matches are not inserted into the hash chains); niceLength ends a search.
+    private val config = CONFIG[options.level]
+    private val goodLength = config[0]
+    private val maxLazy = config[1]
+    private val niceLength = config[2]
+    private val maxChain = config[3]
 
     @Throws(ArchiveException::class)
     fun encode(): ByteArray {
-        lz77()
-        flushBlock(data.size, final = true)
+        when {
+            options.level == 0 -> {
+                writeStored(start, data.size, final = true)
+                flushToByte()
+                return out.toByteArray()
+            }
+            options.strategy == DeflateStrategy.HUFFMAN_ONLY -> for (i in start until data.size) {
+                addLiteral(data[i].toInt() and 0xFF)
+                flushIfFull()
+            }
+            options.strategy == DeflateStrategy.RLE -> rle()
+            options.level <= 3 -> greedy()
+            else -> lazy()
+        }
+        flushBlock(final = true)
         flushToByte()
         return out.toByteArray()
     }
 
-    /** Write the buffered tokens, covering input [blockStart] until [end], as the smallest block type. */
-    private fun flushBlock(end: Int, final: Boolean) {
+    /** Write the buffered tokens, covering input [blockStart] until [emitted], as the smallest block type. */
+    private fun flushBlock(final: Boolean) {
+        val end = emitted
         llFreq[END_OF_BLOCK]++           // every block ends with one EOB
-
         // Build dynamic tables.
         val llLen = LengthLimitedHuffman.codeLengths(llFreq, MAX_BITS, workspace)
         val dLenRaw = LengthLimitedHuffman.codeLengths(dFreq, MAX_BITS, workspace)
@@ -123,9 +174,10 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         val fixedBits = 3 + fixedSymbolBits() + extraBits
         val storedBits = storedBits(end - blockStart)
         val finalBit = if (final) 1 else 0
+        val dynamicAllowed = options.strategy != DeflateStrategy.FIXED
         when {
-            storedBits < minOf(dynamicBits, fixedBits) -> writeStored(blockStart, end, final)
-            dynamicBits < fixedBits -> {
+            storedBits < (if (dynamicAllowed) minOf(dynamicBits, fixedBits) else fixedBits) -> writeStored(blockStart, end, final)
+            dynamicAllowed && dynamicBits < fixedBits -> {
                 writeBits(finalBit, 1)
                 writeBits(0b10, 2)
                 writeDynamicHeader(hlit, hdist, numCl, clSeq, clLen)
@@ -174,65 +226,151 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         } while (position < end)
     }
 
-    /* ─── LZ77 (greedy, hash-chained): gathers tokens + frequencies ──────── */
+    /* ─── LZ77: gathers tokens + frequencies ───────────────────────────── */
 
-    private fun lz77() {
-        val n = data.size
-        if (n == 0) return
-        val head = EncoderMatchTable(HASH_BITS, n)
-        // Each position's predecessor in its hash chain. Only positions inside the window
-        // are followed, and those slots have not been reused yet, so a ring suffices.
-        val prev = IntArray(minOf(n, WINDOW_SIZE))
-        val mask = WINDOW_SIZE - 1
+    private val head = EncoderMatchTable(HASH_BITS, data.size)
+    // Each position's predecessor in its hash chain. Only positions inside the window
+    // are followed, and those slots have not been reused yet, so a ring suffices.
+    private val prev = IntArray(minOf(data.size, windowSize).coerceAtLeast(1))
+    private var matchStart = 0
 
-        fun hash(i: Int): Int {
-            val a = data[i].toInt() and 0xFF
-            val b = data[i + 1].toInt() and 0xFF
-            val c = data[i + 2].toInt() and 0xFF
-            return ((a shl 10) xor (b shl 5) xor c) and (HASH_SIZE - 1)
-        }
-        fun insert(i: Int) {
-            if (i > n - MIN_MATCH) return
-            val h = hash(i)
-            prev[i and mask] = head.put(h, i)
-        }
+    private fun hash(i: Int): Int {
+        val a = data[i].toInt() and 0xFF
+        val b = data[i + 1].toInt() and 0xFF
+        val c = data[i + 2].toInt() and 0xFF
+        return ((a shl 10) xor (b shl 5) xor c) and (HASH_SIZE - 1)
+    }
 
-        var pos = 0
-        while (pos < n) {
-            var bestLen = 0
-            var bestDist = 0
-            if (pos <= n - MIN_MATCH) {
-                val maxLen = minOf(maxMatch, n - pos)
-                val minPos = maxOf(0, pos - WINDOW_SIZE)
-                var cand = head[hash(pos)]
-                var chain = MAX_CHAIN
-                while (cand >= minPos && chain-- > 0) {
-                    var l = 0
-                    while (l < maxLen && data[cand + l] == data[pos + l]) l++
-                    if (l > bestLen) {
-                        bestLen = l
-                        bestDist = pos - cand
-                        if (l >= maxLen) break
-                    }
-                    cand = prev[cand and mask]
+    /** Insert position [i] into its hash chain and return the previous head, or -1. */
+    private fun insert(i: Int): Int {
+        if (i > data.size - MIN_MATCH) return -1
+        val previous = head.put(hash(i), i)
+        prev[i and mask] = previous
+        return previous
+    }
+
+    /** Prime the chains with the dictionary, so the input can match it. */
+    private fun primeDictionary() {
+        for (i in 0 until start) insert(i)
+    }
+
+    /**
+     * zlib's longest_match: follow the chain from [chainHead], starting from a best of
+     * [previous] bytes, and return the best length found; [matchStart] marks it.
+     */
+    private fun longestMatch(position: Int, chainHead: Int, previous: Int): Int {
+        var chainLength = if (previous >= goodLength) maxChain shr 2 else maxChain
+        val maxLength = minOf(maxMatch, data.size - position)
+        val nice = minOf(niceLength, maxLength)
+        val oldest = position - windowSize
+        var best = previous
+        var candidate = chainHead
+        while (candidate >= 0 && candidate >= oldest && chainLength-- > 0) {
+            if (best < maxLength && data[candidate + best] == data[position + best] && data[candidate] == data[position]) {
+                var length = 0
+                while (length < maxLength && data[candidate + length] == data[position + length]) length++
+                if (length > best) {
+                    best = length
+                    matchStart = candidate
+                    if (length >= nice) break
                 }
             }
-            if (bestLen >= MIN_MATCH) {
-                addMatch(bestLen, bestDist)
-                val end = pos + bestLen
-                while (pos < end) { insert(pos); pos++ }
+            candidate = prev[candidate and mask]
+        }
+        return best
+    }
+
+    private fun flushIfFull() {
+        if (tokenCount == BLOCK_TOKENS) flushBlock(final = false)
+    }
+
+    /** Levels 1 to 3: take each match as found (zlib's deflate_fast). */
+    private fun greedy() {
+        primeDictionary()
+        val n = data.size
+        var position = start
+        while (position < n) {
+            val chainHead = insert(position)
+            var length = 0
+            if (chainHead >= 0 && position - chainHead <= windowSize) length = longestMatch(position, chainHead, MIN_MATCH - 1)
+            if (length >= MIN_MATCH) {
+                addMatch(length, position - matchStart)
+                if (length <= maxLazy) {
+                    for (i in position + 1 until position + length) insert(i)
+                }
+                position += length
             } else {
-                addLiteral(data[pos].toInt() and 0xFF)
-                insert(pos)
-                pos++
+                addLiteral(data[position].toInt() and 0xFF)
+                position++
             }
-            if (tokenCount == BLOCK_TOKENS && pos < n) flushBlock(pos, final = false)
+            flushIfFull()
+        }
+    }
+
+    /** Levels 4 to 9: defer each match by one byte in case the next is longer (zlib's deflate_slow). */
+    private fun lazy() {
+        primeDictionary()
+        val n = data.size
+        var position = start
+        var matchAvailable = false
+        var matchLength = MIN_MATCH - 1
+        while (position < n) {
+            val chainHead = insert(position)
+            val previousLength = matchLength
+            val previousMatch = matchStart
+            matchLength = MIN_MATCH - 1
+            if (chainHead >= 0 && previousLength < maxLazy && position - chainHead <= windowSize) {
+                matchLength = longestMatch(position, chainHead, previousLength)
+                if (matchLength <= 5 && (options.strategy == DeflateStrategy.FILTERED ||
+                        (matchLength == MIN_MATCH && position - matchStart > TOO_FAR))) {
+                    matchLength = MIN_MATCH - 1
+                }
+            }
+            if (previousLength >= MIN_MATCH && matchLength <= previousLength) {
+                addMatch(previousLength, position - 1 - previousMatch)
+                for (i in position + 1 until position + previousLength - 1) insert(i)
+                matchAvailable = false
+                matchLength = MIN_MATCH - 1
+                position += previousLength - 1
+            } else if (matchAvailable) {
+                addLiteral(data[position - 1].toInt() and 0xFF)
+                position++
+            } else {
+                matchAvailable = true
+                position++
+            }
+            // A deferred literal is not yet a token, so the block ends before it.
+            flushIfFull()
+        }
+        if (matchAvailable) addLiteral(data[position - 1].toInt() and 0xFF)
+    }
+
+    /** Runs only: matches at distance one (zlib's deflate_rle). */
+    private fun rle() {
+        val n = data.size
+        var position = start
+        while (position < n) {
+            var length = 0
+            if (position > 0) {
+                val previous = data[position - 1]
+                val maxLength = minOf(maxMatch, n - position)
+                while (length < maxLength && data[position + length] == previous) length++
+            }
+            if (length >= MIN_MATCH) {
+                addMatch(length, 1)
+                position += length
+            } else {
+                addLiteral(data[position].toInt() and 0xFF)
+                position++
+            }
+            flushIfFull()
         }
     }
 
     private fun addLiteral(v: Int) {
         appendToken(v)
         llFreq[v]++
+        emitted++
     }
 
     private fun addMatch(length: Int, distance: Int) {
@@ -242,6 +380,7 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
         llFreq[END_OF_BLOCK + 1 + lc]++  // 257 + lc
         dFreq[dc]++
         extraBits += LENGTH_EXTRA[lc] + DIST_EXTRA[dc]
+        emitted += length
     }
 
     private fun appendToken(t: Int) {
@@ -399,12 +538,19 @@ private class Deflater(private val data: ByteArray, private val maxMatch: Int = 
     }
 
     companion object {
-        private const val WINDOW_SIZE = 32_768
         private const val MIN_MATCH = 3
         private const val MAX_MATCH = 258
         private const val HASH_BITS = 15
         private const val HASH_SIZE = 1 shl HASH_BITS
-        private const val MAX_CHAIN = 128
+        private const val TOO_FAR = 4096
+
+        /** zlib's configuration_table: good_length, max_lazy, nice_length, max_chain per level. */
+        private val CONFIG = arrayOf(
+            intArrayOf(0, 0, 0, 0),
+            intArrayOf(4, 4, 8, 4), intArrayOf(4, 5, 16, 8), intArrayOf(4, 6, 32, 32),
+            intArrayOf(4, 4, 16, 16), intArrayOf(8, 16, 32, 32), intArrayOf(8, 16, 128, 128),
+            intArrayOf(8, 32, 128, 256), intArrayOf(32, 128, 258, 1024), intArrayOf(32, 258, 258, 4096),
+        )
         private const val BLOCK_TOKENS = 16_384
         private const val MAX_STORED = 65_535
 

@@ -7,6 +7,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
+import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.crypto.WinZipAes
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.DosTime
@@ -77,6 +78,9 @@ public object ZipWriter {
         /** Entry comment, written as UTF-8 in the central directory; null writes none. */
         public val comment: String? = builder.comment
 
+        /** DEFLATE settings for a [ZipMethod.DEFLATED] entry; null uses [DeflateOptions.DEFAULT]. */
+        public val deflateOptions: DeflateOptions? = builder.deflateOptions
+
         @get:JvmSynthetic
         internal val payload: ByteArray get() = content
 
@@ -85,6 +89,7 @@ public object ZipWriter {
 
         init {
             require(unixMode == null || unixMode in 0..0xFFFF) { "ZIP: unixMode $unixMode does not fit 16 bits" }
+            require(deflateOptions?.dictionary == null) { "ZIP: DEFLATE entries cannot use a preset dictionary" }
         }
 
         /** Snapshot [data] using the default deflated method. */
@@ -118,11 +123,15 @@ public object ZipWriter {
             /** Entry comment, initially null. Its UTF-8 form must fit 65535 bytes; validated by [build]. */
             public var comment: String? = null
 
+            /** DEFLATE settings, initially null. A dictionary is refused by [build]: ZIP readers have none. */
+            public var deflateOptions: DeflateOptions? = null
+
             internal constructor(source: FileSpec) : this(source.name, source.content.copyOf()) {
                 method = source.method
                 lastModifiedEpochSeconds = source.lastModifiedEpochSeconds
                 unixMode = source.unixMode
                 comment = source.comment
+                deflateOptions = source.deflateOptions
             }
 
             /**
@@ -146,14 +155,16 @@ public object ZipWriter {
         /** Compare the filename, compression method and payload content. */
         override fun equals(other: Any?): Boolean = this === other || other is FileSpec &&
             name == other.name && method == other.method && content.contentEquals(other.content) &&
-            lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && unixMode == other.unixMode && comment == other.comment
+            lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && unixMode == other.unixMode && comment == other.comment &&
+            deflateOptions == other.deflateOptions
 
         /** Hash the filename, compression method, payload content and optional metadata. */
         override fun hashCode(): Int {
             var result = 31 * (31 * name.hashCode() + method.hashCode()) + content.contentHashCode()
             result = 31 * result + (lastModifiedEpochSeconds?.hashCode() ?: 0)
             result = 31 * result + (unixMode ?: 0)
-            return 31 * result + (comment?.hashCode() ?: 0)
+            result = 31 * result + (comment?.hashCode() ?: 0)
+            return 31 * result + (deflateOptions?.hashCode() ?: 0)
         }
 
         /** Bounded description with an escaped name, byte count, method and any set metadata; no payload dump. */
@@ -163,6 +174,7 @@ public object ZipWriter {
             lastModifiedEpochSeconds?.let { append(", lastModifiedEpochSeconds=").append(it) }
             unixMode?.let { append(", unixMode=0o").append(it.toString(8)) }
             comment?.let { append(", comment=\"").append(describeName(it)).append('"') }
+            deflateOptions?.let { append(", deflateOptions=").append(it) }
             append(')')
         }
 
@@ -357,7 +369,7 @@ public object ZipWriter {
             val crc = if (encrypt) 0L else Crc32.of(data)
             val compressed = when (f.method) {
                 ZipMethod.STORED -> data
-                ZipMethod.DEFLATED -> Deflate.encode(data)
+                ZipMethod.DEFLATED -> Deflate.encode(data, f.deflateOptions ?: DeflateOptions.DEFAULT)
             }
             if (f.method != ZipMethod.STORED) {
                 plannedSize += compressed.size

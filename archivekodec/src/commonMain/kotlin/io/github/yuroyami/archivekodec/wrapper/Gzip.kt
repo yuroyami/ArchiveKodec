@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
+import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -63,13 +64,26 @@ public object Gzip {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun compress(data: ByteArray, header: GzipHeader): ByteArray {
+    public fun compress(data: ByteArray, header: GzipHeader): ByteArray = compress(data, header, DeflateOptions.DEFAULT)
+
+    /**
+     * Compress [data] with explicit metadata and DEFLATE [options]. gzip has no preset
+     * dictionary, so [DeflateOptions.dictionary] must be null; the header's
+     * [GzipHeader.extraFlags] are written as given.
+     *
+     * @throws IllegalArgumentException if [options] carries a dictionary.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    @JvmStatic
+    public fun compress(data: ByteArray, header: GzipHeader, options: DeflateOptions): ByteArray {
+        require(options.dictionary == null) { "gzip cannot carry a preset dictionary; use zlib" }
         val extra = header.storedExtra
         val headerSize = 10L + (extra?.let { 2L + it.size } ?: 0L) +
             (header.name?.let { it.length + 1L } ?: 0L) + (header.comment?.let { it.length + 1L } ?: 0L) +
             (if (header.hasHeaderCrc) 2L else 0L)
         checkedArraySize(headerSize + 8)
-        val compressed = Deflate.encode(data)
+        val compressed = Deflate.encode(data, options)
         val out = ByteArrayBuilder(checkedArraySize(headerSize + compressed.size + 8))
         val flags = (if (header.isText) FTEXT else 0) or (if (header.hasHeaderCrc) FHCRC else 0) or
             (if (extra != null) FEXTRA else 0) or (if (header.name != null) FNAME else 0) or

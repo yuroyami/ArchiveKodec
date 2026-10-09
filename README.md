@@ -213,7 +213,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | Codec | Decode | Encode |
 | --- | --- | --- |
 | store | yes | yes |
-| DEFLATE (RFC 1951) | yes | yes (blocks of 16,384 symbols, each stored, fixed or dynamic, whichever is smallest; memory beyond the output is fixed) |
+| DEFLATE (RFC 1951) | yes, with an optional preset dictionary | yes (zlib's levels 0 to 9 and strategies, 9 to 15 window bits, preset dictionaries; blocks of 16,384 symbols, each stored, fixed or dynamic, whichever is smallest) |
 | Deflate64 (ZIP method 9) | yes (64 KiB window, long matches) | yes (DEFLATE-compatible codes, 32 KiB window) |
 | bzip2 | yes (any level, concatenated streams, randomised blocks, CRC-checked) | yes (level 9; ZIP method 12 reads) |
 | LZMA (`.lzma`) | yes (known size or end marker) | yes (greedy/lazy parser, no end marker) |
@@ -222,11 +222,25 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | zstd (RFC 8878) | yes (all block, literal and table modes; skippable and concatenated frames; xxHash64 checked; dictionaries refused) | yes (predefined tables, raw literals) |
 | brotli (RFC 7932) | yes (context modelling, block switching, static dictionary with all 121 transforms, metadata and uncompressed meta-blocks) | yes (one prefix code per category, no dictionary references) |
 | PPMd var.I rev. 1 (ZIP method 98) | yes (restart and cut-off restore; freeze refused) | yes (order 6, up to 16 MiB of model memory) |
-| zlib (RFC 1950) | yes | yes |
+| zlib (RFC 1950) | yes, including FDICT with the dictionary passed in | yes, including FDICT |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
-| LZ4 (frame and block) | yes | yes |
+| LZ4 (frame and block) | yes | yes (64 KiB to 4 MiB blocks, block and content checksums, content size, linked blocks) |
 | Snappy (raw block) | yes | yes, with greedy back-reference matching |
 | Snappy (framed stream) | yes, with CRC-32C validation | yes, with stored-chunk fallback |
+
+Encoders take options. `DeflateOptions` (level 0 to 9, default 6; strategy; window bits;
+preset dictionary) goes to `Deflate.encode`, `Zlib.compress`, `Gzip.compress` and
+`ZipWriter.FileSpec`'s `deflateOptions`; `Lz4Options` (block size, checksums, content size,
+linked blocks) goes to `Lz4.frameCompress`. `Codec.compress(data, options)` takes the
+options class of that codec and rejects any other with `IllegalArgumentException`. Levels
+follow zlib's table, and the output is within a few bytes of zlib's at the same level:
+
+```kotlin
+val fast = Deflate.encode(bytes, DeflateOptions { level = 1 })
+val primed = Zlib.compress(bytes, DeflateOptions { dictionary = sharedDictionary })
+val back = Zlib.decompress(primed, ArchiveLimits.DEFAULT, sharedDictionary)
+val frame = Lz4.frameCompress(bytes, Lz4Options { blockSize = Lz4BlockSize.KB_64; contentChecksum = true })
+```
 
 Dynamic DEFLATE trees use binary package-merge to minimize weighted code length
 within the 15-bit literal/distance and 7-bit code-length limits. The encoder checks

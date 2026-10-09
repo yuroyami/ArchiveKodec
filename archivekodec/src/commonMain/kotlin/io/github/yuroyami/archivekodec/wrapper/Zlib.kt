@@ -7,6 +7,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.Adler32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
+import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -32,15 +33,36 @@ public object Zlib {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun compress(data: ByteArray): ByteArray {
+    public fun compress(data: ByteArray): ByteArray = compress(data, DeflateOptions.DEFAULT)
+
+    /**
+     * Compress [data] into a zlib stream with [options]. The header records the window,
+     * a level hint and, with [DeflateOptions.dictionary], the FDICT flag and the
+     * dictionary's Adler-32, which [decompress] needs the same dictionary to match.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun compress(data: ByteArray, options: DeflateOptions): ByteArray {
         val out = ByteArrayBuilder(data.size / 2 + 16)
-        // CMF = 0x78 (CM=8, CINFO=7 → 32 KiB window), FLG = 0x9C so that
-        // (CMF*256 + FLG) % 31 == 0 with FLEVEL=2, FDICT=0.
-        out.append(0x78.toByte())
-        out.append(0x9C.toByte())
-        out.append(Deflate.encode(data))
-        val adler = Adler32.of(data)
-        out.be32(adler)
+        val dictionary = options.dictionary
+        // CMF: CM=8, CINFO = window bits - 8. FLG: FLEVEL from the level, FDICT, and FCHECK
+        // so that (CMF*256 + FLG) % 31 == 0. Level 6 with a 32 KiB window gives 78 9C.
+        val cmf = 0x08 or ((options.windowBits - 8) shl 4)
+        val level = when (options.level) {
+            0, 1 -> 0
+            in 2..5 -> 1
+            6 -> 2
+            else -> 3
+        }
+        var flg = (level shl 6) or (if (dictionary != null) 0x20 else 0)
+        flg += 31 - (cmf * 256 + flg) % 31
+        out.append(cmf.toByte())
+        out.append(flg.toByte())
+        if (dictionary != null) out.be32(Adler32.of(dictionary))
+        out.append(Deflate.encode(data, options))
+        out.be32(Adler32.of(data))
         return out.toByteArray()
     }
 
@@ -71,18 +93,39 @@ public object Zlib {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+    public fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray = decompress(input, limits, null)
+
+    /**
+     * Decode one zlib stream that may need a preset [dictionary] (FDICT). The dictionary's
+     * Adler-32 must match the stream's DICTID. Without a dictionary, an FDICT stream fails.
+     *
+     * @throws ArchiveFormatException for an invalid header, trailer or checksum, or a dictionary whose Adler-32 does not match.
+     * @throws ArchiveUnsupportedException if the stream needs a dictionary and none was given.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or whole-input ratio exceeds [limits].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun decompress(input: ByteArray, limits: ArchiveLimits, dictionary: ByteArray?): ByteArray {
         if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
         if (!hasZlibHeader(input)) {
             throw ArchiveFormatException("zlib: invalid header", 0)
         }
+        var start = 2
+        val output = Inflate.Output(limits, input.size)
         if (input[1].toInt() and 0x20 != 0) {
             if (input.size < 6) throw ArchiveFormatException("zlib: truncated dictionary ID", 2)
-            val dictionary = readU32Be(input, 2)
-            throw ArchiveUnsupportedException("zlib: preset dictionary ${dictionary.toString(16)} is required but unsupported", 2)
+            val id = readU32Be(input, 2)
+            if (dictionary == null) {
+                throw ArchiveUnsupportedException("zlib: stream needs preset dictionary ${id.toString(16)}; pass it to decompress", 2)
+            }
+            if (Adler32.of(dictionary) != id) throw ArchiveFormatException("zlib: dictionary does not match DICTID ${id.toString(16)}", 2)
+            output.preload(dictionary)
+            start = 6
         }
-        val output = Inflate.Output(limits, input.size)
-        val trailer = Inflate.inflateInto(input, 2, input.size, output)
+        val trailer = Inflate.inflateInto(input, start, input.size, output)
         if (input.size - trailer < 4) throw ArchiveFormatException("zlib: truncated Adler-32 trailer", trailer.toLong())
         val expected = readU32Be(input, trailer)
         if (expected != output.checksum(Adler32())) throw ArchiveFormatException("zlib: Adler-32 mismatch", trailer.toLong())

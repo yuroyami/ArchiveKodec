@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.codec.EncoderMatchTable
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
+import io.github.yuroyami.archivekodec.util.le64
 import io.github.yuroyami.archivekodec.util.le16
 import io.github.yuroyami.archivekodec.util.le32
 import io.github.yuroyami.archivekodec.util.readI32Le
@@ -138,9 +139,14 @@ public object Lz4 {
         throw ArchiveFormatException("lz4: missing final literal sequence", sEnd.toLong())
     }
 
-    /** Greedy LZ4 block compressor over a slice. Always produces a conformant block. */
+    /**
+     * Greedy LZ4 block compressor over a slice. Always produces a conformant block. A
+     * [sharedTable] spanning earlier blocks lets matches reach into them (linked blocks).
+     */
     @Throws(ArchiveException::class)
-    internal fun blockCompress(data: ByteArray, offset: Int = 0, length: Int = data.size - offset): ByteArray {
+    internal fun blockCompress(
+        data: ByteArray, offset: Int = 0, length: Int = data.size - offset, sharedTable: EncoderMatchTable? = null,
+    ): ByteArray {
         require(offset >= 0 && length >= 0 && offset <= data.size && length <= data.size - offset) {
             "lz4: invalid input slice"
         }
@@ -150,7 +156,7 @@ public object Lz4 {
             emitLastLiterals(out, data, offset, end)
             return out.toByteArray()
         }
-        val table = EncoderMatchTable(HASH_BITS, length, offset)
+        val table = sharedTable ?: EncoderMatchTable(HASH_BITS, length, offset)
         val mfLimit = end - MF_LIMIT
         val matchLimit = end - LAST_LITERALS
         var anchor = offset
@@ -230,20 +236,38 @@ public object Lz4 {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun frameCompress(data: ByteArray): ByteArray {
+    public fun frameCompress(data: ByteArray): ByteArray = frameCompress(data, Lz4Options.DEFAULT)
+
+    /**
+     * Compress [data] into a complete LZ4 frame shaped by [options]: block size, block and
+     * content checksums, the content size in the header, and linked blocks.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun frameCompress(data: ByteArray, options: Lz4Options): ByteArray {
         val out = ByteArrayBuilder(maxOf(32, data.size / 2))
         out.le32(MAGIC)
-        val flg = 0x60 // version=01, block-independent
-        val bd = 0x70  // 4 MiB max block size
+        val flg = 0x40 or (if (options.linkedBlocks) 0 else 0x20) or (if (options.blockChecksum) 0x10 else 0) or
+            (if (options.contentSize) 0x08 else 0) or (if (options.contentChecksum) 0x04 else 0)
+        val bd = options.blockSize.code shl 4
+        val descriptorStart = out.size
         out.append(flg.toByte())
         out.append(bd.toByte())
-        val hc = (XxHash32.hash(byteArrayOf(flg.toByte(), bd.toByte())).toInt() ushr 8) and 0xFF
+        if (options.contentSize) out.le64(data.size.toLong())
+        val descriptor = out.toByteArray().copyOfRange(descriptorStart, out.size)
+        val hc = (XxHash32.hash(descriptor).toInt() ushr 8) and 0xFF
         out.append(hc.toByte())
 
+        val maxBlock = options.blockSize.bytes
+        // Linked blocks share one match table, so a block can match the 64 KiB before it.
+        val shared = if (options.linkedBlocks && data.size > maxBlock) EncoderMatchTable(HASH_BITS, data.size) else null
         var pos = 0
         while (pos < data.size) {
-            val chunkLength = minOf(data.size - pos, MAX_BLOCK)
-            val comp = blockCompress(data, pos, chunkLength)
+            val chunkLength = minOf(data.size - pos, maxBlock)
+            val comp = blockCompress(data, pos, chunkLength, shared)
+            val blockStart = out.size
             if (comp.size < chunkLength) {
                 out.le32(comp.size.toLong())
                 out.append(comp)
@@ -251,9 +275,15 @@ public object Lz4 {
                 out.le32(chunkLength.toLong() or 0x80000000L) // high bit = uncompressed
                 out.append(data, pos, chunkLength)
             }
+            if (options.blockChecksum) {
+                val stored = if (comp.size < chunkLength) comp else data.copyOfRange(pos, pos + chunkLength)
+                out.le32(XxHash32.hash(stored))
+            }
             pos += chunkLength
+            check(out.size > blockStart)
         }
         out.le32(0L) // end mark
+        if (options.contentChecksum) out.le32(XxHash32.hash(data))
         return out.toByteArray()
     }
 

@@ -32,6 +32,18 @@ public interface Codec {
     public fun compress(data: ByteArray): ByteArray
 
     /**
+     * Compress [data] with encoder [options]. Built-in DEFLATE, zlib and gzip take
+     * [io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions] and LZ4 takes
+     * [io.github.yuroyami.archivekodec.codec.lz4.Lz4Options]. The default rejects all options.
+     *
+     * @throws IllegalArgumentException if this codec does not take [options]' class or a setting.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    public fun compress(data: ByteArray, options: CodecOptions): ByteArray =
+        throw IllegalArgumentException("$id takes no compression options, not ${options::class.simpleName}")
+
+    /**
      * Decompress [data] fully in memory, enforcing [limits].
      *
      * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for malformed framing, inconsistent sizes or failed integrity checks.
