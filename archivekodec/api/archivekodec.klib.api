@@ -288,6 +288,22 @@ final class io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader : io
     final object Companion // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.Companion|null[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+    final val format // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.format|{}format[0]
+        final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.limits.<get-limits>|<get-limits>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.close|close(){}[0]
+    final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.squashfs/SquashfsReader.toString|toString(){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive.tar/TarReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.tar/TarReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.tar/TarReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
@@ -474,6 +490,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github
             final fun <get-SEVEN_ZIP>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SEVEN_ZIP.<get-SEVEN_ZIP>|<get-SEVEN_ZIP>(){}[0]
         final val SNAPPY // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SNAPPY|{}SNAPPY[0]
             final fun <get-SNAPPY>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SNAPPY.<get-SNAPPY>|<get-SNAPPY>(){}[0]
+        final val SQUASHFS // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SQUASHFS|{}SQUASHFS[0]
+            final fun <get-SQUASHFS>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SQUASHFS.<get-SQUASHFS>|<get-SQUASHFS>(){}[0]
         final val TAR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.TAR|{}TAR[0]
             final fun <get-TAR>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.TAR.<get-TAR>|<get-TAR>(){}[0]
         final val UNKNOWN // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.UNKNOWN|{}UNKNOWN[0]

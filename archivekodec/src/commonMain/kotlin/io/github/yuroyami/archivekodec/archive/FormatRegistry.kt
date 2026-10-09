@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.archive.cab.CabReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.iso.IsoReader
 import io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader
+import io.github.yuroyami.archivekodec.archive.squashfs.SquashfsReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
 import io.github.yuroyami.archivekodec.archive.wim.WimReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
@@ -92,6 +93,9 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
                 CabReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
             },
             FormatSpec.builtin(ArchiveFormat.WIM) { source, options -> WimReader(source, options.limits) },
+            FormatSpec.builtin(ArchiveFormat.SQUASHFS) { source, options ->
+                SquashfsReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
+            },
         ))
     }
 }

@@ -47,15 +47,16 @@ public object Lz4 {
     /* ─── Block format ───────────────────────────────────────────────────── */
 
     /**
-     * Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint.
+     * Decompress one LZ4 block in `src[sOff, sEnd)`. [expectedSize] is a reservation hint and
+     * [maximum] caps the output.
      * A final literal sequence is required; after a match it must contain at least five bytes.
      * Empty output is encoded by a zero token, rather than an empty byte sequence.
      */
     @Throws(ArchiveException::class)
-    internal fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1): ByteArray {
+    internal fun blockDecompress(src: ByteArray, sOff: Int, sEnd: Int, expectedSize: Int = -1, maximum: Int = Int.MAX_VALUE): ByteArray {
         // A reservation hint cannot cause a large allocation for malformed input.
         val out = ByteArrayBuilder(if (expectedSize > 0) minOf(4096, expectedSize) else 64)
-        decodeBlock(src, sOff, sEnd, out, Int.MAX_VALUE, ArchiveLimits.UNBOUNDED, sEnd - sOff)
+        decodeBlock(src, sOff, sEnd, out, maximum, ArchiveLimits.UNBOUNDED, sEnd - sOff)
         return out.takeByteArray()
     }
 

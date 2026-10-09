@@ -185,6 +185,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat {
 	public static final field RAR Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field SEVEN_ZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field SNAPPY Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final field SQUASHFS Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field TAR Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field UNKNOWN Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field WIM Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
@@ -570,6 +571,20 @@ public final class io/github/yuroyami/archivekodec/archive/sevenzip/SevenZipRead
 }
 
 public final class io/github/yuroyami/archivekodec/archive/sevenzip/SevenZipReader$Companion {
+}
+
+public final class io/github/yuroyami/archivekodec/archive/squashfs/SquashfsReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun close ()V
+	public fun entries ()Ljava/util/List;
+	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)[B
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/security/ExtractionBudget;)[B
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class io/github/yuroyami/archivekodec/archive/tar/TarReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {

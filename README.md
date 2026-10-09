@@ -159,7 +159,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), CAB read (stored, MSZIP, LZX), and WIM read (XPRESS, LZX) |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), CAB read (stored, MSZIP, LZX), WIM read (XPRESS, LZX), and SquashFS 4.0 read (gzip, LZMA, LZO, xz, LZ4, zstd) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -701,6 +701,7 @@ The readers call it synchronously; browsers offer only the asynchronous WebCrypt
 | ISO 9660 (Joliet, Rock Ridge) | yes (multi-extent files; Rock Ridge symlinks read as their target) | no |
 | CAB | yes (stored, MSZIP and LZX folders, each decoded once; Quantum and files that span cabinets are listed but refused on read) | no |
 | WIM | yes (uncompressed, XPRESS and LZX; deduplicated resources and SHA-1 checks; several images as `1/`, `2/`; LZMS and solid `.esd` images refused) | no |
+| SquashFS 4.0 | yes (gzip, LZMA, LZO, xz with the x86 BCJ filter, LZ4, zstd; fragments, sparse blocks, symlinks read as their target, devices and FIFOs listed) | no |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version
@@ -741,7 +742,7 @@ causes `ArchiveFormatException`.
 
 ## Register a container format
 
-`ArchiveFormat` is an open value: `ArchiveFormat("squashfs")` gives a custom
+`ArchiveFormat` is an open value: `ArchiveFormat("erofs")` gives a custom
 reader an honest identifier. Its `id` is lowercase ASCII, while `name` and
 `toString()` keep uppercase diagnostic names. There is no exhaustive enum list.
 Use the same identifier for the descriptor and `ArchiveReader.format`.
@@ -753,19 +754,19 @@ import io.github.yuroyami.archivekodec.archive.FormatRegistry
 import io.github.yuroyami.archivekodec.archive.FormatSpec
 import io.github.yuroyami.archivekodec.archive.readFully
 
-val squash = FormatSpec(
-    id = "squashfs",
-    matches = { source ->
-        source.size >= 4 && source.readFully(0, 4).decodeToString() == "hsqs"
+val erofs = FormatSpec(
+    id = "erofs",
+    matches = { source -> // the EROFS superblock magic sits 1024 bytes in
+        source.size >= 1028 && source.readFully(1024, 4).contentEquals(byteArrayOf(0xE2.toByte(), 0xE1.toByte(), 0xF5.toByte(), 0xE0.toByte()))
     },
-    open = { source, options -> MySquashReader(source, options) },
+    open = { source, options -> MyErofsReader(source, options) },
 )
-val formats = FormatRegistry.DEFAULT.with(squash)
+val formats = FormatRegistry.DEFAULT.with(erofs)
 val options = ArchiveOpenOptions { limits = myLimits; codecs = myCodecs }
 val reader = ArchiveKodec.open(bytes, formats, options = options)
 ```
 
-`MySquashReader` is your implementation. Its factory receives the selected limits,
+`MyErofsReader` is your implementation. Its factory receives the selected limits,
 filename decoder and codec registry through immutable `ArchiveOpenOptions`; it
 must enforce the policies relevant to that format. Null `nameDecoder` preserves
 each built-in reader's default. Closing the returned reader must close the source.
@@ -794,7 +795,7 @@ header read. `Magic` remains the low-level built-in header detector.
 
 ```kotlin
 ArchiveKodec.sniff(bytes, formats)          // Also accepts a RandomAccessSource.
-ArchiveKodec.open(bytes, formats, format = "squashfs", options = options)
+ArchiveKodec.open(bytes, formats, format = "erofs", options = options)
 ArchiveKodec.open(source, format = "tar")  // Explicit built-in selection.
 ```
 
@@ -1094,7 +1095,7 @@ ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSou
 ```
 
 The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z,
-RAR, ISO 9660, CAB, WIM and Snappy framing. ISO 9660 keeps its `CD001` signature at byte
+RAR, ISO 9660, CAB, WIM, SquashFS and Snappy framing. ISO 9660 keeps its `CD001` signature at byte
 32769; a source sniff reads those five bytes only when the first 512 bytes are all
 zero or end in an MBR boot signature, as ISO images (including hybrid ones) do. `ArchiveFormat.SNAPPY` identifies framed input; decode
 it with `CodecId.SNAPPY_FRAMED`. Raw Snappy and brotli have no identifying magic
@@ -1423,7 +1424,7 @@ between releases.
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under
   Limits.
-- [More containers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM.
+- [More containers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM (all read).
 
 RAR, ACE, StuffIt and ALZ stay out of scope. See License below.
 

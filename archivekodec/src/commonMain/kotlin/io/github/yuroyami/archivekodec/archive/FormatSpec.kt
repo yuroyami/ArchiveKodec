@@ -50,7 +50,7 @@ public class FormatSpec private constructor(
     }
 
     /**
-     * Describe a format by its ASCII identifier, for example `squashfs`.
+     * Describe a format by its ASCII identifier, for example `erofs`.
      * @throws IllegalArgumentException if [id] is invalid or names the UNKNOWN sentinel.
      */
     @Throws(IllegalArgumentException::class)

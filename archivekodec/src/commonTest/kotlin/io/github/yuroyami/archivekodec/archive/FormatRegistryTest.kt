@@ -27,11 +27,11 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class FormatRegistryTest {
-    private val squash = ArchiveFormat("squashfs")
+    private val squash = ArchiveFormat("myfs")
     private val data = "payload".encodeToByteArray()
-    private val bytes = "hsqs".encodeToByteArray() + data
+    private val bytes = "MYFS".encodeToByteArray() + data
     private val descriptor = FormatSpec(squash,
-        matches = { source -> source.size >= 4 && source.readFully(0, 4).decodeToString() == "hsqs" },
+        matches = { source -> source.size >= 4 && source.readFully(0, 4).decodeToString() == "MYFS" },
         open = { source, options -> TestReader(source, squash, options) })
     private val registry = FormatRegistry.DEFAULT.with(descriptor)
 
@@ -68,11 +68,11 @@ class FormatRegistryTest {
     }
 
     @Test fun identifiersAreOpenValuesAndUnknownIsReserved() {
-        val same = ArchiveFormat("SQUASHFS")
+        val same = ArchiveFormat("MYFS")
         assertEquals(squash, same); assertEquals(squash.hashCode(), same.hashCode())
-        assertEquals("squashfs", same.id); assertEquals("SQUASHFS", same.name)
-        assertEquals("SQUASHFS", same.toString())
-        assertNotEquals(squash, ArchiveFormat("squashfs-v2"))
+        assertEquals("myfs", same.id); assertEquals("MYFS", same.name)
+        assertEquals("MYFS", same.toString())
+        assertNotEquals(squash, ArchiveFormat("myfs-v2"))
         assertEquals(ArchiveFormat.TAR, ArchiveFormat("tar"))
         for (bad in listOf("", " tar", "tar ", "/tar", "t:r", "K", "-x")) {
             assertFailsWith<IllegalArgumentException> { ArchiveFormat(bad) }
@@ -82,8 +82,8 @@ class FormatRegistryTest {
     }
 
     @Test fun customReaderIsReachableFromBytesAndSourcesWithoutChangingDefaults() {
-        assertSame(descriptor, registry.byId(ArchiveFormat("SQUASHFS")))
-        assertSame(descriptor, registry.byName("SQUASHFS"))
+        assertSame(descriptor, registry.byId(ArchiveFormat("MYFS")))
+        assertSame(descriptor, registry.byName("MYFS"))
         assertNull(FormatRegistry.DEFAULT.byId(squash))
         assertNull(registry.byName("missing"))
         assertEquals(ArchiveFormat.UNKNOWN, ArchiveKodec.sniff(bytes))
@@ -193,7 +193,7 @@ class FormatRegistryTest {
 
     @Test fun factoryFailuresRetainCallerOwnershipIncludingThroughGzip() {
         val failure = ArchiveFormatException("factory failed")
-        val spec = FormatSpec(squash, { s -> s.size >= 4 && s.readFully(0, 4).decodeToString() == "hsqs" }, { _, _ -> throw failure })
+        val spec = FormatSpec(squash, { s -> s.size >= 4 && s.readFully(0, 4).decodeToString() == "MYFS" }, { _, _ -> throw failure })
         for (content in listOf(bytes, Gzip.compress(bytes))) {
             val source = Source(content)
             assertSame(failure, assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(source, registry.with(spec)) })

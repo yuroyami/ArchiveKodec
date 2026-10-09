@@ -4,7 +4,7 @@ import kotlin.jvm.JvmField
 
 /**
  * Open container or stream identifier, compared by its canonical lowercase ASCII
- * [id]. Construct application values with `ArchiveFormat("squashfs")` and use the
+ * [id]. Construct application values with `ArchiveFormat("erofs")` and use the
  * same value in a [FormatSpec] and its [ArchiveReader.format]. An identifier does
  * not imply an available reader or decoder. New identifiers need an `else` branch
  * in dispatch; this class has no enum entries, ordinal or exhaustive value list.
@@ -72,6 +72,8 @@ public class ArchiveFormat @Throws(IllegalArgumentException::class) public const
         @JvmField public val CAB: ArchiveFormat = ArchiveFormat("cab")
         /** Windows image (`.wim`): deduplicated resources and one directory tree per image. */
         @JvmField public val WIM: ArchiveFormat = ArchiveFormat("wim")
+        /** SquashFS 4.0 compressed read-only filesystem image. */
+        @JvmField public val SQUASHFS: ArchiveFormat = ArchiveFormat("squashfs")
         /** The inspected bytes do not identify a recognized format. */
         @JvmField public val UNKNOWN: ArchiveFormat = ArchiveFormat("unknown")
     }

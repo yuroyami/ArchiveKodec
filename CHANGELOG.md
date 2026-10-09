@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- SquashFS reader. `SquashfsReader` and `ArchiveFormat.SQUASHFS` read SquashFS 4.0 images
+  compressed with gzip, LZMA, LZO (a new LZO1X decoder), xz, LZ4 or zstd: files with their
+  tail fragments and sparse blocks, directories, symbolic links (read as their target),
+  hard links, devices, FIFOs and sockets, with their modes and times. `ArchiveKodec.open`
+  and the sniffer recognise the `hsqs` signature. The custom-format examples in the README
+  and tests now use other identifiers, since `squashfs` is built in.
+
 - WIM reader. `WimReader` and `ArchiveFormat.WIM` read Windows images that are
   uncompressed or compressed with XPRESS Huffman or LZX, finding file data by SHA-1 so
   identical files share one resource, and checking everything read against its SHA-1. A
