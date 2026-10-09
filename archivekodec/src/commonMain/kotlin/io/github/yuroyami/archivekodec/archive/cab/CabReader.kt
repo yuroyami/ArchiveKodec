@@ -18,6 +18,7 @@ import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.deflate.InflateException
+import io.github.yuroyami.archivekodec.codec.lzx.Lzx
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.DosTime
 import io.github.yuroyami.archivekodec.util.readU16Le
@@ -29,8 +30,8 @@ import kotlin.jvm.JvmSynthetic
  * one compressed stream, so reading the files of one folder in turn decodes it once: the
  * last decoded folder is cached until another folder is read or the reader is closed.
  *
- * Stored and MSZIP folders are read; LZX and Quantum folders are listed but refused on
- * read. Data block checksums are verified when present. Names use `/` in place of the
+ * Stored, MSZIP and LZX folders are read; Quantum folders are listed but refused on read.
+ * Data block checksums are verified when present. Names use `/` in place of the
  * stored `\` and are decoded as UTF-8 when the file's UTF-8 attribute is set, otherwise with
  * [nameDecoder] (UTF-8 by default; cabinets made on Windows use its ANSI code page). Dates
  * are zoneless DOS times read as UTC.
@@ -279,8 +280,28 @@ public class CabReader(
                 }
                 output.takeByteArray()
             }
-            METHOD_QUANTUM -> throw ArchiveUnsupportedException("CAB: Quantum compression is not supported", folder.start)
-            else -> throw ArchiveUnsupportedException("CAB: LZX compression is not supported", folder.start)
+            METHOD_LZX -> {
+                limits.checkRatio(folder.packed, wanted)
+                // One LZX stream runs through the folder; its blocks are 32 KiB frames.
+                val frames = minOf(folder.unpacked, (wanted + MAX_BLOCK - 1) / MAX_BLOCK * MAX_BLOCK)
+                val parts = ArrayList<ByteArray>()
+                var covered = 0L
+                var i = 0
+                while (covered < frames) {
+                    parts.add(block(folder, i))
+                    covered += folder.unpackedSizes[i]
+                    i++
+                }
+                val input = ByteArray(parts.sumOf { it.size })
+                var at = 0
+                for (part in parts) { part.copyInto(input, at); at += part.size }
+                try {
+                    Lzx.decodeCabinet(input, folder.windowBits, folder.unpacked, wanted)
+                } catch (error: ArchiveFormatException) {
+                    throw ArchiveFormatException("CAB: ${error.message}", folder.start, cause = error)
+                }
+            }
+            else -> throw ArchiveUnsupportedException("CAB: Quantum compression is not supported", folder.start)
         }
     }
 

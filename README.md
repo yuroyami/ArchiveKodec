@@ -159,7 +159,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), and CAB read (stored, MSZIP) |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), and CAB read (stored, MSZIP, LZX) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -699,7 +699,7 @@ The readers call it synchronously; browsers offer only the asynchronous WebCrypt
 | ar (GNU, BSD, COFF; GNU thin) | yes (thin members through an `ExternalMemberResolver`) | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
 | ISO 9660 (Joliet, Rock Ridge) | yes (multi-extent files; Rock Ridge symlinks read as their target) | no |
-| CAB | yes (stored and MSZIP folders, each decoded once; LZX, Quantum and files that span cabinets are listed but refused on read) | no |
+| CAB | yes (stored, MSZIP and LZX folders, each decoded once; Quantum and files that span cabinets are listed but refused on read) | no |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version

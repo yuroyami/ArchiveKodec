@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- CAB reader. `CabReader` and `ArchiveFormat.CAB` read Microsoft cabinets with stored and
-  MSZIP folders, verifying data block checksums and decoding each folder once for all its
-  files. LZX and Quantum folders, and files continued from or into another cabinet of a
-  set, are listed but refused on read. `ArchiveKodec.open` and the sniffer recognise the
+- CAB reader. `CabReader` and `ArchiveFormat.CAB` read Microsoft cabinets with stored,
+  MSZIP and LZX folders, verifying data block checksums and decoding each folder once for
+  all its files (an LZX folder only as far as the files read need). Quantum folders, and
+  files continued from or into another cabinet of a set, are listed but refused on read. `ArchiveKodec.open` and the sniffer recognise the
   `MSCF` signature.
 
 - ISO 9660 reader. `IsoReader` and `ArchiveFormat.ISO9660` read CD/DVD images, preferring
