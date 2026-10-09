@@ -142,7 +142,7 @@ class ArchiveFacadeTest {
         val expected = mapOf(
             CodecId.STORE to Codecs.STORE, CodecId.DEFLATE to Codecs.DEFLATE,
             CodecId.DEFLATE64 to Codecs.DEFLATE64, CodecId.BZIP2 to Codecs.BZIP2,
-            CodecId.LZMA to Codecs.LZMA, CodecId.LZMA2 to Codecs.LZMA2, CodecId.XZ to Codecs.XZ, CodecId.ZSTD to Codecs.ZSTD, CodecId.BROTLI to Codecs.BROTLI, CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
+            CodecId.LZMA to Codecs.LZMA, CodecId.LZMA2 to Codecs.LZMA2, CodecId.XZ to Codecs.XZ, CodecId.ZSTD to Codecs.ZSTD, CodecId.BROTLI to Codecs.BROTLI, CodecId.PPMD to Codecs.PPMD, CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
             CodecId.LZ4 to Codecs.LZ4, CodecId.SNAPPY to Codecs.SNAPPY,
             CodecId.SNAPPY_FRAMED to Codecs.SNAPPY_FRAMED,
         )
@@ -166,6 +166,7 @@ class ArchiveFacadeTest {
         assertSame(Codecs.XZ, ArchiveKodec.xz)
         assertSame(Codecs.ZSTD, ArchiveKodec.zstd)
         assertSame(Codecs.BROTLI, ArchiveKodec.brotli)
+        assertSame(Codecs.PPMD, ArchiveKodec.ppmd)
         assertSame(Codecs.GZIP, ArchiveKodec.gzip)
         assertSame(Codecs.ZLIB, ArchiveKodec.zlib)
         assertSame(Codecs.LZ4, ArchiveKodec.lz4)

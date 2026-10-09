@@ -101,12 +101,13 @@ let equalPolicy = try policySnapshot.doCopy { _ in }
 precondition(equalPolicy.isEqual(policySnapshot) && equalPolicy.hash() == policySnapshot.hash())
 let invokedPolicy = try ArchiveLimits.companion.invoke { $0.maxEntries = 5 }
 precondition(invokedPolicy.isEqual(policySnapshot))
-precondition(ArchiveLimits.companion.UNBOUNDED.description().count < 200)
+precondition(ArchiveLimits.companion.UNBOUNDED.description().count < 260)
 for (name, configure) in [
     ("maxUncompressedBytes", { (builder: ArchiveLimits.Builder) in builder.maxUncompressedBytes = -1 }),
     ("maxCompressionRatio", { (builder: ArchiveLimits.Builder) in builder.maxCompressionRatio = -1 }),
     ("maxEntries", { (builder: ArchiveLimits.Builder) in builder.maxEntries = -1 }),
-    ("maxNestingDepth", { (builder: ArchiveLimits.Builder) in builder.maxNestingDepth = -1 })
+    ("maxNestingDepth", { (builder: ArchiveLimits.Builder) in builder.maxNestingDepth = -1 }),
+    ("maxDecoderMemory", { (builder: ArchiveLimits.Builder) in builder.maxDecoderMemory = -1 })
 ] {
     let builder = ArchiveLimits.Builder()
     configure(builder)

@@ -22,6 +22,7 @@ import io.github.yuroyami.archivekodec.codec.CodecRegistry
 import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lzma.ZipLzma
+import io.github.yuroyami.archivekodec.codec.ppmd.PpmdZip
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.readI64Le
@@ -158,6 +159,7 @@ public class ZipReader(
                 codec === Codecs.DEFLATE64 -> Inflate.inflateExact(comp, limits, entry.size, deflate64 = true)
                 // Method 14 has ZIP's own LZMA header rather than the .lzma one.
                 codec === Codecs.LZMA && method == 14 -> ZipLzma.decompress(comp, limits, entry.size)
+                codec === Codecs.PPMD && method == 98 -> PpmdZip.decompress(comp, limits, entry.size)
                 // readFullyChecked allocated this result; no source storage is shared.
                 codec === Codecs.STORE -> comp
                 else -> codec.decompress(comp, limits)

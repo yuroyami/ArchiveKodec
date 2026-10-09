@@ -320,7 +320,7 @@ class ZipHeaderConsistencyTest {
     @Test
     fun otherConsistentUnsupportedMethodsReachTheDirectoryMethodError() {
         for ((number, expectedCodec) in listOf(
-            11 to CodecId("zip-method-11"), 98 to CodecId.PPMD,
+            11 to CodecId("zip-method-11"), 97 to CodecId("zip-method-97"),
             65535 to CodecId("zip-method-65535"),
         )) {
             val bytes = zip()

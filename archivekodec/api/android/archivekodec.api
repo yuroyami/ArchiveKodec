@@ -48,6 +48,7 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final fun getLz4 ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLzma ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLzma2 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getPpmd ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getSnappy ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getSnappyFramed ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getStore ()Lio/github/yuroyami/archivekodec/codec/Codec;
@@ -811,6 +812,7 @@ public final class io/github/yuroyami/archivekodec/codec/Codecs {
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field LZMA Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field LZMA2 Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final field PPMD Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field SNAPPY Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field SNAPPY_FRAMED Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field STORE Lio/github/yuroyami/archivekodec/codec/Codec;
@@ -907,6 +909,7 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getMaxCompressionRatio ()I
+	public final fun getMaxDecoderMemory ()J
 	public final fun getMaxEntries ()I
 	public final fun getMaxNestingDepth ()I
 	public final fun getMaxSegments ()I
@@ -922,12 +925,14 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Builde
 	public fun <init> ()V
 	public final fun build ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getMaxCompressionRatio ()I
+	public final fun getMaxDecoderMemory ()J
 	public final fun getMaxEntries ()I
 	public final fun getMaxNestingDepth ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
 	public final fun getRejectUnsafeNames ()Z
 	public final fun setMaxCompressionRatio (I)V
+	public final fun setMaxDecoderMemory (J)V
 	public final fun setMaxEntries (I)V
 	public final fun setMaxNestingDepth (I)V
 	public final fun setMaxSegments (I)V

@@ -12,6 +12,7 @@ import io.github.yuroyami.archivekodec.codec.lzma.LzmaAlone
 import io.github.yuroyami.archivekodec.codec.lzma.Xz
 import io.github.yuroyami.archivekodec.codec.brotli.BrotliDecoder
 import io.github.yuroyami.archivekodec.codec.brotli.BrotliEncoder
+import io.github.yuroyami.archivekodec.codec.ppmd.PpmdZip
 import io.github.yuroyami.archivekodec.codec.zstd.ZstdDecoder
 import io.github.yuroyami.archivekodec.codec.zstd.ZstdEncoder
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
@@ -119,6 +120,19 @@ public object Codecs {
         override val id = CodecId.BROTLI
         override fun compress(data: ByteArray): ByteArray = BrotliEncoder.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = BrotliDecoder.decompress(data, limits)
+    }
+
+    /**
+     * PPMd var.I revision 1 in ZIP's framing (method 98): a two-byte header with the model
+     * order, memory and restore method, then the coded data and an end marker. Decoding
+     * supports the restart and cut-off restore methods; encoding uses order 6, up to 16 MiB
+     * of model memory and restart. 7z's PPMd var.H is read by the 7z reader itself.
+     */
+    @JvmField
+    public val PPMD: Codec = object : Codec {
+        override val id = CodecId.PPMD
+        override fun compress(data: ByteArray): ByteArray = PpmdZip.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = PpmdZip.decompress(data, limits)
     }
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */

@@ -123,7 +123,7 @@ internal class LzOutput(private val limits: ArchiveLimits, private val compresse
     }
 
     fun put(value: Int) {
-        if (size == bytes.size) ensure(1)
+        if (size == bytes.size || size >= maximum) ensure(1)
         bytes[size++] = value.toByte()
     }
 

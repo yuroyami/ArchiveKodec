@@ -123,6 +123,9 @@ public object ArchiveKodec {
     /** Brotli codec (RFC 7932). Brotli has no magic bytes, so [decompress] cannot sniff it. */
     @JvmStatic
     public val brotli: Codec get() = Codecs.BROTLI
+    /** PPMd var.I codec in ZIP method 98 framing. */
+    @JvmStatic
+    public val ppmd: Codec get() = Codecs.PPMD
     /** Gzip encoder and decoder; decoding also accepts one zlib stream. */
     @JvmStatic
     public val gzip: Codec get() = Codecs.GZIP

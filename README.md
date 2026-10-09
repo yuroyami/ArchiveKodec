@@ -151,7 +151,7 @@ This is what works today:
 
 | Area | What is implemented |
 | --- | --- |
-| Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd and brotli both directions, gzip and zlib framing, LZ4 and Snappy both directions |
+| Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
 | Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), and cpio read and write (newc/crc) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
@@ -214,6 +214,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | xz | yes (CRC-32, CRC-64, SHA-256, delta and x86 BCJ filters, index, concatenated streams; other BCJ refused) | yes (one LZMA2 block, CRC-64) |
 | zstd (RFC 8878) | yes (all block, literal and table modes; skippable and concatenated frames; xxHash64 checked; dictionaries refused) | yes (predefined tables, raw literals) |
 | brotli (RFC 7932) | yes (context modelling, block switching, static dictionary with all 121 transforms, metadata and uncompressed meta-blocks) | yes (one prefix code per category, no dictionary references) |
+| PPMd var.I rev. 1 (ZIP method 98) | yes (restart and cut-off restore; freeze refused) | yes (order 6, up to 16 MiB of model memory) |
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
@@ -265,8 +266,7 @@ fun readWithZstd(zipBytes: ByteArray, zstd: Codec): ByteArray {
 A replacement with the same id takes over all existing method bindings for that
 id: `DEFAULT.with(myDeflate)` replaces method 8 when `myDeflate.id` equals
 `CodecId.DEFLATE`. An explicit `zipMethod` can also bind a new id to a known or
-private method number in `0..65535`. The known unavailable method 98 already
-maps to PPMD, so adding that id enables it.
+private method number in `0..65535`.
 Lookups by id, name, format and ZIP method all use the selected registry.
 `ArchiveKodec` and `Codecs` convenience lookups always use `DEFAULT`.
 
@@ -297,9 +297,11 @@ Brotli's 120 KB static dictionary ships inside the core artifact as 58 KB of raw
 DEFLATE. It is inflated the first time a stream references it, so a process that never
 decodes brotli never pays for it.
 
-`CodecId` also carries an entry for PPMd, which has no implementation.
-`ArchiveKodec.codec(...)` returns `null` for it. A ZIP entry that uses it appears in
-the entry list, but reading it throws.
+PPMd comes in two variants. `Codecs.PPMD` is var.I revision 1 in ZIP's method 98 framing
+(a two-byte header with the order, memory size and restore method, then an end marker),
+and the 7z reader decodes 7z's var.H itself. Both allocate the model memory their header
+names up front, as the reference decoders do; `ArchiveLimits.maxDecoderMemory` (default
+256 MiB) caps it before anything is allocated.
 
 Every `Codec.decompress` takes an `ArchiveLimits`, defaulting to
 `ArchiveLimits.DEFAULT`. Read [Limits](#limits) to see what it enforces. It
@@ -629,9 +631,9 @@ fetching its payload. Encryption is refused even when a custom decoder is bound.
 
 | Format | Read | Write |
 | --- | --- | --- |
-| ZIP and ZIP64 | yes (STORE, DEFLATE, Deflate64, bzip2, LZMA and zstd) | yes (STORE and DEFLATE) |
+| ZIP and ZIP64 | yes (STORE, DEFLATE, Deflate64, bzip2, LZMA, zstd and PPMd) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU, pax) | yes | ustar + GNU long names; regular files/directories |
-| 7z | yes (copy, LZMA, LZMA2, Deflate, Deflate64, bzip2, delta, BCJ x86; compressed headers; solid folders decoded once) | no |
+| 7z | yes (copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, BCJ x86; compressed headers; solid folders decoded once) | no |
 | ar (GNU, BSD, COFF; GNU thin) | yes (thin members through an `ExternalMemberResolver`) | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
 
@@ -1116,7 +1118,8 @@ artifact and a kotlinx-io dependency.
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
 - Built-in reader listings enforce `maxEntries`; initramfs listings additionally
   enforce `maxSegments`, including empty segments. Buffered APIs do not recurse
-  into nested archives, so `maxNestingDepth` remains reserved. Every implemented codec
+  into nested archives, so `maxNestingDepth` remains reserved. `maxDecoderMemory`
+  caps memory a header asks a decoder to allocate up front, which only PPMd does. Every implemented codec
   applies `checkRatio` before output allocation or growth. ZIP checks each entry;
   uncompressed TAR/ar/cpio reads check their known 1:1 ratio.
 - The default `maxCompressionRatio` of 10,000:1 cannot reject a valid stream from
@@ -1333,7 +1336,6 @@ The table at the top lists what works today. Everything still missing has its ow
 issue, so the tracker is the current answer instead of a file that goes stale
 between releases.
 
-- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): PPMd.
 - [Streaming and extraction](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Astreaming-api): reading from a file, and
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under

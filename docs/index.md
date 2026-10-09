@@ -167,8 +167,7 @@ Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 
 ## Not implemented
 
-`CodecId` names PPMd, which has no implementation; `ArchiveKodec.codec(id)` returns
-`null` for it. ZIP, TAR, GNU ar and cpio have writers. TAR writing currently covers regular files and directories.
+ZIP, TAR, GNU ar and cpio have writers. TAR writing currently covers regular files and directories.
 
 ## Where to go next
 

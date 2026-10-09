@@ -80,12 +80,11 @@ public class CodecRegistry private constructor(
     public companion object {
         /**
          * Built-in engines and known ZIP wire mappings. STORE (0), DEFLATE (8),
-         * DEFLATE64 (9), BZIP2 (12), LZMA (14) and ZSTD (93) are available. PPMD (98) is a
-         * known mapping without a built-in engine; register its id to enable it.
+         * DEFLATE64 (9), BZIP2 (12), LZMA (14), ZSTD (93) and PPMD (98) are all available.
          */
         @JvmField
         public val DEFAULT: CodecRegistry = CodecRegistry(
-            listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.BROTLI, Codecs.GZIP, Codecs.ZLIB,
+            listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.BROTLI, Codecs.PPMD, Codecs.GZIP, Codecs.ZLIB,
                 Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED).associateBy { it.id.name },
             mapOf(0 to CodecId.STORE, 8 to CodecId.DEFLATE, 9 to CodecId.DEFLATE64, 12 to CodecId.BZIP2,
                 14 to CodecId.LZMA, 93 to CodecId.ZSTD, 98 to CodecId.PPMD),

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added PPMd. `Codecs.PPMD` and `ArchiveKodec.ppmd` are var.I revision 1 in ZIP's
+  method 98 framing, so ZIP PPMd entries now read; decoding supports the restart and
+  cut-off restore methods. The 7z reader now decodes PPMd var.H folders. Both models
+  are ported from the reference allocator, so memory exhaustion restarts or prunes at
+  the same symbol as 7-Zip. New `ArchiveLimits.maxDecoderMemory` (default 256 MiB)
+  caps the model memory a header can ask for.
+- `LzOutput` now enforces output and ratio limits on single-byte writes below its
+  first growth, which affected brotli literals and PPMd.
+
 - Added brotli (RFC 7932): `Codecs.BROTLI` and `ArchiveKodec.brotli`. Decoding covers
   context modelling, block switching, metadata and uncompressed meta-blocks, and the
   static dictionary with all 121 transforms; the dictionary is embedded as raw DEFLATE

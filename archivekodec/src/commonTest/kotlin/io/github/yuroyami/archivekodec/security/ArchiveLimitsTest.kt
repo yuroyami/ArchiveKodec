@@ -21,6 +21,7 @@ class ArchiveLimitsTest {
         assertEquals(100_000, defaults.maxEntries)
         assertEquals(100_000, defaults.maxSegments)
         assertEquals(8, defaults.maxNestingDepth)
+        assertEquals(256L * 1024 * 1024, defaults.maxDecoderMemory)
         val zero = ArchiveLimits {
             maxUncompressedBytes = 0
             maxCompressionRatio = 0
@@ -39,6 +40,7 @@ class ArchiveLimitsTest {
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxEntries)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxSegments)
         assertEquals(Int.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxNestingDepth)
+        assertEquals(Long.MAX_VALUE, ArchiveLimits.UNBOUNDED.maxDecoderMemory)
         ArchiveLimits.UNBOUNDED.checkOutputSize(Long.MAX_VALUE)
         ArchiveLimits.UNBOUNDED.checkEntryCount(Int.MAX_VALUE)
     }
@@ -99,8 +101,8 @@ class ArchiveLimitsTest {
         assertTrue(!policy.equals(null))
         assertTrue(!policy.equals("ArchiveLimits"))
         val description = ArchiveLimits.UNBOUNDED.toString()
-        assertTrue(description.length < 200)
-        for (field in listOf("maxUncompressedBytes", "maxCompressionRatio", "maxEntries", "maxSegments", "maxNestingDepth")) {
+        assertTrue(description.length < 260)
+        for (field in listOf("maxUncompressedBytes", "maxCompressionRatio", "maxEntries", "maxSegments", "maxNestingDepth", "maxDecoderMemory")) {
             assertTrue(description.contains("$field="))
         }
         assertTrue(description.contains(Long.MAX_VALUE.toString()))
@@ -152,6 +154,7 @@ class ArchiveLimitsTest {
         "maxEntries" to { maxEntries = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxSegments" to { maxSegments = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
         "maxNestingDepth" to { maxNestingDepth = if (value == Long.MIN_VALUE) Int.MIN_VALUE else value.toInt() },
+        "maxDecoderMemory" to { maxDecoderMemory = value },
     )
 
     @Test

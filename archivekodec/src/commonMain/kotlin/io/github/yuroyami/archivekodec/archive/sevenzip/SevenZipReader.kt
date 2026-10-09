@@ -19,6 +19,7 @@ import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Decoder
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lzma.Bcj
 import io.github.yuroyami.archivekodec.codec.lzma.Lzma2
+import io.github.yuroyami.archivekodec.codec.ppmd.Ppmd7z
 import io.github.yuroyami.archivekodec.codec.lzma.LzOutput
 import io.github.yuroyami.archivekodec.codec.lzma.LzmaModel
 import io.github.yuroyami.archivekodec.codec.lzma.LzmaProperties
@@ -38,8 +39,8 @@ import kotlin.jvm.JvmSynthetic
  * folder is cached, so reading the files of one folder in turn decodes it once. The read
  * limits apply to the folder's decoded size, since a file cannot be reached without it.
  *
- * Supported coders: copy, LZMA, LZMA2, Deflate, Deflate64, bzip2, delta and the x86 BCJ filter,
- * chained through bind pairs. AES encryption, BCJ2, other branch filters and PPMd are refused with
+ * Supported coders: copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and the x86 BCJ filter,
+ * chained through bind pairs. AES encryption, BCJ2 and other branch filters are refused with
  * [ArchiveUnsupportedException] naming the method. Folder and file CRC-32s are verified.
  * Entries report UTC modification times, Unix modes from p7zip's attribute extension, and
  * for solid folders a share of the packed size proportional to each file's size.
@@ -236,6 +237,7 @@ public class SevenZipReader(
             DEFLATE -> Inflate.inflateExact(input, limits, size)
             DEFLATE64 -> Inflate.inflateExact(input, limits, size, deflate64 = true)
             BZIP2 -> Bzip2Decoder.decompress(input, limits)
+            PPMD -> Ppmd7z.decompress(input, coder.properties, size, limits)
             BCJ_X86 -> input.copyOf().also { Bcj.x86Decode(it) }
             DELTA -> {
                 val distance = (coder.properties.firstOrNull()?.toInt()?.and(0xFF) ?: 0) + 1
@@ -253,7 +255,6 @@ public class SevenZipReader(
         val name = when (method) {
             AES -> "AES encryption"
             "0303011b" -> "BCJ2 filter"
-            "030401" -> "PPMd"
             "03030205", "03030401", "03030501", "03030701", "03030805", "05", "06", "07", "08", "09", "0a", "0b" -> "branch filter $method"
             else -> "method $method"
         }
@@ -571,7 +572,7 @@ public class SevenZipReader(
             BZIP2 in methods -> CodecId.BZIP2
             DEFLATE64 in methods -> CodecId.DEFLATE64
             DEFLATE in methods -> CodecId.DEFLATE
-            "030401" in methods -> CodecId.PPMD
+            PPMD in methods -> CodecId.PPMD
             methods.all { it == COPY || it == AES || it == DELTA || it == BCJ_X86 } -> CodecId.STORE
             else -> CodecId("7z-${methods.first()}")
         }
@@ -611,6 +612,7 @@ public class SevenZipReader(
         private const val DEFLATE = "040108"
         private const val DEFLATE64 = "040109"
         private const val BZIP2 = "040202"
+        private const val PPMD = "030401"
         private const val AES = "06f10701"
         private const val BCJ_X86 = "03030103"
 

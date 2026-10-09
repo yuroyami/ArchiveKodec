@@ -21,7 +21,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * [rejectUnsafeNames] makes built-in readers run [PathGuard] on every listed name.
  *
  * Every numeric setting is nonnegative. Zero permits only zero output, a zero ratio,
- * zero entries, zero segments or zero nesting depth respectively. [DEFAULT] preserves the default
+ * zero entries, zero segments, zero nesting depth or no up-front decoder memory respectively. [DEFAULT] preserves the default
  * values; [UNBOUNDED] raises every ceiling for trusted input.
  *
  * Public construction and copy signatures contain a builder action rather than
@@ -54,6 +54,13 @@ public class ArchiveLimits private constructor(builder: Builder) {
     public val maxNestingDepth: Int = builder.maxNestingDepth
 
     /**
+     * Ceiling on memory a decoder allocates up front because the stream's header asks for
+     * it, in bytes. PPMd sizes its whole model this way; it is checked before allocating.
+     * Default 256 MiB, which covers every ZIP PPMd stream and 7-Zip's settings up to -mx9.
+     */
+    public val maxDecoderMemory: Long = builder.maxDecoderMemory
+
+    /**
      * Whether built-in readers reject a listing that contains a name [PathGuard.sanitize]
      * refuses: empty, absolute, drive-letter, `..` traversal or control-character names.
      * Directory entries naming the root, such as `./`, are allowed. Listed names keep
@@ -67,6 +74,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
         require(maxEntries >= 0) { "archive limits: maxEntries must be nonnegative" }
         require(maxSegments >= 0) { "archive limits: maxSegments must be nonnegative" }
         require(maxNestingDepth >= 0) { "archive limits: maxNestingDepth must be nonnegative" }
+        require(maxDecoderMemory >= 0) { "archive limits: maxDecoderMemory must be nonnegative" }
     }
 
     /**
@@ -92,6 +100,9 @@ public class ArchiveLimits private constructor(builder: Builder) {
         /** See [ArchiveLimits.maxNestingDepth]. Must be nonnegative at build time. */
         public var maxNestingDepth: Int = 8
 
+        /** See [ArchiveLimits.maxDecoderMemory]. Must be nonnegative at build time. */
+        public var maxDecoderMemory: Long = 256L * 1024 * 1024
+
         /** See [ArchiveLimits.rejectUnsafeNames]. */
         public var rejectUnsafeNames: Boolean = true
 
@@ -101,6 +112,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
             maxEntries = source.maxEntries
             maxSegments = source.maxSegments
             maxNestingDepth = source.maxNestingDepth
+            maxDecoderMemory = source.maxDecoderMemory
             rejectUnsafeNames = source.rejectUnsafeNames
         }
 
@@ -126,7 +138,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
     override fun equals(other: Any?): Boolean = other is ArchiveLimits &&
         maxUncompressedBytes == other.maxUncompressedBytes && maxCompressionRatio == other.maxCompressionRatio &&
         maxEntries == other.maxEntries && maxSegments == other.maxSegments && maxNestingDepth == other.maxNestingDepth &&
-        rejectUnsafeNames == other.rejectUnsafeNames
+        maxDecoderMemory == other.maxDecoderMemory && rejectUnsafeNames == other.rejectUnsafeNames
 
     /** Hash the policy ceilings used by [equals]. */
     override fun hashCode(): Int {
@@ -135,13 +147,14 @@ public class ArchiveLimits private constructor(builder: Builder) {
         result = 31 * result + maxEntries
         result = 31 * result + maxSegments
         result = 31 * result + maxNestingDepth
+        result = 31 * result + maxDecoderMemory.hashCode()
         return 31 * result + rejectUnsafeNames.hashCode()
     }
 
     /** Describe each configured policy ceiling. */
     override fun toString(): String = "ArchiveLimits(maxUncompressedBytes=$maxUncompressedBytes, " +
         "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxSegments=$maxSegments, maxNestingDepth=$maxNestingDepth, " +
-        "rejectUnsafeNames=$rejectUnsafeNames)"
+        "maxDecoderMemory=$maxDecoderMemory, rejectUnsafeNames=$rejectUnsafeNames)"
 
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
     @Throws(ArchiveException::class)
@@ -203,6 +216,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
             maxEntries = Int.MAX_VALUE
             maxSegments = Int.MAX_VALUE
             maxNestingDepth = Int.MAX_VALUE
+            maxDecoderMemory = Long.MAX_VALUE
             rejectUnsafeNames = false
         }
     }

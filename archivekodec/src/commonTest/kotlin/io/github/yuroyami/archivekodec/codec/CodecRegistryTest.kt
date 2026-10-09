@@ -47,7 +47,7 @@ class CodecRegistryTest {
     }
 
     @Test fun supportComesFromTheRegistryAndFacadeUsesDefault() {
-        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.BROTLI, Codecs.GZIP, Codecs.ZLIB,
+        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.BROTLI, Codecs.PPMD, Codecs.GZIP, Codecs.ZLIB,
             Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED)
         assertEquals(expected.map { it.id }, defaults.implemented)
         assertEquals(defaults.implemented, Codecs.implemented)
@@ -67,7 +67,8 @@ class CodecRegistryTest {
         assertSame(Codecs.BZIP2, defaults.byZipMethod(12))
         assertSame(Codecs.LZMA, defaults.byZipMethod(14))
         assertSame(Codecs.ZSTD, defaults.byZipMethod(93))
-        for (method in listOf(-1, 11, 98, 65535, 65536)) assertNull(defaults.byZipMethod(method))
+        assertSame(Codecs.PPMD, defaults.byZipMethod(98))
+        for (method in listOf(-1, 11, 97, 65535, 65536)) assertNull(defaults.byZipMethod(method))
     }
 
     @Test fun derivedRegistriesAndReturnedIdListsCannotChangeEarlierBindings() {
@@ -111,11 +112,11 @@ class CodecRegistryTest {
         assertSame(Codecs.STORE, registered.byZipMethod(0))
     }
 
-    @Test fun knownUnavailableMethodsBecomeAvailableWhenTheirIdIsRegistered() {
-        for ((method, id) in listOf(98 to CodecId.PPMD)) {
+    @Test fun sameIdReplacementsTakeOverKnownMethods() {
+        for ((method, id) in listOf(98 to CodecId.PPMD, 93 to CodecId.ZSTD)) {
             val engine = codec(id.name)
             assertSame(engine, defaults.with(engine).byZipMethod(method))
-            assertNull(defaults.byZipMethod(method))
+            assertSame(Codecs.byId(id), defaults.byZipMethod(method))
         }
         // A same-id replacement takes over the format lookup without changing the defaults.
         val zstd = codec("zstd")
