@@ -38,9 +38,12 @@ class LinkExtractionTest {
 
     @Test
     fun theLinkAttackStaysInsideTheOutputFolder() = runTest {
-        val base = Path(SystemTemporaryDirectory, "archivekodec-links-${Random.nextLong().toULong()}")
-        val out = Path(base, "a", "b", "out")
+        val base: Path
+        val out: Path
         try {
+            // A browser has no temporary directory, so even naming one fails there.
+            base = Path(SystemTemporaryDirectory, "archivekodec-links-${Random.nextLong().toULong()}")
+            out = Path(base, "a", "b", "out")
             SystemFileSystem.createDirectories(out)
         } catch (_: Throwable) {
             return@runTest // no writable file system on this platform

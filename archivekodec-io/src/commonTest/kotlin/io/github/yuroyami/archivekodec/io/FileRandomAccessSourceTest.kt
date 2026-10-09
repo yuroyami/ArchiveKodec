@@ -23,14 +23,13 @@ import kotlin.test.assertFailsWith
  * [ArchiveUnsupportedException], and the test stops there.
  */
 class FileRandomAccessSourceTest {
-    private fun temporaryFile(bytes: ByteArray): Path? {
-        val path = Path(SystemTemporaryDirectory, "archivekodec-${Random.nextLong().toULong()}.bin")
-        try {
+    private fun temporaryFile(bytes: ByteArray): Path? = try {
+        // A browser has no temporary directory, so even naming one fails there.
+        Path(SystemTemporaryDirectory, "archivekodec-${Random.nextLong().toULong()}.bin").also { path ->
             SystemFileSystem.sink(path).buffered().use { it.write(bytes) }
-        } catch (_: Throwable) {
-            return null // no writable file system here
         }
-        return path
+    } catch (_: Throwable) {
+        null // no writable file system here
     }
 
     private fun open(path: Path): FileRandomAccessSource? = try {
@@ -91,9 +90,14 @@ class FileRandomAccessSourceTest {
 
     @Test
     fun missingFilesFailAsIo() {
-        val missing = Path(SystemTemporaryDirectory, "archivekodec-missing-${Random.nextLong().toULong()}.bin")
+        val name = "archivekodec-missing-${Random.nextLong().toULong()}.bin"
+        val missing = try {
+            Path(SystemTemporaryDirectory, name).toString()
+        } catch (_: Throwable) {
+            name // a browser: the source must still refuse, as unsupported
+        }
         try {
-            FileRandomAccessSource(missing.toString())
+            FileRandomAccessSource(missing)
         } catch (_: ArchiveUnsupportedException) {
             return
         } catch (_: ArchiveIOException) {

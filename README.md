@@ -1502,6 +1502,13 @@ ARCHIVEKODEC_SILESIA=/tmp/silesia ./gradlew :archivekodec:jvmTest --tests '*Corp
 boundaries, unsigned results, nonzero seeds and unaligned slices. The expected
 values are independent of the Kotlin implementation.
 
+`./gradlew :archivekodec:allTests :archivekodec-io:allTests` also runs the JS and
+Wasm suites in headless Chrome, through Karma, with the same 30-second test timeout
+as Node (`karma.config.d/`). Karma needs a Chrome or Chromium binary in `CHROME_BIN`.
+As root, Chromium also needs `--no-sandbox`, so point `CHROME_BIN` at a wrapper script
+that adds it. In the browser the `-io` file tests check that `FileRandomAccessSource`
+reports unsupported, and stop there.
+
 The unpublished `benchmarks` module measures the same fixed corpora on JVM and
 Node, with JDK checksum and DEFLATE references. Run
 `python3 benchmarks/run.py --check` for the smoke comparison or
