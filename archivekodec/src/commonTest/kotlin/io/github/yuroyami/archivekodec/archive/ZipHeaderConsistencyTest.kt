@@ -138,10 +138,10 @@ class ZipHeaderConsistencyTest {
         val entry = reader.entries().single()
         source.armed = true
         val altered = listOf(
-            entry.copy(name = "renamed"), entry.copy(size = 0), entry.copy(isDirectory = true),
-            entry.copy(lastModifiedEpochSeconds = 1), entry.copy(compressedSize = 0),
-            entry.copy(codec = CodecId.DEFLATE), entry.copy(isEncrypted = true),
-            entry.copy(crc32 = null), entry.copy(crc32 = 0),
+            entry.copy { name = "renamed" }, entry.copy { size = 0 }, entry.copy { isDirectory = true },
+            entry.copy { lastModifiedEpochSeconds = 1 }, entry.copy { compressedSize = 0 },
+            entry.copy { codec = CodecId.DEFLATE }, entry.copy { isEncrypted = true },
+            entry.copy { crc32 = null }, entry.copy { crc32 = 0 },
         )
         for (member in altered) {
             val error = assertFailsWith<ArchiveFormatException> { reader.read(member) }
@@ -159,8 +159,13 @@ class ZipHeaderConsistencyTest {
         val reader = ZipReader(source)
         val entry = reader.entries().single()
         val foreign = ZipReader(ByteArrayRandomAccessSource(zip())).use { it.entries().single() }
-        val handBuilt = ArchiveEntry(entry.name, entry.size, entry.isDirectory, entry.lastModifiedEpochSeconds,
-            entry.compressedSize, entry.codec, entry.isEncrypted, entry.crc32)
+        val handBuilt = ArchiveEntry(entry.name, entry.size, entry.isDirectory) {
+            lastModifiedEpochSeconds = entry.lastModifiedEpochSeconds
+            compressedSize = entry.compressedSize
+            codec = entry.codec
+            isEncrypted = entry.isEncrypted
+            crc32 = entry.crc32
+        }
         source.armed = true
         val accesses = source.accesses
         for (member in listOf(handBuilt, foreign, foreign.copy())) {
@@ -194,7 +199,7 @@ class ZipHeaderConsistencyTest {
         val reader = ZipReader(ByteArrayRandomAccessSource(zip()))
         val listing = reader.entries()
         val entry = listing.single()
-        val changed = entry.copy(crc32 = null)
+        val changed = entry.copy { crc32 = null }
         @Suppress("UNCHECKED_CAST")
         runCatching { (listing as MutableList<ArchiveEntry>)[0] = changed }
         assertEquals(listOf(entry), reader.entries())

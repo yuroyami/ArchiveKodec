@@ -67,8 +67,8 @@ class ZipOverlapTest {
         val reader = ZipReader(source)
         val innerBytes = bytes.copyOfRange(31, 76)
         val entries = listOf(
-            ArchiveEntry("a", 45, false, compressedSize = 45, crc32 = Crc32.of(innerBytes)),
-            ArchiveEntry("b", 14, false, compressedSize = 14, crc32 = Crc32.of("SHARED-PAYLOAD".encodeToByteArray())),
+            ArchiveEntry("a", 45, false) { crc32 = Crc32.of(innerBytes) },
+            ArchiveEntry("b", 14, false) { crc32 = Crc32.of("SHARED-PAYLOAD".encodeToByteArray()) },
         )
         for (entry in entries) {
             val error = assertFailsWith<ArchiveFormatException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }

@@ -48,7 +48,7 @@ class ZipCodecRegistryTest {
                 val entry = reader.entries().single()
                 assertEquals(id, entry.codec)
                 assertEquals(method, entry.zipMethod)
-                assertEquals(method, entry.copy(name = "renamed").zipMethod)
+                assertEquals(method, entry.copy { name = "renamed" }.zipMethod)
                 assertContentEquals(data, reader.read(entry))
             }
             assertEquals(1, engine.calls)

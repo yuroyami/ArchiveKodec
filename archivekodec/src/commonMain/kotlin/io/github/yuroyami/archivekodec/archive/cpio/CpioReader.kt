@@ -176,7 +176,7 @@ public class CpioReader private constructor(
         val groups = ArrayList<Group>(records.size)
         for ((record, group) in records) {
             val size = if (record.entry.isDirectory) 0L else group.payload.storedSize
-            entries.add(record.entry.copy(size = size, compressedSize = size).locatedAt(group.payload.entry.dataOffset))
+            entries.add(record.entry.copy { this.size = size; compressedSize = size }.locatedAt(group.payload.entry.dataOffset))
             groups.add(group)
         }
         val issued = entries.issuedBy(this)

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Breaking:** `ArchiveEntry` construction is now fixed: a three-argument
+  `(name, size, isDirectory)` constructor, `ArchiveEntry.Builder`, the
+  `ArchiveEntry(name, size, isDirectory) { ... }` factory and `copy { ... }`.
+  The field-list constructor, named-argument `copy` and `component1`–`component8`
+  are removed, so future metadata can be added without breaking compiled callers.
+  `toString()` now escapes and bounds the name. Migrate `entry.copy(name = x)` to
+  `entry.copy { name = x }`.
+- **Breaking:** implementing `Codec` or `ArchiveReader` in Kotlin now requires
+  `@OptIn(ExperimentalArchiveImplementation::class)`, because members may be added
+  to those interfaces. Calling them is unchanged. `RandomAccessSource` stays open.
+
 - **Breaking:** `ArchiveEntry.dataOffset`, its constructor and `copy` parameter
   and `component9` are removed. Positions are private reader state. Built-in
   readers now only read entries they listed, or unchanged copies of them;

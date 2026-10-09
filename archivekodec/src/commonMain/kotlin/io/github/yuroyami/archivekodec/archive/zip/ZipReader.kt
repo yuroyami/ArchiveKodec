@@ -403,15 +403,12 @@ public class ZipReader(
                 throw DecompressionBombException("ZIP: multiple entries reference local header offset $localOffset", localOffset, name, null)
             }
 
-            val provisional = ArchiveEntry(
-                name = name,
-                size = uncompSize,
-                isDirectory = false,
-                compressedSize = compSize,
-                codec = codecs.idForZipMethod(method) ?: CodecId("zip-method-$method"),
-                isEncrypted = flags and 0x41 != 0 || method == 99,
-                crc32 = crc,
-            ).withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
+            val provisional = ArchiveEntry(name, uncompSize, false) {
+                compressedSize = compSize
+                codec = codecs.idForZipMethod(method) ?: CodecId("zip-method-$method")
+                isEncrypted = flags and 0x41 != 0 || method == 99
+                crc32 = crc
+            }.withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
             val localExtraLength = readU16Le(local, 28)
             validateLocalHeader(Member(provisional, nameBytes, method, flags, localExtraLength), local, source)
             val localUnicode = if (!utf8 && localExtraLength > 0) {
@@ -424,7 +421,7 @@ public class ZipReader(
             }
             name = if (utf8) ArchiveNameDecoder.UTF8.decodeStoredName(nameBytes, nameOffset)
                 else centralUnicode ?: localUnicode ?: nameDecoder.decodeStoredName(nameBytes, nameOffset)
-            val entry = provisional.copy(name = name, isDirectory = name.endsWith("/")).withNameBytes(nameBytes)
+            val entry = provisional.copy { this.name = name; isDirectory = name.endsWith("/") }.withNameBytes(nameBytes)
             val member = Member(entry, nameBytes, method, flags, localExtraLength)
             members[localOffset] = member
             entries.add(entry)

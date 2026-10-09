@@ -269,6 +269,18 @@ size and CRC-32. Registry bindings are immutable; codec instances are shared and
 retain their own thread-safety rules. Registration does not change sniffing or
 add a compression method to `ZipWriter`.
 
+Calling `Codec` and `ArchiveReader` is stable, but implementing them is not:
+later releases may add members to these interfaces. Kotlin implementations must
+opt in, and the compiler reports an error otherwise:
+
+```kotlin
+@OptIn(ExperimentalArchiveImplementation::class)
+class ZstdCodec : Codec { /* ... */ }
+```
+
+Java and Swift do not check Kotlin opt-in markers, but the same caveat applies.
+`RandomAccessSource` is not marked; implement it freely.
+
 `CodecId.SNAPPY` and `Codecs.SNAPPY` select raw Snappy blocks.
 `CodecId.SNAPPY_FRAMED` and `Codecs.SNAPPY_FRAMED` select standard `.sz` framing.
 The low-level `Snappy` object also exposes `frameCompress` and `frameDecompress`.
@@ -650,9 +662,21 @@ val reader = ArchiveKodec.open(bytes, formats, options = options)
 filename decoder and codec registry through immutable `ArchiveOpenOptions`; it
 must enforce the policies relevant to that format. Null `nameDecoder` preserves
 each built-in reader's default. Closing the returned reader must close the source.
-A failed factory must leave the source open for the caller. `ArchiveEntry` has
-no public source position, so a custom reader keeps its own locators, for example
-in a list parallel to its listing or keyed by entry name.
+A failed factory must leave the source open for the caller. Implementing
+`ArchiveReader` requires `@OptIn(ExperimentalArchiveImplementation::class)`.
+`ArchiveEntry` has no public source position, so a custom reader keeps its own
+locators, for example in a list parallel to its listing. Build entries with the
+fixed three-argument constructor, or set other metadata through the builder:
+
+```kotlin
+ArchiveEntry("dir/file.txt", size = 3, isDirectory = false) {
+    lastModifiedEpochSeconds = 1_700_000_000
+    crc32 = 0x352441C2
+}
+```
+
+`entry.copy { name = "renamed" }` configures an independent builder. New entry
+metadata will be added as builder properties, so these signatures stay fixed.
 
 `with` returns an independent registry. The newest descriptor runs first and
 replaces an earlier descriptor with the same id. Detectors can read at any offset,

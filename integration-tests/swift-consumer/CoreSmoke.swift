@@ -192,10 +192,12 @@ let rawNameSnapshot = cp437NameEntries[0].nameBytes!
 precondition(rawNameSnapshot.get(index: 3) == Int8(bitPattern: 0x82))
 rawNameSnapshot.set(index: 3, value: 0)
 precondition(cp437NameEntries[0].nameBytes!.get(index: 3) == Int8(bitPattern: 0x82))
-let copiedNameEntry = cp437NameEntries[0].doCopy(name: cp437NameEntries[0].name, size: cp437NameEntries[0].size,
-    isDirectory: false, lastModifiedEpochSeconds: cp437NameEntries[0].lastModifiedEpochSeconds,
-    compressedSize: cp437NameEntries[0].compressedSize, codec: cp437NameEntries[0].codec, isEncrypted: false,
-    crc32: cp437NameEntries[0].crc32)
+let copiedNameEntry = try cp437NameEntries[0].doCopy { _ in }
+precondition(copiedNameEntry.isEqual(cp437NameEntries[0]))
+let renamedEntry = try cp437NameEntries[0].doCopy { $0.name = "renamed" }
+precondition(renamedEntry.name == "renamed" && renamedEntry.size == cp437NameEntries[0].size)
+let builtEntry = try ArchiveEntry.Builder(name: "built", size: 3, isDirectory: false).build()
+precondition(builtEntry.compressedSize == 3 && builtEntry.crc32 == nil)
 precondition(copiedNameEntry.nameBytes!.get(index: 3) == Int8(bitPattern: 0x82))
 let copiedNamePayload = try cp437NameReader.read(entry: copiedNameEntry, limits: limits)
 precondition(copiedNamePayload.size == 3 && copiedNamePayload.get(index: 1) == 7)
@@ -441,8 +443,7 @@ precondition(rawDirectorySource.closes == 1)
 
 // Root directory entries are skipped explicitly; strict file destinations still fail.
 func pathEntry(_ name: String, directory: Bool) -> ArchiveEntry {
-    ArchiveEntry(name: name, size: 0, isDirectory: directory, lastModifiedEpochSeconds: nil,
-                 compressedSize: 0, codec: CodecId.companion.STORE, isEncrypted: false, crc32: nil)
+    try! ArchiveEntry(name: name, size: 0, isDirectory: directory)
 }
 for name in [".", "./", "./.", ".\\.\\"] {
     precondition(PathGuard.shared.isRootDirectory(entry: pathEntry(name, directory: true)))

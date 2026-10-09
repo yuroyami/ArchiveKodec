@@ -90,7 +90,7 @@ class ArchiveReaderLifecycleTest {
             reader.close()
             val accesses = source.accesses
             assertFailsWith<ArchiveClosedException> { reader.entries() }
-            for (member in listOf(entry, entry.copy(size = 0), entry.copy(isDirectory = true))) {
+            for (member in listOf(entry, entry.copy { size = 0 }, entry.copy { isDirectory = true })) {
                 val error = assertFailsWith<ArchiveClosedException> { reader.read(member, ArchiveLimits { maxUncompressedBytes = 0 }) }
                 assertEquals(member.name, error.entryName)
                 assertEquals(member.dataOffset, error.offset)

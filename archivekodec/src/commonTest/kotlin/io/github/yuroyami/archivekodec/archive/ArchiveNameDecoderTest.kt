@@ -130,9 +130,9 @@ class ArchiveNameDecoderTest {
                 copy.nameBytes!!.fill(0)
                 assertContentEquals(original, entry.nameBytes)
                 assertContentEquals(original, copy.nameBytes)
-                assertContentEquals(original, entry.copy(name = "changed").nameBytes)
+                assertContentEquals(original, entry.copy { name = "changed" }.nameBytes)
                 assertEquals(entry.zipMethod, copy.zipMethod)
-                assertEquals(entry.zipMethod, entry.copy(name = "changed").zipMethod)
+                assertEquals(entry.zipMethod, entry.copy { name = "changed" }.zipMethod)
                 assertEquals(entry, copy)
                 assertEquals(entry.hashCode(), copy.hashCode())
                 assertEquals(listOf(entry), reader.entries())
@@ -209,15 +209,34 @@ class ArchiveNameDecoderTest {
     }
 
     @Test
-    fun manuallyConstructedValuesKeepTheirExistingValueApi() {
+    fun manuallyConstructedEntriesUseDefaultsAndBuilderSnapshots() {
         val entry = ArchiveEntry("file", 7, false)
         assertNull(entry.nameBytes)
         assertNull(entry.copy().nameBytes)
         assertNull(entry.zipMethod)
         assertNull(entry.copy().zipMethod)
         assertEquals(entry, entry.copy())
-        val (name, size, directory, modified, compressed, codec, encrypted, crc) = entry
-        assertEquals("file", name); assertEquals(7L, size); assertFalse(directory); assertNull(modified)
-        assertEquals(7L, compressed); assertEquals(CodecId.STORE, codec); assertFalse(encrypted); assertNull(crc)
+        assertEquals("file", entry.name); assertEquals(7L, entry.size); assertFalse(entry.isDirectory)
+        assertNull(entry.lastModifiedEpochSeconds); assertEquals(7L, entry.compressedSize)
+        assertEquals(CodecId.STORE, entry.codec); assertFalse(entry.isEncrypted); assertNull(entry.crc32)
+
+        val builder = ArchiveEntry.Builder("dir/", 0, true).apply { lastModifiedEpochSeconds = 5; crc32 = 9 }
+        val built = builder.build()
+        builder.name = "other"; builder.crc32 = null
+        assertEquals("dir/", built.name); assertEquals(9L, built.crc32); assertEquals(5L, built.lastModifiedEpochSeconds)
+        assertEquals(built, ArchiveEntry("dir/", 0, true) { lastModifiedEpochSeconds = 5; crc32 = 9 })
+        assertEquals(built.hashCode(), ArchiveEntry("dir/", 0, true) { lastModifiedEpochSeconds = 5; crc32 = 9 }.hashCode())
+        val changed = built.copy { compressedSize = 3; codec = CodecId.DEFLATE; isEncrypted = true }
+        assertEquals(3L, changed.compressedSize); assertEquals(CodecId.DEFLATE, changed.codec); assertTrue(changed.isEncrypted)
+        assertEquals(9L, changed.crc32)
+        assertFalse(changed == built)
+    }
+
+    @Test
+    fun entryDescriptionsAreBoundedAndEscaped() {
+        val description = ArchiveEntry("\"" + "x".repeat(100_000) + "\n", 1, false).toString()
+        assertTrue(description.length < 400, description)
+        assertTrue(description.startsWith("ArchiveEntry(name=\"\\\"xxx"), description)
+        assertTrue(ArchiveEntry("a\nb", 1, false).toString().contains("name=\"a\\nb\""))
     }
 }

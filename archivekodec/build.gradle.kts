@@ -60,6 +60,9 @@ kotlin {
     compilerOptions {
         languageVersion.set(KotlinVersion.KOTLIN_2_2)
         apiVersion.set(KotlinVersion.KOTLIN_2_2)
+        // The built-in codecs and readers, and the test doubles, implement the
+        // interfaces that outside implementations must opt in to.
+        optIn.add("io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation")
     }
 
     android {

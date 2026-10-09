@@ -9,6 +9,7 @@ import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.checkedArraySize
+import io.github.yuroyami.archivekodec.util.describeName
 import io.github.yuroyami.archivekodec.util.le16
 import io.github.yuroyami.archivekodec.util.le32
 import io.github.yuroyami.archivekodec.util.le64
@@ -109,37 +110,7 @@ public object ZipWriter {
         override fun hashCode(): Int = 31 * (31 * name.hashCode() + method.hashCode()) + content.contentHashCode()
 
         /** Bounded description with an escaped name, byte count and method; no payload dump. */
-        override fun toString(): String = "FileSpec(name=\"${descriptionName()}\", bytes=${content.size}, method=$method)"
-
-        private fun descriptionName(): String = buildString {
-            var at = 0
-            while (at < name.length) {
-                val char = name[at]
-                var width = 1
-                val text = when (char) {
-                    '\\' -> "\\\\"
-                    '"' -> "\\\""
-                    '\n' -> "\\n"
-                    '\r' -> "\\r"
-                    '\t' -> "\\t"
-                    else -> when {
-                        char.code in 0xD800..0xDBFF && at + 1 < name.length && name[at + 1].code in 0xDC00..0xDFFF -> {
-                            width = 2
-                            name.substring(at, at + 2)
-                        }
-                        char.code < 0x20 || char.code == 0x7F || char.code in 0xD800..0xDFFF ->
-                            "\\u${char.code.toString(16).padStart(4, '0')}"
-                        else -> char.toString()
-                    }
-                }
-                if (length + text.length > 96) {
-                    append('…')
-                    break
-                }
-                append(text)
-                at += width
-            }
-        }
+        override fun toString(): String = "FileSpec(name=\"${describeName(name)}\", bytes=${content.size}, method=$method)"
 
         /** Construct file descriptions with a builder action. */
         public companion object {

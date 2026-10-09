@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.codec
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 
 /**
@@ -13,7 +14,11 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * [io.github.yuroyami.archivekodec.archive.zip.ZipReader]. The ZIP reader retains
  * header, output-size and CRC validation; it cannot bound a custom engine that
  * ignores the decoding limits.
+ *
+ * Calling a codec is stable. Implementing one requires opting in to
+ * [ExperimentalArchiveImplementation], because members may be added to this interface.
  */
+@SubclassOptInRequired(ExperimentalArchiveImplementation::class)
 public interface Codec {
     /** Which codec this is. */
     public val id: CodecId

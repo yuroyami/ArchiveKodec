@@ -127,12 +127,9 @@ public class TarReader(
                         val name = nameDecoder.decodeStoredName(nameBytes, nameOffset)
                         val isDir = typeFlag == '5' || name.endsWith("/")
                         out.add(
-                            ArchiveEntry(
-                                name = name,
-                                size = if (isDir) 0L else size,
-                                isDirectory = isDir,
-                                lastModifiedEpochSeconds = numeric(hdr, 136, 12, pos),
-                            ).withNameBytes(nameBytes).locatedAt(dataStart),
+                            ArchiveEntry(name, if (isDir) 0L else size, isDir) {
+                                lastModifiedEpochSeconds = numeric(hdr, 136, 12, pos)
+                            }.withNameBytes(nameBytes).locatedAt(dataStart),
                         )
                     }
                 }

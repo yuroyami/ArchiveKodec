@@ -98,7 +98,7 @@ class IssuedEntryTest {
             open(format, ByteArrayRandomAccessSource(archives.getValue(format))).use { reader ->
                 val entry = reader.entries().single()
                 assertContentEquals(data, reader.read(entry.copy()))
-                for (changed in listOf(entry.copy(name = "b.txt"), entry.copy(size = 2), entry.copy(compressedSize = 9))) {
+                for (changed in listOf(entry.copy { name = "b.txt" }, entry.copy { size = 2 }, entry.copy { compressedSize = 9 })) {
                     val error = assertFailsWith<ArchiveFormatException>(format) { reader.read(changed) }
                     assertEquals("a.txt", error.entryName, format)
                 }

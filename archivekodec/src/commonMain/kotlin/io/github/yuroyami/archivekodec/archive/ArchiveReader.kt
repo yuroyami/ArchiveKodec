@@ -3,6 +3,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.jvm.JvmName
@@ -22,7 +23,11 @@ import kotlin.native.HiddenFromObjC
  * and factory in [FormatRegistry] with a [FormatSpec] using the same identifier;
  * factories receive [ArchiveOpenOptions] and must honor its policy and ownership
  * contract. Supply the registry to [io.github.yuroyami.archivekodec.ArchiveKodec.open].
+ *
+ * Calling a reader is stable. Implementing one requires opting in to
+ * [ExperimentalArchiveImplementation], because members may be added to this interface.
  */
+@SubclassOptInRequired(ExperimentalArchiveImplementation::class)
 public interface ArchiveReader {
     /** The container format this reader handles. */
     public val format: ArchiveFormat

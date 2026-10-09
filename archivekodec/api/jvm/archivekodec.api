@@ -88,19 +88,15 @@ public final class io/github/yuroyami/archivekodec/ArchiveUnsupportedException :
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 }
 
+public abstract interface annotation class io/github/yuroyami/archivekodec/ExperimentalArchiveImplementation : java/lang/annotation/Annotation {
+}
+
 public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry {
-	public fun <init> (Ljava/lang/String;JZLjava/lang/Long;JLio/github/yuroyami/archivekodec/codec/CodecId;ZLjava/lang/Long;)V
-	public synthetic fun <init> (Ljava/lang/String;JZLjava/lang/Long;JLio/github/yuroyami/archivekodec/codec/CodecId;ZLjava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()J
-	public final fun component3 ()Z
-	public final fun component4 ()Ljava/lang/Long;
-	public final fun component5 ()J
-	public final fun component6 ()Lio/github/yuroyami/archivekodec/codec/CodecId;
-	public final fun component7 ()Z
-	public final fun component8 ()Ljava/lang/Long;
-	public final fun copy (Ljava/lang/String;JZLjava/lang/Long;JLio/github/yuroyami/archivekodec/codec/CodecId;ZLjava/lang/Long;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
-	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Ljava/lang/String;JZLjava/lang/Long;JLio/github/yuroyami/archivekodec/codec/CodecId;ZLjava/lang/Long;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ArchiveEntry$Companion;
+	public fun <init> (Ljava/lang/String;JZ)V
+	public final fun copy ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCodec ()Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public final fun getCompressedSize ()J
@@ -111,9 +107,35 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry {
 	public final fun getSize ()J
 	public final fun getZipMethod ()Ljava/lang/Integer;
 	public fun hashCode ()I
+	public static final fun invoke (Ljava/lang/String;JZLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
 	public final fun isDirectory ()Z
 	public final fun isEncrypted ()Z
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Builder {
+	public fun <init> (Ljava/lang/String;JZ)V
+	public final fun build ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun getCodec ()Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public final fun getCompressedSize ()J
+	public final fun getCrc32 ()Ljava/lang/Long;
+	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getSize ()J
+	public final fun isDirectory ()Z
+	public final fun isEncrypted ()Z
+	public final fun setCodec (Lio/github/yuroyami/archivekodec/codec/CodecId;)V
+	public final fun setCompressedSize (J)V
+	public final fun setCrc32 (Ljava/lang/Long;)V
+	public final fun setDirectory (Z)V
+	public final fun setEncrypted (Z)V
+	public final fun setLastModifiedEpochSeconds (Ljava/lang/Long;)V
+	public final fun setName (Ljava/lang/String;)V
+	public final fun setSize (J)V
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Companion {
+	public final fun invoke (Ljava/lang/String;JZLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
 }
 
 public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat {

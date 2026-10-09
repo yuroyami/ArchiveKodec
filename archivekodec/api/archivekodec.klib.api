@@ -6,6 +6,10 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.yuroyami:archivekodec>
+open annotation class io.github.yuroyami.archivekodec/ExperimentalArchiveImplementation : kotlin/Annotation { // io.github.yuroyami.archivekodec/ExperimentalArchiveImplementation|null[0]
+    constructor <init>() // io.github.yuroyami.archivekodec/ExperimentalArchiveImplementation.<init>|<init>(){}[0]
+}
+
 final enum class io.github.yuroyami.archivekodec.archive.zip/ZipMethod : kotlin/Enum<io.github.yuroyami.archivekodec.archive.zip/ZipMethod> { // io.github.yuroyami.archivekodec.archive.zip/ZipMethod|null[0]
     enum entry DEFLATED // io.github.yuroyami.archivekodec.archive.zip/ZipMethod.DEFLATED|null[0]
     enum entry STORED // io.github.yuroyami.archivekodec.archive.zip/ZipMethod.STORED|null[0]
@@ -218,7 +222,7 @@ final class io.github.yuroyami.archivekodec.archive.zip/ZipReader : io.github.yu
 }
 
 final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.yuroyami.archivekodec.archive/ArchiveEntry|null[0]
-    constructor <init>(kotlin/String, kotlin/Long, kotlin/Boolean, kotlin/Long? = ..., kotlin/Long = ..., io.github.yuroyami.archivekodec.codec/CodecId = ..., kotlin/Boolean = ..., kotlin/Long? = ...) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.<init>|<init>(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Long?;kotlin.Long;io.github.yuroyami.archivekodec.codec.CodecId;kotlin.Boolean;kotlin.Long?){}[0]
+    constructor <init>(kotlin/String, kotlin/Long, kotlin/Boolean) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.<init>|<init>(kotlin.String;kotlin.Long;kotlin.Boolean){}[0]
 
     final val codec // io.github.yuroyami.archivekodec.archive/ArchiveEntry.codec|{}codec[0]
         final fun <get-codec>(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.codec.<get-codec>|<get-codec>(){}[0]
@@ -241,18 +245,45 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
     final val zipMethod // io.github.yuroyami.archivekodec.archive/ArchiveEntry.zipMethod|{}zipMethod[0]
         final fun <get-zipMethod>(): kotlin/Int? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.zipMethod.<get-zipMethod>|<get-zipMethod>(){}[0]
 
-    final fun component1(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component1|component1(){}[0]
-    final fun component2(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component2|component2(){}[0]
-    final fun component3(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component3|component3(){}[0]
-    final fun component4(): kotlin/Long? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component4|component4(){}[0]
-    final fun component5(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component5|component5(){}[0]
-    final fun component6(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component6|component6(){}[0]
-    final fun component7(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component7|component7(){}[0]
-    final fun component8(): kotlin/Long? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.component8|component8(){}[0]
-    final fun copy(kotlin/String = ..., kotlin/Long = ..., kotlin/Boolean = ..., kotlin/Long? = ..., kotlin/Long = ..., io.github.yuroyami.archivekodec.codec/CodecId = ..., kotlin/Boolean = ..., kotlin/Long? = ...): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.copy|copy(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Long?;kotlin.Long;io.github.yuroyami.archivekodec.codec.CodecId;kotlin.Boolean;kotlin.Long?){}[0]
+    final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.archive.ArchiveEntry.Builder,kotlin.Unit>){}[0]
     final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.equals|equals(kotlin.Any?){}[0]
     final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.archive/ArchiveEntry.hashCode|hashCode(){}[0]
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveEntry.toString|toString(){}[0]
+
+    final class Builder { // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder|null[0]
+        constructor <init>(kotlin/String, kotlin/Long, kotlin/Boolean) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.<init>|<init>(kotlin.String;kotlin.Long;kotlin.Boolean){}[0]
+
+        final var codec // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.codec|{}codec[0]
+            final fun <get-codec>(): io.github.yuroyami.archivekodec.codec/CodecId // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.codec.<get-codec>|<get-codec>(){}[0]
+            final fun <set-codec>(io.github.yuroyami.archivekodec.codec/CodecId) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.codec.<set-codec>|<set-codec>(io.github.yuroyami.archivekodec.codec.CodecId){}[0]
+        final var compressedSize // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.compressedSize|{}compressedSize[0]
+            final fun <get-compressedSize>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.compressedSize.<get-compressedSize>|<get-compressedSize>(){}[0]
+            final fun <set-compressedSize>(kotlin/Long) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.compressedSize.<set-compressedSize>|<set-compressedSize>(kotlin.Long){}[0]
+        final var crc32 // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.crc32|{}crc32[0]
+            final fun <get-crc32>(): kotlin/Long? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.crc32.<get-crc32>|<get-crc32>(){}[0]
+            final fun <set-crc32>(kotlin/Long?) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.crc32.<set-crc32>|<set-crc32>(kotlin.Long?){}[0]
+        final var isDirectory // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.isDirectory|{}isDirectory[0]
+            final fun <get-isDirectory>(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.isDirectory.<get-isDirectory>|<get-isDirectory>(){}[0]
+            final fun <set-isDirectory>(kotlin/Boolean) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.isDirectory.<set-isDirectory>|<set-isDirectory>(kotlin.Boolean){}[0]
+        final var isEncrypted // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.isEncrypted|{}isEncrypted[0]
+            final fun <get-isEncrypted>(): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.isEncrypted.<get-isEncrypted>|<get-isEncrypted>(){}[0]
+            final fun <set-isEncrypted>(kotlin/Boolean) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.isEncrypted.<set-isEncrypted>|<set-isEncrypted>(kotlin.Boolean){}[0]
+        final var lastModifiedEpochSeconds // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.lastModifiedEpochSeconds|{}lastModifiedEpochSeconds[0]
+            final fun <get-lastModifiedEpochSeconds>(): kotlin/Long? // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.lastModifiedEpochSeconds.<get-lastModifiedEpochSeconds>|<get-lastModifiedEpochSeconds>(){}[0]
+            final fun <set-lastModifiedEpochSeconds>(kotlin/Long?) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.lastModifiedEpochSeconds.<set-lastModifiedEpochSeconds>|<set-lastModifiedEpochSeconds>(kotlin.Long?){}[0]
+        final var name // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.name|{}name[0]
+            final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.name.<get-name>|<get-name>(){}[0]
+            final fun <set-name>(kotlin/String) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.name.<set-name>|<set-name>(kotlin.String){}[0]
+        final var size // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.size|{}size[0]
+            final fun <get-size>(): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.size.<get-size>|<get-size>(){}[0]
+            final fun <set-size>(kotlin/Long) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.size.<set-size>|<set-size>(kotlin.Long){}[0]
+
+        final fun build(): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder.build|build(){}[0]
+    }
+
+    final object Companion { // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Companion|null[0]
+        final fun invoke(kotlin/String, kotlin/Long, kotlin/Boolean, kotlin/Function1<io.github.yuroyami.archivekodec.archive/ArchiveEntry.Builder, kotlin/Unit>): io.github.yuroyami.archivekodec.archive/ArchiveEntry // io.github.yuroyami.archivekodec.archive/ArchiveEntry.Companion.invoke|invoke(kotlin.String;kotlin.Long;kotlin.Boolean;kotlin.Function1<io.github.yuroyami.archivekodec.archive.ArchiveEntry.Builder,kotlin.Unit>){}[0]
+    }
 }
 
 final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github.yuroyami.archivekodec.archive/ArchiveFormat|null[0]
