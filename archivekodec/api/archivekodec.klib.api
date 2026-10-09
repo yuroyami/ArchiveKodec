@@ -188,6 +188,22 @@ final class io.github.yuroyami.archivekodec.archive.ar/ArReader : io.github.yuro
     final object Companion // io.github.yuroyami.archivekodec.archive.ar/ArReader.Companion|null[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.cab/CabReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.cab/CabReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.cab/CabReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.cab/CabReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.cab/CabReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+    final val format // io.github.yuroyami.archivekodec.archive.cab/CabReader.format|{}format[0]
+        final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.cab/CabReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.cab/CabReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.cab/CabReader.limits.<get-limits>|<get-limits>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.archive.cab/CabReader.close|close(){}[0]
+    final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.cab/CabReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cab/CabReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.cab/CabReader.toString|toString(){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive.cpio/CpioReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.cpio/CpioReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.cpio/CpioReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
@@ -425,6 +441,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github
             final fun <get-BROTLI>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BROTLI.<get-BROTLI>|<get-BROTLI>(){}[0]
         final val BZIP2 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BZIP2|{}BZIP2[0]
             final fun <get-BZIP2>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BZIP2.<get-BZIP2>|<get-BZIP2>(){}[0]
+        final val CAB // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CAB|{}CAB[0]
+            final fun <get-CAB>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CAB.<get-CAB>|<get-CAB>(){}[0]
         final val CPIO // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CPIO|{}CPIO[0]
             final fun <get-CPIO>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CPIO.<get-CPIO>|<get-CPIO>(){}[0]
         final val GZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.GZIP|{}GZIP[0]

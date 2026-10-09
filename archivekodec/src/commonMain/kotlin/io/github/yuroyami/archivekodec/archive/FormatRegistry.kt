@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
+import io.github.yuroyami.archivekodec.archive.cab.CabReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.iso.IsoReader
 import io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader
@@ -85,6 +86,9 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
             FormatSpec.builtin(ArchiveFormat.SNAPPY),
             FormatSpec.builtin(ArchiveFormat.ISO9660) { source, options ->
                 IsoReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
+            },
+            FormatSpec.builtin(ArchiveFormat.CAB) { source, options ->
+                CabReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
             },
         ))
     }

@@ -1,0 +1,263 @@
+package io.github.yuroyami.archivekodec.archive
+
+import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveKodec
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.archive.cab.CabReader
+import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.util.readU32Le
+import io.github.yuroyami.archivekodec.wrapper.Gzip
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+
+/**
+ * Microsoft cabinets (#33), gzipped. `stored` and `mszip` come from gcab 1.6 (`-c` and `-cz`)
+ * over hello.txt, sub/notes.txt and big.bin (2000 random bytes repeated to 40000), all one
+ * folder, modified 2024-05-06T07:08:10Z. `multi` and `span` are built to the cabinet
+ * specification and checked with cabextract 1.11 and 7-Zip: `multi` has reserve areas, an
+ * MSZIP folder whose blocks refer back into earlier blocks, a stored folder, an empty file and
+ * a UTF-8 name; `span` sits in the middle of a cabinet set.
+ */
+@OptIn(ExperimentalEncodingApi::class)
+class CabReaderTest {
+    private val storedGz = Base64.decode(
+        "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",
+    )
+
+    private val mszipGz = Base64.decode(
+        "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",
+    )
+
+    private val multiGz = Base64.decode(
+        "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",
+    )
+
+    private val spanGz = Base64.decode(
+        "H4sIAAAAAAACA/MNdnZjAIK3DBAQB6WZGZkZQNBEiJGhILGoxFAvOTGJwSWzOFvBECxgjBAwZtgO1MEIxCeh9F0ozQU17e//vPBVGxUY0oryc3ULilLLMvNL" +
+        "i/WSMvMYeKAqGBkgKjLzijNTUvVKKkoYRKBS/6CaS/J181IrSsDaiiq4GECwAg5SirVteIDGQQxQKAGqVORggMBKKAAA4F1trO0AAAA=",
+    )
+
+    private fun cab(gz: ByteArray) = Gzip.decompress(gz, ArchiveLimits.UNBOUNDED)
+
+    private fun reader(bytes: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT) = CabReader(ByteArrayRandomAccessSource(bytes), limits)
+
+    @Test
+    fun sniffsAndOpens() {
+        for (gz in listOf(storedGz, mszipGz, multiGz, spanGz)) {
+            val bytes = cab(gz)
+            assertEquals(ArchiveFormat.CAB, Magic.sniff(bytes))
+            assertEquals(ArchiveFormat.CAB, Magic.sniff(ByteArrayRandomAccessSource(bytes)))
+            ArchiveKodec.open(bytes).use { assertEquals(ArchiveFormat.CAB, it.format) }
+        }
+    }
+
+    @Test
+    fun gcabStoredAndMszipFolders() {
+        for ((gz, codec) in listOf(storedGz to CodecId.STORE, mszipGz to CodecId.DEFLATE)) {
+            val reader = reader(cab(gz))
+            reader.use {
+                val entries = it.entries()
+                assertEquals(listOf("hello.txt", "sub/notes.txt", "big.bin"), entries.map { e -> e.name })
+                assertEquals(listOf(16L, 1500L, 40000L), entries.map { e -> e.size })
+                for (entry in entries) {
+                    assertEquals(1714979290L, entry.lastModifiedEpochSeconds)
+                    assertEquals(codec, entry.codec)
+                }
+                assertContentEquals("Hello, cabinet!\n".encodeToByteArray(), it.read(entries[0]))
+                assertContentEquals("line\n".repeat(300).encodeToByteArray(), it.read(entries[1]))
+                assertEquals(0x8856e78bL, Crc32.of(it.read(entries[2])))
+                // Three files of one folder, one decode.
+                assertEquals(1, reader.folderDecodes)
+            }
+        }
+    }
+
+    @Test
+    fun foldersReservesHistoryAndNames() {
+        val reader = reader(cab(multiGz))
+        reader.use {
+            val entries = it.entries().associateBy { e -> e.name }
+            assertEquals(setOf("data/big.bin", "data/count.txt", "caf\u00e9/na\u00efve.txt", "empty.txt"), entries.keys)
+            assertEquals(1700000000L, entries.getValue("empty.txt").lastModifiedEpochSeconds)
+            assertEquals(0xe4212cedL, Crc32.of(it.read(entries.getValue("data/big.bin"))))
+            assertContentEquals("stored folder bytes\n".repeat(10).encodeToByteArray(), it.read(entries.getValue("caf\u00e9/na\u00efve.txt")))
+            val count = it.read(entries.getValue("data/count.txt"))
+            assertEquals(0x8c55999fL, Crc32.of(count))
+            assertTrue(count.decodeToString().startsWith("00000 the quick brown fox\n"))
+            assertContentEquals(ByteArray(0), it.read(entries.getValue("empty.txt")))
+            assertEquals(3, reader.folderDecodes)
+            assertTrue(entries.getValue("data/big.bin").compressedSize < 9054)
+        }
+    }
+
+    @Test
+    fun cabinetSetMembers() {
+        reader(cab(spanGz)).use {
+            val entries = it.entries()
+            assertEquals(listOf("from-previous.bin", "inside.txt", "to-next.bin"), entries.map { e -> e.name })
+            assertContentEquals("inside text!".encodeToByteArray(), it.read(entries[1]))
+            assertFailsWith<ArchiveUnsupportedException> { it.read(entries[0]) }
+            assertFailsWith<ArchiveUnsupportedException> { it.read(entries[2]) }
+        }
+    }
+
+    @Test
+    fun unsupportedMethods() {
+        for ((type, name) in listOf(3 to "LZX", 2 to "Quantum")) {
+            val bytes = cab(storedGz).also { it[42] = type.toByte(); it[43] = 15 }
+            reader(bytes).use {
+                val entry = it.entries().last()
+                val error = assertFailsWith<ArchiveUnsupportedException> { it.read(entry) }
+                assertTrue(name in error.message!!, error.message)
+            }
+        }
+    }
+
+    @Test
+    fun malformedCabinetsAndLimits() {
+        val multi = cab(multiGz)
+        // A flipped byte in the first MSZIP block fails its checksum.
+        val corrupt = multi.copyOf().also { it[readU32Le(it, 60).toInt() + 8 + 8 + 10] = 0x55 }
+        reader(corrupt).use { assertFailsWith<ArchiveFormatException> { it.read(it.entries().first()) } }
+
+        val mszip = cab(mszipGz)
+        val noSignature = mszip.copyOf().also { it[readU32Le(it, 36).toInt() + 8] = 'X'.code.toByte() }
+        reader(noSignature).use { assertFailsWith<ArchiveFormatException> { it.read(it.entries().first()) } }
+
+        val badFolder = mszip.copyOf().also { it[readU32Le(it, 16).toInt() + 8] = 5 }
+        assertFailsWith<ArchiveFormatException> { reader(badFolder).entries() }
+        assertFailsWith<ArchiveFormatException> { reader(mszip.copyOf(mszip.size - 100)).entries() }
+        assertFailsWith<ArchiveFormatException> { reader(mszip.copyOf(30)).entries() }
+
+        assertFailsWith<DecompressionBombException> { reader(mszip, ArchiveLimits { maxEntries = 2 }).entries() }
+        reader(mszip, ArchiveLimits { maxUncompressedBytes = 10_000 }).use {
+            assertFailsWith<DecompressionBombException> { it.read(it.entries().last()) }
+        }
+    }
+}

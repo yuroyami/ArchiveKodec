@@ -63,6 +63,9 @@ public object Magic {
             isBinaryCpioMagic(header) -> ArchiveFormat.CPIO
             at(0) == 0x52 && at(1) == 0x61 && at(2) == 0x72 && at(3) == 0x21 && at(4) == 0x1A && at(5) == 0x07 ->
                 ArchiveFormat.RAR
+            // Cabinet: "MSCF" and a zero reserved field
+            at(0) == 0x4D && at(1) == 0x53 && at(2) == 0x43 && at(3) == 0x46 &&
+                at(4) == 0 && at(5) == 0 && at(6) == 0 && at(7) == 0 -> ArchiveFormat.CAB
             isZlib(header) -> ArchiveFormat.ZLIB
             else -> ArchiveFormat.UNKNOWN
         }

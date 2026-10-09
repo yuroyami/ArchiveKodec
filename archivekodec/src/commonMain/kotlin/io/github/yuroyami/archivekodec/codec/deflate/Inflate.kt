@@ -174,10 +174,15 @@ public object Inflate {
         return output.takeByteArray()
     }
 
-    /** Return the first byte after the final block, including its partial final byte. */
-    internal fun inflateInto(input: ByteArray, offset: Int, end: Int, output: Output, deflate64: Boolean = false): Int {
+    /**
+     * Return the first byte after the final block, including its partial final byte. With
+     * [keepHistory], matches may reach everything already in [output], as MSZIP's blocks do.
+     */
+    internal fun inflateInto(
+        input: ByteArray, offset: Int, end: Int, output: Output, deflate64: Boolean = false, keepHistory: Boolean = false,
+    ): Int {
         require(offset >= 0 && end >= offset && end <= input.size) { "Invalid DEFLATE input slice" }
-        val s = State(input, offset, end, output, deflate64)
+        val s = State(input, offset, end, output, deflate64, keepHistory)
         try {
             var last: Int
             do {
@@ -305,7 +310,7 @@ public object Inflate {
     /** Per-stream input and bit cursor, with a dictionary starting at [outputStart]. */
     private class State(
         private val inBuf: ByteArray, offset: Int, private val end: Int,
-        private val output: Output, val deflate64: Boolean,
+        private val output: Output, val deflate64: Boolean, keepHistory: Boolean,
     ) {
         var position = offset
             private set
@@ -313,7 +318,7 @@ public object Inflate {
         var bitcnt = 0
         val consumedPosition: Int get() = position - (bitcnt ushr 3)
         // A preset dictionary counts as earlier output that matches may reach.
-        private val outputStart = output.size - output.history
+        private val outputStart = if (keepHistory) 0 else output.size - output.history
         val outcnt: Int get() = output.size - outputStart
         val inAvailable: Int get() = end - position
 
