@@ -1067,9 +1067,11 @@ not create a directory or apply its metadata to your output root.
 
 `sanitize` rejects empty names, control characters and NUL, absolute paths,
 Windows drive-letter paths and any `..` segment. It normalizes backslashes to
-forward slashes, collapses `.` segments, and returns a relative path. It has no
-symlink logic. Nothing in the library writes to disk, so you must check symlinks
-yourself when you extract. A symlink entry can point outside your output folder.
+forward slashes, collapses `.` segments, and returns a relative path. It checks names,
+not links: a symlink entry (`entry.isSymbolicLink`) can point outside your output
+folder through a perfectly clean name. Skip links, as `extract` does by default, or
+check each target with `PathGuard.resolveLink(entry.name, target)` before creating it,
+and create links only after writing every file, so no file is written through one.
 
 ## Checksums
 
@@ -1207,6 +1209,14 @@ about 1 MiB of a streamed entry: ZIP's stored, DEFLATE and Deflate64 members str
 (`ArchiveReader.read(entry, sink)`), so even a large one stops promptly; other members are
 read whole and then written. `extract` writes nothing to disk by itself and does not create
 symbolic links; join names with `PathGuard.sanitize` as above.
+
+Symbolic links are skipped by default: a link to `../..` followed by a file "inside" it is
+the classic way out of an extraction folder. Pass `onLink` to receive each link with its
+target and decide, checking it with `PathGuard.resolveLink(entry.name, target)`, which
+resolves the target against the link's directory and refuses one that leaves the root.
+Hard links are written as ordinary files with the data of the member they name.
+`ArchiveEntry.isSymbolicLink`, `isHardLink` and `linkTarget` describe links in every
+listing (TAR, ZIP, cpio, 7z, RAR, ISO 9660 and SquashFS).
 
 The adapters:
 

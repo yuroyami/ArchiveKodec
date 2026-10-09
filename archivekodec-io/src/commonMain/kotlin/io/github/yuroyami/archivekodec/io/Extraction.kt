@@ -62,8 +62,17 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
  * its entry. Entries must come from this reader's [ArchiveReader.entries]; they are
  * extracted in listing order, whatever order they are given in, so a solid block (a 7z
  * folder, a cabinet folder, a solid RAR5 stream) is decoded once for all the entries it
- * holds. Directories are skipped: [into] is called for files, links and other members with
- * data. [limits] apply to each entry.
+ * holds. Directories are skipped: [into] is called for files and other members with data.
+ * [limits] apply to each entry.
+ *
+ * Symbolic links are never written through [into]. By default they are skipped, the safe
+ * choice for untrusted archives: a link to `../..` followed by a file "inside" it is the
+ * classic way out of an extraction folder. With [onLink], each symbolic link is passed to it
+ * with its target (read from the member's data where the format keeps it there), after the
+ * files before it; check the target with
+ * [io.github.yuroyami.archivekodec.security.PathGuard.resolveLink] before creating anything.
+ * Hard links are extracted as ordinary files holding the data of the member they name, so
+ * they cannot reach outside the archive either.
  *
  * Cancelling the calling coroutine stops the extraction between entries and, for entries
  * that stream (see [ArchiveReader.read] with a sink), before each write of about 1 MiB, so a
@@ -81,17 +90,27 @@ public suspend fun ArchiveReader.extract(
     limits: ArchiveLimits = this.limits,
     progress: ProgressSink? = null,
     passwords: PromptedPasswords? = null,
+    onLink: ((entry: ArchiveEntry, target: String) -> Unit)? = null,
     into: (ArchiveEntry) -> RawSink,
 ) {
     val listing = entries()
     val wanted = entries.toHashSet()
-    val ordered = listing.filter { it in wanted && !it.isDirectory }
+    val selected = listing.filter { it in wanted && !it.isDirectory }
+    val ordered = selected.filter { !it.isSymbolicLink }
     val found = listing.filter { it in wanted }.toHashSet()
     require(found.size == wanted.size) { "${wanted.size - found.size} of the entries were not listed by this reader" }
     val total = ordered.sumOf { it.size }
     var done = 0L
     val context = currentCoroutineContext()
-    for (entry in ordered) {
+    for (entry in selected) {
+        if (entry.isSymbolicLink) {
+            if (onLink != null) {
+                context.ensureActive()
+                val target = entry.linkTarget ?: read(entry, limits).decodeToString()
+                onLink(entry, target)
+            }
+            continue
+        }
         context.ensureActive()
         if (entry.isEncrypted && passwords != null) passwords.ask(entry.name)
         val sink = into(entry)

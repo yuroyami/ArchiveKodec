@@ -24,7 +24,11 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * `.tar.gz` is this reader composed over [io.github.yuroyami.archivekodec.wrapper.Gzip].
  *
  * Supports: ustar `prefix` + `name` (long-path), GNU `L` long-name pseudo-entries,
- * octal and GNU base-256 numeric fields, normal files / directories. pax `x` records
+ * octal and GNU base-256 numeric fields, normal files / directories, and links: a
+ * symbolic link (type `2`) lists its target length and reads as its target text, and a hard
+ * link (type `1`) lists and reads as the earlier member it names (see
+ * [ArchiveEntry.isSymbolicLink], [ArchiveEntry.isHardLink], [ArchiveEntry.linkTarget]); GNU
+ * `K` long targets and pax `linkpath` are followed. pax `x` records
  * apply to the next member and `g` records to every later one; their `path`, `size`
  * and `mtime` override the ustar fields (pax names are UTF-8 unless `hdrcharset` is
  * `BINARY`). Sparse members (GNU `S`, and pax GNU sparse 0.0, 0.1 and 1.0) list their
@@ -49,8 +53,11 @@ public class TarReader(
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
     public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.UTF8, limits)
 
-    /** Listed entries with the sparse map, if any, at the same index. */
-    private class Directory(val entries: List<ArchiveEntry>, val sparse: List<SparseMap?>)
+    /**
+     * Listed entries with, at the same index, the sparse map if any and the link: a
+     * symbolic link's target bytes, or a hard link's target index in the listing.
+     */
+    private class Directory(val entries: List<ArchiveEntry>, val sparse: List<SparseMap?>, val links: List<Any?>)
 
     private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -64,8 +71,9 @@ public class TarReader(
     override fun entries(): List<ArchiveEntry> = directory().entries
 
     private fun directory(): Directory = ownedSource.metadata {
-        val (entries, sparse) = parse()
-        Directory(entries.issuedBy(this, limits), sparse)
+        val links = ArrayList<Any?>()
+        val (entries, sparse) = parse(links)
+        Directory(entries.issuedBy(this, limits), sparse, links)
     }
 
     @Throws(ArchiveException::class)
@@ -76,7 +84,19 @@ public class TarReader(
         withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
         val directory = directory()
         val listed = directory.entries.resolveIssued(this, entry, "TAR")
-        return readListed(listed, directory.sparse[listed.slotIn(this)], limits)
+        val slot = listed.slotIn(this)
+        return when (val link = directory.links[slot]) {
+            is ByteArray -> withEntryContext(listed.name, listed.dataOffset) {
+                limits.checkOutputSize(link.size.toLong())
+                link.copyOf()
+            }
+            is Int -> {
+                val target = directory.entries[link]
+                withEntryContext(listed.name, listed.dataOffset) { readListed(target, directory.sparse[link], limits) }
+            }
+            is String -> throw ArchiveFormatException("TAR: hard link names '$link', which is not an earlier member", listed.dataOffset, listed.name)
+            else -> readListed(listed, directory.sparse[slot], limits)
+        }
     }
 
     private fun readListed(entry: ArchiveEntry, sparse: SparseMap?, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
@@ -106,9 +126,10 @@ public class TarReader(
         return@withEntryContext out
     }
 
-    private fun parse(): Pair<List<ArchiveEntry>, List<SparseMap?>> {
+    private fun parse(links: MutableList<Any?>): Pair<List<ArchiveEntry>, List<SparseMap?>> {
         val out = ArrayList<ArchiveEntry>()
         val maps = ArrayList<SparseMap?>()
+        var pendingLongLink: ByteArray? = null
         var pos = 0L
         val total = source.size
         if (total < 0) throw ArchiveFormatException("TAR: negative source size", 0)
@@ -173,7 +194,11 @@ public class TarReader(
                     pendingNameOffset = dataStart
                 }
                 'K' -> {
-                    // GNU long link target: links are not listed, so the target is not needed.
+                    // GNU long link target: the full target is stored as this entry's data.
+                    val linkBytes = source.readFullyChecked(dataStart, size)
+                    var end = linkBytes.size
+                    while (end > 0 && linkBytes[end - 1].toInt() == 0) end--
+                    pendingLongLink = linkBytes.copyOf(end)
                 }
                 'x' -> local = PaxRecords.parse(source, dataStart, size)
                 'g' -> global = PaxRecords.parse(source, dataStart, size).under(global)
@@ -187,6 +212,40 @@ public class TarReader(
                     }
                     pendingLongName = null
                     local = null
+                    val linkBytes = pax.values["linkpath"] ?: pendingLongLink ?: cString(hdr, 157, 100)
+                    pendingLongLink = null
+
+                    if ((typeFlag == '1' || typeFlag == '2') && nameBytes.isNotEmpty()) {
+                        limits.checkEntryCount(out.size + 1)
+                        val decoder = if (paxName != null && pax.text("hdrcharset", pos) != "BINARY") ArchiveNameDecoder.UTF8 else nameDecoder
+                        val name = decoder.decodeStoredName(nameBytes, nameOffset)
+                        val linkDecoder = if (pax.values["linkpath"] != null && pax.text("hdrcharset", pos) != "BINARY") ArchiveNameDecoder.UTF8 else nameDecoder
+                        val target = linkDecoder.decodeStoredName(linkBytes, pos + 157)
+                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: optionalNumeric(hdr, 136, 12, pos)
+                        val permissions = optionalNumeric(hdr, 100, 8, pos)?.let { (it and 0xFFF).toInt() }
+                        if (typeFlag == '2') {
+                            out.add(ArchiveEntry(name, linkBytes.size.toLong(), false) {
+                                lastModifiedEpochSeconds = mtime
+                                unixMode = (permissions ?: 0x1FF) or 0xA000
+                                isSymbolicLink = true
+                                linkTarget = target
+                            }.withNameBytes(nameBytes).locatedAt(pos))
+                            links.add(linkBytes.copyOf())
+                        } else {
+                            // A hard link shares an earlier member's data; it lists that member's size.
+                            val index = out.indexOfLast { it.name == target && !it.isDirectory }
+                            out.add(ArchiveEntry(name, if (index < 0) 0 else out[index].size, false) {
+                                lastModifiedEpochSeconds = mtime
+                                unixMode = permissions?.let { it or 0x8000 }
+                                compressedSize = 0
+                                isHardLink = true
+                                linkTarget = target
+                            }.withNameBytes(nameBytes).locatedAt(pos))
+                            // Point at the data's owner: a hard link to a link shares that link's target.
+                            links.add(if (index < 0) target else links[index] ?: index)
+                        }
+                        maps.add(null)
+                    }
 
                     val isFileLike = typeFlag == '0' || typeFlag == '\u0000' ||
                         typeFlag == '5' || typeFlag == '7' || typeFlag == 'S'
@@ -211,6 +270,7 @@ public class TarReader(
                             }.withNameBytes(nameBytes).locatedAt(storedStart),
                         )
                         maps.add(sparse)
+                        links.add(null)
                     }
                 }
             }

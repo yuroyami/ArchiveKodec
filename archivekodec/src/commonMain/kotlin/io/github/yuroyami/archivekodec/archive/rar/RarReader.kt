@@ -417,6 +417,9 @@ public class RarReader(
                 codec = if (method == 0 || isDirectory) CodecId.STORE else CodecId("rar5")
                 isEncrypted = encrypted
                 unixMode = if (host == HOST5_UNIX) attributes.toInt() and 0xFFFF else null
+                isSymbolicLink = target != null
+                isHardLink = linkTo != null
+                linkTarget = target?.decodeToString() ?: linkTo
             }.withNameBytes(raw).locatedAt(dataOffset)
             val compressed = refusal == null && method != 0 && !isDirectory && target == null && linkTo == null
             add(entries, items, entry, Item(dataOffset, dataSize, crc, refusal, target, linkTo, if (compressed) compression else -1, unpacked))

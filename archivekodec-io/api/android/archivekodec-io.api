@@ -1,6 +1,6 @@
 public final class io/github/yuroyami/archivekodec/io/ArchiveExtraction {
-	public static final fun extract (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Ljava/util/Collection;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/io/ProgressSink;Lio/github/yuroyami/archivekodec/io/PromptedPasswords;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun extract$default (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Ljava/util/Collection;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/io/ProgressSink;Lio/github/yuroyami/archivekodec/io/PromptedPasswords;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static final fun extract (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Ljava/util/Collection;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/io/ProgressSink;Lio/github/yuroyami/archivekodec/io/PromptedPasswords;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun extract$default (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Ljava/util/Collection;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/io/ProgressSink;Lio/github/yuroyami/archivekodec/io/PromptedPasswords;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class io/github/yuroyami/archivekodec/io/ArchiveKodecIo {

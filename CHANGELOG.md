@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Links. `ArchiveEntry` gains `isSymbolicLink`, `isHardLink` and `linkTarget`; a symlink
+  `unixMode` implies `isSymbolicLink`. TAR now lists symbolic links (reading as their target)
+  and hard links (reading as the member they name), following GNU long link names and pax
+  `linkpath`; ISO 9660, SquashFS and RAR5 report link targets. `PathGuard.resolveLink`
+  resolves a link target against the link's directory and refuses one that leaves the root.
+  `extract` skips symbolic links unless given `onLink`, and writes hard links as files.
+
 - Breaking: `ArchiveLimits.maxNestingDepth` and its builder setting are removed. No code
   read them: no API opens an archive found inside another, and `extract` does not either.
   Delete the setting from limits you build.

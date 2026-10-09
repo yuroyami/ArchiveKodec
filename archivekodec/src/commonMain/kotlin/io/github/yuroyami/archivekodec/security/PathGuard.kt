@@ -73,6 +73,44 @@ public object PathGuard {
         return result
     }
 
+    /**
+     * Where a symbolic link named [linkName] that points at [target] lands, as a safe path
+     * relative to the extraction root (empty for the root itself). The target is resolved
+     * against the link's own directory after joining, so `a/b/link -> ../c` lands on `a/c`, while
+     * `link -> ../../..` leaves the root and is refused. Absolute and drive-letter targets are
+     * refused. Check every link with this before creating it from an untrusted archive; the
+     * check is on the resolved path, not the stored text. It does not follow links already on
+     * disk, so create links only after writing every file, or skip them.
+     *
+     * @throws ArchivePathException if [linkName] is unsafe or the target leaves the root.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun resolveLink(linkName: String, target: String): String {
+        val link = sanitize(linkName)
+        if (target.isEmpty()) throw ArchivePathException("empty link target for '$linkName'", linkName)
+        for (ch in target) {
+            if (ch.code < 0x20 || ch.code == 0x7f) throw ArchivePathException("control/NUL character in link target of '$linkName'", linkName)
+        }
+        val normalized = target.replace('\\', '/')
+        if (normalized.startsWith("/") || (normalized.length >= 2 && normalized[1] == ':')) {
+            throw ArchivePathException("link '$linkName' has an absolute target '$target'", linkName)
+        }
+        val stack = ArrayList(link.split('/').dropLast(1))
+        for (part in normalized.split('/')) {
+            when (part) {
+                "", "." -> {}
+                ".." -> if (stack.isEmpty()) {
+                    throw ArchivePathException("link '$linkName' -> '$target' leaves the extraction root", linkName)
+                } else {
+                    stack.removeAt(stack.size - 1)
+                }
+                else -> stack.add(part)
+            }
+        }
+        return stack.joinToString("/")
+    }
+
     /** Non-throwing variant: true if [entryName] is a safe relative path. */
     @JvmStatic
     public fun isSafe(entryName: String): Boolean =

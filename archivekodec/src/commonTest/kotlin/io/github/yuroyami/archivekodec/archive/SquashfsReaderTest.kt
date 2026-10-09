@@ -335,6 +335,8 @@ class SquashfsReaderTest {
                 for (i in 0 until 3) assertContentEquals("small file $i\n".encodeToByteArray(), it.read(entries.getValue("small$i.txt")))
                 val link = entries.getValue("link")
                 assertEquals(0xA000, link.unixMode!! and 0xF000)
+                assertTrue(link.isSymbolicLink)
+                assertEquals("sub/file.txt", link.linkTarget)
                 assertContentEquals("sub/file.txt".encodeToByteArray(), it.read(link))
                 assertTrue(entries.getValue("sub/").isDirectory)
                 for (entry in entries.values) assertEquals(1714979290L, entry.lastModifiedEpochSeconds, entry.name)

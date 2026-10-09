@@ -384,6 +384,10 @@ class RarReaderTest {
             val link = byName.getValue("t/link")
             assertEquals(0xA000, link.unixMode!! and 0xF000)
             assertContentEquals("sub/file.txt".encodeToByteArray(), it.read(link))
+            assertTrue(link.isSymbolicLink)
+            assertEquals("sub/file.txt", link.linkTarget)
+            assertTrue(byName.getValue("t/hard.txt").isHardLink)
+            assertEquals("t/sub/file.txt", byName.getValue("t/hard.txt").linkTarget)
             assertEquals(0x41ED, byName.getValue("t/emptydir/").unixMode)
         }
         reader(unicode5).use {

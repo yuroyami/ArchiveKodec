@@ -78,6 +78,29 @@ public class ArchiveEntry private constructor(builder: Builder) {
     /** Per-entry comment, or null when the archive stores none. Only ZIP has entry comments. */
     public val comment: String? = builder.comment
 
+    /**
+     * Whether this member is a symbolic link (or a Windows junction): set by the reader, or
+     * implied by a [unixMode] of type `0o120000`. Its target is [linkTarget] when the reader
+     * knows it from the metadata; otherwise reading the member returns the target text. Do not
+     * create links from untrusted archives without resolving the target first, for example
+     * with [io.github.yuroyami.archivekodec.security.PathGuard.resolveLink].
+     */
+    public val isSymbolicLink: Boolean = builder.isSymbolicLink || (builder.unixMode?.and(0xF000) == 0xA000)
+
+    /**
+     * Whether this member is a hard link to the earlier member named [linkTarget], whose
+     * data reading it returns. Only TAR and RAR5 record hard links this way; cpio and
+     * SquashFS hard links are listed as ordinary members sharing data.
+     */
+    public val isHardLink: Boolean = builder.isHardLink
+
+    /**
+     * The stored target of a symbolic link, or the member name a hard link points to; null
+     * otherwise, or when a symbolic link keeps its target in its data (ZIP, cpio, 7z, RAR4).
+     * The text is as stored: relative to the link's directory, possibly absolute or with `..`.
+     */
+    public val linkTarget: String? = builder.linkTarget
+
     private var storedNameBytes: ByteArray? = builder.origin?.storedNameBytes
     private var storedZipMethod: Int? = builder.origin?.storedZipMethod
     private var issuer: Any? = builder.origin?.issuer
@@ -148,6 +171,15 @@ public class ArchiveEntry private constructor(builder: Builder) {
         /** Entry comment, initially null. */
         public var comment: String? = null
 
+        /** Whether the member is a symbolic link, initially false; a symlink [unixMode] also implies it. */
+        public var isSymbolicLink: Boolean = false
+
+        /** Whether the member is a hard link to [linkTarget], initially false. */
+        public var isHardLink: Boolean = false
+
+        /** Link target, initially null. */
+        public var linkTarget: String? = null
+
         internal var origin: ArchiveEntry? = null
             private set
 
@@ -160,6 +192,9 @@ public class ArchiveEntry private constructor(builder: Builder) {
             crc32 = source.crc32
             unixMode = source.unixMode
             comment = source.comment
+            isSymbolicLink = source.isSymbolicLink
+            isHardLink = source.isHardLink
+            linkTarget = source.linkTarget
             origin = source
         }
 
@@ -214,7 +249,8 @@ public class ArchiveEntry private constructor(builder: Builder) {
         name == other.name && size == other.size && isDirectory == other.isDirectory &&
         lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && compressedSize == other.compressedSize &&
         codec == other.codec && isEncrypted == other.isEncrypted && encryption == other.encryption && crc32 == other.crc32 &&
-        unixMode == other.unixMode && comment == other.comment
+        unixMode == other.unixMode && comment == other.comment && isSymbolicLink == other.isSymbolicLink &&
+        isHardLink == other.isHardLink && linkTarget == other.linkTarget
 
     /** Hash the metadata properties used by [equals]. */
     override fun hashCode(): Int {
@@ -228,14 +264,18 @@ public class ArchiveEntry private constructor(builder: Builder) {
         result = 31 * result + (encryption?.hashCode() ?: 0)
         result = 31 * result + (crc32?.hashCode() ?: 0)
         result = 31 * result + (unixMode ?: 0)
-        return 31 * result + (comment?.hashCode() ?: 0)
+        result = 31 * result + (comment?.hashCode() ?: 0)
+        result = 31 * result + isSymbolicLink.hashCode()
+        result = 31 * result + isHardLink.hashCode()
+        return 31 * result + (linkTarget?.hashCode() ?: 0)
     }
 
     /** Describe the member metadata with an escaped, bounded name; never reads its payload. */
     override fun toString(): String = "ArchiveEntry(name=\"${describeName(name)}\", size=$size, isDirectory=$isDirectory, " +
         "lastModifiedEpochSeconds=$lastModifiedEpochSeconds, compressedSize=$compressedSize, codec=$codec, " +
         "isEncrypted=$isEncrypted, encryption=$encryption, crc32=$crc32, unixMode=${unixMode?.toString(8)}, " +
-        "comment=${comment?.let { "\"${describeName(it)}\"" }}, zipMethod=$zipMethod)"
+        "comment=${comment?.let { "\"${describeName(it)}\"" }}, zipMethod=$zipMethod" +
+        (if (isSymbolicLink || isHardLink) ", ${if (isHardLink) "hardLink" else "symbolicLink"}=${linkTarget?.let { "\"${describeName(it)}\"" }}" else "") + ")"
 
     /** Builder-based construction. */
     public companion object {

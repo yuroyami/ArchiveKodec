@@ -493,6 +493,8 @@ class IsoReaderTest {
             assertTrue(entries.getValue("sub/").isDirectory)
             val link = entries.getValue("link")
             assertEquals(0b1010_000_000_000_000, link.unixMode!! and 0b1111_000_000_000_000)
+            assertTrue(link.isSymbolicLink)
+            assertEquals("sub/file.txt", link.linkTarget)
             assertContentEquals("hello".encodeToByteArray(), read(gz, "sub/file.txt"))
             assertContentEquals("sub/file.txt".encodeToByteArray(), read(gz, "link"))
             assertContentEquals("deep".encodeToByteArray(), read(gz, "a/b/c/d/e/f/g/h/i/deep.txt"))

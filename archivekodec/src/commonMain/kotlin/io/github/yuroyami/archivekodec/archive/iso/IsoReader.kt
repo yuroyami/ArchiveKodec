@@ -228,6 +228,10 @@ public class IsoReader(
                 lastModifiedEpochSeconds = rock?.modified ?: record.modified
                 compressedSize = if (isDirectory) 0 else target?.size?.toLong() ?: total
                 unixMode = rock?.mode
+                if (target != null) {
+                    isSymbolicLink = true
+                    linkTarget = rock?.symlinkTarget
+                }
             }.locatedAt(record.extent)
             entries.add(entry)
             items.add(Item(extents.toLongArray(), target, record.interleaved))

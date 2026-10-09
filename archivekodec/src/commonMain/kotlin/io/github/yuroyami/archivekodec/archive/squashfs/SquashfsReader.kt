@@ -326,6 +326,7 @@ public class SquashfsReader(
                 unixMode = inode.mode
                 compressedSize = size
                 codec = if (inode.type == FILE) CODECS[compression] else CodecId.STORE
+                linkTarget = inode.target?.decodeToString()
             }.let { if (inode.type == FILE) it.locatedAt(inode.blocksStart) else it })
             items.add(Item(inode.blocksStart, inode.fragment, inode.fragmentOffset, inode.blockList, inode.blockListOffset, inode.target))
             if (isDirectory) directory(inode, "$path/", depth + 1)
