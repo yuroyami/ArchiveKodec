@@ -47,7 +47,7 @@ class CodecRegistryTest {
     }
 
     @Test fun supportComesFromTheRegistryAndFacadeUsesDefault() {
-        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.GZIP, Codecs.ZLIB,
+        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.BROTLI, Codecs.GZIP, Codecs.ZLIB,
             Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED)
         assertEquals(expected.map { it.id }, defaults.implemented)
         assertEquals(defaults.implemented, Codecs.implemented)

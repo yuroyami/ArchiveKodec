@@ -120,6 +120,9 @@ public object ArchiveKodec {
     /** Zstandard codec; decoding accepts concatenated and skippable frames. */
     @JvmStatic
     public val zstd: Codec get() = Codecs.ZSTD
+    /** Brotli codec (RFC 7932). Brotli has no magic bytes, so [decompress] cannot sniff it. */
+    @JvmStatic
+    public val brotli: Codec get() = Codecs.BROTLI
     /** Gzip encoder and decoder; decoding also accepts one zlib stream. */
     @JvmStatic
     public val gzip: Codec get() = Codecs.GZIP

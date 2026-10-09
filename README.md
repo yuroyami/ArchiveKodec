@@ -151,7 +151,7 @@ This is what works today:
 
 | Area | What is implemented |
 | --- | --- |
-| Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz and zstd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
+| Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd and brotli both directions, gzip and zlib framing, LZ4 and Snappy both directions |
 | Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), and cpio read and write (newc/crc) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
@@ -213,6 +213,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | LZMA2 (raw chunks) | yes | yes (LZMA chunks, stored when incompressible) |
 | xz | yes (CRC-32, CRC-64, SHA-256, delta and x86 BCJ filters, index, concatenated streams; other BCJ refused) | yes (one LZMA2 block, CRC-64) |
 | zstd (RFC 8878) | yes (all block, literal and table modes; skippable and concatenated frames; xxHash64 checked; dictionaries refused) | yes (predefined tables, raw literals) |
+| brotli (RFC 7932) | yes (context modelling, block switching, static dictionary with all 121 transforms, metadata and uncompressed meta-blocks) | yes (one prefix code per category, no dictionary references) |
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
@@ -292,10 +293,13 @@ Java and Swift do not check Kotlin opt-in markers, but the same caveat applies.
 `CodecId.SNAPPY_FRAMED` and `Codecs.SNAPPY_FRAMED` select standard `.sz` framing.
 The low-level `Snappy` object also exposes `frameCompress` and `frameDecompress`.
 
-`CodecId` also carries entries for brotli and PPMd.
-None of those have an implementation. `ArchiveKodec.codec(...)` returns `null` for
-them. A ZIP entry that uses one of them appears in the entry list, but reading it
-throws.
+Brotli's 120 KB static dictionary ships inside the core artifact as 58 KB of raw
+DEFLATE. It is inflated the first time a stream references it, so a process that never
+decodes brotli never pays for it.
+
+`CodecId` also carries an entry for PPMd, which has no implementation.
+`ArchiveKodec.codec(...)` returns `null` for it. A ZIP entry that uses it appears in
+the entry list, but reading it throws.
 
 Every `Codec.decompress` takes an `ArchiveLimits`, defaulting to
 `ArchiveLimits.DEFAULT`. Read [Limits](#limits) to see what it enforces. It
@@ -1329,7 +1333,7 @@ The table at the top lists what works today. Everything still missing has its ow
 issue, so the tracker is the current answer instead of a file that goes stale
 between releases.
 
-- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): brotli and PPMd.
+- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): PPMd.
 - [Streaming and extraction](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Astreaming-api): reading from a file, and
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under

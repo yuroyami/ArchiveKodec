@@ -167,9 +167,8 @@ Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
 
 ## Not implemented
 
-`CodecId` names bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd, and the sniffer
-recognizes several of them. None of them has an implementation, and
-`ArchiveKodec.codec(id)` returns `null` for those ids. ZIP, TAR, GNU ar and cpio have writers. TAR writing currently covers regular files and directories.
+`CodecId` names PPMd, which has no implementation; `ArchiveKodec.codec(id)` returns
+`null` for it. ZIP, TAR, GNU ar and cpio have writers. TAR writing currently covers regular files and directories.
 
 ## Where to go next
 

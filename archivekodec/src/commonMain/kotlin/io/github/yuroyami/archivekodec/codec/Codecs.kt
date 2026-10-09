@@ -10,6 +10,8 @@ import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.lzma.Lzma2
 import io.github.yuroyami.archivekodec.codec.lzma.LzmaAlone
 import io.github.yuroyami.archivekodec.codec.lzma.Xz
+import io.github.yuroyami.archivekodec.codec.brotli.BrotliDecoder
+import io.github.yuroyami.archivekodec.codec.brotli.BrotliEncoder
 import io.github.yuroyami.archivekodec.codec.zstd.ZstdDecoder
 import io.github.yuroyami.archivekodec.codec.zstd.ZstdEncoder
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
@@ -104,6 +106,19 @@ public object Codecs {
         override val id = CodecId.ZSTD
         override fun compress(data: ByteArray): ByteArray = ZstdEncoder.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = ZstdDecoder.decompress(data, limits)
+    }
+
+    /**
+     * Brotli (RFC 7932), as in `Content-Encoding: br`. Decoding handles every meta-block
+     * kind, context modelling, block switching and the built-in static dictionary, which
+     * is inflated on first use. Encoding writes valid streams without context modelling or
+     * dictionary references, so it compresses less than the reference encoder.
+     */
+    @JvmField
+    public val BROTLI: Codec = object : Codec {
+        override val id = CodecId.BROTLI
+        override fun compress(data: ByteArray): ByteArray = BrotliEncoder.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = BrotliDecoder.decompress(data, limits)
     }
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */

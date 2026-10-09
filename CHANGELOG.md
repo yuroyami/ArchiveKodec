@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added brotli (RFC 7932): `Codecs.BROTLI` and `ArchiveKodec.brotli`. Decoding covers
+  context modelling, block switching, metadata and uncompressed meta-blocks, and the
+  static dictionary with all 121 transforms; the dictionary is embedded as raw DEFLATE
+  and inflated on first use. The encoder writes valid streams without context
+  modelling or dictionary references. Brotli has no magic bytes, so it is not sniffed.
+
 - Added `ExtractionBudget`, an archive-wide output cap shared across reads:
   `reader.read(entry, budget = budget)` decodes under the bytes the budget has left
   and charges what it produced, so a loop over every entry cannot pass the total.
