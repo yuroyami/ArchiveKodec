@@ -13,7 +13,10 @@ import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
 
 /**
  * Magic-byte format sniffer. It reads a header, or the first 512 bytes of a
- * [RandomAccessSource], and returns the matching [ArchiveFormat]. Raw Snappy and
+ * [RandomAccessSource], and returns the matching [ArchiveFormat]. ISO 9660's signature is
+ * at byte 32769: the source overload reads those 5 bytes too when the first 512 are zeros
+ * or end in a boot signature, and the header overload finds it only in a header at least
+ * 32774 bytes long. Raw Snappy and
  * Brotli have no identifying magic bytes. LZMA-alone headers are too weak to
  * identify reliably here, so this object never returns BROTLI or LZMA.
  * SNAPPY identifies the standard framed stream header. A match identifies a format
@@ -29,6 +32,8 @@ public object Magic {
     public fun sniff(header: ByteArray): ArchiveFormat {
         fun at(i: Int): Int = if (i < header.size) header[i].toInt() and 0xFF else -1
         return when {
+            // ISO 9660 first: its 32 KiB system area is usually zeros, which also reads as a TAR end record.
+            isIso9660(header, ISO_SIGNATURE) -> ArchiveFormat.ISO9660
             // A TAR filename can begin with any of the shorter format signatures.
             TarHeader.hasValidChecksum(header) || TarHeader.isZeroRecord(header) -> ArchiveFormat.TAR
             at(0) == 0x1F && at(1) == 0x8B -> ArchiveFormat.GZIP
@@ -77,8 +82,24 @@ public object Magic {
         if (size < 0) throw ArchiveFormatException("negative source size $size", 0)
         if (size == 0L) return ArchiveFormat.UNKNOWN
         val n = minOf(size, 512L).toInt()
-        return sniff(source.readFully(0, n))
+        val header = source.readFully(0, n)
+        // An ISO 9660 image starts with a system area that is zeros or, for hybrid images, a
+        // boot record. Only then is the descriptor at byte 32769 read, so other formats keep
+        // the single 512-byte read.
+        val bootable = n == 512 && (header.all { it.toInt() == 0 } ||
+            (header[510] == 0x55.toByte() && header[511] == 0xAA.toByte()))
+        if (bootable && size >= ISO_SIGNATURE + 5 && isIso9660(source.readFully(ISO_SIGNATURE.toLong(), 5), 0)) {
+            return ArchiveFormat.ISO9660
+        }
+        return sniff(header)
     }
+
+    /** The first volume descriptor's "CD001", 32769 bytes in. */
+    private const val ISO_SIGNATURE = 32769
+
+    private fun isIso9660(bytes: ByteArray, at: Int): Boolean = bytes.size >= at + 5 &&
+        bytes[at] == 0x43.toByte() && bytes[at + 1] == 0x44.toByte() && bytes[at + 2] == 0x30.toByte() &&
+        bytes[at + 3] == 0x30.toByte() && bytes[at + 4] == 0x31.toByte()
 
     private fun isBzip2(header: ByteArray): Boolean {
         if (header.size < 10 || header[0] != 0x42.toByte() || header[1] != 0x5A.toByte() ||

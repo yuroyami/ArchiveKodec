@@ -238,6 +238,22 @@ final class io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment { // i
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.cpio/InitramfsSegment.toString|toString(){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.iso/IsoReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.iso/IsoReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.iso/IsoReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.iso/IsoReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.iso/IsoReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+    final val format // io.github.yuroyami.archivekodec.archive.iso/IsoReader.format|{}format[0]
+        final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.iso/IsoReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.iso/IsoReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.iso/IsoReader.limits.<get-limits>|<get-limits>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.archive.iso/IsoReader.close|close(){}[0]
+    final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.iso/IsoReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.iso/IsoReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.iso/IsoReader.toString|toString(){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader|null[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions) // io.github.yuroyami.archivekodec.archive.sevenzip/SevenZipReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
@@ -413,6 +429,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github
             final fun <get-CPIO>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CPIO.<get-CPIO>|<get-CPIO>(){}[0]
         final val GZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.GZIP|{}GZIP[0]
             final fun <get-GZIP>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.GZIP.<get-GZIP>|<get-GZIP>(){}[0]
+        final val ISO9660 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ISO9660|{}ISO9660[0]
+            final fun <get-ISO9660>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ISO9660.<get-ISO9660>|<get-ISO9660>(){}[0]
         final val LZ4 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZ4|{}LZ4[0]
             final fun <get-LZ4>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZ4.<get-LZ4>|<get-LZ4>(){}[0]
         final val LZMA // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZMA|{}LZMA[0]

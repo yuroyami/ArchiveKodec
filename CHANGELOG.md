@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- ISO 9660 reader. `IsoReader` and `ArchiveFormat.ISO9660` read CD/DVD images, preferring
+  Rock Ridge names, modes, times and symlinks, then Joliet, then plain names; relocated
+  Rock Ridge directories appear at their real place, multi-extent files are joined, and
+  associated files are skipped. `ArchiveKodec.open` and the sniffer recognise images by
+  the `CD001` signature at byte 32769.
+
 - Encoder options. `DeflateOptions` sets zlib's levels 0 to 9 (greedy at 1 to 3, lazy at
   4 to 9), strategies (filtered, Huffman-only, RLE, fixed), 9 to 15 window bits and a
   preset dictionary, for `Deflate.encode`, `Zlib.compress`, `Gzip.compress` and ZIP

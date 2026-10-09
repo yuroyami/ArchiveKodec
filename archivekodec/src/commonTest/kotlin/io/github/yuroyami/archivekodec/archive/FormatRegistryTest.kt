@@ -127,14 +127,16 @@ class FormatRegistryTest {
         assertTrue(c.formats.isNotEmpty())
     }
 
-    @Test fun arbitraryOffsetProbeCanOverrideAnAllZeroTarHeader() {
+    @Test fun arbitraryOffsetProbeCanReplaceTheBuiltInIsoRule() {
         val image = ByteArray(32774)
         "CD001".encodeToByteArray().copyInto(image, 32769)
         val iso = FormatSpec("iso9660", { source ->
             source.size >= 32774 && source.readFully(32769, 5).decodeToString() == "CD001"
         }, { s, o -> TestReader(s, ArchiveFormat("iso9660"), o) })
         val formats = FormatRegistry.DEFAULT.with(iso)
-        assertEquals(ArchiveFormat.TAR, ArchiveKodec.sniff(image))
+        // The built-in rule finds ISO 9660 at byte 32769 behind a zero system area.
+        assertEquals(ArchiveFormat.ISO9660, ArchiveKodec.sniff(image))
+        assertEquals(ArchiveFormat.TAR, ArchiveKodec.sniff(image.copyOf(32768)))
         assertEquals(iso.id, ArchiveKodec.sniff(image, formats))
         ArchiveKodec.open(image, formats).use { assertEquals(iso.id, it.format) }
         assertEquals(ArchiveFormat.UNKNOWN, ArchiveKodec.sniff(byteArrayOf(1), formats))

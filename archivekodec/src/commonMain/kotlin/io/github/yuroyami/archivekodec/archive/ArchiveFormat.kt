@@ -66,6 +66,8 @@ public class ArchiveFormat @Throws(IllegalArgumentException::class) public const
         @JvmField public val BROTLI: ArchiveFormat = ArchiveFormat("brotli")
         /** Standard Snappy framed stream; raw blocks have no dependable signature. */
         @JvmField public val SNAPPY: ArchiveFormat = ArchiveFormat("snappy")
+        /** ISO 9660 image (ECMA-119), with Joliet and Rock Ridge names; its signature is at byte 32769. */
+        @JvmField public val ISO9660: ArchiveFormat = ArchiveFormat("iso9660")
         /** The inspected bytes do not identify a recognized format. */
         @JvmField public val UNKNOWN: ArchiveFormat = ArchiveFormat("unknown")
     }

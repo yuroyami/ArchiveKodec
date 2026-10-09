@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.archive
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
+import io.github.yuroyami.archivekodec.archive.iso.IsoReader
 import io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
@@ -14,7 +15,8 @@ import kotlin.jvm.JvmField
  * retain their order. This makes a detector at an arbitrary offset able to override
  * a short built-in signature. Probe failures propagate and never trigger a fallback.
  *
- * All built-in probes share one read of up to 512 bytes, using [Magic]'s precedence.
+ * All built-in probes share one read of up to 512 bytes, plus ISO 9660's signature at
+ * byte 32769, using [Magic]'s precedence.
  * Custom probes receive the complete source and should bounds-check their reads.
  * Registries own no resources and do not modify the source. Callbacks are shared
  * and retain their own thread-safety rules; registry mutation is never global.
@@ -81,6 +83,9 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
             FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP) { source, options -> SevenZipReader(source, options) },
             FormatSpec.builtin(ArchiveFormat.RAR), FormatSpec.builtin(ArchiveFormat.BROTLI),
             FormatSpec.builtin(ArchiveFormat.SNAPPY),
+            FormatSpec.builtin(ArchiveFormat.ISO9660) { source, options ->
+                IsoReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
+            },
         ))
     }
 }

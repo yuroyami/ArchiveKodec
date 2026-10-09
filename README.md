@@ -159,7 +159,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), and cpio read and write (newc/crc) |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, and ISO 9660 read (Joliet, Rock Ridge) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -698,6 +698,7 @@ The readers call it synchronously; browsers offer only the asynchronous WebCrypt
 | 7z | yes (copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, BCJ x86; compressed headers; solid folders decoded once) | no |
 | ar (GNU, BSD, COFF; GNU thin) | yes (thin members through an `ExternalMemberResolver`) | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
+| ISO 9660 (Joliet, Rock Ridge) | yes (multi-extent files; Rock Ridge symlinks read as their target) | no |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version
@@ -1091,7 +1092,9 @@ ArchiveKodec.sniff(source)     // reads the first 512 bytes of a RandomAccessSou
 ```
 
 The sniffer recognizes ZIP, TAR, ar, cpio, gzip, zlib, bzip2, xz, zstd, LZ4, 7z,
-RAR and Snappy framing. `ArchiveFormat.SNAPPY` identifies framed input; decode
+RAR, ISO 9660 and Snappy framing. ISO 9660 keeps its `CD001` signature at byte
+32769; a source sniff reads those five bytes only when the first 512 bytes are all
+zero or end in an MBR boot signature, as ISO images (including hybrid ones) do. `ArchiveFormat.SNAPPY` identifies framed input; decode
 it with `CodecId.SNAPPY_FRAMED`. Raw Snappy and brotli have no identifying magic
 bytes, and LZMA-alone is not identified reliably from its header.
 The sniffer never returns `BROTLI` or `LZMA`.

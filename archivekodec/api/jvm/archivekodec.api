@@ -178,6 +178,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat {
 	public static final field CPIO Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ArchiveFormat$Companion;
 	public static final field GZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final field ISO9660 Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field LZMA Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field RAR Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
@@ -520,6 +521,20 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/InitramfsSegment
 	public final fun getEntries ()Ljava/util/List;
 	public final fun getHasTrailer ()Z
 	public final fun getStartOffset ()J
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/iso/IsoReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun close ()V
+	public fun entries ()Ljava/util/List;
+	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)[B
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/security/ExtractionBudget;)[B
 	public fun toString ()Ljava/lang/String;
 }
 
