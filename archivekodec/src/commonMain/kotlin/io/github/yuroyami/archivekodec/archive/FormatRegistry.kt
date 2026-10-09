@@ -5,6 +5,7 @@ import io.github.yuroyami.archivekodec.archive.ar.ArReader
 import io.github.yuroyami.archivekodec.archive.cab.CabReader
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.iso.IsoReader
+import io.github.yuroyami.archivekodec.archive.rar.RarReader
 import io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader
 import io.github.yuroyami.archivekodec.archive.squashfs.SquashfsReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
@@ -84,7 +85,10 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
             FormatSpec.builtin(ArchiveFormat.LZMA), FormatSpec.builtin(ArchiveFormat.ZSTD),
             FormatSpec.builtin(ArchiveFormat.LZ4),
             FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP) { source, options -> SevenZipReader(source, options) },
-            FormatSpec.builtin(ArchiveFormat.RAR), FormatSpec.builtin(ArchiveFormat.BROTLI),
+            FormatSpec.builtin(ArchiveFormat.RAR) { source, options ->
+                RarReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
+            },
+            FormatSpec.builtin(ArchiveFormat.BROTLI),
             FormatSpec.builtin(ArchiveFormat.SNAPPY),
             FormatSpec.builtin(ArchiveFormat.ISO9660) { source, options ->
                 IsoReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)

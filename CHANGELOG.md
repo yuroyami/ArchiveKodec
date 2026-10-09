@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- RAR reader. `RarReader` lists RAR4 and RAR5 archives (names including RAR4's compact
+  Unicode form, sizes, times, Unix modes, encryption) and reads stored members with
+  their CRC-32 checked; RAR5 symbolic links read as their target and hard links as the
+  file they name. Compressed, encrypted and multi-volume members, and archives with
+  encrypted headers, are refused on read with the reason. `ArchiveKodec.open` now opens
+  archives the sniffer names RAR.
+
 - SquashFS reader. `SquashfsReader` and `ArchiveFormat.SQUASHFS` read SquashFS 4.0 images
   compressed with gzip, LZMA, LZO (a new LZO1X decoder), xz, LZ4 or zstd: files with their
   tail fragments and sparse blocks, directories, symbolic links (read as their target),

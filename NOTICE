@@ -18,6 +18,11 @@ reference/REFERENCES.md) are each under permissive licenses: zlib (zlib), XZ for
 (0BSD / public domain), Apache Commons Compress (Apache-2.0), lz4 (BSD-2), zstd
 (BSD-3), brotli (MIT), snappy (BSD-3).
 
-RAR / ACE / StuffIt are deliberately excluded: the UnRAR license forbids using its
-source to build a RAR-compatible compressor, and no clean open reference exists for
-ACE/StuffIt. ArchiveKodec will never create RAR archives.
+RAR archives are read from RARLAB's published format description (technote), not
+from UnRAR source, whose license forbids using it to build a RAR-compatible
+compressor; ArchiveKodec will never create RAR archives. ACE / StuffIt are excluded:
+no clean open reference exists for them.
+
+Some test fixtures are third-party data, used unmodified: RAR test
+archives from libarchive's test suite (BSD-2-Clause, Copyright (c) 2003-2018 Tim
+Kientzle and the libarchive contributors).

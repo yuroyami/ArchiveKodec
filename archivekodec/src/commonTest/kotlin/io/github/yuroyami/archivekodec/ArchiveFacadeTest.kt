@@ -100,8 +100,14 @@ class ArchiveFacadeTest {
             ArchiveFormat.ZLIB to hex("789c"),
             ArchiveFormat.BZIP2 to hex("425a6839177245385090"), ArchiveFormat.XZ to hex("fd377a585a00"),
             ArchiveFormat.ZSTD to hex("28b52ffd"), ArchiveFormat.LZ4 to hex("04224d18"),
-            ArchiveFormat.RAR to hex("526172211a0700"),
         )
+        // RAR now has a reader: a bare RAR4 signature is an archive with no members, as old
+        // RAR4 archives may end without an end block.
+        assertEquals(ArchiveFormat.RAR, ArchiveKodec.sniff(hex("526172211a0700")))
+        ArchiveKodec.open(hex("526172211a0700")).use { reader ->
+            assertEquals(ArchiveFormat.RAR, reader.format)
+            assertEquals(0, reader.entries().size)
+        }
         // 7z now has a reader: a bare signature opens, and listing then reports the truncation.
         assertEquals(ArchiveFormat.SEVEN_ZIP, ArchiveKodec.sniff(hex("377abcaf271c")))
         ArchiveKodec.open(hex("377abcaf271c")).use { reader ->

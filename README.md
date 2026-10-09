@@ -159,7 +159,7 @@ This is what works today:
 | Area | What is implemented |
 | --- | --- |
 | Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz, zstd, brotli and PPMd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
-| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), CAB read (stored, MSZIP, LZX), WIM read (XPRESS, LZX), and SquashFS 4.0 read (gzip, LZMA, LZO, xz, LZ4, zstd) |
+| Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), cpio read and write (newc/crc), 7z read, ISO 9660 read (Joliet, Rock Ridge), CAB read (stored, MSZIP, LZX), WIM read (XPRESS, LZX), and SquashFS 4.0 read (gzip, LZMA, LZO, xz, LZ4, zstd), and RAR4/RAR5 listing with stored members read |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
 
@@ -702,6 +702,7 @@ The readers call it synchronously; browsers offer only the asynchronous WebCrypt
 | CAB | yes (stored, MSZIP and LZX folders, each decoded once; Quantum and files that span cabinets are listed but refused on read) | no |
 | WIM | yes (uncompressed, XPRESS and LZX; deduplicated resources and SHA-1 checks; several images as `1/`, `2/`; LZMS and solid `.esd` images refused) | no |
 | SquashFS 4.0 | yes (gzip, LZMA, LZO, xz with the x86 BCJ filter, LZ4, zstd; fragments, sparse blocks, symlinks read as their target, devices and FIFOs listed) | no |
+| RAR4 and RAR5 | listing; stored members, links and directories read with CRC checks. Compressed, encrypted and multi-volume members, and archives with encrypted headers, are refused on read | never |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
 `ustar\0` marker. The standard version is `00`; missing or nonstandard version
@@ -1124,8 +1125,7 @@ identifier and first block byte; explicit decompression still reports a typed
 unsupported-dictionary error.
 
 A match is format evidence, not full archive or stream validation. Readers and
-codecs validate the remaining structure and payload. The sniffer names RAR, which
-ArchiveKodec cannot read yet.
+codecs validate the remaining structure and payload.
 
 ## Targets
 
@@ -1426,7 +1426,7 @@ between releases.
   Limits.
 - [More containers](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-containers): ISO 9660, SquashFS, CAB and WIM (all read).
 
-RAR, ACE, StuffIt and ALZ stay out of scope. See License below.
+Writing RAR, and reading ACE, StuffIt and ALZ, stay out of scope. See License below.
 
 ## License
 
@@ -1440,9 +1440,10 @@ Its length-limited builder independently implements binary package-merge, with
 Zopfli consulted as an algorithm and validation reference.
 [NOTICE](NOTICE) and [reference/REFERENCES.md](reference/REFERENCES.md) record the
 origins and licenses. Reference source trees are used for study and are not
-redistributed. RAR is out of scope for licensing reasons, and ArchiveKodec
-will never create RAR archives. ACE, StuffIt and ALZ are proprietary with no
-clean reference to work from, so they are out of scope too.
+redistributed. RAR archives are read from RARLAB's published format description,
+not UnRAR source, and ArchiveKodec will never create RAR archives. ACE, StuffIt
+and ALZ are proprietary with no clean reference to work from, so they are out of
+scope.
 
 Part of the Kite family: [KiteCore](https://github.com/yuroyami/KiteCore),
 [KitePDF](https://github.com/yuroyami/KitePDF),
