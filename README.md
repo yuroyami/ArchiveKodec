@@ -615,7 +615,7 @@ fetching its payload. Encryption is refused even when a custom decoder is bound.
 | ZIP and ZIP64 | yes (STORE, DEFLATE, Deflate64, bzip2, LZMA and zstd) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU, pax) | yes | ustar + GNU long names; regular files/directories |
 | 7z | yes (copy, LZMA, LZMA2, Deflate, Deflate64, bzip2, delta, BCJ x86; compressed headers; solid folders decoded once) | no |
-| ar (GNU) | yes | yes |
+| ar (GNU, BSD, COFF; GNU thin) | yes (thin members through an `ExternalMemberResolver`) | yes |
 | cpio (newc, crc, odc) | yes | newc and crc |
 
 TAR pathname prefixes are read only for headers with the complete six-byte
@@ -639,6 +639,21 @@ an 8 KiB buffer, while output limits apply to the logical bytes returned.
 The readers read through the `RandomAccessSource` interface, which supports seek
 and read. `ByteArrayRandomAccessSource` is the only implementation in the
 library. The whole archive must therefore be in memory before you can open it.
+
+### GNU thin ar archives
+
+A thin archive (`ar rcT`, `llvm-ar --thin`) stores member headers and paths but not the
+member data. `entries()` lists the referenced members with their sizes and a zero
+`compressedSize`. Reading one needs a resolver, because the library never opens files:
+
+```kotlin
+val resolver = ExternalMemberResolver { path -> fileBytesBesideTheArchive(path) }
+ArchiveKodec.open(bytes, FormatRegistry.DEFAULT, options = ArchiveOpenOptions { externalMembers = resolver })
+```
+
+Treat `path` as untrusted. Without a resolver, reading a thin member throws
+`ArchiveUnsupportedException`; a resolver that returns null or bytes of the wrong size
+causes `ArchiveFormatException`.
 
 ## Register a container format
 

@@ -2,12 +2,14 @@ package io.github.yuroyami.archivekodec.archive.ar
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.ExternalMemberResolver
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFully
@@ -25,6 +27,10 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * index are skipped as entries.
  * [limits] caps the listing count and supplies the default policy for each read.
  *
+ * GNU thin archives (`!<thin>`) store only member headers and paths; their members report
+ * a zero [ArchiveEntry.compressedSize] and are read through [externalMembers]. Without a
+ * resolver, reading one throws [io.github.yuroyami.archivekodec.ArchiveUnsupportedException].
+ *
  * Owns the supplied source; close this reader to release it, including after a
  * failed operation. This reader is not thread-safe. Keep it on one thread or
  * externally serialize all access, including [close]. The list from [entries]
@@ -34,12 +40,19 @@ public class ArReader(
     source: RandomAccessSource,
     private val nameDecoder: ArchiveNameDecoder,
     override val limits: ArchiveLimits,
+    /** Supplies thin-archive members, which are stored outside the archive; null refuses them. */
+    public val externalMembers: ExternalMemberResolver?,
 ) : ArchiveReader {
+    public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits) :
+        this(source, nameDecoder, limits, null)
     public constructor(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder) : this(source, nameDecoder, ArchiveLimits.DEFAULT)
     public constructor(source: RandomAccessSource) : this(source, ArchiveNameDecoder.UTF8)
     public constructor(source: RandomAccessSource, limits: ArchiveLimits) : this(source, ArchiveNameDecoder.UTF8, limits)
 
-    private val ownedSource = ReaderSource<List<ArchiveEntry>>(source)
+    /** Listed entries, with whether each is stored outside the archive. */
+    private class Directory(val entries: List<ArchiveEntry>, val external: BooleanArray)
+
+    private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
 
     /** Describe the owned source without listing or extracting members. */
@@ -48,7 +61,13 @@ public class ArReader(
     override val format: ArchiveFormat = ArchiveFormat.AR
 
     @Throws(ArchiveException::class)
-    override fun entries(): List<ArchiveEntry> = ownedSource.metadata { parse().issuedBy(this, limits) }
+    override fun entries(): List<ArchiveEntry> = directory().entries
+
+    private fun directory(): Directory = ownedSource.metadata {
+        val external = ArrayList<Boolean>()
+        val entries = parse(external)
+        Directory(entries.issuedBy(this, limits), external.toBooleanArray())
+    }
 
     @Throws(ArchiveException::class)
     override fun close(): Unit = ownedSource.close()
@@ -56,7 +75,18 @@ public class ArReader(
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
         withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
-        return readListed(entries().resolveIssued(this, entry, "ar"), limits)
+        val directory = directory()
+        val listed = directory.entries.resolveIssued(this, entry, "ar")
+        if (!directory.external[listed.slotIn(this)]) return readListed(listed, limits)
+        limits.checkOutputSize(listed.size)
+        val resolver = externalMembers ?: throw ArchiveUnsupportedException(
+            "ar: thin archive member is stored outside the archive; supply an ExternalMemberResolver", entryName = listed.name)
+        val bytes = resolver.resolve(listed.name)
+            ?: throw ArchiveFormatException("ar: external member was not found", entryName = listed.name)
+        if (bytes.size.toLong() != listed.size) {
+            throw ArchiveFormatException("ar: external member has ${bytes.size} bytes, the archive says ${listed.size}", entryName = listed.name)
+        }
+        return bytes.copyOf()
     }
 
     private fun readListed(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
@@ -66,9 +96,12 @@ public class ArReader(
         return@withEntryContext source.readFullyChecked(entry.dataOffset, entry.size)
     }
 
-    private fun parse(): List<ArchiveEntry> {
+    private fun parse(external: MutableList<Boolean>): List<ArchiveEntry> {
         val total = source.size
-        if (total < 8 || source.readFully(0, 8).decodeToString() != MAGIC) throw ArchiveFormatException("ar: invalid archive magic", 0)
+        val magic = if (total < 8) "" else source.readFully(0, 8).decodeToString()
+        if (magic != MAGIC && magic != THIN_MAGIC) throw ArchiveFormatException("ar: invalid archive magic", 0)
+        // Thin archives store index and name tables inline, but no member data.
+        val thin = magic == THIN_MAGIC
 
         // Remember the GNU/COFF long-name table ("//") for later "/offset" references.
         var nameTable: ByteArray? = null
@@ -93,8 +126,15 @@ public class ArReader(
             val mtime = h.decodeToString(16, 28).trim().takeIf { it.isNotEmpty() && it.all { c -> c in '0'..'9' } }?.toLongOrNull()
             val mode = h.decodeToString(40, 48).trim().takeIf { it.isNotEmpty() && it.all { c -> c in '0'..'7' } }
                 ?.toIntOrNull(8)?.let { if (it and 0xF000 == 0) it or 0x8000 else it }
-            source.requireRange(dataStart, size)
-            source.requireRange(dataStart + size, size and 1L)
+            val special = rawName == "/" || rawName == "//" || rawName == "/SYM64/"
+            val inline = !thin || special
+            if (inline) {
+                source.requireRange(dataStart, size)
+                source.requireRange(dataStart + size, size and 1L)
+            } else if (!rawName.startsWith("/") || rawName.length < 2 || !rawName[1].isDigit()) {
+                throw ArchiveFormatException("ar: thin archive member does not use the name table", pos, rawName)
+            }
+            val countBefore = out.size
 
             when {
                 rawName == "//" -> {
@@ -138,7 +178,11 @@ public class ArReader(
                     val nameBytes = extractLongName(table, off, nulDelimitedNames, pos, rawName)
                     limits.checkEntryCount(out.size + 1)
                     val name = nameDecoder.decodeStoredName(nameBytes, pos)
-                    out.add(ArchiveEntry(name, size, false) { lastModifiedEpochSeconds = mtime; unixMode = mode }.withNameBytes(nameBytes).locatedAt(dataStart))
+                    out.add(ArchiveEntry(name, size, false) {
+                        lastModifiedEpochSeconds = mtime
+                        unixMode = mode
+                        if (!inline) compressedSize = 0
+                    }.withNameBytes(nameBytes).locatedAt(if (inline) dataStart else -1))
                 }
                 else -> {
                     limits.checkEntryCount(out.size + 1)
@@ -147,7 +191,8 @@ public class ArReader(
                     out.add(ArchiveEntry(name, size, false) { lastModifiedEpochSeconds = mtime; unixMode = mode }.withNameBytes(nameBytes).locatedAt(dataStart))
                 }
             }
-            pos = dataStart + size + (size and 1L) // members are 2-byte aligned
+            if (out.size > countBefore) external.add(!inline)
+            pos = if (inline) dataStart + size + (size and 1L) else dataStart // members are 2-byte aligned
         }
         return out
     }
@@ -170,5 +215,6 @@ public class ArReader(
     /** Holds the reader's internal format constants; exposes no public operations. */
     public companion object {
         private const val MAGIC = "!<arch>\n"
+        private const val THIN_MAGIC = "!<thin>\n"
     }
 }

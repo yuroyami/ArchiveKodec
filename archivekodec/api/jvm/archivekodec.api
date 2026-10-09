@@ -196,6 +196,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions {
 	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
 	public static final fun invoke ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
@@ -206,9 +207,11 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Bu
 	public fun <init> ()V
 	public final fun build ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
 	public final fun setCodecs (Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
+	public final fun setExternalMembers (Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;)V
 	public final fun setLimits (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public final fun setNameDecoder (Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
 }
@@ -248,6 +251,10 @@ public final class io/github/yuroyami/archivekodec/archive/ByteArrayRandomAccess
 	public fun read (J[B)I
 	public fun read (J[BII)I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/archive/ExternalMemberResolver {
+	public abstract fun resolve (Ljava/lang/String;)[B
 }
 
 public abstract interface class io/github/yuroyami/archivekodec/archive/FormatMatcher {
@@ -311,9 +318,11 @@ public final class io/github/yuroyami/archivekodec/archive/ar/ArReader : io/gith
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public fun close ()V
 	public fun entries ()Ljava/util/List;
+	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)[B

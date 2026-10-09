@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- GNU thin `ar` archives (`!<thin>`) are now sniffed and listed. Their members are
+  read through the new `ExternalMemberResolver`, passed to `ArReader` or through
+  `ArchiveOpenOptions.externalMembers`; without one, reading refuses clearly.
+
 - Added Zstandard: `Codecs.ZSTD` and `ArchiveKodec.zstd`, on new FSE and Huff0 stages.
   Decoding covers raw, RLE and compressed blocks, every literal and sequence table
   mode with reuse across blocks, repeat offsets, skippable and concatenated frames,

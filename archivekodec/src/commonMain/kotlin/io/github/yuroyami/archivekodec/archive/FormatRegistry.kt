@@ -69,7 +69,7 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
                 ZipReader(source, options.nameDecoder ?: ArchiveNameDecoder.CP437, options.limits, options.codecs)
             },
             FormatSpec.builtin(ArchiveFormat.AR) { source, options ->
-                ArReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
+                ArReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits, options.externalMembers)
             },
             FormatSpec.builtin(ArchiveFormat.CPIO) { source, options ->
                 CpioReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)

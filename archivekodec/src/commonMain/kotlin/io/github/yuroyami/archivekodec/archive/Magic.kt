@@ -47,9 +47,11 @@ public object Magic {
             isBzip2(header) -> ArchiveFormat.BZIP2
             at(0) == 0x37 && at(1) == 0x7A && at(2) == 0xBC && at(3) == 0xAF && at(4) == 0x27 && at(5) == 0x1C ->
                 ArchiveFormat.SEVEN_ZIP
-            // ar: "!<arch>\n"
+            // ar: "!<arch>\n", or "!<thin>\n" for a GNU thin archive
             at(0) == 0x21 && at(1) == 0x3C && at(2) == 0x61 && at(3) == 0x72 && at(4) == 0x63 &&
                 at(5) == 0x68 && at(6) == 0x3E && at(7) == 0x0A -> ArchiveFormat.AR
+            at(0) == 0x21 && at(1) == 0x3C && at(2) == 0x74 && at(3) == 0x68 && at(4) == 0x69 &&
+                at(5) == 0x6E && at(6) == 0x3E && at(7) == 0x0A -> ArchiveFormat.AR
             // cpio: "070701"/"070702" (newc/crc) or "070707" (odc)
             at(0) == 0x30 && at(1) == 0x37 && at(2) == 0x30 && at(3) == 0x37 && at(4) == 0x30 &&
                 (at(5) == 0x31 || at(5) == 0x32 || at(5) == 0x37) -> ArchiveFormat.CPIO

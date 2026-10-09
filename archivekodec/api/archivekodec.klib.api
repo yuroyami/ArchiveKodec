@@ -64,6 +64,10 @@ abstract fun interface io.github.yuroyami.archivekodec.archive/ArchiveNameDecode
     }
 }
 
+abstract fun interface io.github.yuroyami.archivekodec.archive/ExternalMemberResolver { // io.github.yuroyami.archivekodec.archive/ExternalMemberResolver|null[0]
+    abstract fun resolve(kotlin/String): kotlin/ByteArray? // io.github.yuroyami.archivekodec.archive/ExternalMemberResolver.resolve|resolve(kotlin.String){}[0]
+}
+
 abstract fun interface io.github.yuroyami.archivekodec.archive/FormatMatcher { // io.github.yuroyami.archivekodec.archive/FormatMatcher|null[0]
     abstract fun matches(io.github.yuroyami.archivekodec.archive/RandomAccessSource): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/FormatMatcher.matches|matches(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
 }
@@ -114,8 +118,11 @@ final class io.github.yuroyami.archivekodec.archive.ar/ArReader : io.github.yuro
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits, io.github.yuroyami.archivekodec.archive/ExternalMemberResolver?) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.archive.ExternalMemberResolver?){}[0]
     constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.ar/ArReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 
+    final val externalMembers // io.github.yuroyami.archivekodec.archive.ar/ArReader.externalMembers|{}externalMembers[0]
+        final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive.ar/ArReader.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
     final val format // io.github.yuroyami.archivekodec.archive.ar/ArReader.format|{}format[0]
         final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.ar/ArReader.format.<get-format>|<get-format>(){}[0]
     final val limits // io.github.yuroyami.archivekodec.archive.ar/ArReader.limits|{}limits[0]
@@ -364,6 +371,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github
 final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions|null[0]
     final val codecs // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.codecs|{}codecs[0]
         final fun <get-codecs>(): io.github.yuroyami.archivekodec.codec/CodecRegistry // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.codecs.<get-codecs>|<get-codecs>(){}[0]
+    final val externalMembers // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.externalMembers|{}externalMembers[0]
+        final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
     final val limits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.limits|{}limits[0]
         final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.limits.<get-limits>|<get-limits>(){}[0]
     final val nameDecoder // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.nameDecoder|{}nameDecoder[0]
@@ -377,6 +386,9 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.g
         final var codecs // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs|{}codecs[0]
             final fun <get-codecs>(): io.github.yuroyami.archivekodec.codec/CodecRegistry // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs.<get-codecs>|<get-codecs>(){}[0]
             final fun <set-codecs>(io.github.yuroyami.archivekodec.codec/CodecRegistry) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs.<set-codecs>|<set-codecs>(io.github.yuroyami.archivekodec.codec.CodecRegistry){}[0]
+        final var externalMembers // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers|{}externalMembers[0]
+            final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
+            final fun <set-externalMembers>(io.github.yuroyami.archivekodec.archive/ExternalMemberResolver?) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers.<set-externalMembers>|<set-externalMembers>(io.github.yuroyami.archivekodec.archive.ExternalMemberResolver?){}[0]
         final var limits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.limits|{}limits[0]
             final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.limits.<get-limits>|<get-limits>(){}[0]
             final fun <set-limits>(io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.limits.<set-limits>|<set-limits>(io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]

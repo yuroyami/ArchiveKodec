@@ -19,6 +19,8 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
     public val nameDecoder: ArchiveNameDecoder? = builder.nameDecoder
     /** Codec bindings used by built-in ZIP readers. */
     public val codecs: CodecRegistry = builder.codecs
+    /** Supplies members stored outside the archive, such as GNU thin `ar` members; null refuses them. */
+    public val externalMembers: ExternalMemberResolver? = builder.externalMembers
 
     /** Mutable single-thread configuration; [build] snapshots the property values. */
     public class Builder public constructor() {
@@ -28,11 +30,14 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
         public var nameDecoder: ArchiveNameDecoder? = null
         /** Registered implementations for ZIP payload decoding. */
         public var codecs: CodecRegistry = CodecRegistry.DEFAULT
+        /** Resolver for externally stored members, initially null. */
+        public var externalMembers: ExternalMemberResolver? = null
 
         internal constructor(source: ArchiveOpenOptions) : this() {
             limits = source.limits
             nameDecoder = source.nameDecoder
             codecs = source.codecs
+            externalMembers = source.externalMembers
         }
 
         /** Snapshot settings, reserving an argument-validation error contract for future options. */
