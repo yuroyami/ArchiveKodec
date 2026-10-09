@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added the LZMA family: `Codecs.LZMA` (`.lzma`), `Codecs.LZMA2` (raw chunks) and
+  `Codecs.XZ`, with `ArchiveKodec.lzma`, `.lzma2` and `.xz`, on a shared range coder.
+  xz decoding verifies CRC-32, CRC-64 and SHA-256 checks and the index, accepts the
+  delta filter, multiple blocks and concatenated streams, and refuses BCJ filters by
+  name. ZIP method 14 entries now read, and `ArchiveKodec.decompress` detects xz.
+  The encoders write standard streams but compress less tightly than `xz -6`.
+
 - Added bzip2: `Codecs.BZIP2` and `ArchiveKodec.bzip2` decode any block size,
   concatenated streams and randomised blocks with CRC verification, and encode at
   level 9. ZIP method 12 entries now read, and `ArchiveKodec.decompress` detects

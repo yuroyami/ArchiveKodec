@@ -7,6 +7,9 @@ import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Decoder
 import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Encoder
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
+import io.github.yuroyami.archivekodec.codec.lzma.Lzma2
+import io.github.yuroyami.archivekodec.codec.lzma.LzmaAlone
+import io.github.yuroyami.archivekodec.codec.lzma.Xz
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
 import io.github.yuroyami.archivekodec.codec.snappy.Snappy
@@ -55,6 +58,38 @@ public object Codecs {
         override val id = CodecId.BZIP2
         override fun compress(data: ByteArray): ByteArray = Bzip2Encoder.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Bzip2Decoder.decompress(data, limits)
+    }
+
+    /**
+     * The `.lzma` ("LZMA alone") format: a 13-byte header, then one LZMA stream. Decoding
+     * accepts a known size or an end marker; encoding writes the size and no marker.
+     * ZIP readers decode method 14's own framing through this codec's registration.
+     */
+    @JvmField
+    public val LZMA: Codec = object : Codec {
+        override val id = CodecId.LZMA
+        override fun compress(data: ByteArray): ByteArray = LzmaAlone.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = LzmaAlone.decompress(data, limits)
+    }
+
+    /** Raw LZMA2 chunks, as 7z stores them; decoding allows any dictionary distance. */
+    @JvmField
+    public val LZMA2: Codec = object : Codec {
+        override val id = CodecId.LZMA2
+        override fun compress(data: ByteArray): ByteArray = Lzma2.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Lzma2.decompress(data, limits)
+    }
+
+    /**
+     * The .xz container. Decoding verifies CRC-32, CRC-64 and SHA-256 checks and the index,
+     * accepts concatenated streams and the delta filter, and refuses BCJ filters. Encoding
+     * writes one LZMA2 block with a CRC-64 check.
+     */
+    @JvmField
+    public val XZ: Codec = object : Codec {
+        override val id = CodecId.XZ
+        override fun compress(data: ByteArray): ByteArray = Xz.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Xz.decompress(data, limits)
     }
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */

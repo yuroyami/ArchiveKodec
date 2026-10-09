@@ -36,6 +36,7 @@ class ArchiveFacadeConvenienceTest {
             assertSame(Codecs.byId(id), Codecs.byName(id.displayName.uppercase()), id.toString())
         }
         val supported = mapOf(ArchiveFormat.GZIP to Codecs.GZIP, ArchiveFormat.ZLIB to Codecs.ZLIB, ArchiveFormat.BZIP2 to Codecs.BZIP2,
+            ArchiveFormat.XZ to Codecs.XZ, ArchiveFormat.LZMA to Codecs.LZMA,
             ArchiveFormat.LZ4 to Codecs.LZ4, ArchiveFormat.SNAPPY to Codecs.SNAPPY_FRAMED)
         for (format in FormatRegistry.DEFAULT.formats.map { it.id } + ArchiveFormat.UNKNOWN) {
             assertSame(supported[format], ArchiveKodec.codec(format), format.toString())
@@ -76,7 +77,7 @@ class ArchiveFacadeConvenienceTest {
     @Test
     fun unsupportedDecodingNamesTheDetectedFormat() {
         for ((input, format) in listOf(
-            hex("fd377a585a00") to ArchiveFormat.XZ,
+            hex("28b52ffd") to ArchiveFormat.ZSTD,
             zip() to ArchiveFormat.ZIP,
             data to ArchiveFormat.UNKNOWN,
             byteArrayOf() to ArchiveFormat.UNKNOWN,

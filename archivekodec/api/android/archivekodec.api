@@ -45,10 +45,13 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final fun getDeflate64 ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getGzip ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLz4 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getLzma ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getLzma2 ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getSnappy ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getSnappyFramed ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getStore ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getVERSION ()Ljava/lang/String;
+	public static final fun getXz ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getZlib ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
@@ -768,9 +771,12 @@ public final class io/github/yuroyami/archivekodec/codec/Codecs {
 	public static final field GZIP Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/Codecs;
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final field LZMA Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final field LZMA2 Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field SNAPPY Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field SNAPPY_FRAMED Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field STORE Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final field XZ Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field ZLIB Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byFormat (Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;)Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byId (Lio/github/yuroyami/archivekodec/codec/CodecId;)Lio/github/yuroyami/archivekodec/codec/Codec;
