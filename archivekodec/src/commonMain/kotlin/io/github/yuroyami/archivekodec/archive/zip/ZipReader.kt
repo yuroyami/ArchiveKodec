@@ -14,11 +14,13 @@ import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.readFullyInto
 import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.archive.issuedBy
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.CodecRegistry
@@ -155,6 +157,66 @@ public class ZipReader(
         val directory = directory()
         val listed = directory.entries.resolveIssued(this, entry, "ZIP")
         return readListed(directory.members.getValue(listed.dataOffset), limits)
+    }
+
+    @Throws(ArchiveException::class)
+    override fun read(entry: ArchiveEntry, sink: ByteSink, limits: ArchiveLimits): Long {
+        withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
+        val directory = directory()
+        val listed = directory.entries.resolveIssued(this, entry, "ZIP")
+        val member = directory.members.getValue(listed.dataOffset)
+        val method = member.method
+        if (listed.isEncrypted || member.flags and 0x20 != 0 || (method != 0 && method != 8 && method != 9) ||
+            (method != 0 && listed.compressedSize > Int.MAX_VALUE)
+        ) {
+            val bytes = readListed(member, limits)
+            if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
+            return bytes.size.toLong()
+        }
+        return withEntryContext(listed.name, listed.dataOffset) { stream(member, sink, limits) }
+    }
+
+    /** Stream a stored, DEFLATE or Deflate64 member, checking its size and CRC-32 at the end. */
+    private fun stream(member: Member, sink: ByteSink, limits: ArchiveLimits): Long {
+        val entry = member.entry
+        val source = ownedSource.source
+        val dataStart = validateLocalHeader(member, source.readFully(entry.dataOffset, 30), source)
+        limits.checkOutputSize(entry.size)
+        limits.checkRatio(entry.compressedSize, entry.size)
+        val crc = Crc32()
+        val checked = ByteSink { bytes, offset, length ->
+            crc.update(bytes, offset, length)
+            sink.write(bytes, offset, length)
+        }
+        val written = if (member.method == 0) {
+            if (entry.compressedSize != entry.size) {
+                throw ArchiveFormatException("ZIP: stored compressed size ${entry.compressedSize} differs from output size ${entry.size}", dataStart, entry.name)
+            }
+            val chunk = ByteArray(minOf(entry.size, 1L shl 20).toInt())
+            var done = 0L
+            while (done < entry.size) {
+                val n = minOf(chunk.size.toLong(), entry.size - done).toInt()
+                source.readFullyInto(dataStart + done, chunk, n)
+                checked.write(chunk, 0, n)
+                done += n
+            }
+            done
+        } else {
+            val comp = source.readFullyChecked(dataStart, entry.compressedSize)
+            val output = Inflate.Output(limits, comp.size, expectedSize = entry.size, sink = checked)
+            val end = try {
+                Inflate.inflateInto(comp, 0, comp.size, output, deflate64 = member.method == 9)
+            } catch (error: ArchiveException) {
+                throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+            }
+            if (end != comp.size) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + end, entry.name)
+            output.finish()
+        }
+        if (written != entry.size) throw ArchiveFormatException("ZIP: output size $written differs from declared size ${entry.size}", dataStart, entry.name)
+        entry.crc32?.let { expected ->
+            if (crc.value() != expected) throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
+        }
+        return written
     }
 
     private fun readListed(member: Member, limits: ArchiveLimits): ByteArray = withEntryContext(member.entry.name, member.entry.dataOffset) {

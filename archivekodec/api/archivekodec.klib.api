@@ -130,6 +130,7 @@ abstract interface io.github.yuroyami.archivekodec.archive/ArchiveReader { // io
     abstract fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     open fun close() // io.github.yuroyami.archivekodec.archive/ArchiveReader.close|close(){}[0]
     open fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry){}[0]
+    open fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/Long // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     open fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.security/ExtractionBudget): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive/ArchiveReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.security.ExtractionBudget){}[0]
 }
 
@@ -390,6 +391,7 @@ final class io.github.yuroyami.archivekodec.archive.zip/ZipReader : io.github.yu
 
     final fun close() // io.github.yuroyami.archivekodec.archive.zip/ZipReader.close|close(){}[0]
     final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.zip/ZipReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/Long // io.github.yuroyami.archivekodec.archive.zip/ZipReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.zip/ZipReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.zip/ZipReader.toString|toString(){}[0]
 }

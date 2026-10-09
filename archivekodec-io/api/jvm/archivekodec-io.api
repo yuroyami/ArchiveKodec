@@ -1,3 +1,8 @@
+public final class io/github/yuroyami/archivekodec/io/ArchiveExtraction {
+	public static final fun extract (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Ljava/util/Collection;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/io/ProgressSink;Lio/github/yuroyami/archivekodec/io/PromptedPasswords;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun extract$default (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Ljava/util/Collection;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/io/ProgressSink;Lio/github/yuroyami/archivekodec/io/PromptedPasswords;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+}
+
 public final class io/github/yuroyami/archivekodec/io/ArchiveKodecIo {
 	public static final fun compress (Lio/github/yuroyami/archivekodec/codec/Codec;Lkotlinx/io/RawSource;)[B
 	public static final fun compress (Lio/github/yuroyami/archivekodec/codec/Codec;Lkotlinx/io/RawSource;Lkotlinx/io/RawSink;)J
@@ -24,5 +29,14 @@ public final class io/github/yuroyami/archivekodec/io/FileRandomAccessSource : i
 }
 
 public final class io/github/yuroyami/archivekodec/io/FileRandomAccessSource$Companion {
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/io/ProgressSink {
+	public abstract fun progress (JJ)V
+}
+
+public final class io/github/yuroyami/archivekodec/io/PromptedPasswords : io/github/yuroyami/archivekodec/crypto/ArchivePasswordProvider {
+	public fun <init> (Lkotlin/jvm/functions/Function2;)V
+	public fun password (Ljava/lang/String;)[C
 }
 

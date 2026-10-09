@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Extraction. `suspend fun ArchiveReader.extract(entries, limits, progress, passwords, into)`
+  in `archivekodec-io` writes a chosen set of entries to sinks in listing order, so solid
+  blocks decode once, reports progress through `ProgressSink`, stops when its coroutine is
+  cancelled, and asks for passwords through `PromptedPasswords`, a suspending prompt.
+  `ArchiveReader.read(entry, sink, limits)` reads an entry into a `ByteSink`; ZIP streams its
+  stored, DEFLATE and Deflate64 members. `archivekodec-io` now depends on kotlinx-coroutines.
+
 - Streaming decompression. `Codec.decompress(data, sink, limits)` writes the output to a
   new `ByteSink` in chunks and returns the byte count. DEFLATE, Deflate64, zlib and gzip
   stream, holding about 1 MiB of output plus a 64 KiB window, so the output can be larger

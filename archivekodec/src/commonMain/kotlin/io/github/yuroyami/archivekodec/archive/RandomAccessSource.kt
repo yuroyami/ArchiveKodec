@@ -80,17 +80,21 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
     if (length > Int.MAX_VALUE) {
         throw ArchiveFormatException("range of $length bytes cannot fit in a ByteArray", offset)
     }
-    val count = length.toInt()
-    val buf = ByteArray(count)
+    val buf = ByteArray(length.toInt())
+    readFullyInto(offset, buf, buf.size)
+    return buf
+}
+
+/** Fill `into[0, count)` from [offset], which the caller has range-checked. */
+internal fun RandomAccessSource.readFullyInto(offset: Long, into: ByteArray, count: Int) {
     var got = 0
     while (got < count) {
-        val n = read(offset + got, buf, got, count - got)
+        val n = read(offset + got, into, got, count - got)
         if (n <= 0 || n > count - got) {
             throw ArchiveFormatException("unexpected read at ${offset + got} (wanted ${count - got}, got $n)", offset + got)
         }
         got += n
     }
-    return buf
 }
 
 /**

@@ -4,6 +4,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ExtractionBudget
@@ -73,6 +74,26 @@ public interface ArchiveReader {
      */
     @Throws(ArchiveException::class)
     public fun read(entry: ArchiveEntry): ByteArray = read(entry, limits)
+
+    /**
+     * Read one entry's uncompressed bytes into [sink] in chunks rather than one array, and
+     * return the number written. [limits] are checked before every write.
+     *
+     * ZIP streams stored, DEFLATE and Deflate64 members that are not encrypted, holding
+     * about 1 MiB at a time, so they may be larger than memory (raise
+     * [ArchiveLimits.maxUncompressedBytes] above its 2 GiB default); their CRC-32 is checked
+     * at the end, after the data was written. Other members and readers read the whole entry
+     * first and then write it, which is also this default.
+     *
+     * @throws ArchiveException for the listing, decoding, integrity and limit failures documented by [read],
+     *   and for failures the sink reports. Output written before a failure stays written.
+     */
+    @Throws(ArchiveException::class)
+    public fun read(entry: ArchiveEntry, sink: ByteSink, limits: ArchiveLimits = this.limits): Long {
+        val bytes = read(entry, limits)
+        if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
+        return bytes.size.toLong()
+    }
 
     /**
      * Read one entry and charge its size to [budget], an archive-wide total shared across

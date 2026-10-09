@@ -6,6 +6,10 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.yuroyami:archivekodec-io>
+abstract fun interface io.github.yuroyami.archivekodec.io/ProgressSink { // io.github.yuroyami.archivekodec.io/ProgressSink|null[0]
+    abstract fun progress(kotlin/Long, kotlin/Long) // io.github.yuroyami.archivekodec.io/ProgressSink.progress|progress(kotlin.Long;kotlin.Long){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.io/FileRandomAccessSource : io.github.yuroyami.archivekodec.archive/RandomAccessSource { // io.github.yuroyami.archivekodec.io/FileRandomAccessSource|null[0]
     constructor <init>(kotlin/String) // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.<init>|<init>(kotlin.String){}[0]
 
@@ -24,9 +28,16 @@ final class io.github.yuroyami.archivekodec.io/FileRandomAccessSource : io.githu
     }
 }
 
+final class io.github.yuroyami.archivekodec.io/PromptedPasswords : io.github.yuroyami.archivekodec.crypto/ArchivePasswordProvider { // io.github.yuroyami.archivekodec.io/PromptedPasswords|null[0]
+    constructor <init>(kotlin.coroutines/SuspendFunction1<kotlin/String, kotlin/CharArray?>) // io.github.yuroyami.archivekodec.io/PromptedPasswords.<init>|<init>(kotlin.coroutines.SuspendFunction1<kotlin.String,kotlin.CharArray?>){}[0]
+
+    final fun password(kotlin/String?): kotlin/CharArray? // io.github.yuroyami.archivekodec.io/PromptedPasswords.password|password(kotlin.String?){}[0]
+}
+
 final fun (io.github.yuroyami.archivekodec.codec/Codec).io.github.yuroyami.archivekodec.io/compress(kotlinx.io/RawSource): kotlin/ByteArray // io.github.yuroyami.archivekodec.io/compress|compress@io.github.yuroyami.archivekodec.codec.Codec(kotlinx.io.RawSource){}[0]
 final fun (io.github.yuroyami.archivekodec.codec/Codec).io.github.yuroyami.archivekodec.io/compress(kotlinx.io/RawSource, kotlinx.io/RawSink): kotlin/Long // io.github.yuroyami.archivekodec.io/compress|compress@io.github.yuroyami.archivekodec.codec.Codec(kotlinx.io.RawSource;kotlinx.io.RawSink){}[0]
 final fun (io.github.yuroyami.archivekodec.codec/Codec).io.github.yuroyami.archivekodec.io/decompress(kotlinx.io/RawSource, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.io/decompress|decompress@io.github.yuroyami.archivekodec.codec.Codec(kotlinx.io.RawSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 final fun (io.github.yuroyami.archivekodec.codec/Codec).io.github.yuroyami.archivekodec.io/decompress(kotlinx.io/RawSource, kotlinx.io/RawSink, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/Long // io.github.yuroyami.archivekodec.io/decompress|decompress@io.github.yuroyami.archivekodec.codec.Codec(kotlinx.io.RawSource;kotlinx.io.RawSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 final fun (kotlinx.io/RawSource).io.github.yuroyami.archivekodec.io/readAllBytes(): kotlin/ByteArray // io.github.yuroyami.archivekodec.io/readAllBytes|readAllBytes@kotlinx.io.RawSource(){}[0]
 final fun (kotlinx.io/RawSource).io.github.yuroyami.archivekodec.io/toRandomAccessSource(): io.github.yuroyami.archivekodec.archive/RandomAccessSource // io.github.yuroyami.archivekodec.io/toRandomAccessSource|toRandomAccessSource@kotlinx.io.RawSource(){}[0]
+final suspend fun (io.github.yuroyami.archivekodec.archive/ArchiveReader).io.github.yuroyami.archivekodec.io/extract(kotlin.collections/Collection<io.github.yuroyami.archivekodec.archive/ArchiveEntry>, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.io/ProgressSink? = ..., io.github.yuroyami.archivekodec.io/PromptedPasswords? = ..., kotlin/Function1<io.github.yuroyami.archivekodec.archive/ArchiveEntry, kotlinx.io/RawSink>) // io.github.yuroyami.archivekodec.io/extract|extract@io.github.yuroyami.archivekodec.archive.ArchiveReader(kotlin.collections.Collection<io.github.yuroyami.archivekodec.archive.ArchiveEntry>;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.io.ProgressSink?;io.github.yuroyami.archivekodec.io.PromptedPasswords?;kotlin.Function1<io.github.yuroyami.archivekodec.archive.ArchiveEntry,kotlinx.io.RawSink>){}[0]

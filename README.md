@@ -1166,7 +1166,8 @@ them ([target tiers](https://kotlinlang.org/docs/native-target-support.html)).
 
 ## The `-io` artifact
 
-`archivekodec-io` adds a file source and four kotlinx-io adapters.
+`archivekodec-io` adds a file source, a suspending extraction call and kotlinx-io adapters.
+It depends on kotlinx-io and kotlinx-coroutines.
 
 `FileRandomAccessSource` opens a file read-only and reads it on demand, so a
 multi-gigabyte archive can be listed and read without loading it:
@@ -1185,6 +1186,27 @@ on Windows, and Node's `fs` on Kotlin/JS and Kotlin/Wasm (JS, Node 20.16 or late
 Browsers and WASI have no file system, so there the constructor throws
 `ArchiveUnsupportedException`. Android content URIs (SAF) and other non-path
 sources still need a `RandomAccessSource` of your own.
+
+`extract` writes a chosen set of entries to sinks, reporting progress and stopping when
+its coroutine is cancelled:
+
+```kotlin
+val passwords = PromptedPasswords { name -> askUser("Password for $name") } // a suspending prompt
+ArchiveKodec.open(FileRandomAccessSource(path), format = null, options = ArchiveOpenOptions { password = passwords }).use { reader ->
+    val wanted = reader.entries().filter { it.name.startsWith("docs/") }
+    reader.extract(wanted, progress = { done, total -> bar.update(done, total) }, passwords = passwords) { entry ->
+        SystemFileSystem.sink(Path(outDir, PathGuard.sanitize(entry.name)))
+    }
+}
+```
+
+Entries are extracted in listing order, so a solid block (a 7z or cabinet folder, a solid
+RAR5 stream) is decoded once for all its entries. Directories are skipped, and each sink
+is closed after its entry. Cancellation is checked between entries and before each write of
+about 1 MiB of a streamed entry: ZIP's stored, DEFLATE and Deflate64 members stream
+(`ArchiveReader.read(entry, sink)`), so even a large one stops promptly; other members are
+read whole and then written. `extract` writes nothing to disk by itself and does not create
+symbolic links; join names with `PathGuard.sanitize` as above.
 
 The adapters:
 
@@ -1209,8 +1231,9 @@ compression is not streamed.
 
 - Whole-array input. Codecs take a whole `ByteArray`; DEFLATE, zlib and gzip can stream
   their output to a `ByteSink`, other codecs return or write one array, and an archive
-  member is read into one `ByteArray`. Archives can be opened from a file without loading
-  them (`FileRandomAccessSource` in `archivekodec-io`). There is no suspend API.
+  member is read into one `ByteArray` unless it is a ZIP stored or DEFLATE member read into
+  a sink. Archives can be opened from a file without loading them, and entries extracted
+  with progress and cancellation (`FileRandomAccessSource` and `extract` in `archivekodec-io`).
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
