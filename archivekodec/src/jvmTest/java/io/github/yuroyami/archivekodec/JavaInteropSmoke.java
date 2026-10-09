@@ -109,6 +109,40 @@ public final class JavaInteropSmoke {
         }
     }
 
+    public static void formatRegistry() throws Exception {
+        ArchiveFormat format = new ArchiveFormat("custom");
+        check(format.equals(new ArchiveFormat("CUSTOM")), "open format value identity");
+        FormatSpec spec = new FormatSpec("custom",
+            source -> source.getSize() >= 4 && RandomAccessSources.readFully(source, 0, 4)[0] == 'C',
+            (source, options) -> new ArchiveReader() {
+                @Override public ArchiveFormat getFormat() { return format; }
+                @Override public ArchiveLimits getLimits() { return options.getLimits(); }
+                @Override public java.util.List<ArchiveEntry> entries() { return Collections.emptyList(); }
+                @Override public byte[] read(ArchiveEntry entry, ArchiveLimits limits) throws ArchiveException {
+                    throw new ArchiveUnsupportedException("empty custom reader");
+                }
+                @Override public void close() throws ArchiveException { source.close(); }
+            });
+        FormatRegistry formats = FormatRegistry.DEFAULT.with(spec);
+        check(formats.byId(format) == spec, "Java format lookup");
+        check(FormatRegistry.DEFAULT.byId(format) == null, "independent default format registry");
+        byte[] data = {'C', 'U', 'S', 'T'};
+        check(ArchiveKodec.sniff(data, formats).equals(format), "Java custom detection");
+        ArchiveOpenOptions.Builder settings = new ArchiveOpenOptions.Builder();
+        settings.setLimits(ArchiveLimits.UNBOUNDED);
+        ArchiveOpenOptions options = settings.build().copy();
+        TrackingSource source = new TrackingSource(data);
+        ArchiveReader reader = ArchiveKodec.open(source, formats, null, options);
+        try (AutoCloseable resource = ArchiveReaders.asAutoCloseable(reader)) {
+            check(reader.getFormat().equals(format), "Java custom reader");
+            check(reader.getLimits() == ArchiveLimits.UNBOUNDED, "Java factory policy");
+            check(reader.entries().isEmpty(), "Java factory return type");
+        }
+        check(source.closed, "Java custom reader owns source");
+        ArchiveReader explicit = ArchiveKodec.open(new byte[0], formats, "CUSTOM");
+        explicit.close();
+    }
+
     public static void readers() throws Exception {
         byte[] zip = ZipWriter.write(Collections.singletonList(new ZipWriter.FileSpec("file.txt", DATA)));
         ArchiveLimits.Builder builder = new ArchiveLimits.Builder();

@@ -51,13 +51,29 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/FormatRegistry;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/FormatRegistry;Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/FormatRegistry;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open ([B)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open ([BLio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open ([BLio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open ([BLio/github/yuroyami/archivekodec/archive/FormatRegistry;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open ([BLio/github/yuroyami/archivekodec/archive/FormatRegistry;Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open ([BLio/github/yuroyami/archivekodec/archive/FormatRegistry;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open ([BLjava/lang/String;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static final fun open ([BLjava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static synthetic fun open$default (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/FormatRegistry;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static synthetic fun open$default (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static synthetic fun open$default ([BLio/github/yuroyami/archivekodec/archive/FormatRegistry;Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+	public static synthetic fun open$default ([BLjava/lang/String;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun sniff (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final fun sniff (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/FormatRegistry;)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final fun sniff ([B)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final fun sniff ([BLio/github/yuroyami/archivekodec/archive/FormatRegistry;)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 }
 
 public final class io/github/yuroyami/archivekodec/ArchiveSizeException : io/github/yuroyami/archivekodec/ArchiveException {
@@ -101,11 +117,12 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat : java/lang/Enum {
+public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat {
 	public static final field AR Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field BROTLI Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field BZIP2 Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field CPIO Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ArchiveFormat$Companion;
 	public static final field GZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field LZMA Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
@@ -118,9 +135,15 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat : java/
 	public static final field ZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field ZLIB Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field ZSTD Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
-	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat$Companion {
 }
 
 public abstract interface class io/github/yuroyami/archivekodec/archive/ArchiveNameDecoder {
@@ -131,6 +154,36 @@ public abstract interface class io/github/yuroyami/archivekodec/archive/ArchiveN
 }
 
 public final class io/github/yuroyami/archivekodec/archive/ArchiveNameDecoder$Companion {
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public final fun copy ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
+	public static final fun invoke ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public static final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Builder {
+	public fun <init> ()V
+	public final fun build ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public final fun getCodecs ()Lio/github/yuroyami/archivekodec/codec/CodecRegistry;
+	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
+	public final fun setCodecs (Lio/github/yuroyami/archivekodec/codec/CodecRegistry;)V
+	public final fun setLimits (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public final fun setNameDecoder (Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Companion {
+	public final fun invoke ()Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
+	public static synthetic fun invoke$default (Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;
 }
 
 public abstract interface class io/github/yuroyami/archivekodec/archive/ArchiveReader {
@@ -162,6 +215,38 @@ public final class io/github/yuroyami/archivekodec/archive/ByteArrayRandomAccess
 	public fun read (J[B)I
 	public fun read (J[BII)I
 	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/archive/FormatMatcher {
+	public abstract fun matches (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Z
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/archive/FormatReaderFactory {
+	public abstract fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveOpenOptions;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/FormatRegistry {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/FormatRegistry$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/archive/FormatRegistry;
+	public final fun byId (Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;)Lio/github/yuroyami/archivekodec/archive/FormatSpec;
+	public final fun byName (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/FormatSpec;
+	public final fun getFormats ()Ljava/util/List;
+	public final fun sniff (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/FormatSpec;
+	public final fun with (Lio/github/yuroyami/archivekodec/archive/FormatSpec;)Lio/github/yuroyami/archivekodec/archive/FormatRegistry;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/FormatRegistry$Companion {
+}
+
+public final class io/github/yuroyami/archivekodec/archive/FormatSpec {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/FormatSpec$Companion;
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;Lio/github/yuroyami/archivekodec/archive/FormatMatcher;Lio/github/yuroyami/archivekodec/archive/FormatReaderFactory;)V
+	public fun <init> (Ljava/lang/String;Lio/github/yuroyami/archivekodec/archive/FormatMatcher;Lio/github/yuroyami/archivekodec/archive/FormatReaderFactory;)V
+	public final fun getId ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/FormatSpec$Companion {
 }
 
 public final class io/github/yuroyami/archivekodec/archive/Magic {

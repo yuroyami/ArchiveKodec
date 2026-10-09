@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec
 
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
+import io.github.yuroyami.archivekodec.archive.FormatRegistry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
@@ -36,7 +37,7 @@ class ArchiveFacadeConvenienceTest {
         }
         val supported = mapOf(ArchiveFormat.GZIP to Codecs.GZIP, ArchiveFormat.ZLIB to Codecs.ZLIB,
             ArchiveFormat.LZ4 to Codecs.LZ4, ArchiveFormat.SNAPPY to Codecs.SNAPPY_FRAMED)
-        for (format in ArchiveFormat.entries) {
+        for (format in FormatRegistry.DEFAULT.formats.map { it.id } + ArchiveFormat.UNKNOWN) {
             assertSame(supported[format], ArchiveKodec.codec(format), format.toString())
             assertSame(supported[format], Codecs.byFormat(format), format.toString())
         }

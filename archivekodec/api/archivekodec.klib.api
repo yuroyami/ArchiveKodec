@@ -19,31 +19,6 @@ final enum class io.github.yuroyami.archivekodec.archive.zip/ZipMethod : kotlin/
     final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.archive.zip/ZipMethod> // io.github.yuroyami.archivekodec.archive.zip/ZipMethod.values|values#static(){}[0]
 }
 
-final enum class io.github.yuroyami.archivekodec.archive/ArchiveFormat : kotlin/Enum<io.github.yuroyami.archivekodec.archive/ArchiveFormat> { // io.github.yuroyami.archivekodec.archive/ArchiveFormat|null[0]
-    enum entry AR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.AR|null[0]
-    enum entry BROTLI // io.github.yuroyami.archivekodec.archive/ArchiveFormat.BROTLI|null[0]
-    enum entry BZIP2 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.BZIP2|null[0]
-    enum entry CPIO // io.github.yuroyami.archivekodec.archive/ArchiveFormat.CPIO|null[0]
-    enum entry GZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.GZIP|null[0]
-    enum entry LZ4 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.LZ4|null[0]
-    enum entry LZMA // io.github.yuroyami.archivekodec.archive/ArchiveFormat.LZMA|null[0]
-    enum entry RAR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.RAR|null[0]
-    enum entry SEVEN_ZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.SEVEN_ZIP|null[0]
-    enum entry SNAPPY // io.github.yuroyami.archivekodec.archive/ArchiveFormat.SNAPPY|null[0]
-    enum entry TAR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.TAR|null[0]
-    enum entry UNKNOWN // io.github.yuroyami.archivekodec.archive/ArchiveFormat.UNKNOWN|null[0]
-    enum entry XZ // io.github.yuroyami.archivekodec.archive/ArchiveFormat.XZ|null[0]
-    enum entry ZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.ZIP|null[0]
-    enum entry ZLIB // io.github.yuroyami.archivekodec.archive/ArchiveFormat.ZLIB|null[0]
-    enum entry ZSTD // io.github.yuroyami.archivekodec.archive/ArchiveFormat.ZSTD|null[0]
-
-    final val entries // io.github.yuroyami.archivekodec.archive/ArchiveFormat.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<io.github.yuroyami.archivekodec.archive/ArchiveFormat> // io.github.yuroyami.archivekodec.archive/ArchiveFormat.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.archive/ArchiveFormat> // io.github.yuroyami.archivekodec.archive/ArchiveFormat.values|values#static(){}[0]
-}
-
 final enum class io.github.yuroyami.archivekodec.codec.deflate/InflateError : kotlin/Enum<io.github.yuroyami.archivekodec.codec.deflate/InflateError> { // io.github.yuroyami.archivekodec.codec.deflate/InflateError|null[0]
     enum entry CODE_LENGTHS_CODES_INCOMPLETE // io.github.yuroyami.archivekodec.codec.deflate/InflateError.CODE_LENGTHS_CODES_INCOMPLETE|null[0]
     enum entry DATA_DID_NOT_TERMINATE // io.github.yuroyami.archivekodec.codec.deflate/InflateError.DATA_DID_NOT_TERMINATE|null[0]
@@ -83,6 +58,14 @@ abstract fun interface io.github.yuroyami.archivekodec.archive/ArchiveNameDecode
         final val UTF8 // io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder.Companion.UTF8|{}UTF8[0]
             final fun <get-UTF8>(): io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder // io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder.Companion.UTF8.<get-UTF8>|<get-UTF8>(){}[0]
     }
+}
+
+abstract fun interface io.github.yuroyami.archivekodec.archive/FormatMatcher { // io.github.yuroyami.archivekodec.archive/FormatMatcher|null[0]
+    abstract fun matches(io.github.yuroyami.archivekodec.archive/RandomAccessSource): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/FormatMatcher.matches|matches(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+}
+
+abstract fun interface io.github.yuroyami.archivekodec.archive/FormatReaderFactory { // io.github.yuroyami.archivekodec.archive/FormatReaderFactory|null[0]
+    abstract fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec.archive/FormatReaderFactory.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
 }
 
 abstract interface io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive/ArchiveReader|null[0]
@@ -273,6 +256,88 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveEntry.toString|toString(){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github.yuroyami.archivekodec.archive/ArchiveFormat|null[0]
+    constructor <init>(kotlin/String) // io.github.yuroyami.archivekodec.archive/ArchiveFormat.<init>|<init>(kotlin.String){}[0]
+
+    final val id // io.github.yuroyami.archivekodec.archive/ArchiveFormat.id|{}id[0]
+        final fun <get-id>(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveFormat.id.<get-id>|<get-id>(){}[0]
+    final val name // io.github.yuroyami.archivekodec.archive/ArchiveFormat.name|{}name[0]
+        final fun <get-name>(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveFormat.name.<get-name>|<get-name>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.archive/ArchiveFormat.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.archive/ArchiveFormat.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive/ArchiveFormat.toString|toString(){}[0]
+
+    final object Companion { // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion|null[0]
+        final val AR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.AR|{}AR[0]
+            final fun <get-AR>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.AR.<get-AR>|<get-AR>(){}[0]
+        final val BROTLI // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BROTLI|{}BROTLI[0]
+            final fun <get-BROTLI>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BROTLI.<get-BROTLI>|<get-BROTLI>(){}[0]
+        final val BZIP2 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BZIP2|{}BZIP2[0]
+            final fun <get-BZIP2>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.BZIP2.<get-BZIP2>|<get-BZIP2>(){}[0]
+        final val CPIO // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CPIO|{}CPIO[0]
+            final fun <get-CPIO>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.CPIO.<get-CPIO>|<get-CPIO>(){}[0]
+        final val GZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.GZIP|{}GZIP[0]
+            final fun <get-GZIP>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.GZIP.<get-GZIP>|<get-GZIP>(){}[0]
+        final val LZ4 // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZ4|{}LZ4[0]
+            final fun <get-LZ4>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZ4.<get-LZ4>|<get-LZ4>(){}[0]
+        final val LZMA // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZMA|{}LZMA[0]
+            final fun <get-LZMA>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.LZMA.<get-LZMA>|<get-LZMA>(){}[0]
+        final val RAR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.RAR|{}RAR[0]
+            final fun <get-RAR>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.RAR.<get-RAR>|<get-RAR>(){}[0]
+        final val SEVEN_ZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SEVEN_ZIP|{}SEVEN_ZIP[0]
+            final fun <get-SEVEN_ZIP>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SEVEN_ZIP.<get-SEVEN_ZIP>|<get-SEVEN_ZIP>(){}[0]
+        final val SNAPPY // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SNAPPY|{}SNAPPY[0]
+            final fun <get-SNAPPY>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.SNAPPY.<get-SNAPPY>|<get-SNAPPY>(){}[0]
+        final val TAR // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.TAR|{}TAR[0]
+            final fun <get-TAR>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.TAR.<get-TAR>|<get-TAR>(){}[0]
+        final val UNKNOWN // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.UNKNOWN|{}UNKNOWN[0]
+            final fun <get-UNKNOWN>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.UNKNOWN.<get-UNKNOWN>|<get-UNKNOWN>(){}[0]
+        final val XZ // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.XZ|{}XZ[0]
+            final fun <get-XZ>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.XZ.<get-XZ>|<get-XZ>(){}[0]
+        final val ZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZIP|{}ZIP[0]
+            final fun <get-ZIP>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZIP.<get-ZIP>|<get-ZIP>(){}[0]
+        final val ZLIB // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZLIB|{}ZLIB[0]
+            final fun <get-ZLIB>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZLIB.<get-ZLIB>|<get-ZLIB>(){}[0]
+        final val ZSTD // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZSTD|{}ZSTD[0]
+            final fun <get-ZSTD>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZSTD.<get-ZSTD>|<get-ZSTD>(){}[0]
+    }
+}
+
+final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions|null[0]
+    final val codecs // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.codecs|{}codecs[0]
+        final fun <get-codecs>(): io.github.yuroyami.archivekodec.codec/CodecRegistry // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.codecs.<get-codecs>|<get-codecs>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.limits.<get-limits>|<get-limits>(){}[0]
+    final val nameDecoder // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.nameDecoder|{}nameDecoder[0]
+        final fun <get-nameDecoder>(): io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.nameDecoder.<get-nameDecoder>|<get-nameDecoder>(){}[0]
+
+    final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions.Builder,kotlin.Unit>){}[0]
+
+    final class Builder { // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder|null[0]
+        constructor <init>() // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.<init>|<init>(){}[0]
+
+        final var codecs // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs|{}codecs[0]
+            final fun <get-codecs>(): io.github.yuroyami.archivekodec.codec/CodecRegistry // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs.<get-codecs>|<get-codecs>(){}[0]
+            final fun <set-codecs>(io.github.yuroyami.archivekodec.codec/CodecRegistry) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs.<set-codecs>|<set-codecs>(io.github.yuroyami.archivekodec.codec.CodecRegistry){}[0]
+        final var limits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.limits|{}limits[0]
+            final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.limits.<get-limits>|<get-limits>(){}[0]
+            final fun <set-limits>(io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.limits.<set-limits>|<set-limits>(io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+        final var nameDecoder // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.nameDecoder|{}nameDecoder[0]
+            final fun <get-nameDecoder>(): io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.nameDecoder.<get-nameDecoder>|<get-nameDecoder>(){}[0]
+            final fun <set-nameDecoder>(io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder?) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.nameDecoder.<set-nameDecoder>|<set-nameDecoder>(io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder?){}[0]
+
+        final fun build(): io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.build|build(){}[0]
+    }
+
+    final object Companion { // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Companion|null[0]
+        final val DEFAULT // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+
+        final fun invoke(kotlin/Function1<io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Companion.invoke|invoke(kotlin.Function1<io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions.Builder,kotlin.Unit>){}[0]
+    }
+}
+
 final class io.github.yuroyami.archivekodec.archive/ByteArrayRandomAccessSource : io.github.yuroyami.archivekodec.archive/RandomAccessSource { // io.github.yuroyami.archivekodec.archive/ByteArrayRandomAccessSource|null[0]
     constructor <init>(kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive/ByteArrayRandomAccessSource.<init>|<init>(kotlin.ByteArray){}[0]
 
@@ -281,6 +346,33 @@ final class io.github.yuroyami.archivekodec.archive/ByteArrayRandomAccessSource 
 
     final fun read(kotlin/Long, kotlin/ByteArray, kotlin/Int, kotlin/Int): kotlin/Int // io.github.yuroyami.archivekodec.archive/ByteArrayRandomAccessSource.read|read(kotlin.Long;kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive/ByteArrayRandomAccessSource.toString|toString(){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.archive/FormatRegistry { // io.github.yuroyami.archivekodec.archive/FormatRegistry|null[0]
+    final val formats // io.github.yuroyami.archivekodec.archive/FormatRegistry.formats|{}formats[0]
+        final fun <get-formats>(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/FormatSpec> // io.github.yuroyami.archivekodec.archive/FormatRegistry.formats.<get-formats>|<get-formats>(){}[0]
+
+    final fun byId(io.github.yuroyami.archivekodec.archive/ArchiveFormat): io.github.yuroyami.archivekodec.archive/FormatSpec? // io.github.yuroyami.archivekodec.archive/FormatRegistry.byId|byId(io.github.yuroyami.archivekodec.archive.ArchiveFormat){}[0]
+    final fun byName(kotlin/String): io.github.yuroyami.archivekodec.archive/FormatSpec? // io.github.yuroyami.archivekodec.archive/FormatRegistry.byName|byName(kotlin.String){}[0]
+    final fun sniff(io.github.yuroyami.archivekodec.archive/RandomAccessSource): io.github.yuroyami.archivekodec.archive/FormatSpec? // io.github.yuroyami.archivekodec.archive/FormatRegistry.sniff|sniff(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    final fun with(io.github.yuroyami.archivekodec.archive/FormatSpec): io.github.yuroyami.archivekodec.archive/FormatRegistry // io.github.yuroyami.archivekodec.archive/FormatRegistry.with|with(io.github.yuroyami.archivekodec.archive.FormatSpec){}[0]
+
+    final object Companion { // io.github.yuroyami.archivekodec.archive/FormatRegistry.Companion|null[0]
+        final val DEFAULT // io.github.yuroyami.archivekodec.archive/FormatRegistry.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.archive/FormatRegistry // io.github.yuroyami.archivekodec.archive/FormatRegistry.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+    }
+}
+
+final class io.github.yuroyami.archivekodec.archive/FormatSpec { // io.github.yuroyami.archivekodec.archive/FormatSpec|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/ArchiveFormat, io.github.yuroyami.archivekodec.archive/FormatMatcher, io.github.yuroyami.archivekodec.archive/FormatReaderFactory) // io.github.yuroyami.archivekodec.archive/FormatSpec.<init>|<init>(io.github.yuroyami.archivekodec.archive.ArchiveFormat;io.github.yuroyami.archivekodec.archive.FormatMatcher;io.github.yuroyami.archivekodec.archive.FormatReaderFactory){}[0]
+    constructor <init>(kotlin/String, io.github.yuroyami.archivekodec.archive/FormatMatcher, io.github.yuroyami.archivekodec.archive/FormatReaderFactory) // io.github.yuroyami.archivekodec.archive/FormatSpec.<init>|<init>(kotlin.String;io.github.yuroyami.archivekodec.archive.FormatMatcher;io.github.yuroyami.archivekodec.archive.FormatReaderFactory){}[0]
+
+    final val id // io.github.yuroyami.archivekodec.archive/FormatSpec.id|{}id[0]
+        final fun <get-id>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/FormatSpec.id.<get-id>|<get-id>(){}[0]
+
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive/FormatSpec.toString|toString(){}[0]
+
+    final object Companion // io.github.yuroyami.archivekodec.archive/FormatSpec.Companion|null[0]
 }
 
 final class io.github.yuroyami.archivekodec.checksum/Adler32 : io.github.yuroyami.archivekodec.checksum/Checksum { // io.github.yuroyami.archivekodec.checksum/Adler32|null[0]
@@ -921,13 +1013,19 @@ final object io.github.yuroyami.archivekodec/ArchiveKodec { // io.github.yuroyam
     final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
     final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
     final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/FormatRegistry, kotlin/String? = ..., io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions = ...): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.FormatRegistry;kotlin.String?;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
     final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, kotlin/String?, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions = ...): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;kotlin.String?;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
     final fun open(kotlin/ByteArray): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(kotlin.ByteArray){}[0]
     final fun open(kotlin/ByteArray, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(kotlin.ByteArray;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
     final fun open(kotlin/ByteArray, io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(kotlin.ByteArray;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun open(kotlin/ByteArray, io.github.yuroyami.archivekodec.archive/FormatRegistry, kotlin/String? = ..., io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions = ...): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(kotlin.ByteArray;io.github.yuroyami.archivekodec.archive.FormatRegistry;kotlin.String?;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
     final fun open(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun open(kotlin/ByteArray, kotlin/String?, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions = ...): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec/ArchiveKodec.open|open(kotlin.ByteArray;kotlin.String?;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
     final fun sniff(io.github.yuroyami.archivekodec.archive/RandomAccessSource): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec/ArchiveKodec.sniff|sniff(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    final fun sniff(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/FormatRegistry): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec/ArchiveKodec.sniff|sniff(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.FormatRegistry){}[0]
     final fun sniff(kotlin/ByteArray): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec/ArchiveKodec.sniff|sniff(kotlin.ByteArray){}[0]
+    final fun sniff(kotlin/ByteArray, io.github.yuroyami.archivekodec.archive/FormatRegistry): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec/ArchiveKodec.sniff|sniff(kotlin.ByteArray;io.github.yuroyami.archivekodec.archive.FormatRegistry){}[0]
 }
 
 final fun (io.github.yuroyami.archivekodec.archive/ArchiveReader).io.github.yuroyami.archivekodec.archive/asAutoCloseable(): kotlin/AutoCloseable // io.github.yuroyami.archivekodec.archive/asAutoCloseable|asAutoCloseable@io.github.yuroyami.archivekodec.archive.ArchiveReader(){}[0]

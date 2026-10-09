@@ -384,19 +384,19 @@ expectFailure("unsupported container", check: { $0 is ArchiveUnsupportedExceptio
 }
 for octets in [Array("x = 1\n".utf8), Array("BZh is a name".utf8), [0x50, 0x4b, 0x05, 0xff]] {
     let source = ByteArrayRandomAccessSource(data: bytes(octets))
-    precondition(ArchiveKodec.shared.sniff(header: bytes(octets)) == ArchiveFormat.unknown)
+    precondition(ArchiveKodec.shared.sniff(header: bytes(octets)) == ArchiveFormat.companion.UNKNOWN)
     expectFailure("unrecognized format", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 0 }) {
         _ = try ArchiveKodec.shared.open(source: source)
     }
     try source.close()
 }
 let dictionaryPrefix = bytes([0x78, 0x20, 0x2e, 0x59, 0x05, 0xce, 0x03, 0, 0, 0, 0, 1])
-precondition(ArchiveKodec.shared.sniff(header: dictionaryPrefix) == ArchiveFormat.zlib)
-precondition(ArchiveKodec.shared.sniff(header: bytes([0x78, 0x9c])) == ArchiveFormat.zlib)
+precondition(ArchiveKodec.shared.sniff(header: dictionaryPrefix) == ArchiveFormat.companion.ZLIB)
+precondition(ArchiveKodec.shared.sniff(header: bytes([0x78, 0x9c])) == ArchiveFormat.companion.ZLIB)
 // Frozen first v7 record from an independently verified TAR archive.
 let v7Header = Array(Data(base64Encoded: "Zi50eHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAwMDAwMAAwMDAwMDAwADAwMDAwMDAwMDAxADAwMDAwMDAwMDAwADAwNTUwMwAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")!)
 let v7Reader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes(v7Header + [97] + Array(repeating: 0, count: 1535))))
-precondition(v7Reader.format == ArchiveFormat.tar)
+precondition(v7Reader.format == ArchiveFormat.companion.TAR)
 let v7Entry = try v7Reader.entries()[0]
 precondition(v7Entry.name == "f.txt")
 let v7Payload = try v7Reader.read(entry: v7Entry, limits: limits)
@@ -404,7 +404,7 @@ precondition(v7Payload.size == 1 && v7Payload.get(index: 0) == 97)
 try v7Reader.close()
 let emptyTarReader = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: KotlinByteArray(size: 512)))
 let emptyTarEntries = try emptyTarReader.entries()
-precondition(emptyTarReader.format == ArchiveFormat.tar && emptyTarEntries.isEmpty)
+precondition(emptyTarReader.format == ArchiveFormat.companion.TAR && emptyTarEntries.isEmpty)
 try emptyTarReader.close()
 
 // Frozen reference headers verify pathname layout through the Swift consumer.
@@ -418,7 +418,7 @@ for (encoded, expectedName) in layoutHeaders {
     let source = ByteArrayRandomAccessSource(data: bytes(header + layoutPayload + Array(repeating: 0, count: 1512)))
     let reader = try ArchiveKodec.shared.open(source: source)
     let entries = try reader.entries()
-    precondition(reader.format == ArchiveFormat.tar && entries.count == 1 && entries[0].name == expectedName)
+    precondition(reader.format == ArchiveFormat.companion.TAR && entries.count == 1 && entries[0].name == expectedName)
     let payload = try reader.read(entry: entries[0], limits: limits)
     precondition(payload.size == Int32(layoutPayload.count))
     for (index, value) in layoutPayload.enumerated() { precondition(payload.get(index: Int32(index)) == Int8(bitPattern: value)) }
@@ -575,7 +575,7 @@ let gnu64Object = Array(Data(base64Encoded: "ZIYFAJnXxWpGAQAADgAAAAAAAAAudGV4dAA
 let gnu64Source = ShortReadSource(data: bytes(gnu64Archive), chunk: 3)
 let gnu64Reader = try ArchiveKodec.shared.open(source: gnu64Source)
 let gnu64Entries = try gnu64Reader.entries()
-precondition(gnu64Reader.format == ArchiveFormat.ar && gnu64Entries.count == 1)
+precondition(gnu64Reader.format == ArchiveFormat.companion.AR && gnu64Entries.count == 1)
 let gnu64Entry = gnu64Entries[0]
 precondition(gnu64Entry.name == "first-long-member-name.obj" && !gnu64Entry.isDirectory)
 precondition(gnu64Entry.dataOffset == 246 && gnu64Entry.size == Int64(gnu64Object.count))
@@ -603,7 +603,7 @@ let coffObjects: [[UInt8]] = [
 let coffSource = ShortReadSource(data: bytes(coffArchive), chunk: 3)
 let coffReader = try ArchiveKodec.shared.open(source: coffSource)
 let coffEntries = try coffReader.entries()
-precondition(coffReader.format == ArchiveFormat.ar)
+precondition(coffReader.format == ArchiveFormat.companion.AR)
 precondition(coffEntries.map { $0.name } == ["first-long-member-name.obj", "second-long-member-name.obj"])
 precondition(coffEntries.map { $0.dataOffset } == [388, 1056])
 for (index, entry) in coffEntries.enumerated() {
@@ -733,7 +733,7 @@ precondition(bsdControlSource.closes == 1)
 // returning complete metadata and payloads to Swift.
 let shortEmptyZip = ShortReadSource(data: bytes([0x50, 0x4b, 0x05, 0x06] + Array(repeating: 0, count: 18)), chunk: 1)
 let shortEmptyZipReader = try ArchiveKodec.shared.open(source: shortEmptyZip)
-precondition(shortEmptyZipReader.format == ArchiveFormat.zip && shortEmptyZip.calls == 22)
+precondition(shortEmptyZipReader.format == ArchiveFormat.companion.ZIP && shortEmptyZip.calls == 22)
 let shortEmptyZipEntries = try shortEmptyZipReader.entries()
 precondition(shortEmptyZipEntries.isEmpty && shortEmptyZip.closes == 0)
 try shortEmptyZipReader.close()
@@ -742,7 +742,7 @@ precondition(shortEmptyZip.closes == 1)
 for chunk in [Int32(1), Int32(3)] {
     let source = ShortReadSource(data: bytes(v7Header + [97] + Array(repeating: 0, count: 1535)), chunk: chunk)
     let reader = try ArchiveKodec.shared.open(source: source)
-    precondition(reader.format == ArchiveFormat.tar && source.calls == (512 + chunk - 1) / chunk)
+    precondition(reader.format == ArchiveFormat.companion.TAR && source.calls == (512 + chunk - 1) / chunk)
     let entries = try reader.entries()
     precondition(entries.count == 1)
     let entry = entries[0]
@@ -754,7 +754,7 @@ for chunk in [Int32(1), Int32(3)] {
 }
 let shortEmptyTar = ShortReadSource(data: KotlinByteArray(size: 512), chunk: 1)
 let shortEmptyTarReader = try ArchiveKodec.shared.open(source: shortEmptyTar)
-precondition(shortEmptyTarReader.format == ArchiveFormat.tar && shortEmptyTar.calls == 512)
+precondition(shortEmptyTarReader.format == ArchiveFormat.companion.TAR && shortEmptyTar.calls == 512)
 let shortEmptyTarEntries = try shortEmptyTarReader.entries()
 precondition(shortEmptyTarEntries.isEmpty && shortEmptyTar.closes == 0)
 try shortEmptyTarReader.close()

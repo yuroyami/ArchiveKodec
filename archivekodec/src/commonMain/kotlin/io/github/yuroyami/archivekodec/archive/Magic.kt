@@ -18,6 +18,9 @@ import io.github.yuroyami.archivekodec.wrapper.hasZlibHeader
  * identify reliably here, so this object never returns BROTLI or LZMA.
  * SNAPPY identifies the standard framed stream header. A match identifies a format
  * candidate; readers and codecs validate its complete structure and payload.
+ * This object contains only the built-in header rules. Use [FormatRegistry] or
+ * [io.github.yuroyami.archivekodec.ArchiveKodec.sniff] with a registry for custom
+ * probes, including formats whose signatures occur beyond the header.
  */
 public object Magic {
 

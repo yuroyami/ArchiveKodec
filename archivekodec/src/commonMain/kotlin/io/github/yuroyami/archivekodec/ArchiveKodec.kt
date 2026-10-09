@@ -4,13 +4,11 @@ import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
-import io.github.yuroyami.archivekodec.archive.Magic
+import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
+import io.github.yuroyami.archivekodec.archive.FormatRegistry
+import io.github.yuroyami.archivekodec.archive.FormatSpec
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
-import io.github.yuroyami.archivekodec.archive.ar.ArReader
-import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
-import io.github.yuroyami.archivekodec.archive.tar.TarReader
-import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipEndRecord
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
@@ -18,6 +16,7 @@ import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlin.jvm.JvmStatic
+import kotlin.jvm.JvmOverloads
 
 /**
  * Top-level entry point for the library. Use it to detect an archive format, get a
@@ -42,7 +41,8 @@ public object ArchiveKodec {
 
     /** Detect the format of a header buffer. */
     @JvmStatic
-    public fun sniff(header: ByteArray): ArchiveFormat = Magic.sniff(header)
+    public fun sniff(header: ByteArray): ArchiveFormat =
+        FormatRegistry.DEFAULT.sniff(ByteArrayRandomAccessSource(header))?.id ?: ArchiveFormat.UNKNOWN
 
     /**
      * Detect the format of a seekable source (reads up to the first 512 bytes).
@@ -52,7 +52,26 @@ public object ArchiveKodec {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun sniff(source: RandomAccessSource): ArchiveFormat = Magic.sniff(source)
+    public fun sniff(source: RandomAccessSource): ArchiveFormat = sniff(source, FormatRegistry.DEFAULT)
+
+    /**
+     * Detect with [formats], including custom probes beyond the built-in header.
+     * The full supplied buffer is available to probes; no source ownership transfers.
+     * @throws ArchiveException if a custom probe fails.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun sniff(header: ByteArray, formats: FormatRegistry): ArchiveFormat =
+        sniff(ByteArrayRandomAccessSource(header), formats)
+
+    /**
+     * Detect with an immutable registry without opening or closing [source].
+     * @throws ArchiveException if a probe or source read fails.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun sniff(source: RandomAccessSource, formats: FormatRegistry): ArchiveFormat =
+        formats.sniff(source)?.id ?: ArchiveFormat.UNKNOWN
 
     /** The codec in the immutable default registry for [id], or null if unavailable. */
     @JvmStatic
@@ -144,7 +163,8 @@ public object ArchiveKodec {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun open(bytes: ByteArray, limits: ArchiveLimits): ArchiveReader = openBytes(bytes, null, limits)
+    public fun open(bytes: ByteArray, limits: ArchiveLimits): ArchiveReader =
+        openBytes(bytes, FormatRegistry.DEFAULT, null, options(null, limits))
 
     /**
      * Open archive [bytes] with explicit filename decoding and default limits.
@@ -169,7 +189,7 @@ public object ArchiveKodec {
     @Throws(ArchiveException::class)
     @JvmStatic
     public fun open(bytes: ByteArray, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): ArchiveReader =
-        openBytes(bytes, nameDecoder, limits)
+        openBytes(bytes, FormatRegistry.DEFAULT, null, options(nameDecoder, limits))
 
     /**
      * Open a container reader for a seekable [source], dispatching on the sniffed
@@ -206,7 +226,8 @@ public object ArchiveKodec {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun open(source: RandomAccessSource, limits: ArchiveLimits): ArchiveReader = openSource(source, null, limits, true)
+    public fun open(source: RandomAccessSource, limits: ArchiveLimits): ArchiveReader =
+        openSource(source, FormatRegistry.DEFAULT, null, options(null, limits), true)
 
     /**
      * Open with explicit filename decoding; ZIP Unicode metadata still takes precedence.
@@ -238,33 +259,108 @@ public object ArchiveKodec {
     @Throws(ArchiveException::class)
     @JvmStatic
     public fun open(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): ArchiveReader =
-        openSource(source, nameDecoder, limits, true)
+        openSource(source, FormatRegistry.DEFAULT, null, options(nameDecoder, limits), true)
 
-    private fun openBytes(bytes: ByteArray, nameDecoder: ArchiveNameDecoder?, limits: ArchiveLimits): ArchiveReader {
-        val content = if (sniff(bytes) == ArchiveFormat.GZIP) Gzip.decompress(bytes, limits) else bytes
-        return openSource(ByteArrayRandomAccessSource(content), nameDecoder, limits, false)
+    /**
+     * Open using [formats] and [options]. A non-null [format] selects its identifier
+     * directly and skips all probes and ZIP footer fallback. Otherwise the first
+     * matching descriptor wins; no match falls back to the registered ZIP reader
+     * when a valid ZIP footer is present. Failed opens retain caller ownership.
+     * Built-in gzip unwraps at most once using the same registry and options inside.
+     * Custom factories must enforce the supplied policy and own the source on success.
+     *
+     * @throws ArchiveFormatException if automatic detection finds no archive or built-in metadata is malformed.
+     * @throws ArchiveUnsupportedException if the selected id is unregistered, has no reader, or needs an unsupported feature.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if wrapper decoding exceeds the policy.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
+     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
+     * @throws ArchiveException for other detection, opening, gzip or source failures, including custom callback failures.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
+    public fun open(
+        source: RandomAccessSource, formats: FormatRegistry, format: String? = null,
+        options: ArchiveOpenOptions = ArchiveOpenOptions.DEFAULT,
+    ): ArchiveReader = openSource(source, formats, format, options, true)
+
+    /**
+     * Open bytes through a registry, or select [format] explicitly without probing.
+     * Plain arrays are borrowed until close; built-in gzip output is an independent
+     * snapshot. Policies, single-wrapper behavior and failures follow the source overload.
+     * @throws ArchiveException for detection, opening, gzip, policy or custom callback failures.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
+    public fun open(
+        bytes: ByteArray, formats: FormatRegistry, format: String? = null,
+        options: ArchiveOpenOptions = ArchiveOpenOptions.DEFAULT,
+    ): ArchiveReader = openBytes(bytes, formats, format, options)
+
+    /**
+     * Select a default-registered format directly, without sniffing or footer fallback;
+     * null uses automatic detection.
+     * Ownership transfers only when opening succeeds.
+     * @throws ArchiveException for an unknown id or an opening, gzip, source or policy failure.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
+    public fun open(
+        source: RandomAccessSource, format: String?, options: ArchiveOpenOptions = ArchiveOpenOptions.DEFAULT,
+    ): ArchiveReader = open(source, FormatRegistry.DEFAULT, format, options)
+
+    /**
+     * Open borrowed archive bytes as a default-registered format, or detect when null.
+     * Built-in gzip takes an independent snapshot under [options].
+     * @throws ArchiveException for an unknown id or an opening, gzip or policy failure.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    @JvmOverloads
+    public fun open(
+        bytes: ByteArray, format: String?, options: ArchiveOpenOptions = ArchiveOpenOptions.DEFAULT,
+    ): ArchiveReader = open(bytes, FormatRegistry.DEFAULT, format, options)
+
+    private fun options(names: ArchiveNameDecoder?, policy: ArchiveLimits): ArchiveOpenOptions =
+        if (names == null && policy === ArchiveLimits.DEFAULT) ArchiveOpenOptions.DEFAULT
+        else ArchiveOpenOptions { nameDecoder = names; limits = policy }
+
+    private fun select(source: RandomAccessSource, formats: FormatRegistry, format: String?): FormatSpec {
+        if (format != null) return formats.byName(format)
+            ?: throw ArchiveUnsupportedException("no registered format '$format'", offset = 0)
+        return formats.sniff(source)
+            ?: if (ZipEndRecord.find(source) != null) formats.byId(ArchiveFormat.ZIP)
+                ?: throw ArchiveUnsupportedException("no container reader for ZIP", offset = 0)
+            else throw ArchiveFormatException("unrecognized archive format", 0)
+    }
+
+    private fun openBytes(
+        bytes: ByteArray, formats: FormatRegistry, format: String?, options: ArchiveOpenOptions,
+    ): ArchiveReader {
+        val source = ByteArrayRandomAccessSource(bytes)
+        val spec = select(source, formats, format)
+        if (spec.builtin && spec.id == ArchiveFormat.GZIP) {
+            val content = Gzip.decompress(bytes, options.limits)
+            return openSource(ByteArrayRandomAccessSource(content), formats, null, options, false)
+        }
+        return spec.open(source, options)
     }
 
     private fun openSource(
-        source: RandomAccessSource, nameDecoder: ArchiveNameDecoder?, limits: ArchiveLimits, unwrapGzip: Boolean,
-    ): ArchiveReader = when (val format = containerFormat(source)) {
-        ArchiveFormat.TAR -> TarReader(source, nameDecoder ?: ArchiveNameDecoder.UTF8, limits)
-        ArchiveFormat.ZIP -> ZipReader(source, nameDecoder ?: ArchiveNameDecoder.CP437, limits)
-        ArchiveFormat.AR -> ArReader(source, nameDecoder ?: ArchiveNameDecoder.UTF8, limits)
-        ArchiveFormat.CPIO -> CpioReader(source, nameDecoder ?: ArchiveNameDecoder.UTF8, limits)
-        ArchiveFormat.GZIP -> {
+        source: RandomAccessSource, formats: FormatRegistry, format: String?,
+        options: ArchiveOpenOptions, unwrapGzip: Boolean,
+    ): ArchiveReader {
+        val spec = select(source, formats, format)
+        if (spec.builtin && spec.id == ArchiveFormat.GZIP) {
             if (!unwrapGzip) throw ArchiveUnsupportedException("no container reader for nested GZIP", offset = 0)
-            val content = Gzip.decompress(source.readFullyChecked(0, source.size), limits)
-            openSource(GzipContainerSource(content, source), nameDecoder, limits, false)
+            val content = Gzip.decompress(source.readFullyChecked(0, source.size), options.limits)
+            return openSource(GzipContainerSource(content, source), formats, null, options, false)
         }
-        ArchiveFormat.UNKNOWN -> throw ArchiveFormatException("unrecognized archive format", 0)
-        else -> throw ArchiveUnsupportedException("no container reader for $format", offset = 0)
+        return spec.open(source, options)
     }
 
-    private fun containerFormat(source: RandomAccessSource): ArchiveFormat {
-        val header = sniff(source)
-        return if (header == ArchiveFormat.UNKNOWN && ZipEndRecord.find(source) != null) ArchiveFormat.ZIP else header
-    }
 }
 
 /** Holds the compressed source until its snapshot's reader closes; failed opens retain caller ownership. */

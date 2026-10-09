@@ -606,6 +606,59 @@ The readers read through the `RandomAccessSource` interface, which supports seek
 and read. `ByteArrayRandomAccessSource` is the only implementation in the
 library. The whole archive must therefore be in memory before you can open it.
 
+## Register a container format
+
+`ArchiveFormat` is an open value: `ArchiveFormat("squashfs")` gives a custom
+reader an honest identifier. Its `id` is lowercase ASCII, while `name` and
+`toString()` keep uppercase diagnostic names. There is no exhaustive enum list.
+Use the same identifier for the descriptor and `ArchiveReader.format`.
+
+```kotlin
+import io.github.yuroyami.archivekodec.ArchiveKodec
+import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
+import io.github.yuroyami.archivekodec.archive.FormatRegistry
+import io.github.yuroyami.archivekodec.archive.FormatSpec
+import io.github.yuroyami.archivekodec.archive.readFully
+
+val squash = FormatSpec(
+    id = "squashfs",
+    matches = { source ->
+        source.size >= 4 && source.readFully(0, 4).decodeToString() == "hsqs"
+    },
+    open = { source, options -> MySquashReader(source, options) },
+)
+val formats = FormatRegistry.DEFAULT.with(squash)
+val options = ArchiveOpenOptions { limits = myLimits; codecs = myCodecs }
+val reader = ArchiveKodec.open(bytes, formats, options = options)
+```
+
+`MySquashReader` is your implementation. Its factory receives the selected limits,
+filename decoder and codec registry through immutable `ArchiveOpenOptions`; it
+must enforce the policies relevant to that format. Null `nameDecoder` preserves
+each built-in reader's default. Closing the returned reader must close the source.
+A failed factory must leave the source open for the caller.
+
+`with` returns an independent registry. The newest descriptor runs first and
+replaces an earlier descriptor with the same id. Detectors can read at any offset,
+including ISO 9660's signature at 32769; bounds-check before reading short inputs.
+A detector must not close or retain the source. Probe failures propagate, while
+`false` proceeds to the next descriptor. All built-in probes share one 512-byte
+header read. `Magic` remains the low-level built-in header detector.
+
+```kotlin
+ArchiveKodec.sniff(bytes, formats)          // Also accepts a RandomAccessSource.
+ArchiveKodec.open(bytes, formats, format = "squashfs", options = options)
+ArchiveKodec.open(source, format = "tar")  // Explicit built-in selection.
+```
+
+An explicit id skips all probing and ZIP footer fallback; the selected reader
+still validates its input. Automatic opening uses the first match, then the ZIP
+footer fallback if no descriptor matches. Recognized formats without a reader
+throw `ArchiveUnsupportedException`. Built-in gzip opening unwraps once, applying
+the same registry and options to the contained archive. Replacing the gzip
+descriptor uses your factory instead. Plain byte arrays remain borrowed until
+close; gzip output is an independent snapshot. No registry changes global defaults.
+
 ## Write TAR and tar.gz
 
 ```kotlin

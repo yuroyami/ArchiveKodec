@@ -17,6 +17,11 @@ import kotlin.native.HiddenFromObjC
  * the reader to release it, including after a listing or read failure. Readers
  * are not thread-safe, even with a thread-safe source: keep each reader on one
  * thread or externally serialize all operations, including [close].
+ *
+ * Custom readers return an open [ArchiveFormat] identifier. Register their probe
+ * and factory in [FormatRegistry] with a [FormatSpec] using the same identifier;
+ * factories receive [ArchiveOpenOptions] and must honor its policy and ownership
+ * contract. Supply the registry to [io.github.yuroyami.archivekodec.ArchiveKodec.open].
  */
 public interface ArchiveReader {
     /** The container format this reader handles. */

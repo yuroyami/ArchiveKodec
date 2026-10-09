@@ -104,6 +104,14 @@ is an open value identified by its lowercase name, and availability comes from
 registry lookups. See the [README](https://github.com/yuroyami/ArchiveKodec#compress-and-decompress)
 for registration, framing and limit requirements.
 
+Custom readers can register a `FormatSpec` in `FormatRegistry.DEFAULT.with(spec)`.
+Pass that registry to `ArchiveKodec.sniff` or `open`; detectors may read beyond the
+first 512 bytes. `open(source, format = "tar")` selects an id without probing.
+`ArchiveOpenOptions` carries limits, filename decoding and codec bindings into
+reader factories, including through one gzip wrapper. See
+[format registration](https://github.com/yuroyami/ArchiveKodec#register-a-container-format)
+for callback and ownership contracts.
+
 **Everything is whole-array.** You pass a `ByteArray` and get a `ByteArray` back,
 so the payload sits fully in memory. There is no streaming API.
 

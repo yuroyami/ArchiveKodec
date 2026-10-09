@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Breaking:** `ArchiveFormat` is now an open immutable identifier class. Recompile
+  consumers, add fallback branches to dispatch, and replace enum enumeration/ordinal
+  usage with registered descriptors.
+  `id` is canonical lowercase ASCII; existing constants, uppercase `name` and
+  diagnostic strings remain. Swift constants now use `ArchiveFormat.companion`.
+- Added immutable `FormatRegistry` and `FormatSpec` registration, custom detection
+  at arbitrary source offsets, and explicit format selection through `ArchiveKodec`.
+  New descriptors run first; built-in probes share one header read. Reader factories
+  receive immutable `ArchiveOpenOptions` for limits, names and codec bindings.
+  Gzip opening retains one-layer decoding, the selected registry and source ownership.
+
 - **Breaking:** `CodecId` is now an open immutable class, with canonical lowercase
   ASCII names and value equality. Existing constants and `displayName` remain;
   enum `entries`/`values`/`valueOf`/ordinals and the `implemented` flag are removed.

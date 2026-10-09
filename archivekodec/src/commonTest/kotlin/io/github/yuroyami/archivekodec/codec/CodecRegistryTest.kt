@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.codec
 
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
+import io.github.yuroyami.archivekodec.archive.FormatRegistry
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -59,7 +60,7 @@ class CodecRegistryTest {
             assertSame(value, ArchiveKodec.codec(id))
             assertSame(value, ArchiveKodec.codec(id.name))
         }
-        for (format in ArchiveFormat.entries) assertSame(defaults.byFormat(format), ArchiveKodec.codec(format))
+        for (format in FormatRegistry.DEFAULT.formats.map { it.id } + ArchiveFormat.UNKNOWN) assertSame(defaults.byFormat(format), ArchiveKodec.codec(format))
         assertSame(Codecs.STORE, defaults.byZipMethod(0))
         assertSame(Codecs.DEFLATE, defaults.byZipMethod(8))
         for (method in listOf(-1, 9, 12, 14, 93, 98, 65535, 65536)) assertNull(defaults.byZipMethod(method))
