@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added bzip2: `Codecs.BZIP2` and `ArchiveKodec.bzip2` decode any block size,
+  concatenated streams and randomised blocks with CRC verification, and encode at
+  level 9. ZIP method 12 entries now read, and `ArchiveKodec.decompress` detects
+  bzip2 streams. A `.tar.bz2` opens with `ArchiveKodec.open(ArchiveKodec.decompress(bytes))`.
+
 - Added Deflate64 (PKWARE "enhanced deflate"): `Codecs.DEFLATE64`,
   `CodecId.DEFLATE64`, `ArchiveKodec.deflate64` and a default binding for ZIP
   method 9, so method-9 entries now read. Decoding supports the 64 KiB window and

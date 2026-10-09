@@ -993,6 +993,8 @@ final object io.github.yuroyami.archivekodec.codec.snappy/Snappy { // io.github.
 }
 
 final object io.github.yuroyami.archivekodec.codec/Codecs { // io.github.yuroyami.archivekodec.codec/Codecs|null[0]
+    final val BZIP2 // io.github.yuroyami.archivekodec.codec/Codecs.BZIP2|{}BZIP2[0]
+        final fun <get-BZIP2>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.BZIP2.<get-BZIP2>|<get-BZIP2>(){}[0]
     final val DEFLATE // io.github.yuroyami.archivekodec.codec/Codecs.DEFLATE|{}DEFLATE[0]
         final fun <get-DEFLATE>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.DEFLATE.<get-DEFLATE>|<get-DEFLATE>(){}[0]
     final val DEFLATE64 // io.github.yuroyami.archivekodec.codec/Codecs.DEFLATE64|{}DEFLATE64[0]
@@ -1053,6 +1055,8 @@ final object io.github.yuroyami.archivekodec.wrapper/Zlib { // io.github.yuroyam
 final object io.github.yuroyami.archivekodec/ArchiveKodec { // io.github.yuroyami.archivekodec/ArchiveKodec|null[0]
     final val VERSION // io.github.yuroyami.archivekodec/ArchiveKodec.VERSION|{}VERSION[0]
         final fun <get-VERSION>(): kotlin/String // io.github.yuroyami.archivekodec/ArchiveKodec.VERSION.<get-VERSION>|<get-VERSION>(){}[0]
+    final val bzip2 // io.github.yuroyami.archivekodec/ArchiveKodec.bzip2|{}bzip2[0]
+        final fun <get-bzip2>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec/ArchiveKodec.bzip2.<get-bzip2>|<get-bzip2>(){}[0]
     final val codecs // io.github.yuroyami.archivekodec/ArchiveKodec.codecs|{}codecs[0]
         final fun <get-codecs>(): kotlin.collections/List<io.github.yuroyami.archivekodec.codec/CodecId> // io.github.yuroyami.archivekodec/ArchiveKodec.codecs.<get-codecs>|<get-codecs>(){}[0]
     final val deflate // io.github.yuroyami.archivekodec/ArchiveKodec.deflate|{}deflate[0]

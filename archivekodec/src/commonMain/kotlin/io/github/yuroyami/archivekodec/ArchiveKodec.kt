@@ -105,6 +105,9 @@ public object ArchiveKodec {
     /** Raw Deflate64 codec, ZIP method 9. */
     @JvmStatic
     public val deflate64: Codec get() = Codecs.DEFLATE64
+    /** bzip2 codec; decoding accepts concatenated streams. */
+    @JvmStatic
+    public val bzip2: Codec get() = Codecs.BZIP2
     /** Gzip encoder and decoder; decoding also accepts one zlib stream. */
     @JvmStatic
     public val gzip: Codec get() = Codecs.GZIP
@@ -130,7 +133,7 @@ public object ArchiveKodec {
     public fun decompress(bytes: ByteArray): ByteArray = decompress(bytes, ArchiveLimits.DEFAULT)
 
     /**
-     * Sniff [bytes] and decode gzip, zlib, LZ4 or framed Snappy under [limits].
+     * Sniff [bytes] and decode gzip, zlib, bzip2, LZ4 or framed Snappy under [limits].
      * Only one framing layer is decoded; concatenated members follow the codec's
      * rules. Raw DEFLATE, raw Snappy, LZMA and brotli cannot be reliably sniffed and
      * need an explicit codec. Unsupported errors name the detected format.

@@ -4,6 +4,8 @@ import kotlin.jvm.JvmField
 import kotlin.jvm.JvmStatic
 
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
+import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Decoder
+import io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Encoder
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
@@ -42,6 +44,17 @@ public object Codecs {
         override val id = CodecId.DEFLATE64
         override fun compress(data: ByteArray): ByteArray = Deflate.encode64(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Inflate.inflate64(data, limits)
+    }
+
+    /**
+     * bzip2 at block size level 9. Decoding accepts any level, concatenated streams
+     * and randomised blocks, and verifies the block and stream CRCs.
+     */
+    @JvmField
+    public val BZIP2: Codec = object : Codec {
+        override val id = CodecId.BZIP2
+        override fun compress(data: ByteArray): ByteArray = Bzip2Encoder.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Bzip2Decoder.decompress(data, limits)
     }
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */

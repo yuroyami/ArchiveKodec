@@ -47,7 +47,7 @@ class CodecRegistryTest {
     }
 
     @Test fun supportComesFromTheRegistryAndFacadeUsesDefault() {
-        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.GZIP, Codecs.ZLIB,
+        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.GZIP, Codecs.ZLIB,
             Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED)
         assertEquals(expected.map { it.id }, defaults.implemented)
         assertEquals(defaults.implemented, Codecs.implemented)
@@ -64,7 +64,8 @@ class CodecRegistryTest {
         assertSame(Codecs.STORE, defaults.byZipMethod(0))
         assertSame(Codecs.DEFLATE, defaults.byZipMethod(8))
         assertSame(Codecs.DEFLATE64, defaults.byZipMethod(9))
-        for (method in listOf(-1, 11, 12, 14, 93, 98, 65535, 65536)) assertNull(defaults.byZipMethod(method))
+        assertSame(Codecs.BZIP2, defaults.byZipMethod(12))
+        for (method in listOf(-1, 11, 14, 93, 98, 65535, 65536)) assertNull(defaults.byZipMethod(method))
     }
 
     @Test fun derivedRegistriesAndReturnedIdListsCannotChangeEarlierBindings() {
@@ -109,7 +110,7 @@ class CodecRegistryTest {
     }
 
     @Test fun knownUnavailableMethodsBecomeAvailableWhenTheirIdIsRegistered() {
-        for ((method, id) in listOf(12 to CodecId.BZIP2, 14 to CodecId.LZMA, 93 to CodecId.ZSTD, 98 to CodecId.PPMD)) {
+        for ((method, id) in listOf(14 to CodecId.LZMA, 93 to CodecId.ZSTD, 98 to CodecId.PPMD)) {
             val engine = codec(id.name)
             assertSame(engine, defaults.with(engine).byZipMethod(method))
             assertNull(defaults.byZipMethod(method))

@@ -320,7 +320,7 @@ class ZipHeaderConsistencyTest {
     @Test
     fun otherConsistentUnsupportedMethodsReachTheDirectoryMethodError() {
         for ((number, expectedCodec) in listOf(
-            11 to CodecId("zip-method-11"), 12 to CodecId.BZIP2,
+            11 to CodecId("zip-method-11"),
             14 to CodecId.LZMA, 93 to CodecId.ZSTD, 98 to CodecId.PPMD,
             65535 to CodecId("zip-method-65535"),
         )) {
