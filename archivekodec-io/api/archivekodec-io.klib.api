@@ -6,6 +6,24 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.yuroyami:archivekodec-io>
+final class io.github.yuroyami.archivekodec.io/FileRandomAccessSource : io.github.yuroyami.archivekodec.archive/RandomAccessSource { // io.github.yuroyami.archivekodec.io/FileRandomAccessSource|null[0]
+    constructor <init>(kotlin/String) // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.<init>|<init>(kotlin.String){}[0]
+
+    final val size // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.size|{}size[0]
+        final fun <get-size>(): kotlin/Long // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.size.<get-size>|<get-size>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.close|close(){}[0]
+    final fun read(kotlin/Long, kotlin/ByteArray, kotlin/Int, kotlin/Int): kotlin/Int // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.read|read(kotlin.Long;kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.toString|toString(){}[0]
+
+    final object Companion { // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.Companion|null[0]
+        final const val CACHE_PAGES // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.Companion.CACHE_PAGES|{}CACHE_PAGES[0]
+            final fun <get-CACHE_PAGES>(): kotlin/Int // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.Companion.CACHE_PAGES.<get-CACHE_PAGES>|<get-CACHE_PAGES>(){}[0]
+        final const val PAGE_SIZE // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.Companion.PAGE_SIZE|{}PAGE_SIZE[0]
+            final fun <get-PAGE_SIZE>(): kotlin/Int // io.github.yuroyami.archivekodec.io/FileRandomAccessSource.Companion.PAGE_SIZE.<get-PAGE_SIZE>|<get-PAGE_SIZE>(){}[0]
+    }
+}
+
 final fun (io.github.yuroyami.archivekodec.codec/Codec).io.github.yuroyami.archivekodec.io/compress(kotlinx.io/RawSource): kotlin/ByteArray // io.github.yuroyami.archivekodec.io/compress|compress@io.github.yuroyami.archivekodec.codec.Codec(kotlinx.io.RawSource){}[0]
 final fun (io.github.yuroyami.archivekodec.codec/Codec).io.github.yuroyami.archivekodec.io/decompress(kotlinx.io/RawSource, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.io/decompress|decompress@io.github.yuroyami.archivekodec.codec.Codec(kotlinx.io.RawSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 final fun (kotlinx.io/RawSource).io.github.yuroyami.archivekodec.io/readAllBytes(): kotlin/ByteArray // io.github.yuroyami.archivekodec.io/readAllBytes|readAllBytes@kotlinx.io.RawSource(){}[0]

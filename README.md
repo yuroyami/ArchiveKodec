@@ -20,7 +20,7 @@ before 0.2.0 use older coordinates: 0.1.0 is `io.github.yuroyami:kitearchive`.
 | Artifact | Coordinates | What it holds |
 | --- | --- | --- |
 | Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers, ZIP, TAR, ar and cpio writers, checksums, the sniffer and the safety checks. Depends on `kotlin-stdlib` only |
-| IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | Four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
+| IO adapters | `io.github.yuroyami:archivekodec-io:0.2.0` | `FileRandomAccessSource`, a seekable file source, and four adapters over kotlinx-io `RawSource`. Adds `kotlinx-io-core` and the core as API dependencies |
 | Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0` | `CryptographyKotlinProvider`, the platform AES, HMAC and PBKDF2 that WinZip AES and 7z AES need. Adds cryptography-kotlin and the core as API dependencies |
 
 The core and the IO adapters build for every target in [Targets](#targets). The crypto
@@ -723,8 +723,8 @@ check-field offset. Checks are repeated on every read; overwritten bodies use
 an 8 KiB buffer, while output limits apply to the logical bytes returned.
 
 The readers read through the `RandomAccessSource` interface, which supports seek
-and read. `ByteArrayRandomAccessSource` is the only implementation in the
-library. The whole archive must therefore be in memory before you can open it.
+and read. The core ships `ByteArrayRandomAccessSource`; `archivekodec-io` adds
+`FileRandomAccessSource`, which reads a file on demand.
 
 ### GNU thin ar archives
 
@@ -1153,7 +1153,27 @@ them ([target tiers](https://kotlinlang.org/docs/native-target-support.html)).
 
 ## The `-io` artifact
 
-`archivekodec-io` is one common source file with four functions:
+`archivekodec-io` adds a file source and four kotlinx-io adapters.
+
+`FileRandomAccessSource` opens a file read-only and reads it on demand, so a
+multi-gigabyte archive can be listed and read without loading it:
+
+```kotlin
+ArchiveKodec.open(FileRandomAccessSource("/data/backup.zip")).use { reader ->
+    val entries = reader.entries()          // reads only the central directory
+    val one = reader.read(entries.first())  // reads only that member
+}
+```
+
+The reader owns the source and closes it. Small reads go through a cache of four
+64 KiB pages; larger reads go straight to the file. It uses `RandomAccessFile` on
+the JVM and Android, POSIX `pread` on Apple, Linux and Android native, `ReadFile`
+on Windows, and Node's `fs` on Kotlin/JS and Kotlin/Wasm (JS, Node 20.16 or later).
+Browsers and WASI have no file system, so there the constructor throws
+`ArchiveUnsupportedException`. Android content URIs (SAF) and other non-path
+sources still need a `RandomAccessSource` of your own.
+
+The adapters:
 
 ```kotlin
 fun RawSource.readAllBytes(): ByteArray
@@ -1162,32 +1182,23 @@ fun Codec.compress(source: RawSource): ByteArray
 fun Codec.decompress(source: RawSource, limits: ArchiveLimits = ArchiveLimits.DEFAULT): ByteArray
 ```
 
-Four facts about this artifact:
-
-- There is no `RawSink` bridge, no `FileHandle` and no seeking.
-- `toRandomAccessSource()` drains the entire source into a `ByteArray` and wraps
-  that.
-- These functions save you a `readByteArray()` call when you already hold a
-  kotlinx-io `RawSource`. That is all they do.
-- You cannot browse a large ZIP without loading all of it, because there is no
-  seekable file handle.
-
-Writing these four adapters yourself is usually less work than adding a second
-artifact and a kotlinx-io dependency.
+`toRandomAccessSource()` drains the entire source into a `ByteArray` and wraps it;
+use `FileRandomAccessSource` for files. There is no `RawSink` bridge yet, and a
+member is still read into one `ByteArray`.
 
 ## Limits
 
-- Whole-array only. Every entry point takes a `ByteArray` and returns a
-  `ByteArray`, and the only `RandomAccessSource` is backed by a `ByteArray`. A
-  2 GB archive needs 2 GB of heap plus room for the output. There is no streaming
-  or suspend API.
+- Whole-array output. Codecs take and return a `ByteArray`, and a member is read
+  into one `ByteArray`. Archives can be opened from a file without loading them
+  (`FileRandomAccessSource` in `archivekodec-io`), but there is no streaming or
+  suspend API for the output yet.
 - `PathGuard` is not wired into any reader. Path safety is the caller's
   responsibility. See
   [Sanitize entry names before writing them](#sanitize-entry-names-before-writing-them).
 - Built-in reader listings enforce `maxEntries`; initramfs listings additionally
   enforce `maxSegments`, including empty segments. Buffered APIs do not recurse
   into nested archives, so `maxNestingDepth` remains reserved. `maxDecoderMemory`
-  caps memory a header asks a decoder to allocate up front, which only PPMd does. Every implemented codec
+  caps memory a header asks a decoder to allocate up front: the PPMd model and the RAR5 window. Every implemented codec
   applies `checkRatio` before output allocation or growth. ZIP checks each entry;
   uncompressed TAR/ar/cpio reads check their known 1:1 ratio.
 - The default `maxCompressionRatio` of 10,000:1 cannot reject a valid stream from

@@ -12,9 +12,9 @@ import kotlin.jvm.JvmName
  * tail) and single-entry extract (seek to one local header) both need offset reads
  * rather than a forward-only stream.
  *
- * [ByteArrayRandomAccessSource] is the only implementation shipped, so an archive
- * has to be fully in memory before a reader can open it. Implement this interface
- * yourself to back a reader with a real file handle.
+ * The core ships [ByteArrayRandomAccessSource]; the `archivekodec-io` artifact adds
+ * `FileRandomAccessSource`, which reads a file on demand. Implement this interface
+ * yourself for other sources, such as an Android content URI.
  *
  * Supplying this source to a built-in reader transfers ownership to that reader;
  * close the reader to release it. Do not share an owned source with another reader

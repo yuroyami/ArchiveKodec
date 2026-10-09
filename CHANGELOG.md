@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `FileRandomAccessSource` in `archivekodec-io` opens an archive from a file path and reads
+  it on demand through a small page cache, so archives larger than memory can be listed
+  and read: `RandomAccessFile` on the JVM and Android, POSIX `pread` on Apple, Linux and
+  Android native, `ReadFile` on Windows, Node's `fs` on Kotlin/JS and Kotlin/Wasm (JS).
+  Browsers and WASI refuse it with `ArchiveUnsupportedException`.
+
 - RAR5 decompression. `RarReader` now reads compressed RAR5 members of every method,
   including solid archives (members read in listing order decode the stream once) and the
   delta, x86 E8/E8E9 and ARM filters, checked against their CRC-32. The window follows the

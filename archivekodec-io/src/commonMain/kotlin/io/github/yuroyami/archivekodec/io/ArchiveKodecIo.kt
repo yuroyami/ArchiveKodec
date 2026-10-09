@@ -21,8 +21,8 @@ import kotlin.jvm.JvmOverloads
  * a source. They live in a separate artifact so the kotlinx-io dependency never
  * reaches the core or consumers who only want the codecs.
  *
- * There is no `RawSink` bridge and no seekable file handle. Every function here
- * reads its source fully into memory.
+ * There is no `RawSink` bridge. Every function here reads its source fully into
+ * memory; for a seekable file, use [FileRandomAccessSource].
  *
  * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's concern.
  * These helpers operate on whatever source the app already holds.

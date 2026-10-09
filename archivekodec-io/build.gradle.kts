@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -12,19 +13,36 @@ plugins {
 }
 
 /*
- * :archivekodec-io is the kotlinx-io adapter. Today it is four convenience functions
- * over RawSource: drain to a ByteArray, wrap as an in-memory RandomAccessSource, and
- * run a Codec over a source. There is no RawSink bridge and no seekable file handle
- * yet — toRandomAccessSource() reads the whole source into memory.
+ * :archivekodec-io is the kotlinx-io adapter and the file source: convenience functions
+ * over RawSource (drain to a ByteArray, wrap as an in-memory RandomAccessSource, run a
+ * Codec over a source) and FileRandomAccessSource, a seekable file handle per platform.
  *
  * The target matrix is the same as :archivekodec's, so a consumer can put both in
  * one commonMain. kotlinx-io publishes a variant for every one of these targets.
  *
- * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's problem —
- * this module only adapts whatever Source the app already holds.
+ * Beyond opening a path, filesystem access (Android SAF, the iOS sandbox) stays the
+ * consumer's problem.
  */
 kotlin {
     explicitApi()
+    // FileRandomAccessSource needs a file handle per platform. Two groups share code:
+    // the JVM and Android use java.io, and Apple, Linux and Android native use POSIX.
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    applyDefaultHierarchyTemplate {
+        common {
+            group("jvmAndAndroid") {
+                withJvm()
+                withCompilations { it.target.platformType == KotlinPlatformType.androidJvm }
+            }
+            group("native") {
+                group("posix") {
+                    withApple()
+                    withLinux()
+                    withAndroidNative()
+                }
+            }
+        }
+    }
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {
         keepLocallyUnsupportedTargets.set(false)

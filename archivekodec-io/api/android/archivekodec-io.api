@@ -7,3 +7,18 @@ public final class io/github/yuroyami/archivekodec/io/ArchiveKodecIo {
 	public static final fun toRandomAccessSource (Lkotlinx/io/RawSource;)Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;
 }
 
+public final class io/github/yuroyami/archivekodec/io/FileRandomAccessSource : io/github/yuroyami/archivekodec/archive/RandomAccessSource {
+	public static final field CACHE_PAGES I
+	public static final field Companion Lio/github/yuroyami/archivekodec/io/FileRandomAccessSource$Companion;
+	public static final field PAGE_SIZE I
+	public fun <init> (Ljava/lang/String;)V
+	public fun close ()V
+	public fun getSize ()J
+	public fun read (J[B)I
+	public fun read (J[BII)I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/io/FileRandomAccessSource$Companion {
+}
+
