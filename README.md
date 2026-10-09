@@ -151,7 +151,7 @@ This is what works today:
 
 | Area | What is implemented |
 | --- | --- |
-| Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2 and xz both directions, gzip and zlib framing, LZ4 and Snappy both directions |
+| Codecs | DEFLATE, Deflate64, bzip2, LZMA, LZMA2, xz and zstd both directions, gzip and zlib framing, LZ4 and Snappy both directions |
 | Archives | ZIP read and write including ZIP64, GNU ar read and write, TAR read and write (regular files/directories), and cpio read and write (newc/crc) |
 | Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
 | Detection | A sniffer that names a format from its first bytes |
@@ -197,7 +197,7 @@ ArchiveKodec.deflate.compress(bytes)   // bare RFC 1951
 ArchiveKodec.store.compress(bytes)     // identity
 
 val out = ArchiveKodec.lz4.decompress(frameBytes)
-val detected = ArchiveKodec.decompress(compressedBytes) // gzip, zlib, bzip2, xz, LZ4 or framed Snappy
+val detected = ArchiveKodec.decompress(compressedBytes) // gzip, zlib, bzip2, xz, zstd, LZ4 or framed Snappy
 
 ArchiveKodec.codec("lz4")                 // Same instance as ArchiveKodec.lz4
 ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzip
@@ -212,6 +212,7 @@ ArchiveKodec.codec(ArchiveFormat.GZIP)      // Same instance as ArchiveKodec.gzi
 | LZMA (`.lzma`) | yes (known size or end marker) | yes (greedy/lazy parser, no end marker) |
 | LZMA2 (raw chunks) | yes | yes (LZMA chunks, stored when incompressible) |
 | xz | yes (CRC-32, CRC-64, SHA-256, delta and x86 BCJ filters, index, concatenated streams; other BCJ refused) | yes (one LZMA2 block, CRC-64) |
+| zstd (RFC 8878) | yes (all block, literal and table modes; skippable and concatenated frames; xxHash64 checked; dictionaries refused) | yes (predefined tables, raw literals) |
 | zlib (RFC 1950) | yes | yes |
 | gzip (RFC 1952) | all members, with header/trailer integrity checks | yes |
 | LZ4 (frame and block) | yes | yes |
@@ -263,8 +264,8 @@ fun readWithZstd(zipBytes: ByteArray, zstd: Codec): ByteArray {
 A replacement with the same id takes over all existing method bindings for that
 id: `DEFAULT.with(myDeflate)` replaces method 8 when `myDeflate.id` equals
 `CodecId.DEFLATE`. An explicit `zipMethod` can also bind a new id to a known or
-private method number in `0..65535`. Known unavailable methods 93/98 already
-map to ZSTD/PPMD, so adding one of those ids enables its method.
+private method number in `0..65535`. The known unavailable method 98 already
+maps to PPMD, so adding that id enables it.
 Lookups by id, name, format and ZIP method all use the selected registry.
 `ArchiveKodec` and `Codecs` convenience lookups always use `DEFAULT`.
 
@@ -291,7 +292,7 @@ Java and Swift do not check Kotlin opt-in markers, but the same caveat applies.
 `CodecId.SNAPPY_FRAMED` and `Codecs.SNAPPY_FRAMED` select standard `.sz` framing.
 The low-level `Snappy` object also exposes `frameCompress` and `frameDecompress`.
 
-`CodecId` also carries entries for zstd, brotli and PPMd.
+`CodecId` also carries entries for brotli and PPMd.
 None of those have an implementation. `ArchiveKodec.codec(...)` returns `null` for
 them. A ZIP entry that uses one of them appears in the entry list, but reading it
 throws.
@@ -611,7 +612,7 @@ fetching its payload. Encryption is refused even when a custom decoder is bound.
 
 | Format | Read | Write |
 | --- | --- | --- |
-| ZIP and ZIP64 | yes (STORE, DEFLATE, Deflate64, bzip2 and LZMA) | yes (STORE and DEFLATE) |
+| ZIP and ZIP64 | yes (STORE, DEFLATE, Deflate64, bzip2, LZMA and zstd) | yes (STORE and DEFLATE) |
 | TAR (v7, ustar, GNU, pax) | yes | ustar + GNU long names; regular files/directories |
 | 7z | yes (copy, LZMA, LZMA2, Deflate, Deflate64, bzip2, delta, BCJ x86; compressed headers; solid folders decoded once) | no |
 | ar (GNU) | yes | yes |
@@ -1021,8 +1022,8 @@ identifier and first block byte; explicit decompression still reports a typed
 unsupported-dictionary error.
 
 A match is format evidence, not full archive or stream validation. Readers and
-codecs validate the remaining structure and payload. The sniffer names zstd and
-RAR, and ArchiveKodec cannot decode either of those formats.
+codecs validate the remaining structure and payload. The sniffer names RAR, which
+ArchiveKodec cannot read yet.
 
 ## Targets
 
@@ -1301,7 +1302,7 @@ The table at the top lists what works today. Everything still missing has its ow
 issue, so the tracker is the current answer instead of a file that goes stale
 between releases.
 
-- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): zstd, brotli and PPMd.
+- [Missing codecs](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Amore-codecs): brotli and PPMd.
 - [Streaming and extraction](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Astreaming-api): reading from a file, and
   extracting without holding the whole archive in memory.
 - [Security hardening](https://github.com/yuroyami/ArchiveKodec/labels/plan%3Asecurity-hardening): one issue per guard listed under

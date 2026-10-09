@@ -53,6 +53,7 @@ public final class io/github/yuroyami/archivekodec/ArchiveKodec {
 	public static final fun getVERSION ()Ljava/lang/String;
 	public static final fun getXz ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getZlib ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getZstd ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
 	public static final fun open (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)Lio/github/yuroyami/archivekodec/archive/ArchiveReader;
@@ -794,6 +795,7 @@ public final class io/github/yuroyami/archivekodec/codec/Codecs {
 	public static final field STORE Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field XZ Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field ZLIB Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final field ZSTD Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byFormat (Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;)Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byId (Lio/github/yuroyami/archivekodec/codec/CodecId;)Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byName (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/codec/Codec;

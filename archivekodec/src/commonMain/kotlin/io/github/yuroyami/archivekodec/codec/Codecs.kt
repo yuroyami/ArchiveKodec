@@ -10,6 +10,8 @@ import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.lzma.Lzma2
 import io.github.yuroyami.archivekodec.codec.lzma.LzmaAlone
 import io.github.yuroyami.archivekodec.codec.lzma.Xz
+import io.github.yuroyami.archivekodec.codec.zstd.ZstdDecoder
+import io.github.yuroyami.archivekodec.codec.zstd.ZstdEncoder
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
 import io.github.yuroyami.archivekodec.codec.snappy.Snappy
@@ -90,6 +92,18 @@ public object Codecs {
         override val id = CodecId.XZ
         override fun compress(data: ByteArray): ByteArray = Xz.compress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Xz.decompress(data, limits)
+    }
+
+    /**
+     * Zstandard (RFC 8878). Decoding handles every block and table mode, repeat offsets,
+     * skippable and concatenated frames, and verifies the xxHash64 content checksum;
+     * dictionary frames are refused. Encoding writes one frame with predefined tables.
+     */
+    @JvmField
+    public val ZSTD: Codec = object : Codec {
+        override val id = CodecId.ZSTD
+        override fun compress(data: ByteArray): ByteArray = ZstdEncoder.compress(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = ZstdDecoder.decompress(data, limits)
     }
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */

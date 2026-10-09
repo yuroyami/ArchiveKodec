@@ -1034,6 +1034,8 @@ final object io.github.yuroyami.archivekodec.codec/Codecs { // io.github.yuroyam
         final fun <get-XZ>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.XZ.<get-XZ>|<get-XZ>(){}[0]
     final val ZLIB // io.github.yuroyami.archivekodec.codec/Codecs.ZLIB|{}ZLIB[0]
         final fun <get-ZLIB>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.ZLIB.<get-ZLIB>|<get-ZLIB>(){}[0]
+    final val ZSTD // io.github.yuroyami.archivekodec.codec/Codecs.ZSTD|{}ZSTD[0]
+        final fun <get-ZSTD>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec.codec/Codecs.ZSTD.<get-ZSTD>|<get-ZSTD>(){}[0]
     final val implemented // io.github.yuroyami.archivekodec.codec/Codecs.implemented|{}implemented[0]
         final fun <get-implemented>(): kotlin.collections/List<io.github.yuroyami.archivekodec.codec/CodecId> // io.github.yuroyami.archivekodec.codec/Codecs.implemented.<get-implemented>|<get-implemented>(){}[0]
 
@@ -1104,6 +1106,8 @@ final object io.github.yuroyami.archivekodec/ArchiveKodec { // io.github.yuroyam
         final fun <get-xz>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec/ArchiveKodec.xz.<get-xz>|<get-xz>(){}[0]
     final val zlib // io.github.yuroyami.archivekodec/ArchiveKodec.zlib|{}zlib[0]
         final fun <get-zlib>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec/ArchiveKodec.zlib.<get-zlib>|<get-zlib>(){}[0]
+    final val zstd // io.github.yuroyami.archivekodec/ArchiveKodec.zstd|{}zstd[0]
+        final fun <get-zstd>(): io.github.yuroyami.archivekodec.codec/Codec // io.github.yuroyami.archivekodec/ArchiveKodec.zstd.<get-zstd>|<get-zstd>(){}[0]
 
     final fun codec(io.github.yuroyami.archivekodec.archive/ArchiveFormat): io.github.yuroyami.archivekodec.codec/Codec? // io.github.yuroyami.archivekodec/ArchiveKodec.codec|codec(io.github.yuroyami.archivekodec.archive.ArchiveFormat){}[0]
     final fun codec(io.github.yuroyami.archivekodec.codec/CodecId): io.github.yuroyami.archivekodec.codec/Codec? // io.github.yuroyami.archivekodec/ArchiveKodec.codec|codec(io.github.yuroyami.archivekodec.codec.CodecId){}[0]

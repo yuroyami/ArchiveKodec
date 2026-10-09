@@ -38,8 +38,8 @@ class ZipCodecRegistryTest {
         }
     }
 
-    @Test fun registeredMethod93AndPrivateMethodDecodeWithoutChangingDefaults() {
-        for ((method, id) in listOf(93 to CodecId("zstd"), 65535 to CodecId("private-wire"))) {
+    @Test fun registeredMethod98AndPrivateMethodDecodeWithoutChangingDefaults() {
+        for ((method, id) in listOf(98 to CodecId("ppmd"), 65535 to CodecId("private-wire"))) {
             val bytes = patchMethod(zip(), method)
             val engine = Decoder(id) { input, limits -> Codecs.STORE.decompress(input, limits) }
             val registry = CodecRegistry.DEFAULT.with(engine, method)

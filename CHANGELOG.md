@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added Zstandard: `Codecs.ZSTD` and `ArchiveKodec.zstd`, on new FSE and Huff0 stages.
+  Decoding covers raw, RLE and compressed blocks, every literal and sequence table
+  mode with reuse across blocks, repeat offsets, skippable and concatenated frames,
+  and verifies the xxHash64 content checksum; dictionary frames are refused. ZIP
+  method 93 entries now read and `ArchiveKodec.decompress` detects zstd. The encoder
+  writes valid frames with predefined tables, less tightly than `zstd -3`.
+
 - Added `SevenZipReader`, also returned by `ArchiveKodec.open` for 7z archives. It
   decodes compressed headers and folders using copy, LZMA, LZMA2, Deflate,
   Deflate64, bzip2, delta and BCJ x86 coders, verifies folder and file CRCs, and
