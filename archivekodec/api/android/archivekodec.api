@@ -187,6 +187,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat {
 	public static final field SNAPPY Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field TAR Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field UNKNOWN Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final field WIM Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field XZ Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field ZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field ZLIB Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
@@ -635,6 +636,19 @@ public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpe
 
 public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec$Companion {
 	public final fun invoke (Ljava/lang/String;[BLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/tar/TarWriter$FileSpec;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/wim/WimReader : io/github/yuroyami/archivekodec/archive/ArchiveReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/RandomAccessSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun close ()V
+	public fun entries ()Ljava/util/List;
+	public fun getFormat ()Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)[B
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public fun read (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/security/ExtractionBudget;)[B
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipEncryption {

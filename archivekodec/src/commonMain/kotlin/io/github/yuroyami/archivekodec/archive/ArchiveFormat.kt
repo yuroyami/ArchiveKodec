@@ -70,6 +70,8 @@ public class ArchiveFormat @Throws(IllegalArgumentException::class) public const
         @JvmField public val ISO9660: ArchiveFormat = ArchiveFormat("iso9660")
         /** Microsoft cabinet (`.cab`): solid folders of stored, MSZIP, LZX or Quantum data. */
         @JvmField public val CAB: ArchiveFormat = ArchiveFormat("cab")
+        /** Windows image (`.wim`): deduplicated resources and one directory tree per image. */
+        @JvmField public val WIM: ArchiveFormat = ArchiveFormat("wim")
         /** The inspected bytes do not identify a recognized format. */
         @JvmField public val UNKNOWN: ArchiveFormat = ArchiveFormat("unknown")
     }

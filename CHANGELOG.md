@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- WIM reader. `WimReader` and `ArchiveFormat.WIM` read Windows images that are
+  uncompressed or compressed with XPRESS Huffman or LZX, finding file data by SHA-1 so
+  identical files share one resource, and checking everything read against its SHA-1. A
+  WIM with several images lists each under its index (`1/`, `2/`). LZMS, solid resources
+  and data in other parts of a split WIM are refused on read. `ArchiveKodec.open` and the
+  sniffer recognise the `MSWIM` signature.
+
 - CAB reader. `CabReader` and `ArchiveFormat.CAB` read Microsoft cabinets with stored,
   MSZIP and LZX folders, verifying data block checksums and decoding each folder once for
   all its files (an LZX folder only as far as the files read need). Quantum folders, and

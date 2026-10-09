@@ -66,6 +66,9 @@ public object Magic {
             // Cabinet: "MSCF" and a zero reserved field
             at(0) == 0x4D && at(1) == 0x53 && at(2) == 0x43 && at(3) == 0x46 &&
                 at(4) == 0 && at(5) == 0 && at(6) == 0 && at(7) == 0 -> ArchiveFormat.CAB
+            // Windows image: "MSWIM\0\0\0"
+            at(0) == 0x4D && at(1) == 0x53 && at(2) == 0x57 && at(3) == 0x49 && at(4) == 0x4D &&
+                at(5) == 0 && at(6) == 0 && at(7) == 0 -> ArchiveFormat.WIM
             isZlib(header) -> ArchiveFormat.ZLIB
             else -> ArchiveFormat.UNKNOWN
         }

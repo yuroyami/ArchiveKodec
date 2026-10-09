@@ -307,6 +307,21 @@ final class io.github.yuroyami.archivekodec.archive.tar/TarReader : io.github.yu
     final object Companion // io.github.yuroyami.archivekodec.archive.tar/TarReader.Companion|null[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.wim/WimReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.wim/WimReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource) // io.github.yuroyami.archivekodec.archive.wim/WimReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource){}[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.archive.wim/WimReader.<init>|<init>(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+
+    final val format // io.github.yuroyami.archivekodec.archive.wim/WimReader.format|{}format[0]
+        final fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive.wim/WimReader.format.<get-format>|<get-format>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.archive.wim/WimReader.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.archive.wim/WimReader.limits.<get-limits>|<get-limits>(){}[0]
+
+    final fun close() // io.github.yuroyami.archivekodec.archive.wim/WimReader.close|close(){}[0]
+    final fun entries(): kotlin.collections/List<io.github.yuroyami.archivekodec.archive/ArchiveEntry> // io.github.yuroyami.archivekodec.archive.wim/WimReader.entries|entries(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.wim/WimReader.read|read(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.wim/WimReader.toString|toString(){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive.zip/ZipEncryption { // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption|null[0]
     constructor <init>(kotlin/CharArray, io.github.yuroyami.archivekodec.crypto/CryptoProvider, kotlin/Int = ...) // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.<init>|<init>(kotlin.CharArray;io.github.yuroyami.archivekodec.crypto.CryptoProvider;kotlin.Int){}[0]
 
@@ -463,6 +478,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveFormat { // io.github
             final fun <get-TAR>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.TAR.<get-TAR>|<get-TAR>(){}[0]
         final val UNKNOWN // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.UNKNOWN|{}UNKNOWN[0]
             final fun <get-UNKNOWN>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.UNKNOWN.<get-UNKNOWN>|<get-UNKNOWN>(){}[0]
+        final val WIM // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.WIM|{}WIM[0]
+            final fun <get-WIM>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.WIM.<get-WIM>|<get-WIM>(){}[0]
         final val XZ // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.XZ|{}XZ[0]
             final fun <get-XZ>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.XZ.<get-XZ>|<get-XZ>(){}[0]
         final val ZIP // io.github.yuroyami.archivekodec.archive/ArchiveFormat.Companion.ZIP|{}ZIP[0]

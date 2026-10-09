@@ -7,6 +7,7 @@ import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.archive.iso.IsoReader
 import io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader
 import io.github.yuroyami.archivekodec.archive.tar.TarReader
+import io.github.yuroyami.archivekodec.archive.wim.WimReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import kotlin.jvm.JvmField
 
@@ -90,6 +91,7 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
             FormatSpec.builtin(ArchiveFormat.CAB) { source, options ->
                 CabReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
             },
+            FormatSpec.builtin(ArchiveFormat.WIM) { source, options -> WimReader(source, options.limits) },
         ))
     }
 }

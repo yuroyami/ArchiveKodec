@@ -14,20 +14,21 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
  * size field.
  */
 internal class Lzx private constructor(
-    private val input: ByteArray,
-    private var position: Int,
-    private val end: Int,
+    input: ByteArray,
+    position: Int,
+    end: Int,
     windowBits: Int,
     private val wim: Boolean,
-) {
+) : Msb16Reader(input, position, end, "LZX") {
     private val windowSize = 1 shl windowBits
     private val windowBits = windowBits
     private val mainSymbols = 256 + 8 * positionSlots(windowBits)
 
-    private val pretree = Huffman(PRETREE_SYMBOLS)
-    private val main = Huffman(mainSymbols)
-    private val length = Huffman(LENGTH_SYMBOLS)
-    private val aligned = Huffman(ALIGNED_SYMBOLS)
+    private val pretree = PrefixCode(PRETREE_SYMBOLS)
+    // Length runs may overshoot a table's end; the slack absorbs them, as libmspack's does.
+    private val main = PrefixCode(mainSymbols, LENGTH_SLACK)
+    private val length = PrefixCode(LENGTH_SYMBOLS, LENGTH_SLACK)
+    private val aligned = PrefixCode(ALIGNED_SYMBOLS)
 
     private var r0 = 1
     private var r1 = 1
@@ -35,44 +36,6 @@ internal class Lzx private constructor(
     private var blockType = 0
     private var blockLength = 0
     private var blockRemaining = 0
-
-    // ---- Bits: 16-bit little-endian words, most significant bit first ----
-
-    private var buffer = 0
-    private var bitsLeft = 0
-    private var overrun = 0
-
-    private fun fail(message: String): Nothing = throw ArchiveFormatException("LZX: $message", position.toLong())
-
-    private fun ensure(count: Int) {
-        while (bitsLeft < count) {
-            val word = when {
-                position + 1 < end -> (input[position].toInt() and 0xFF) or ((input[position + 1].toInt() and 0xFF) shl 8)
-                position < end -> input[position].toInt() and 0xFF
-                // Decoders peek a little past the end; a few zero words stand in, as libmspack does.
-                ++overrun <= MAX_OVERRUN -> 0
-                else -> fail("compressed data ends early")
-            }
-            position += 2
-            buffer = buffer or (word shl (16 - bitsLeft))
-            bitsLeft += 16
-        }
-    }
-
-    private fun peek(count: Int): Int = buffer ushr (32 - count)
-
-    private fun remove(count: Int) {
-        buffer = if (count == 32) 0 else buffer shl count
-        bitsLeft -= count
-    }
-
-    private fun bits(count: Int): Int {
-        if (count == 0) return 0
-        ensure(count)
-        val value = peek(count)
-        remove(count)
-        return value
-    }
 
     /** Drop the rest of the current 16-bit word, as at the end of a cabinet frame. */
     private fun realign() {
@@ -85,101 +48,24 @@ internal class Lzx private constructor(
     private fun alignForBytes() {
         ensure(16)
         if (bitsLeft > 16) position -= 2
-        bitsLeft = 0
-        buffer = 0
-    }
-
-    private fun rawByte(): Int {
-        if (position >= end) fail("uncompressed block ends early")
-        return input[position++].toInt() and 0xFF
+        clearBits()
     }
 
     private fun rawInt(): Int = rawByte() or (rawByte() shl 8) or (rawByte() shl 16) or (rawByte() shl 24)
 
-    // ---- Huffman codes ----
-
-    /** A canonical prefix code with a direct table for short codes and a canonical walk for long ones. */
-    private inner class Huffman(symbols: Int) {
-        /** Code lengths, kept between blocks for delta coding; the slack absorbs run overshoot. */
-        val lengths = IntArray(symbols + LENGTH_SLACK)
-        private val size = symbols
-        private val table = IntArray(1 shl TABLE_BITS)
-        private val counts = IntArray(MAX_CODE + 1)
-        private val firstCode = IntArray(MAX_CODE + 2)
-        private val firstIndex = IntArray(MAX_CODE + 2)
-        private val sorted = IntArray(symbols)
-        private var empty = true
-
-        /** Build from [lengths]; only complete codes and the all-zero empty code are accepted. */
-        fun build(name: String) {
-            counts.fill(0)
-            for (i in 0 until size) {
-                val l = lengths[i]
-                if (l > MAX_CODE) fail("$name code length $l")
-                counts[l]++
-            }
-            counts[0] = 0
-            empty = counts.all { it == 0 }
-            if (empty) return
-            var left = 1
-            for (l in 1..MAX_CODE) {
-                left = (left shl 1) - counts[l]
-                if (left < 0) fail("$name code is oversubscribed")
-            }
-            if (left != 0) fail("$name code is incomplete")
-            var code = 0
-            var index = 0
-            for (l in 1..MAX_CODE) {
-                firstCode[l] = code
-                firstIndex[l] = index
-                index += counts[l]
-                code = (code + counts[l]) shl 1
-            }
-            val next = firstIndex.copyOf()
-            for (s in 0 until size) if (lengths[s] != 0) sorted[next[lengths[s]]++] = s
-            table.fill(-1)
-            for (l in 1..TABLE_BITS) {
-                for (k in 0 until counts[l]) {
-                    val s = sorted[firstIndex[l] + k]
-                    val start = (firstCode[l] + k) shl (TABLE_BITS - l)
-                    table.fill((s shl 5) or l, start, start + (1 shl (TABLE_BITS - l)))
-                }
-            }
-        }
-
-        fun decode(name: String): Int {
-            if (empty) fail("$name code is empty but used")
-            ensure(MAX_CODE)
-            val window = peek(MAX_CODE)
-            val entry = table[window ushr (MAX_CODE - TABLE_BITS)]
-            if (entry >= 0) {
-                remove(entry and 31)
-                return entry ushr 5
-            }
-            for (l in TABLE_BITS + 1..MAX_CODE) {
-                val offset = (window ushr (MAX_CODE - l)) - firstCode[l]
-                if (offset in 0 until counts[l]) {
-                    remove(l)
-                    return sorted[firstIndex[l] + offset]
-                }
-            }
-            fail("invalid $name code")
-        }
-    }
-
     /** Read code lengths [first, last) of [tree] as deltas from its previous lengths, through a pretree. */
-    private fun readLengths(tree: Huffman, first: Int, last: Int) {
+    private fun readLengths(tree: PrefixCode, first: Int, last: Int) {
         for (i in 0 until PRETREE_SYMBOLS) pretree.lengths[i] = bits(4)
-        pretree.build("pretree")
+        pretree.build(this, "pretree")
         val lengths = tree.lengths
         var x = first
         while (x < last) {
-            when (val z = pretree.decode("pretree")) {
+            when (val z = pretree.decode(this, "pretree")) {
                 17 -> repeat(bits(4) + 4) { set(lengths, x++, 0) }
                 18 -> repeat(bits(5) + 20) { set(lengths, x++, 0) }
                 19 -> {
                     val run = bits(1) + 4
-                    val delta = pretree.decode("pretree")
+                    val delta = pretree.decode(this, "pretree")
                     if (delta > 16) fail("invalid pretree run")
                     val value = (lengths[x] - delta + 17) % 17
                     repeat(run) { set(lengths, x++, value) }
@@ -209,13 +95,13 @@ internal class Lzx private constructor(
             VERBATIM, ALIGNED -> {
                 if (blockType == ALIGNED) {
                     for (i in 0 until ALIGNED_SYMBOLS) aligned.lengths[i] = bits(3)
-                    aligned.build("aligned offset")
+                    aligned.build(this, "aligned offset")
                 }
                 readLengths(main, 0, 256)
                 readLengths(main, 256, mainSymbols)
-                main.build("main")
+                main.build(this, "main")
                 readLengths(length, 0, LENGTH_SYMBOLS)
-                length.build("length")
+                length.build(this, "length")
             }
             UNCOMPRESSED -> {
                 alignForBytes()
@@ -232,20 +118,20 @@ internal class Lzx private constructor(
         var at = start
         if (blockType == UNCOMPRESSED) {
             val n = stop - start
-            if (position < 0 || n > end - position) fail("uncompressed block ends early")
+            if (n > end - position) fail("uncompressed block ends early")
             input.copyInto(out, at, position, position + n)
             position += n
             return stop
         }
         while (at < stop) {
-            val symbol = main.decode("main")
+            val symbol = main.decode(this, "main")
             if (symbol < 256) {
                 out[at++] = symbol.toByte()
                 continue
             }
             val header = symbol - 256
             var matchLength = header and 7
-            if (matchLength == 7) matchLength += length.decode("length")
+            if (matchLength == 7) matchLength += length.decode(this, "length")
             matchLength += 2
             val slot = header ushr 3
             val offset: Int
@@ -257,7 +143,7 @@ internal class Lzx private constructor(
                     val extra = EXTRA_BITS[slot]
                     var value = POSITION_BASE[slot] - 2
                     if (blockType == ALIGNED && extra >= 3) {
-                        value += (bits(extra - 3) shl 3) + aligned.decode("aligned offset")
+                        value += (bits(extra - 3) shl 3) + aligned.decode(this, "aligned offset")
                     } else {
                         value += bits(extra)
                     }
@@ -296,10 +182,7 @@ internal class Lzx private constructor(
         private const val PRETREE_SYMBOLS = 20
         private const val LENGTH_SYMBOLS = 249
         private const val ALIGNED_SYMBOLS = 8
-        private const val MAX_CODE = 16
-        private const val TABLE_BITS = 10
         private const val LENGTH_SLACK = 64
-        private const val MAX_OVERRUN = 4
         private const val WIM_E8_SIZE = 12_000_000
 
         private val EXTRA_BITS = IntArray(52).also {
