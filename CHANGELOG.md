@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Faster decoding, mostly on Kotlin/JS. LZ4 and Snappy decode loops work out their limit
+  budget once per block and keep to Int arithmetic (Long is emulated on Kotlin/JS), and
+  the shared output builder skips its growth check when there is room: on Node, LZ4 text
+  decodes about 29 times faster, Snappy text about 8 times. Inflate copies repeated
+  patterns by doubling, so run-heavy streams decode about 6 times faster, and reserves the
+  input's size up front, so stored and incompressible streams decode without growth copies;
+  inflate is now within 1.7 times of `java.util.zip` on every benchmark corpus.
+
 - `FileRandomAccessSource` in `archivekodec-io` opens an archive from a file path and reads
   it on demand through a small page cache, so archives larger than memory can be listed
   and read: `RandomAccessFile` on the JVM and Android, POSIX `pread` on Apple, Linux and

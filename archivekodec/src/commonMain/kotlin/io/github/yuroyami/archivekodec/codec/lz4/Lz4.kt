@@ -76,22 +76,6 @@ public object Lz4 {
         var s = sOff
         var hasMatch = false
         val historySize = if (linkedBlocks) minOf(frameOutputBase, HISTORY_WINDOW) else 0
-        fun needInput(n: Int) {
-            if (n > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
-        }
-        fun length(base: Int): Int {
-            var n = base.toLong()
-            if (base == 15) {
-                var b: Int
-                do {
-                    needInput(1)
-                    b = src[s++].toInt() and 0xFF
-                    n += b
-                    if (n > Int.MAX_VALUE) throw ArchiveFormatException("lz4: length exceeds ByteArray limit", s.toLong())
-                } while (b == 255)
-            }
-            return n.toInt()
-        }
         fun ensure(n: Int) {
             val required = (out.size - outputBase).toLong() + n
             if (required > blockMaximum) {
@@ -101,24 +85,40 @@ public object Lz4 {
             limits.checkOutputSize(outputBase.toLong() + required)
             limits.checkRatio(compressedBytes.toLong(), frameOutputBase.toLong() + required)
         }
+        // The most this block may decode while passing every check in ensure(), worked out once,
+        // so each sequence compares Ints (Long arithmetic is emulated on Kotlin/JS).
+        var limit = blockMaximum.toLong()
+        if (declaredSize != null) limit = minOf(limit, declaredSize - frameOutputBase)
+        limit = minOf(limit, limits.maxUncompressedBytes - outputBase)
+        if (compressedBytes > 0) limit = minOf(limit, compressedBytes.toLong() * limits.maxCompressionRatio - frameOutputBase)
+        val budget = limit.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
         while (s < sEnd) {
             val tokenAt = s
             val token = src[s++].toInt() and 0xFF
-            val litLen = length(token ushr 4)
-            needInput(litLen)
+            var litLen = token ushr 4
+            if (litLen == 15) {
+                var b: Int
+                do {
+                    if (s >= sEnd) throw ArchiveFormatException("lz4: truncated block", s.toLong())
+                    b = src[s++].toInt() and 0xFF
+                    if (litLen > Int.MAX_VALUE - 255) throw ArchiveFormatException("lz4: length exceeds ByteArray limit", s.toLong())
+                    litLen += b
+                } while (b == 255)
+            }
+            if (litLen > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
             if (litLen == sEnd - s && hasMatch && litLen < LAST_LITERALS) {
                 throw ArchiveFormatException("lz4: final literals after a match must contain at least $LAST_LITERALS bytes", tokenAt.toLong())
             }
-            ensure(litLen)
+            if (litLen > budget - (out.size - outputBase)) ensure(litLen)
             out.append(src, s, litLen)
             s += litLen
             if (s == sEnd) return // last sequence: literals only
 
-            needInput(2)
-            val offset = readU16Le(src, s)
+            if (2 > sEnd - s) throw ArchiveFormatException("lz4: truncated block", s.toLong())
+            val offset = (src[s].toInt() and 0xFF) or ((src[s + 1].toInt() and 0xFF) shl 8)
             s += 2
             if (offset == 0) throw ArchiveFormatException("lz4: invalid match offset 0", (s - 2).toLong())
-            val availableHistory = (out.size - outputBase).toLong() + historySize
+            val availableHistory = out.size - outputBase + historySize
             if (offset > availableHistory) {
                 val message = "lz4: match offset $offset exceeds available history $availableHistory"
                 if (dictionaryId != null) {
@@ -128,10 +128,18 @@ public object Lz4 {
                 // whether an untagged block needs a dictionary or is malformed.
                 throw ArchiveFormatException("$message; an external dictionary may be required", (s - 2).toLong())
             }
-            val encodedLength = length(token and 0xF)
-            if (encodedLength > Int.MAX_VALUE - MIN_MATCH) throw ArchiveFormatException("lz4: match length exceeds ByteArray limit", s.toLong())
-            val matchLen = encodedLength + MIN_MATCH
-            ensure(matchLen)
+            var matchLen = token and 0xF
+            if (matchLen == 15) {
+                var b: Int
+                do {
+                    if (s >= sEnd) throw ArchiveFormatException("lz4: truncated block", s.toLong())
+                    b = src[s++].toInt() and 0xFF
+                    if (matchLen > Int.MAX_VALUE - 255 - MIN_MATCH) throw ArchiveFormatException("lz4: match length exceeds ByteArray limit", s.toLong())
+                    matchLen += b
+                } while (b == 255)
+            }
+            matchLen += MIN_MATCH
+            if (matchLen > budget - (out.size - outputBase)) ensure(matchLen)
             // History and this block share one buffer. The distance check above
             // still excludes prior blocks in independent frames and prior frames.
             out.copyBack(offset, matchLen)

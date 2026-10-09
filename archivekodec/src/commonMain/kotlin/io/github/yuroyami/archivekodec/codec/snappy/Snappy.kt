@@ -63,63 +63,76 @@ public object Snappy {
         return out
     }
 
-    /** Scan once without writes, then decode using exactly the same validated tag rules. */
+    /**
+     * Scan once without writes, then decode using exactly the same validated tag rules.
+     * The loop keeps to Int arithmetic and no captured locals, which Kotlin/JS runs far faster.
+     */
     private fun decode(src: ByteArray, start: Int, end: Int, size: Int, out: ByteArray?) {
         var p = start
         var o = 0
-        fun needInput(n: Int) {
-            if (n > end - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
-        }
-        fun littleEndian(n: Int): Long {
-            needInput(n)
-            val value = readUIntLe(src, p, n)
-            p += n
-            return value
-        }
-        fun needOutput(n: Long) {
-            if (n > size.toLong() - o) throw ArchiveFormatException("snappy: tag exceeds declared output size $size", p.toLong())
-        }
         while (p < end) {
             val tagOffset = p
             val tag = src[p++].toInt() and 0xFF
-            when (tag and 3) {
-                0 -> {
-                    val encoded = tag ushr 2
-                    val length = (if (encoded < 60) encoded.toLong() else littleEndian(encoded - 59)) + 1
-                    if (length > end - p) throw ArchiveFormatException("snappy: truncated literal", p.toLong())
-                    needOutput(length)
-                    val count = length.toInt()
-                    if (out != null) src.copyInto(out, o, p, p + count)
-                    p += count
-                    o += count
+            if (tag and 3 == 0) {
+                val encoded = tag ushr 2
+                var length: Int
+                if (encoded < 60) {
+                    length = encoded + 1
+                } else {
+                    val n = encoded - 59
+                    if (n > end - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
+                    val value = readUIntLe(src, p, n)
+                    p += n
+                    if (value + 1 > end - p) throw ArchiveFormatException("snappy: truncated literal", p.toLong())
+                    length = value.toInt() + 1
                 }
-                else -> {
-                    val count: Int
-                    val offset: Long
-                    if (tag and 3 == 1) {
+                if (length > end - p) throw ArchiveFormatException("snappy: truncated literal", p.toLong())
+                if (length > size - o) throw ArchiveFormatException("snappy: tag exceeds declared output size $size", p.toLong())
+                if (out != null) src.copyInto(out, o, p, p + length)
+                p += length
+                o += length
+            } else {
+                val count: Int
+                val offset: Int
+                when (tag and 3) {
+                    1 -> {
                         count = ((tag ushr 2) and 7) + 4
-                        offset = ((tag ushr 5).toLong() shl 8) or littleEndian(1)
-                    } else {
+                        if (p >= end) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
+                        offset = ((tag ushr 5) shl 8) or (src[p++].toInt() and 0xFF)
+                    }
+                    2 -> {
                         count = (tag ushr 2) + 1
-                        offset = littleEndian(if (tag and 3 == 2) 2 else 4)
+                        if (2 > end - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
+                        offset = (src[p].toInt() and 0xFF) or ((src[p + 1].toInt() and 0xFF) shl 8)
+                        p += 2
                     }
-                    if (offset == 0L || offset > o) {
-                        throw ArchiveFormatException("snappy: invalid copy offset $offset at output $o", tagOffset.toLong())
-                    }
-                    needOutput(count.toLong())
-                    if (out != null) {
-                        var from = o - offset.toInt()
-                        val outputEnd = o + count
-                        if (offset >= count) {
-                            out.copyInto(out, o, from, from + count)
-                        } else {
-                            var destination = o
-                            while (destination < outputEnd) out[destination++] = out[from++]
+                    else -> {
+                        count = (tag ushr 2) + 1
+                        if (4 > end - p) throw ArchiveFormatException("snappy: truncated tag data", p.toLong())
+                        val value = readUIntLe(src, p, 4)
+                        p += 4
+                        if (value == 0L || value > o) {
+                            throw ArchiveFormatException("snappy: invalid copy offset $value at output $o", tagOffset.toLong())
                         }
-                        o = outputEnd
-                    } else {
-                        o += count
+                        offset = value.toInt()
                     }
+                }
+                if (offset == 0 || offset > o) {
+                    throw ArchiveFormatException("snappy: invalid copy offset $offset at output $o", tagOffset.toLong())
+                }
+                if (count > size - o) throw ArchiveFormatException("snappy: tag exceeds declared output size $size", p.toLong())
+                if (out != null) {
+                    var from = o - offset
+                    val outputEnd = o + count
+                    if (offset >= count) {
+                        out.copyInto(out, o, from, from + count)
+                    } else {
+                        var destination = o
+                        while (destination < outputEnd) out[destination++] = out[from++]
+                    }
+                    o = outputEnd
+                } else {
+                    o += count
                 }
             }
         }

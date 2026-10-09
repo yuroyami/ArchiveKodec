@@ -229,7 +229,10 @@ public object Inflate {
             // File-controlled sizes guide growth, but never reserve a large array
             // before any output has been decoded. Unlike expectedSize, a hint is
             // not an output bound (gzip ISIZE describes only its final member).
-            bytes = ByteArray(minOf(if (hint > 0) minOf(4096, hint) else 256, maximum))
+            // The input's own size is safe to reserve, since the input is already in
+            // memory, and DEFLATE rarely shrinks data: stored and incompressible
+            // streams then decode without growth copies.
+            bytes = ByteArray(minOf(maxOf(if (hint > 0) minOf(4096, hint) else 256, compressedBytes), maximum))
         }
 
         /** Bytes of preset dictionary at the start; they are history, not output. */
@@ -274,6 +277,17 @@ public object Inflate {
             var source = size - distance
             if (distance >= length) {
                 output.copyInto(output, size, source, source + length)
+            } else if (distance == 1) {
+                output.fill(output[source], size, end)
+            } else if (length >= 32) {
+                // Copy one whole period, then double only bytes already written: each copy is disjoint.
+                output.copyInto(output, size, source, source + distance)
+                var copied = distance
+                while (copied < length) {
+                    val count = minOf(copied, length - copied)
+                    output.copyInto(output, size + copied, size, size + count)
+                    copied += count
+                }
             } else {
                 var destination = size
                 while (destination < end) output[destination++] = output[source++]

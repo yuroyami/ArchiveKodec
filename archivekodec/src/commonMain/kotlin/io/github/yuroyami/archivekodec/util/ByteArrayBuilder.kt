@@ -47,6 +47,9 @@ internal class ByteArrayBuilder(initialCapacity: Int = 64) {
     }
 
     private fun ensure(extra: Int) {
+        // Room already, within the growth bound: decided in Int arithmetic, which matters on
+        // Kotlin/JS where this runs for every literal run and match.
+        if (extra >= 0 && extra <= buf.size - len && extra <= growthMaximum - len) return
         val capacity = byteArrayCapacity(buf.size, len, extra, growthMaximum, growthHint)
         if (capacity != buf.size) buf = buf.copyOf(capacity)
     }
