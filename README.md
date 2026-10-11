@@ -4,6 +4,9 @@ Compression and archive formats in pure Kotlin, for Kotlin Multiplatform. Gunzip
 a buffer or read a ZIP on iOS and in the browser, as well as on the JVM, from one
 shared codebase.
 
+<sub>AI tools wrote much of the code, tests and documentation in this project, under the
+direction and review of its author.</sub>
+
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.yuroyami/archivekodec)](https://central.sonatype.com/artifact/io.github.yuroyami/archivekodec)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Targets](https://img.shields.io/badge/targets-Android%20%7C%20Apple%20%7C%20JVM%20%7C%20JS%20%7C%20Wasm%20%7C%20Linux%20%7C%20Windows-blue)](#targets)
