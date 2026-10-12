@@ -24,18 +24,16 @@ The klib check and its update read the klibs of every platform in the `klibPlatf
 
 No CI command updates a reference file. A public addition or removal needs a reviewed reference change in the same commit, and a note in the CHANGELOG.
 
-## Released 0.1.0
+## The 0.1.0 record
 
 `published/0.1.0` is a frozen historical record. It comes from the Maven Central binaries of `io.github.yuroyami:kitearchive:0.1.0` and `io.github.yuroyami:kitearchive-io:0.1.0`. The folder holds the JVM and Android dumps and one merged klib dump for each module. The dumps use the Kotlin 2.4.10 ABI tools, the compiler version of those artifacts.
 
 All 11 published binaries were downloaded and checked against the SHA-256 values in their Gradle module metadata before the dumps were made. `manifest.json` records their coordinates, URLs, sizes and hashes.
 
-These binaries use the original `io.github.yuroyami.kitearchive` namespace. The rename to ArchiveKodec changed the public API, so these dumps do not describe the current ABI. Do not update them when you change the source.
+These binaries use the original `io.github.yuroyami.kitearchive` namespace. The rename to ArchiveKodec changed the public API, so these dumps do not describe the current ABI. Do not update them when you change the source. No current command writes them.
 
 `integration-tests/abi/fetch-published.py` downloads the binaries again and checks their hashes:
 
 ```bash
 python3 integration-tests/abi/fetch-published.py --destination build/abi/published-binaries
 ```
-
-The task that wrote the dumps from those binaries was part of the Gradle build. The Gradle build at commit `eb8fd37` still has it, as `recordPublishedAbi`.

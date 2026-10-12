@@ -47,9 +47,9 @@ JVM results include JDK `CRC32`, `CRC32C`, `Adler32`, raw `Inflater`, and raw
 `Deflater` at levels 1 and 6. Both inflaters read exactly the same compressed bytes.
 The JDK inflater reference allocates the known output size; the core grows its
 output buffer. Encoding measurements include fresh encoder instances, output
-allocation, and conversion to the returned byte array. The core encoder has no
-compression-level setting, so the JDK levels are references, not identical parsing
-algorithms. The JDK checksums are checked against the core before timing.
+allocation, and conversion to the returned byte array. The core encoder runs at its
+default level 6, and the JDK levels are references, not identical parsing algorithms.
+The JDK checksums are checked against the core before timing.
 
 The harness uses current-thread CPU time on JVM and `process.cpuUsage()` (user plus
 system CPU time) on Node. Node's measure covers the process, including runtime
@@ -88,11 +88,10 @@ machine, runtimes and representative numbers. CI never updates the baseline.
 Changing corpus generation also requires increasing `corpus_version` in both the
 Kotlin harness and Python validator.
 
-### Initial smoke baseline
+### Smoke baseline
 
-Recorded on 2026-10-08 on a shared Linux x86_64 cloud worker reporting an Intel
-Xeon Platinum 8573C, with five CPUs available to the process. The library was at
-`c1b727c`; the benchmark harness was in the working tree. Runtimes were OpenJDK
+Recorded on a shared Linux x86_64 cloud worker reporting an Intel Xeon Platinum
+8573C, with five CPUs available to the process. Runtimes were OpenJDK
 21.0.12.1 and Node 24.10.0 (V8 13.6.233.10), using Kotlin 2.4.10. Compilation
 finished before the separately executed JVM and Node runs.
 
@@ -107,12 +106,12 @@ the [baseline JSON](https://github.com/yuroyami/ArchiveKodec/blob/main/benchmark
 | CRC-32 | 492.8 | 21,584.8 | 591.2 |
 | CRC-32C | 463.8 | 26,238.6 | 446.2 |
 | Adler-32 | 338.6 | 9,379.4 | 505.3 |
-| CRC-64 | 134.8 | — | 279.9 |
-| xxHash32 | 1,260.3 | — | 504.6 |
+| CRC-64 | 134.8 |  | 279.9 |
+| xxHash32 | 1,260.3 |  | 504.6 |
 | DEFLATE encode | 6.1 | 39.5 (level 1), 8.7 (level 6) | 1.1 |
 | Inflate | 29.3 | 230.4 | 3.4 |
-| LZ4 frame encode | 88.5 | — | 6.4 |
-| LZ4 frame decode | 64.3 | — | 1.2 |
-| Snappy encode | 65.5 | — | 8.5 |
-| Snappy decode | 183.8 | — | 7.4 |
+| LZ4 frame encode | 88.5 |  | 6.4 |
+| LZ4 frame decode | 64.3 |  | 1.2 |
+| Snappy encode | 65.5 |  | 8.5 |
+| Snappy decode | 183.8 |  | 7.4 |
 | Inflate, stored blocks | 688.1 | 2,169.4 | 419.0 |

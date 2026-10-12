@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 /**
  * Real-world data (#41): the Canterbury Corpus through every encoder, and the DEFLATE
  * family against `java.util.zip` both ways. Set ARCHIVEKODEC_SILESIA to a directory of
- * Silesia Corpus files to run the same checks over them (see README, "Corpus tests").
+ * Silesia Corpus files to run the same checks over them (see "Corpora" in CONTRIBUTING.md).
  */
 class CorpusRoundTripTest {
     private val corpus: List<Pair<String, ByteArray>> by lazy {

@@ -32,7 +32,7 @@ class CiFailureCanaryTest {
     @Test fun deliberateFailure() { fail("Deliberate CI gate canary") }
 }
 """
-# Java 8, the floor of kotlin-stdlib and kotlinx-io. See the README's Install section.
+# Java 8, the floor of kotlin-stdlib and kotlinx-io. See Install in docs/index.md.
 MAX_CLASS_MAJOR = 52
 MODULE_NAMES = {"archivekodec": "io.github.yuroyami.archivekodec",
                 "archivekodec-io": "io.github.yuroyami.archivekodec.io"}

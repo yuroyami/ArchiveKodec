@@ -1,9 +1,9 @@
 site_name: ArchiveKodec
 site_url: https://yuroyami.github.io/ArchiveKodec/
 site_description: >-
-  Pure-Kotlin compression codecs and archive readers for Kotlin Multiplatform:
-  DEFLATE, gzip, zlib, LZ4 and Snappy, ZIP read and write (+ZIP64), TAR, ar and
-  cpio readers, and checksums. No JNI, no cinterop. Android, JVM, JS, Wasm, Apple, Linux and Windows.
+  Compression codecs and archive formats in pure Kotlin for Kotlin Multiplatform: DEFLATE,
+  bzip2, xz, zstd, brotli, LZ4 and more, ZIP, TAR, ar and cpio read and write, and 7z, RAR,
+  ISO 9660, CAB, WIM and SquashFS read. No JNI, no cinterop.
 site_author: yuroyami
 copyright: Copyright &copy; 2026 yuroyami, Apache-2.0
 
@@ -80,5 +80,20 @@ extra:
 
 nav:
   - Home: index.md
-  - Benchmarks: benchmarks.md
-  - API reference: https://yuroyami.github.io/ArchiveKodec/api/
+  - Guides:
+      - Compression: compression.md
+      - Reading archives: reading.md
+      - Entry names and Zip-Slip: entry-names.md
+      - Encrypted archives: encryption.md
+      - Writing archives: writing.md
+      - Files and extraction: files.md
+      - Custom codecs and formats: extending.md
+  - Other languages:
+      - Java: java.md
+      - Swift: swift.md
+      - JavaScript and TypeScript: javascript.md
+  - Reference:
+      - Format support: formats.md
+      - Limits: limits.md
+      - Benchmarks: benchmarks.md
+      - API reference: https://yuroyami.github.io/ArchiveKodec/api/

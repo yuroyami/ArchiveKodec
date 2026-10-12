@@ -42,7 +42,7 @@ settings:
     optIns: [ io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation ]
   jvm:
     test:
-      # The opt-in Silesia corpus test (see the README) holds 50 MB files and their encodings at once.
+      # The opt-in Silesia corpus test (see CONTRIBUTING.md) holds 50 MB files and their encodings at once.
       freeJvmArgs: [ -Xmx4g ]
   android:
     namespace: io.github.yuroyami.archivekodec

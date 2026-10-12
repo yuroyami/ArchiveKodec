@@ -12,7 +12,7 @@ settings:
     # Keep abi-tools in build-plugins/abi-check/module.yaml at the same version.
     version: 2.4.21
     explicitApi: strict
-    # Older Kotlin compilers can read the metadata (see the README's Install section).
+    # Older Kotlin compilers can read the metadata (see Install in docs/index.md).
     languageVersion: 2.2
     apiVersion: 2.2
   jvm:

@@ -1,12 +1,12 @@
 # Module archivekodec
 
-Compression codecs, archive readers and a ZIP writer, in pure common Kotlin.
+Compression codecs, archive readers and writers, and checksums, in pure common Kotlin.
 
-DEFLATE, gzip, zlib, LZ4 and Snappy behind one `Codec` interface; readers for
-ZIP (with ZIP64), TAR, ar and cpio behind `ArchiveReader`; CRC-32, CRC-32C,
-Adler-32, CRC-64/XZ and xxHash32; and a magic-byte format sniffer. Everything is
-`ByteArray` in, `ByteArray` out, with no I/O and no dependency beyond
-`kotlin-stdlib`.
+The codecs are DEFLATE, Deflate64, gzip, zlib, bzip2, LZMA, LZMA2, xz, zstd, brotli, PPMd,
+LZ4 and Snappy, behind one `Codec` interface. `ArchiveReader` reads ZIP and ZIP64, TAR, ar,
+cpio, 7z, RAR, ISO 9660, CAB, WIM and SquashFS, and writers exist for ZIP, TAR, ar and cpio.
+The module also has CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32, a format sniffer and
+the `ArchiveLimits` checks. It does no file I/O and depends on `kotlin-stdlib` only.
 
-Builds for Android, JVM, JS, wasmJs, wasmWasi, iOS, macOS (arm64), tvOS, watchOS,
-Linux, mingwX64 and androidNative. Both modules share this target list.
+Builds for Android, JVM, JS, wasmJs, wasmWasi, iOS, macOS (arm64), tvOS, watchOS, Linux,
+mingwX64 and androidNative. `archivekodec-io` shares this target list.

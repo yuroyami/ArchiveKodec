@@ -1,10 +1,15 @@
 # Module archivekodec-io
 
-Adapters between kotlinx-io and the byte arrays the core works on.
+Files and kotlinx-io for the core. Add it when you read archives from disk or already use
+kotlinx-io.
 
-Four extension functions that read a `RawSource` into a `ByteArray`, and wrap
-one as a `RandomAccessSource`. Add this only if you already use kotlinx-io; the
-core does not need it.
+- `FileRandomAccessSource` opens a file and reads it on demand, so a large archive never sits
+  in memory.
+- `extract` writes chosen entries to sinks, with progress, cancellation and `PromptedPasswords`
+  for encrypted entries.
+- Six adapters read a `RawSource` into a `ByteArray`, wrap one as a `RandomAccessSource`, and
+  compress or decompress between a `RawSource` and a `ByteArray` or a `RawSink`.
 
-Builds for Android, JVM, JS, wasmJs, wasmWasi, iOS, macOS (arm64), tvOS, watchOS,
-Linux, mingwX64 and androidNative. Both modules share this target list.
+Builds for Android, JVM, JS, wasmJs, wasmWasi, iOS, macOS (arm64), tvOS, watchOS, Linux,
+mingwX64 and androidNative, the same targets as the core. In a browser and on WASI,
+`FileRandomAccessSource` throws `ArchiveUnsupportedException`.

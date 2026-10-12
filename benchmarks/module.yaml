@@ -1,5 +1,5 @@
 # Unpublished CPU-time benchmarks with shared JVM and Node corpora and JDK references.
-# The benchmarks-jvm and benchmarks-js apps run them, and benchmarks/run.py drives both. See the README.
+# The benchmarks-jvm and benchmarks-js apps run them, and benchmarks/run.py drives both. See docs/benchmarks.md.
 product:
   type: kmp/lib
   platforms: [ jvm, js ]

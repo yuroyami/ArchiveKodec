@@ -2,9 +2,8 @@
 
 # ArchiveKodec
 
-ArchiveKodec implements compression codecs and archive readers in pure Kotlin, for
-Kotlin Multiplatform. Gunzip a buffer or read a ZIP on iOS and in the browser, as
-well as on the JVM.
+Compression and archive formats in pure Kotlin, for Kotlin Multiplatform. Gunzip a buffer or
+read a ZIP on iOS and in the browser, as well as on the JVM, from one shared codebase.
 
 <div class="kite-hero-actions" markdown>
 [Get started](#install){ .kite-primary }
@@ -14,30 +13,38 @@ well as on the JVM.
 
 </div>
 
-There are no JNI or cinterop dependencies. The core artifact depends on
-`kotlin-stdlib` and nothing else. Both modules build for the targets listed below.
+`java.util.zip` exists on the JVM and Android and nowhere else, so a multiplatform project
+that reads archives usually adds a cinterop binding on iOS and a JavaScript shim on the web.
+ArchiveKodec implements the formats in common Kotlin instead, with no JNI, no cinterop and no
+native binary. The core artifact depends on `kotlin-stdlib` and nothing else.
 
 ## Install
 
-| Artifact | Coordinates |
-| --- | --- |
-| Core | `io.github.yuroyami:archivekodec:0.2.0` |
-| kotlinx-io adapters | `io.github.yuroyami:archivekodec-io:0.2.0` |
-| AES for encrypted archives | `io.github.yuroyami:archivekodec-crypto:0.2.0` |
+0.2.0 is not published to Maven Central yet. These are the coordinates it will use:
+
+| Artifact | Coordinates | What it adds |
+| --- | --- | --- |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers and writers, checksums, the sniffer and the limits |
+| Files | `io.github.yuroyami:archivekodec-io:0.2.0` | A file source, `extract` and kotlinx-io adapters |
+| Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0` | Platform AES for encrypted ZIP and 7z archives |
 
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation("io.github.yuroyami:archivekodec:0.2.0")
-            // Only if you already use kotlinx-io:
             implementation("io.github.yuroyami:archivekodec-io:0.2.0")
+        }
+        // archivekodec-crypto has no JS or Wasm build.
+        jvmMain.dependencies {
+            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
         }
     }
 }
 ```
 
-A Kotlin Toolchain project lists the same coordinates in its `module.yaml`:
+A [Kotlin Toolchain](https://github.com/JetBrains/kotlin-toolchain) project lists the same
+coordinates in its `module.yaml`:
 
 ```yaml
 dependencies:
@@ -45,10 +52,9 @@ dependencies:
   - io.github.yuroyami:archivekodec-io:0.2.0
 ```
 
-A JVM or Android project that is not multiplatform uses the same line in its
-`dependencies` block; Gradle picks the platform variant. Maven does not read
-Gradle module metadata, so a Maven project depends on `archivekodec-jvm` (and
-`archivekodec-io-jvm`) instead:
+A JVM or Android project that is not multiplatform uses the same coordinates, and Gradle picks
+the platform variant. Maven does not read Gradle module metadata, so a Maven project depends on
+the platform artifact (`archivekodec-io-jvm` for the files module):
 
 ```xml
 <dependency>
@@ -58,145 +64,54 @@ Gradle module metadata, so a Maven project depends on `archivekodec-jvm` (and
 </dependency>
 ```
 
-Requirements: Kotlin 2.1 or newer, Java 8 or newer on the JVM, and Android
-minSdk 21. Java calls the JVM artifact directly. Swift imports the
-`ArchiveKodecKit` XCFramework through Swift Package Manager and passes `Data`; it is
-built from the repository, not yet published. JavaScript and TypeScript call an exported facade (`gzip`, `gunzip`, `open` and
-so on) with TypeScript declarations, built from the repository, not yet on npm. The [README's Install section](https://github.com/yuroyami/ArchiveKodec#install)
-covers these callers and the reasons behind each requirement.
+The requirements:
 
-Java callers can use `Gzip.compress(bytes)`, `Crc32.of(bytes)`,
-`ArchiveLimits.DEFAULT` and `reader.read(entry)` directly. The short read overload
-uses the reader's configured limits. See the
-[Java example and JVM migration notes](https://github.com/yuroyami/ArchiveKodec#java-example)
-for builders, resource cleanup and the renamed utility classes.
+- Kotlin 2.1 or newer. The libraries are compiled at language and API version 2.2, which a
+  compiler one minor version older can read.
+- Java 8 or newer on the JVM.
+- Android minSdk 21 or newer.
+
+0.1.0 is on Maven Central under the older name `io.github.yuroyami:kitearchive:0.1.0`.
 
 ## A first example
 
 ```kotlin
-import io.github.yuroyami.archivekodec.ArchiveKodec
-import io.github.yuroyami.archivekodec.archive.use
-import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
-import io.github.yuroyami.archivekodec.security.PathGuard
-
 val gz = ArchiveKodec.gzip.compress("hello".encodeToByteArray())
-val back = ArchiveKodec.decompress(gz)
+val back = ArchiveKodec.decompress(gz) // detects gzip
 
-ArchiveKodec.sniff(gz) // -> ArchiveFormat.GZIP
+val zipBytes = ZipWriter.write(listOf(ZipWriter.FileSpec("hello.txt", back)))
 
-val zipBytes = ZipWriter.write(
-    listOf(ZipWriter.FileSpec("hello.txt", back)),
-)
 ArchiveKodec.open(zipBytes).use { reader ->
     for (entry in reader.entries()) {
-        // Archives of the current directory may contain a root directory entry.
         if (PathGuard.isRootDirectory(entry)) continue
-        // The reader returns names unchanged. Sanitize one before you join it to a path.
-        println(PathGuard.sanitize(entry.name))
+        val content = reader.read(entry)
+        println("${PathGuard.sanitize(entry.name)}: ${content.size} bytes")
     }
 }
 ```
 
-## Two things to know first
+## Guides
 
-`ArchiveKodec.open(bytes, limits)` also opens gzip-wrapped containers such as
-`.tar.gz`, decoding one gzip layer before listing the contained archive. The
-policy applies separately to that decoding step, listing and each entry read.
-`ArchiveKodec.decompress(bytes, limits)` detects gzip, zlib, LZ4 and framed Snappy;
-raw streams require an explicit codec. `ArchiveKodec.lz4`, `snappy` and
-`snappyFramed` are non-null accessors; lookups by format or codec name return null
-when no implementation is available.
+- [Compression](compression.md): codecs, encoder options, gzip headers and checksums.
+- [Reading archives](reading.md): opening, listing, reading, closing and errors.
+- [Entry names and Zip-Slip](entry-names.md): the name check, safe output paths and links.
+- [Encrypted archives](encryption.md): WinZip AES, ZipCrypto and 7z AES.
+- [Writing archives](writing.md): ZIP, TAR, ar and cpio.
+- [Files and extraction](files.md): the file source, `extract` and kotlinx-io.
+- [Custom codecs and formats](extending.md): registries and your own readers.
 
-For external or platform codec implementations, derive
-`CodecRegistry.DEFAULT.with(custom, zipMethod = 93)` and pass it to `ZipReader`.
-Registries are immutable; replacements do not change global defaults. `CodecId`
-is an open value identified by its lowercase name, and availability comes from
-registry lookups. See the [README](https://github.com/yuroyami/ArchiveKodec#compress-and-decompress)
-for registration, framing and limit requirements.
+From other languages: [Java](java.md), [Swift](swift.md) and
+[JavaScript and TypeScript](javascript.md).
 
-Custom readers can register a `FormatSpec` in `FormatRegistry.DEFAULT.with(spec)`.
-Pass that registry to `ArchiveKodec.sniff` or `open`; detectors may read beyond the
-first 512 bytes. `open(source, format = "tar")` selects an id without probing.
-`ArchiveOpenOptions` carries limits, filename decoding and codec bindings into
-reader factories, including through one gzip wrapper. See
-[format registration](https://github.com/yuroyami/ArchiveKodec#register-a-container-format)
-for callback and ownership contracts.
+## Reference
 
-**Everything is whole-array.** You pass a `ByteArray` and get a `ByteArray` back,
-so the payload sits fully in memory. There is no streaming API.
+- [Format support](formats.md): what each codec and reader handles, and the sniffer.
+- [Limits](limits.md): the settings that bound memory and output.
+- [Benchmarks](benchmarks.md): the benchmark harness and its baseline.
 
-**`PathGuard` is a function you call, not a guard the readers apply.** Every
-reader returns the entry name exactly as the archive stored it, including a name
-such as `../../etc/passwd`. Joining that to an output directory is the Zip-Slip
-vulnerability, where an archive entry escapes the folder you meant to extract
-into. Call `PathGuard.sanitize` on every name before you use it as a path.
+## Targets
 
-For archives of the current directory, `PathGuard.isRootDirectory(entry)` lets
-the loop skip directory entries such as `.` or `./`. It returns false for files,
-empty names and unsafe names. Sanitize every remaining name: a false result is
-not a safety check. The strict sanitizer still rejects names that resolve to the
-root, and skipping a root directory entry does not change the output directory
-or apply archive metadata to it.
-
-## Modules
-
-| Module | What it holds | Targets |
-| --- | --- | --- |
-| `archivekodec` | Codecs, archive readers, ZIP, TAR, ar and cpio writers, checksums, a sniffer and the safety checks. See the table below | All, see below |
-| `archivekodec-io` | Four convenience adapters over kotlinx-io `RawSource`. No `RawSink` bridge and no seekable file handle | All, see below |
-| `archivekodec-crypto` | `CryptographyKotlinProvider`: platform AES, HMAC and PBKDF2 for WinZip AES and 7z AES, via cryptography-kotlin | All but JS, wasmJs and wasmWasi |
-
-What `archivekodec` contains:
-
-| Area | Contents |
-| --- | --- |
-| Codecs | DEFLATE, gzip, zlib, LZ4 and Snappy |
-| Archives | ZIP reader and writer (ZIP64, STORE and DEFLATE), TAR reader and regular-file/directory writer, GNU ar reader and writer, and cpio reader and newc/crc writer |
-| Checksums | CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32 |
-| Safety | A magic sniffer, default entry-count limits on listings, output-size/ratio limits on decoding and entry reads, and an opt-in `PathGuard` for paths |
-
-The explicit `InitramfsReader` browses every uncompressed newc/crc segment in a
-Linux initramfs buffer, preserving boundaries and resetting hard links at each
-trailer. Listings enforce entry and segment limits and reject compressed segments
-with their source offset. `CpioReader` still reads a single archive. See the
-[initramfs example](https://github.com/yuroyami/ArchiveKodec#browse-an-uncompressed-linux-initramfs).
-
-The default 10,000:1 compression-ratio ceiling is above the ratios reachable by
-the current codecs, so it cannot reject their valid streams. Set a lower ratio
-when that restriction is needed. The default 2 GiB output cap applies separately
-to each decode/read; callers must enforce a cumulative budget across reads.
-
-`Gzip.compress(bytes, GzipHeader { ... })` writes optional filename, comment,
-timestamp, OS and extra-field metadata, including an optional header CRC.
-`Gzip.readHeader(bytes)` inspects the first member without decoding it. Default
-compression remains reproducible. See the
-[gzip metadata example](https://github.com/yuroyami/ArchiveKodec#read-and-write-gzip-header-metadata).
-
-Both modules build for the same targets: Android, `jvm`, `js`, `wasmJs`,
-`wasmWasi`, iOS, `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`,
-`mingwX64` and the four androidNative targets. The README lists them in full.
-
-## Not implemented
-
-ZIP, TAR, GNU ar and cpio have writers. TAR writing currently covers regular files and directories.
-
-## Where to go next
-
-<div class="kite-cards" markdown>
-
-<a class="kite-card" href="https://github.com/yuroyami/ArchiveKodec#readme">
-<strong>README</strong>
-<span>Install, per-format tables, targets, and the full list of limits.</span>
-</a>
-
-<a class="kite-card" href="api/">
-<strong>API reference</strong>
-<span>Every public type, generated from source.</span>
-</a>
-
-<a class="kite-card" href="https://github.com/yuroyami/ArchiveKodec/issues">
-<strong>What is planned</strong>
-<span>Every missing codec, container and API, filed as an issue you can follow.</span>
-</a>
-
-</div>
+The core and `archivekodec-io` build for Android, `jvm`, `js`, `wasmJs`, `wasmWasi`, iOS,
+`macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`, `mingwX64` and the four
+androidNative targets. `archivekodec-crypto` builds for all of them except `js`, `wasmJs` and
+`wasmWasi`.
