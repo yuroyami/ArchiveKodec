@@ -2,7 +2,6 @@
 """Run plain JavaScript and strict TypeScript consumers against the built npm module."""
 import argparse
 import glob
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,19 +11,33 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 LIBRARY = ROOT / "archivekodec/build/dist/js/productionLibrary"
-# The TypeScript compiler Kotlin/JS pins in kotlin-js-store/yarn.lock to check its own .d.mts.
-TSC = ROOT / "build/js/node_modules/typescript/bin/tsc"
+CACHE = Path.home() / ("Library/Caches/JetBrains/Kotlin" if sys.platform == "darwin" else ".cache/JetBrains/Kotlin")
+# A pinned TypeScript compiler, installed into the build folder on first use.
+TYPESCRIPT = "typescript@5.9.3"
+TOOLS = ROOT / "build/js"
+TSC = TOOLS / "node_modules/typescript/bin/tsc"
 
 
 def node():
-    """Node from PATH, else the one the Kotlin Gradle plugin downloaded."""
+    """Node from PATH, else the one the Kotlin Toolchain downloaded."""
     found = shutil.which("node")
     if found:
         return found
-    downloaded = sorted(glob.glob(str(Path.home() / ".gradle/nodejs/node-*/bin/node")))
+    downloaded = sorted(glob.glob(str(CACHE / "extract.cache/*node-v*/bin/node")))
     if downloaded:
         return downloaded[-1]
-    raise RuntimeError("No node executable on PATH or in ~/.gradle/nodejs")
+    raise RuntimeError(f"No node executable on PATH or in {CACHE}")
+
+
+def npm(executable):
+    """npm from PATH, else the npm that ships next to node."""
+    found = shutil.which("npm")
+    if found:
+        return [found]
+    script = Path(executable).resolve().parents[1] / "lib/node_modules/npm/bin/npm-cli.js"
+    if script.is_file():
+        return [executable, script]
+    raise RuntimeError("No npm executable on PATH or next to node")
 
 
 def run(*args, cwd):
@@ -37,13 +50,13 @@ def main():
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
     if not args.skip_build:
-        gradlew = ROOT / ("gradlew.bat" if sys.platform == "win32" else "gradlew")
-        run(gradlew, "--console=plain", ":archivekodec:jsNodeProductionLibraryDistribution", "kotlinNpmInstall", cwd=ROOT)
+        run(sys.executable, ROOT / "scripts/js_package.py", cwd=ROOT)
     if not (LIBRARY / "ArchiveKodec-KMP-archivekodec.d.mts").is_file():
         raise RuntimeError(f"No TypeScript declarations in {LIBRARY}")
-    if not TSC.is_file():
-        raise RuntimeError(f"No TypeScript compiler at {TSC}; run the kotlinNpmInstall task")
     executable = node()
+    if not TSC.is_file():
+        TOOLS.mkdir(parents=True, exist_ok=True)
+        run(*npm(executable), "install", "--no-save", "--no-package-lock", "--prefix", TOOLS, TYPESCRIPT, cwd=ROOT)
     with tempfile.TemporaryDirectory() as scratch:
         work = Path(scratch) / "consumer"
         shutil.copytree(LIBRARY, work)

@@ -1,6 +1,6 @@
 // swift-tools-version:5.9
-// A Swift-only consumer of the generated package in build/swiftpm/ArchiveKodec. Run it with
-// ./gradlew swiftPackageTest, which builds the XCFrameworks and that package first.
+// A Swift-only consumer of the generated package in build/swiftpm/ArchiveKodec. Build the release
+// XCFrameworks with scripts/apple_frameworks.py, then run package.py, then `swift test` in this folder.
 import PackageDescription
 
 let package = Package(

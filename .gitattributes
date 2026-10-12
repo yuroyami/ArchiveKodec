@@ -1,3 +1,6 @@
 *.kt text diff eol=lf
 # Preserve the ABI dumper's blank separator after its final JVM class.
 *.api text eol=lf whitespace=-blank-at-eof
+# Windows cmd needs CRLF line endings in batch files. Shells need LF in the kotlin script.
+*.bat text eol=crlf
+kotlin text eol=lf

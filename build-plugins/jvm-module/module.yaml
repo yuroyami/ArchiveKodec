@@ -1,0 +1,9 @@
+product: jvm/amper-plugin
+
+description: Adds a module-info.class to the JVM jar, so Java module path users get a stable module name.
+
+pluginInfo:
+  settingsClass: io.github.yuroyami.buildplugins.jvmmodule.JvmModuleSettings
+
+dependencies:
+  - org.ow2.asm:asm:9.11

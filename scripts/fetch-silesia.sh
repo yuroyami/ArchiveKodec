@@ -1,7 +1,7 @@
 #!/bin/sh
 # Download the Silesia Corpus (12 files, 211,938,580 bytes) for the opt-in corpus test:
 #   scripts/fetch-silesia.sh /path/to/silesia
-#   ARCHIVEKODEC_SILESIA=/path/to/silesia ./gradlew :archivekodec:jvmTest --tests '*CorpusRoundTripTest*'
+#   ARCHIVEKODEC_SILESIA=/path/to/silesia ./kotlin test -m archivekodec -p jvm --include-classes='*CorpusRoundTripTest'
 # The files come from the GitHub mirror of the corpus (one zip per file); the original is
 # at https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia.
 set -eu

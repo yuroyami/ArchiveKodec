@@ -5,8 +5,9 @@ checksum calls on JVM and Kotlin/JS (Node). It is a development tool and is not
 published with the libraries. It has no dependency beyond the core and Kotlin
 standard library.
 
-Run from the repository root with JDK 21 and the Android SDK required by the
-multiplatform build. Gradle installs the configured Node distribution.
+Run from the repository root, with the Android SDK that the build needs in
+`ANDROID_HOME`. The Kotlin Toolchain downloads the JDK. The runner uses `node` from
+`PATH`, or else the Node that the toolchain downloaded.
 
 ```sh
 # Short run, including a comparison with the committed baseline.
@@ -19,14 +20,14 @@ python3 benchmarks/run.py --profile full --output benchmarks/build/full.json
 python3 -B -m unittest discover -s benchmarks -p 'test_*.py'
 ```
 
-Use `--reuse-daemon` to reuse a local Gradle daemon. Avoid running other builds or
-benchmarks at the same time. Results are saved to `benchmarks/build/results.json`
+Avoid running other builds or benchmarks at the same time. Results are saved to `benchmarks/build/results.json`
 unless `--output` is supplied. Each result includes every measured sample,
 iterations, input size and CRC-32, and throughput in decimal MB/s of input bytes.
 The report also records the runtime versions, source revision, working-tree state
 and operating system. Compare several runs before drawing performance conclusions.
-The runner finishes compilation first, then executes JVM and Node separately;
-Gradle's asynchronous compilation must not overlap either measurement run.
+The runner finishes compilation first, then runs JVM and Node one after the other,
+so no compilation overlaps a measurement run. The `benchmarks-jvm` and `benchmarks-js`
+apps hold the entry points for the two runtimes.
 
 ## Workloads and timing
 

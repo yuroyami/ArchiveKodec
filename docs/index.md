@@ -37,6 +37,14 @@ kotlin {
 }
 ```
 
+A Kotlin Toolchain project lists the same coordinates in its `module.yaml`:
+
+```yaml
+dependencies:
+  - io.github.yuroyami:archivekodec:0.2.0
+  - io.github.yuroyami:archivekodec-io:0.2.0
+```
+
 A JVM or Android project that is not multiplatform uses the same line in its
 `dependencies` block; Gradle picks the platform variant. Maven does not read
 Gradle module metadata, so a Maven project depends on `archivekodec-jvm` (and

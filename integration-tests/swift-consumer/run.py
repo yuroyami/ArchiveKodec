@@ -60,10 +60,10 @@ def main():
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise RuntimeError("Swift consumer execution requires macOS arm64 with an iOS simulator runtime")
     if not args.skip_build:
-        tasks = [f":{module}:linkDebugFramework{target}"
-                 for module in ("archivekodec", "archivekodec-io")
-                 for target in ("IosSimulatorArm64", "IosArm64", "IosX64")]
-        run("./gradlew", *tasks, "--max-workers=2")
+        platforms = ("iosSimulatorArm64", "iosArm64", "iosX64")
+        run(ROOT / "kotlin", "build", *[arg for p in platforms for arg in ("-p", p)])
+        run(sys.executable, ROOT / "scripts/apple_frameworks.py", "--build-type", "debug",
+            "--platforms", ",".join(platforms), "--no-xcframework")
     core = ROOT / "archivekodec/build/bin/iosSimulatorArm64/debugFramework"
     io = ROOT / "archivekodec-io/build/bin/iosSimulatorArm64/debugFramework"
     core_selectors = [

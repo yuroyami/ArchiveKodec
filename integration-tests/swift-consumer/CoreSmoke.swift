@@ -821,12 +821,13 @@ for method in [ZipMethod.stored, ZipMethod.deflated] {
             _ = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: name, data: empty, method: method)])
         }
     }
+    // The writer accepts these names. A reader with the default limits rejects unsafe names, so it opts out.
     for name in ["", "./", "a//./b", "é/文件😀", "dir/report:today.txt"] {
         let archive = try ZipWriter.shared.write(files: [try ZipWriter.FileSpec(name: name, data: bytes([65, 66, 67]), method: method)])
-        let reader = ZipReader(source: ByteArrayRandomAccessSource(data: archive))
+        let reader = ZipReader(source: ByteArrayRandomAccessSource(data: archive), limits: rawNames)
         let entries = try reader.entries()
         precondition(entries.count == 1 && entries[0].name == name)
-        let restored = try reader.read(entry: entries[0], limits: limits)
+        let restored = try reader.read(entry: entries[0], limits: rawNames)
         precondition(restored.size == 3 && restored.get(index: 1) == 66)
         try reader.close()
     }

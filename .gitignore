@@ -1,12 +1,13 @@
-.gradle/
 build/
+.build/
 *.iml
 .idea/
 local.properties
 .kotlin/
 .DS_Store
+__pycache__/
 
-# Reference source trees are for porting/study only — never distributed.
+# Reference source trees are for porting and study only. They are never distributed.
 # The origin/license notes remain tracked; third-party source trees do not.
 reference/*
 !reference/REFERENCES.md

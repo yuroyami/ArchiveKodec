@@ -1,0 +1,57 @@
+# Settings that the three published libraries share. Each module.yaml applies this file
+# and adds its own platforms, dependencies, Android namespace and POM name.
+
+# `./kotlin publish mavenLocal -m <module>` puts a build into ~/.m2 for tests in other projects.
+repositories:
+  - url: mavenLocal
+    publish: true
+    resolve: false
+
+settings:
+  kotlin:
+    # Keep abi-tools in build-plugins/abi-check/module.yaml at the same version.
+    version: 2.4.21
+    explicitApi: strict
+    # Older Kotlin compilers can read the metadata (see the README's Install section).
+    languageVersion: 2.2
+    apiVersion: 2.2
+  jvm:
+    jdk:
+      version: 21
+    # Java 8 bytecode against the Java 8 API, the same floor as kotlin-stdlib and kotlinx-io.
+    release: 8
+    test:
+      # VersionTest compares ArchiveKodec.VERSION with this value. Keep it equal to publishing.version.
+      systemProperties:
+        archivekodec.expectedVersion: 0.2.0-SNAPSHOT
+  android:
+    compileSdk: 37
+    minSdk: 21
+  publishing:
+    enabled: true
+    group: io.github.yuroyami
+    # After a change, run `./kotlin do updateVersion` to update ArchiveKodec.VERSION.
+    version: 0.2.0-SNAPSHOT
+    pom:
+      url: https://github.com/yuroyami/ArchiveKodec
+      licenses:
+        - name: The Apache License, Version 2.0
+          url: https://www.apache.org/licenses/LICENSE-2.0.txt
+      developers:
+        - id: yuroyami
+          name: yuroyami
+          url: https://github.com/yuroyami
+      scm:
+        url: https://github.com/yuroyami/ArchiveKodec
+        connection: scm:git:git://github.com/yuroyami/ArchiveKodec.git
+        developerConnection: scm:git:ssh://git@github.com/yuroyami/ArchiveKodec.git
+    signArtifacts: true
+    publishSources: true
+    mavenCentral:
+      enabled: true
+      publishingMode: auto
+
+# -Xexport-kdoc keeps the KDoc in the native klibs, so Apple framework headers keep the docs.
+settings@native:
+  kotlin:
+    freeCompilerArgs: [ -Xexport-kdoc ]

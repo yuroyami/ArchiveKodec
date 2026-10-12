@@ -1,0 +1,10 @@
+# Links the @JsExport facade of :archivekodec into an ES module with TypeScript declarations,
+# for plain JavaScript and TypeScript callers. Not published.
+product: js/app
+
+dependencies:
+  - //archivekodec
+
+settings:
+  kotlin:
+    version: 2.4.21

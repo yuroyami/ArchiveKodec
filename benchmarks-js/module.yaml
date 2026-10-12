@@ -1,0 +1,9 @@
+# Runs the JS benchmarks of the benchmarks module. Not published. benchmarks/run.py starts it.
+product: js/app
+
+dependencies:
+  - //benchmarks
+
+settings:
+  kotlin:
+    version: 2.4.21

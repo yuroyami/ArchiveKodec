@@ -1,0 +1,19 @@
+modules:
+  - archivekodec
+  - archivekodec-crypto
+  - archivekodec-io
+  - archivekodec-js
+  - benchmarks
+  - benchmarks-js
+  - benchmarks-jvm
+  - build-plugins/abi-check
+  - build-plugins/dokka
+  - build-plugins/jvm-module
+  - build-plugins/version-constant
+  - integration-tests/io-consumer
+
+plugins:
+  - //build-plugins/abi-check
+  - //build-plugins/dokka
+  - //build-plugins/jvm-module
+  - //build-plugins/version-constant

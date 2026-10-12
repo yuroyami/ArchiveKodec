@@ -23,7 +23,7 @@ FRAMEWORKS = {
 def zip_framework(source, target):
     """Zip keeping the bundle's symbolic links (macOS frameworks are versioned bundles)."""
     if not source.is_dir():
-        raise RuntimeError(f"No XCFramework at {source}; run ./gradlew assembleXCFrameworks first")
+        raise RuntimeError(f"No XCFramework at {source}; run scripts/apple_frameworks.py first")
     target.unlink(missing_ok=True)
     if shutil.which("ditto"):
         command = ["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", source.name, target]

@@ -1,0 +1,15 @@
+# Unpublished CPU-time benchmarks with shared JVM and Node corpora and JDK references.
+# The benchmarks-jvm and benchmarks-js apps run them, and benchmarks/run.py drives both. See the README.
+product:
+  type: kmp/lib
+  platforms: [ jvm, js ]
+
+dependencies:
+  - //archivekodec
+
+settings:
+  kotlin:
+    version: 2.4.21
+  jvm:
+    jdk:
+      version: 21

@@ -1,0 +1,13 @@
+tasks:
+  generate:
+    action: !io.github.yuroyami.buildplugins.jvmmodule.writeModuleInfo
+      settings: ${pluginSettings}
+      # The sources, not the classes: compilation reads the generated resources, so classes would make a loop.
+      sources:
+        from: ${module.self}
+        includeGenerated: false
+      outputDir: ${taskOutputDir}/resources
+
+generated:
+  resources:
+    - directory: ${tasks.generate.action.outputDir}

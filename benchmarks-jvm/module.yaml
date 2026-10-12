@@ -1,0 +1,12 @@
+# Runs the JVM benchmarks of the benchmarks module. Not published. benchmarks/run.py starts it.
+product: jvm/app
+
+dependencies:
+  - //benchmarks
+
+settings:
+  kotlin:
+    version: 2.4.21
+  jvm:
+    jdk:
+      version: 21

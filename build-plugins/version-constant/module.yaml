@@ -1,0 +1,6 @@
+product: jvm/amper-plugin
+
+description: Checks that a committed `const val VERSION` equals `settings.publishing.version`, and updates it.
+
+pluginInfo:
+  settingsClass: io.github.yuroyami.buildplugins.version.VersionConstantSettings

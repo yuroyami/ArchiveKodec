@@ -1,0 +1,13 @@
+[versions]
+# Used by :archivekodec-io only. The :archivekodec core depends on kotlin-stdlib only.
+kotlinxIo = "0.9.1"
+kotlinxCoroutines = "1.10.2"
+# Used by :archivekodec-crypto only.
+cryptography = "0.6.0"
+
+[libraries]
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
+cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }

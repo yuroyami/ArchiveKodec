@@ -1,0 +1,12 @@
+# Compiles a downstream Java consumer against only the public dependencies of :archivekodec-io.
+product: jvm/lib
+
+dependencies:
+  - //archivekodec-io
+
+settings:
+  kotlin:
+    version: 2.4.21
+  jvm:
+    jdk:
+      version: 21

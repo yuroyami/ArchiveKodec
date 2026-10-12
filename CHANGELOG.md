@@ -2,12 +2,29 @@
 
 ## Unreleased
 
+- Build. The project now builds with the Kotlin Toolchain (`./kotlin`) instead of Gradle,
+  with Kotlin 2.4.21 and Android compileSdk 37. The published coordinates and klib names
+  do not change. What changes for consumers:
+  - The JVM jars of `archivekodec` and `archivekodec-io` carry a `module-info.class`
+    instead of an `Automatic-Module-Name` manifest entry. The module names stay the
+    same, and the module path sees explicit modules.
+  - Breaking for the Java module path: the `archivekodec-crypto` jar no longer has an
+    `Automatic-Module-Name`. Java takes the module name from the file name instead,
+    `archivekodec.crypto.jvm`. The cryptography-kotlin jars that it needs have no module
+    names, so it cannot have a `module-info.class` either.
+  - The Android AAR holds the same classes as the JVM jar.
+  - The JavaScript module is assembled from one `.mjs` file per source file, with an
+    entry file of the old name, `ArchiveKodec-KMP-archivekodec.mjs`, and its `.d.mts`.
+  - The API reference covers the common code of each module, plus the Apple and
+    JavaScript functions of the core.
+
 - Swift. Every Apple target now builds a framework, gathered into the
-  `ArchiveKodecKit` and `ArchiveKodecIo` XCFrameworks; `./gradlew swiftPackage` zips
-  them and writes a Swift package (local paths, or a hosted URL with checksums).
+  `ArchiveKodecKit` and `ArchiveKodecIo` XCFrameworks; `integration-tests/swift-package/package.py`
+  zips them and writes a Swift package (local paths, or a hosted URL with checksums).
   Breaking for Swift and Objective-C: the core framework is renamed from `ArchiveKodec`
-  to `ArchiveKodecKit`, so `import ArchiveKodecKit`, and Objective-C names take the
-  `ArchiveKodecKit` prefix; the `ArchiveKodec` type kept its name. On Apple platforms
+  to `ArchiveKodecKit`, so `import ArchiveKodecKit`. Kotlin/Native shortens a framework
+  name with three or more capitals to its capitals, so Objective-C names take the `AKK`
+  prefix (`AKI` in `ArchiveKodecIo`); the `ArchiveKodec` type kept its name. On Apple platforms
   `ArchiveKodec` gains `NSData` overloads (`compress`, `decompress`, `open`, `read`)
   and `data(bytes:)`/`bytes(data:)` conversions, so Swift passes `Data` directly.
 
@@ -16,7 +33,8 @@
   `gzip`/`gunzip`, `deflate`/`inflate`, `zlib`/`unzlib`, `lz4`/`unlz4`, `compress`,
   `decompress`, `decompressAny`, `sniff`, `open` (returning an `Archive` of `Entry`
   objects), `zip` and `version`. Bytes are `Int8Array` and sizes are numbers.
-  `./gradlew jsConsumerTest` runs JavaScript and strict TypeScript consumers against it.
+  `scripts/js_package.py` builds the module, and `integration-tests/js-consumer/run.py`
+  runs JavaScript and strict TypeScript consumers against it.
   Kotlin/JS consumers of the klib are unaffected, apart from the new package.
 
 - Links. `ArchiveEntry` gains `isSymbolicLink`, `isHardLink` and `linkTarget`; a symlink
@@ -367,14 +385,15 @@
   inlined at compile time. Kotlin source that reads it is unchanged, but it can no
   longer appear in constant expressions such as annotation arguments. Java callers
   use `ArchiveKodec.getVERSION()` instead of the removed static field. The value
-  is generated from the Gradle `version` property, the only place the version is
-  written. `checkReadmeVersion` fails when the README coordinates name another
-  release.
+  is generated from the publishing version in `library.module-template.yaml`, the only
+  place the version is written. The portable CI lane fails when the README coordinates
+  name another release.
 
 - The JVM and Android classes are Java 8 bytecode (major version 52) instead of
   Java 21 (65), so they load on Java 8 through 20 as well. The JVM compilation uses
-  `-Xjdk-release=1.8`. Both jars declare an `Automatic-Module-Name`
-  (`io.github.yuroyami.archivekodec`, `io.github.yuroyami.archivekodec.io`).
+  `-Xjdk-release=8`. Both jars contain a `module-info.class` with the module names
+  `io.github.yuroyami.archivekodec` and `io.github.yuroyami.archivekodec.io`. Each
+  module exports all of its packages and requires its dependencies transitively.
   Language and API version are pinned to Kotlin 2.2, so consumers need Kotlin 2.1
   or newer. Building still needs JDK 21.
 

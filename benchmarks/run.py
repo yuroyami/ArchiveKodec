@@ -7,6 +7,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import sys
 
@@ -90,33 +91,42 @@ def compare(report, baseline):
                for identity, row in current.items())
 
 
+def node():
+    """Node from PATH, else the one the Kotlin Toolchain downloaded."""
+    found = shutil.which("node")
+    if found:
+        return found
+    cache = Path.home() / ("Library/Caches/JetBrains/Kotlin" if sys.platform == "darwin" else ".cache/JetBrains/Kotlin")
+    downloaded = sorted(cache.glob("extract.cache/*node-v*/bin/node"))
+    if downloaded:
+        return str(downloaded[-1])
+    raise RuntimeError(f"No node executable on PATH or in {cache}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--check", action="store_true", help="Compare smoke results with the committed baseline")
     parser.add_argument("--record-baseline", action="store_true", help="Deliberately replace the smoke baseline")
-    parser.add_argument("--reuse-daemon", action="store_true", help="Reuse a local Gradle daemon")
     parser.add_argument("--output", type=Path, default=ROOT / "benchmarks/build/results.json")
     args = parser.parse_args()
     if args.profile != "smoke" and (args.check or args.record_baseline):
         parser.error("Baseline checks and updates require the smoke profile")
     if args.check and args.record_baseline:
         parser.error("Checking and replacing the baseline are separate operations")
-    gradlew = ROOT / ("gradlew.bat" if sys.platform == "win32" else "gradlew")
-    command = [str(gradlew), "--console=plain", "--daemon" if args.reuse_daemon else "--no-daemon",
-               "--no-parallel", "--max-workers=1",
-               "-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8 -XX:+UseParallelGC",
-               "-Pkotlin.compiler.execution.strategy=in-process"]
-    environment = dict(os.environ, BENCHMARK_PROFILE=args.profile)
-    # Gradle can overlap asynchronous compiler work with JavaExec even with
-    # --no-parallel. Finish both builds before timing, then run each runtime in
-    # its own invocation so neither measures CPU contention from the other.
-    subprocess.run(command + [":benchmarks:jvmMainClasses",
-                              ":benchmarks:jsProductionExecutableCompileSync"],
-                   cwd=ROOT, env=environment, check=True)
+    kotlin = str(ROOT / ("kotlin.bat" if sys.platform == "win32" else "kotlin"))
+    environment = dict(os.environ, BENCHMARK_PROFILE=args.profile, KOTLIN_CLI_NO_WELCOME_BANNER="1")
+    # Finish both builds before timing, then run each runtime on its own,
+    # so neither measures CPU contention from the compiler or the other runtime.
+    subprocess.run([kotlin, "build", "-m", "benchmarks-jvm"], cwd=ROOT, env=environment, check=True)
+    subprocess.run([kotlin, "task", ":benchmarks-js:linkJs"], cwd=ROOT, env=environment, check=True)
+    runs = {
+        "JVM": [kotlin, "run", "-m", "benchmarks-jvm", "--jvm-args=-Xmx2g"],
+        "Node": [node(), str(ROOT / "build/artifacts/CompiledWebArtifact/benchmarks-jsjsrelease/kotlin-output/benchmarks-js.mjs")],
+    }
     results, metadata = [], []
-    for task in (":benchmarks:jvmBenchmark", ":benchmarks:jsNodeProductionRun"):
-        with subprocess.Popen(command + [task], cwd=ROOT, env=environment, stdout=subprocess.PIPE,
+    for name, command in runs.items():
+        with subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, text=True, bufsize=1) as process:
             for line in process.stdout:
                 print(line, end="", flush=True)
@@ -125,7 +135,7 @@ def main():
                 elif line.startswith(META_PREFIX):
                     metadata.append(json.loads(line[len(META_PREFIX):]))
             if process.wait():
-                raise RuntimeError(f"{task} failed with exit code {process.returncode}")
+                raise RuntimeError(f"The {name} benchmarks failed with exit code {process.returncode}")
     if ({row["platform"] for row in metadata} != {"jvm", "js"} or len(metadata) != 2
             or any(row["profile"] != args.profile or row["corpus_version"] != 1 for row in metadata)):
         raise ValueError("Missing or inconsistent JVM/Node run metadata")

@@ -48,6 +48,18 @@ kotlin {
 }
 ```
 
+A [Kotlin Toolchain](https://github.com/JetBrains/kotlin-toolchain) project lists the
+same coordinates in its `module.yaml`:
+
+```yaml
+dependencies:
+  - io.github.yuroyami:archivekodec:0.2.0
+  - io.github.yuroyami:archivekodec-io:0.2.0
+
+dependencies@jvm:
+  - io.github.yuroyami:archivekodec-crypto:0.2.0
+```
+
 A JVM or Android project that is not multiplatform uses the same coordinates.
 Gradle reads the published module metadata and picks the JVM or Android variant:
 
@@ -77,12 +89,14 @@ Requirements:
   than 2.2. Kotlin/Native and Kotlin/JS klibs follow Kotlin's own klib rules, which
   can be stricter.
 - **Java 8 or newer** at run time on the JVM. The jars contain Java 8 class files
-  (major version 52), compiled against the Java 8 API with `-Xjdk-release=1.8`,
-  the same floor as `kotlin-stdlib` and kotlinx-io. Building the libraries
-  themselves needs JDK 21.
+  (major version 52), compiled against the Java 8 API with `-Xjdk-release=8`,
+  the same floor as `kotlin-stdlib` and kotlinx-io. The build of the libraries
+  downloads its own JDK 21.
 - **Android minSdk 21** or newer.
 - JPMS module names: `io.github.yuroyami.archivekodec` and
-  `io.github.yuroyami.archivekodec.io` (`Automatic-Module-Name`).
+  `io.github.yuroyami.archivekodec.io`, from a `module-info.class` in each jar.
+  `archivekodec-crypto` has no declared name, so Java takes `archivekodec.crypto.jvm`
+  from the file name.
 
 Callers outside Kotlin:
 
@@ -459,9 +473,18 @@ Swift apps use one of two XCFrameworks, built for every Apple target in the
 
 Link one, not both: each carries its own Kotlin runtime.
 
-They are not published yet. `./gradlew swiftPackage` builds both on macOS. It zips
-them and writes a Swift package to `build/swiftpm/ArchiveKodec/`. Add that folder to
-Xcode as a local package, or depend on it from a `Package.swift`:
+They are not published yet. Build both on macOS from a clone of this repository:
+
+```bash
+./kotlin build
+python3 scripts/apple_frameworks.py
+python3 integration-tests/swift-package/package.py
+```
+
+`./kotlin build` compiles the klibs. `apple_frameworks.py` links the release
+frameworks and XCFrameworks from them. `package.py` zips the XCFrameworks and writes a
+Swift package to `build/swiftpm/ArchiveKodec/`. Add that folder to Xcode as a local
+package, or depend on it from a `Package.swift`:
 
 ```swift
 .package(path: "path/to/ArchiveKodec/build/swiftpm/ArchiveKodec"),
@@ -469,8 +492,8 @@ Xcode as a local package, or depend on it from a `Package.swift`:
 .product(name: "ArchiveKodecKit", package: "ArchiveKodec"),
 ```
 
-`./gradlew swiftPackage -PswiftPackageUrl=https://example.com/downloads/` writes a
-package for hosting instead. Each zip becomes a remote binary target pinned by its
+`package.py --url https://example.com/downloads/` writes a package for hosting
+instead. Each zip becomes a remote binary target pinned by its
 SHA-256, and `checksums.txt` lists the sums. Upload both zips to that address.
 
 `ArchiveKodec.shared` takes and returns `Data`, so payloads need no `KotlinByteArray`:
@@ -498,9 +521,9 @@ not reach Swift, so the library has explicit overloads without them, such as
 or the reader's limits. Failures arrive as Swift errors; see
 [Expected failures and Apple consumers](#expected-failures-and-apple-consumers).
 
-`./gradlew swiftPackageTest` runs `integration-tests/swift-package` on macOS. That is a
-Swift-only package with XCTest cases for the calls above, and it depends on the
-generated package.
+`swift test --package-path integration-tests/swift-package` runs a Swift-only package
+with XCTest cases for the calls above. It depends on the generated package, so run the
+three commands above first.
 
 ## Read an archive
 
@@ -1209,7 +1232,7 @@ platform family.
 
 | Target | Both artifacts |
 | --- | --- |
-| Android, minSdk 21, compileSdk 36, Java 8 bytecode | yes |
+| Android, minSdk 21, compileSdk 37, Java 8 bytecode | yes |
 | `jvm`, Java 8 bytecode | yes |
 | `js`, browser and Node | yes |
 | `wasmJs`, browser and Node | yes |
@@ -1305,7 +1328,7 @@ with a message. The Kotlin API is not exported as it is, because Kotlin collecti
 `Long` and interface default arguments have no JavaScript form.
 
 The module is not published to npm yet. Build it with
-`./gradlew :archivekodec:jsNodeProductionLibraryDistribution`; it lands in
+`python3 scripts/js_package.py`. The module lands in
 `archivekodec/build/dist/js/productionLibrary/`, with a `package.json` to install
 from that folder.
 
@@ -1348,8 +1371,8 @@ Every decoding call has [ArchiveLimits.DEFAULT](#limits), with the output cap se
 describes before writing files. The `wasmJs` build exports nothing: Kotlin/Wasm can
 export only top-level functions over numbers, so JavaScript callers use the JS build.
 
-`./gradlew jsConsumerTest` runs a plain JavaScript file and a `--strict` TypeScript file
-against the built module (`integration-tests/js-consumer/`).
+`python3 integration-tests/js-consumer/run.py` runs a plain JavaScript file and a
+`--strict` TypeScript file against the built module (`integration-tests/js-consumer/`).
 
 ## Limits
 
@@ -1437,10 +1460,10 @@ against the built module (`integration-tests/js-consumer/`).
 
 ## Testing
 
-`commonTest` runs on the JVM, Android host, Node.js and arm64 iOS simulator.
-Android host tests run on the host JVM against the Android target's compiled
-code; they do not run on an emulator or device. Both modules enable these tests
-with the Android KMP plugin's `withHostTest {}` option.
+The common tests run on every platform that can execute them: the JVM, the Android
+host, Node.js, headless Chrome, Linux, Windows, macOS and the iOS, tvOS and watchOS
+simulators. Android tests run on the host JVM against the Android target's compiled
+code. They do not run on an emulator or device.
 
 At the [Android host-test checkpoint](https://github.com/yuroyami/ArchiveKodec/issues/110),
 the core has 503 common test methods and 39 JVM-only methods. The IO module has
@@ -1491,26 +1514,25 @@ binary, a spreadsheet and C source, each over 32 KiB where the file allows): eve
 encoder must round-trip them and, except STORE and raw Snappy, make them smaller, and
 DEFLATE runs every level at two window sizes. On the JVM, `CorpusRoundTripTest` does
 the same over the whole Canterbury Corpus (2.8 MB, committed under
-`src/jvmTest/resources/canterbury` with SHA-256 sums), and decodes our DEFLATE, zlib
+`archivekodec/testResources@jvm/canterbury` with SHA-256 sums), and decodes our DEFLATE, zlib
 and gzip with `java.util.zip` and the JDK's with ours, at levels 1, 6 and 9, holding
 our size within 0.5% of zlib's. The 212 MB Silesia Corpus is too large to commit, so
 it runs on request; every encoder and the JDK checks take about 11 minutes on the JVM:
 
 ```bash
 scripts/fetch-silesia.sh /tmp/silesia
-ARCHIVEKODEC_SILESIA=/tmp/silesia ./gradlew :archivekodec:jvmTest --tests '*CorpusRoundTripTest*'
+ARCHIVEKODEC_SILESIA=/tmp/silesia ./kotlin test -m archivekodec -p jvm --include-classes='*CorpusRoundTripTest'
 ```
 
 `XxHash32Test` checks upstream known-answer vectors across accumulator and tail
 boundaries, unsigned results, nonzero seeds and unaligned slices. The expected
 values are independent of the Kotlin implementation.
 
-`./gradlew :archivekodec:allTests :archivekodec-io:allTests` also runs the JS and
-Wasm suites in headless Chrome, through Karma, with the same 30-second test timeout
-as Node (`karma.config.d/`). Karma needs a Chrome or Chromium binary in `CHROME_BIN`.
-As root, Chromium also needs `--no-sandbox`, so point `CHROME_BIN` at a wrapper script
-that adds it. In the browser the `-io` file tests check that `FileRandomAccessSource`
-reports unsupported, and stop there.
+`./kotlin test -p wasmJs` runs the wasmJs suites in headless Chrome, which the
+Kotlin Toolchain downloads. In the browser, the `-io` file tests check that
+`FileRandomAccessSource` reports unsupported, and stop there. `./kotlin test` cannot
+run the JS and wasmWasi suites yet. `python3 integration-tests/web-tests/run.py` links
+both and runs them in Node.
 
 The unpublished `benchmarks` module measures the same fixed corpora on JVM and
 Node, with JDK checksum and DEFLATE references. Run
@@ -1520,69 +1542,84 @@ See [benchmark methodology and baseline](docs/benchmarks.md) before comparing ra
 
 ## Building
 
-The ABI references in each module's `api/` directory cover JVM classes, the
-actual Android AAR classes and the merged klib declarations of every other target.
-Both modules' `check` tasks require ABI checks. The Linux and Apple CI lanes both
-check the complete target matrix without inferring unsupported targets. Kotlin/Native
-cross-compiles the Apple klibs on Linux, so a complete ABI check needs the Android
-SDK and no Apple toolchain.
+The build uses the [Kotlin Toolchain](https://github.com/JetBrains/kotlin-toolchain).
+`./kotlin` (or `kotlin.bat` on Windows) downloads the toolchain, the JDKs, Kotlin/Native,
+Node and Chrome on first use. `project.yaml` lists the modules. Each module has a
+`module.yaml`, and the three published modules share `library.module-template.yaml`.
 
 ```bash
-./gradlew checkPortableAbi            # JVM JARs and Android AARs
-./gradlew checkKotlinAbi              # complete current ABI matrix
-./gradlew checkLegacyAbi              # compatibility name for the complete check
-./gradlew updateKotlinAbi             # deliberate reference update; review and commit its diff
+./kotlin build                          # all modules, all platforms this host can build
+./kotlin test -p jvm -p android         # some platforms; -m archivekodec for one module
+./kotlin check abi klibAbi version      # the ABI and version checks
+python3 integration-tests/web-tests/run.py       # JS and wasmWasi tests in Node
+python3 integration-tests/swift-consumer/run.py  # macOS arm64: compile and run the Swift consumers
 ```
 
-The version is written once, as `version` in `gradle.properties`. Development
-builds carry a `-SNAPSHOT` suffix. `ArchiveKodec.VERSION` is generated from it,
-and `./gradlew checkReadmeVersion` (part of `check` and the portable CI lane) fails
-unless every coordinate in this README and on the docs landing page names the
-same release. To release, drop
-the suffix, publish, then set the next `-SNAPSHOT` and update the README snippets
-in the same commit.
+You need the Android SDK. Set `ANDROID_HOME` to your SDK install. The toolchain does
+not read `local.properties`.
+
+Local build plugins in `build-plugins/` add the parts that the toolchain does not
+build by itself:
+
+| Plugin | What it adds |
+|---|---|
+| `abi-check` | The `abi` and `klibAbi` checks, and the `updateAbi` and `updateKlibAbi` commands |
+| `dokka` | The `dokka` and `dokkaSite` commands, which write the API reference to `build/dokka/html` |
+| `jvm-module` | A `module-info.class` in the JVM jars of the core and the `-io` artifact |
+| `version-constant` | The `version` check and the `updateVersion` command for `ArchiveKodec.VERSION` |
+
+Two scripts build the outputs that no plugin can make. `scripts/apple_frameworks.py`
+links the Apple frameworks and XCFrameworks (see [Swift](#swift)).
+`scripts/js_package.py` assembles the JavaScript module (see
+[JavaScript and TypeScript](#javascript-and-typescript)).
+
+The ABI references in each module's `api/` directory cover the JVM classes and the
+merged klib declarations of every other platform. The Android artifact contains the
+JVM classes, so it has no reference of its own. The klib check reads the klibs of all
+platforms, so run `./kotlin build` on macOS first.
+
+```bash
+./kotlin do updateAbi                   # deliberate reference update; review and commit its diff
+./kotlin do updateKlibAbi
+```
+
+The version is `publishing.version` in `library.module-template.yaml`. The same file
+repeats it as the `archivekodec.expectedVersion` test property, which `VersionTest`
+compares with `ArchiveKodec.VERSION`. Development builds carry a `-SNAPSHOT` suffix. `./kotlin do updateVersion` writes
+`ArchiveKodec.VERSION` from it, and `./kotlin check version` fails when the two differ.
+The portable CI lane fails unless every coordinate in this README and on the docs
+landing page names the same release. To release, drop the suffix, publish, then set
+the next `-SNAPSHOT` and update the README snippets in the same commit.
 
 Update a reference only alongside an intentional API change, with that change
 named in the commit and release notes. See [the API baseline records](api/README.md)
 for the frozen, checksum-verified 0.1.0 artifacts under the original `kitearchive`
 coordinates. Those historical dumps use the old namespace; the current references
-record ArchiveKodec after its rename and fixes.
-
-```bash
-./gradlew :archivekodec:jvmTest         # core test suite
-./gradlew :archivekodec:testAndroidHostTest :archivekodec-io:testAndroidHostTest
-./gradlew swiftConsumerTest             # macOS arm64: compile and run core/IO Swift consumers
-./gradlew :archivekodec-io:jvmTest      # kotlinx-io adapter tests
-./gradlew :io-consumer-test:compileJava # downstream IO API compile check
-./gradlew build                        # all modules, all targets
-```
-
-You need JDK 21 and the Android SDK. Point `sdk.dir` in `local.properties` at
-your SDK install.
-
-The committed `kotlin-js-store/yarn.lock` pins the npm dependencies used by the
-JavaScript toolchain. When deliberately updating them, run
-`./gradlew kotlinUpgradeYarnLock`, review the lockfile diff and commit it with
-the build change. API pages link declarations to their source files on `main`.
+record ArchiveKodec after its rename and fixes. API pages link declarations to their
+source files on `main`.
 
 Pull requests and main pushes run the `CI` workflow without path filters. Its
-`Verification` check requires all three platform lanes to succeed. The Linux lane
-runs the JVM, Android host, JS Node, wasmJs Node, wasmWasi Node and `linuxX64`
-suites of both modules. It compiles `linuxArm64` and the four androidNative
-targets, and builds both Android AARs/JVM JARs, the core JS distribution and the
-downstream Java compile check, and runs the JavaScript and TypeScript consumers
-against that distribution. The macOS lane runs the iOS, macOS, tvOS and
-watchOS simulator suites, compiles the Apple device targets and runs the
-independent Swift consumers, including the SwiftPM package over the XCFrameworks. The Windows lane runs both `mingwX64` suites.
-All six Apple frameworks are built; device and x64 checks cover compilation and
-exported headers, while runtime checks use the arm64 iOS simulator. Android
-verification includes both host-test suites, compilation and packaging. Android
-device/emulator tests and JS browser tests are not configured in these lanes.
+`Verification` check requires all three platform lanes and the benchmark check to
+succeed. Each lane runs `integration-tests/ci/run.py`.
+
+- The Linux lane runs the JVM, Android host, wasmJs and `linuxX64` suites, and the
+  JS and wasmWasi suites in Node. It compiles `linuxArm64` and the four androidNative
+  platforms. It runs the JVM ABI check and the version check, checks the class file
+  versions and the module descriptors, compiles the downstream Java check, and runs
+  the JavaScript and TypeScript consumers.
+- The macOS lane builds every platform, runs the iOS, macOS, tvOS and watchOS
+  simulator suites and the klib ABI check, and runs the Swift consumers and the
+  SwiftPM package over the release XCFrameworks. Device and x64 frameworks are
+  checked for compilation and exported headers. Runtime checks use the arm64 iOS
+  simulator.
+- The Windows lane runs the `mingwX64` suites.
+
+Android device or emulator tests are not configured in these lanes.
 Pages builds and deploys only after verification succeeds for the same main commit.
 `Verification` is the
 stable check to select in branch protection.
 
-Run the identical commands locally with JDK 21 and Android SDK 36 installed:
+Run the same lanes locally, with the Android SDK in `ANDROID_HOME`:
 
 ```bash
 python3 integration-tests/ci/run.py portable
