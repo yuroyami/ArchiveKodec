@@ -34,8 +34,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/JetBrains/Kotlin
-          key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
-          restore-keys: kotlin-toolchain-${{ runner.os }}-
+          key: kotlin-toolchain-${{ runner.os }}-${{ github.job }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
+          restore-keys: |
+            kotlin-toolchain-${{ runner.os }}-${{ github.job }}-
+            kotlin-toolchain-${{ runner.os }}-
       - name: Install the required Android SDK
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Run verification
@@ -67,8 +69,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/JetBrains/Kotlin
-          key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
-          restore-keys: kotlin-toolchain-${{ runner.os }}-
+          key: kotlin-toolchain-${{ runner.os }}-${{ github.job }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
+          restore-keys: |
+            kotlin-toolchain-${{ runner.os }}-${{ github.job }}-
+            kotlin-toolchain-${{ runner.os }}-
       - name: Check the Apple toolchain
         run: |
           test "$(uname -m)" = arm64
@@ -78,13 +82,6 @@ jobs:
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Run verification
         run: python3 integration-tests/ci/run.py apple
-      - name: Retain test reports
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: apple-test-reports
-          path: build/reports/
-          retention-days: 14
 
   windows:
     name: mingwX64 tests
@@ -98,8 +95,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/AppData/Local/JetBrains/Kotlin
-          key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin.bat', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
-          restore-keys: kotlin-toolchain-${{ runner.os }}-
+          key: kotlin-toolchain-${{ runner.os }}-${{ github.job }}-${{ hashFiles('kotlin.bat', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
+          restore-keys: |
+            kotlin-toolchain-${{ runner.os }}-${{ github.job }}-
+            kotlin-toolchain-${{ runner.os }}-
       - name: Run verification
         run: python integration-tests/ci/run.py windows
 
@@ -115,8 +114,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/JetBrains/Kotlin
-          key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
-          restore-keys: kotlin-toolchain-${{ runner.os }}-
+          key: kotlin-toolchain-${{ runner.os }}-${{ github.job }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
+          restore-keys: |
+            kotlin-toolchain-${{ runner.os }}-${{ github.job }}-
+            kotlin-toolchain-${{ runner.os }}-
       - name: Install the Android SDK for the project model
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Verify the comparison gate
@@ -172,8 +173,10 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/JetBrains/Kotlin
-          key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
-          restore-keys: kotlin-toolchain-${{ runner.os }}-
+          key: kotlin-toolchain-${{ runner.os }}-${{ github.job }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
+          restore-keys: |
+            kotlin-toolchain-${{ runner.os }}-${{ github.job }}-
+            kotlin-toolchain-${{ runner.os }}-
       - name: Install the Android SDK for the project model
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Generate and merge the Dokka API reference

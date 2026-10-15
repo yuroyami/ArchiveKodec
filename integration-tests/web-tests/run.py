@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Run the JS and wasmWasi tests in Node.
+"""Run the JS, wasmJs and wasmWasi tests in Node.
 
-`./kotlin test` cannot run these two platforms. This script links the tests with the toolchain, then runs them:
-JS through runner.mjs, and wasmWasi through the test entry point that the module exports.
+`./kotlin test` cannot run the JS and wasmWasi tests, and runs the wasmJs tests only in headless Chrome, which has no
+file system for the Node file code of archivekodec-io. This script links the tests with the toolchain, then runs them:
+JS and wasmJs through runner.mjs, and wasmWasi through the test entry point that the module exports.
 """
 import argparse
 import glob
+import os
 from pathlib import Path
 import re
 import shutil
@@ -15,8 +17,22 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 MODULES = ("archivekodec", "archivekodec-io")
+PLATFORMS = ("js", "wasmJs", "wasmWasi")
 ARTIFACTS = ROOT / "build/artifacts/CompiledWebArtifact"
-CACHE = Path.home() / ("Library/Caches/JetBrains/Kotlin" if sys.platform == "darwin" else ".cache/JetBrains/Kotlin")
+# The link task and the artifact folder of each platform that runs through runner.mjs.
+RUNNER_LINKS = {"js": ("linkJsTest", "jsTestrelease"), "wasmJs": ("linkWasmJsTestDebug", "wasmJsTestdebug")}
+
+
+def cache_root():
+    """The toolchain's shared cache folder, found the way the toolchain finds it."""
+    for variable in ("KOTLIN_SHARED_CACHE_DIR", "AMPER_SHARED_CACHE_DIR"):
+        if os.environ.get(variable):
+            return Path(os.environ[variable])
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Caches/JetBrains/Kotlin"
+    if sys.platform == "win32":
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData/Local") / "JetBrains/Kotlin"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "JetBrains/Kotlin"
 
 
 def node():
@@ -28,13 +44,15 @@ def node():
     def version(path):
         return tuple(int(part) for part in re.search(r"node-v(\d+)\.(\d+)\.(\d+)", path).groups())
 
-    downloaded = sorted(glob.glob(str(CACHE / "extract.cache/*node-v*/bin/node")), key=version)
+    cache = cache_root()
+    executable = "node.exe" if sys.platform == "win32" else "bin/node"
+    downloaded = sorted(glob.glob(str(cache / "extract.cache/*node-v*" / executable)), key=version)
     if downloaded:
         return downloaded[-1]
     found = shutil.which("node")
     if found:
         return found
-    raise RuntimeError(f"No node executable in {CACHE} or on PATH")
+    raise RuntimeError(f"No node executable in {cache} or on PATH")
 
 
 def run(*args, capture=False):
@@ -48,9 +66,11 @@ def kotlin(*args):
     run(ROOT / ("kotlin.bat" if sys.platform == "win32" else "kotlin"), *args)
 
 
-def js_tests(module, executable):
-    kotlin("task", f":{module}:linkJsTest")
-    entry = ARTIFACTS / f"{module}jsTestrelease/kotlin-output/{module}_test.mjs"
+def runner_tests(module, platform, executable):
+    task, folder = RUNNER_LINKS[platform]
+    kotlin("task", f":{module}:{task}")
+    entry = ARTIFACTS / f"{module}{folder}/kotlin-output/{module}_test.mjs"
+    print(f"{module} {platform}:", flush=True)
     run(executable, HERE / "runner.mjs", entry)
 
 
@@ -74,16 +94,19 @@ def wasi_tests(module, executable):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--platform", choices=("js", "wasmWasi"), action="append",
-                        help="run one platform; repeat it for both (default: both)")
+    parser.add_argument("--platform", choices=PLATFORMS, action="append",
+                        help="run one platform; repeat it for more (default: all three)")
     args = parser.parse_args()
-    platforms = args.platform or ["js", "wasmWasi"]
+    platforms = args.platform or PLATFORMS
     executable = node()
     for module in MODULES:
-        if "js" in platforms:
-            js_tests(module, executable)
-        if "wasmWasi" in platforms:
-            wasi_tests(module, executable)
+        for platform in PLATFORMS:
+            if platform not in platforms:
+                continue
+            if platform == "wasmWasi":
+                wasi_tests(module, executable)
+            else:
+                runner_tests(module, platform, executable)
 
 
 if __name__ == "__main__":

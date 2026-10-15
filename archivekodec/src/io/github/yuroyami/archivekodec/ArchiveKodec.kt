@@ -37,9 +37,9 @@ public object ArchiveKodec {
     /**
      * The version of the ArchiveKodec artifact that is running, such as `0.2.0`.
      *
-     * The build writes it from the publishing version in the module settings. It is a property,
-     * not a `const`, so a caller compiled against one release reads the value of the
-     * release it runs with.
+     * It is copied from the publishing version in the build settings, and a build check fails
+     * when the two differ. It is a property, not a `const`, so a caller compiled against one
+     * release reads the value of the release it runs with.
      */
     @JvmStatic
     public val VERSION: String get() = GENERATED_VERSION

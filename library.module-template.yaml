@@ -2,6 +2,8 @@
 # and adds its own platforms, dependencies, Android namespace and POM name.
 
 # `./kotlin publish mavenLocal -m <module>` puts a build into ~/.m2 for tests in other projects.
+# signArtifacts applies to every repository, so that also needs an ASCII-armored private key in
+# KOTLIN_TOOLCHAIN_SIGNING_KEY. A throwaway key will do for ~/.m2.
 repositories:
   - url: mavenLocal
     publish: true

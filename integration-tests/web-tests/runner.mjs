@@ -1,4 +1,4 @@
-// Runs one linked Kotlin/JS test module in Node and reports every test.
+// Runs one linked Kotlin/JS or Kotlin/Wasm (JS) test module in Node and reports every test.
 // kotlin-test reports tests to Mocha-style describe/it functions when they exist, so this file defines them.
 // Usage: node runner.mjs <module>_test.mjs
 import { pathToFileURL } from "node:url";
@@ -23,7 +23,11 @@ globalThis.xdescribe = (name, body) => suite(name, body, true);
 globalThis.it = (name, body) => current.children.push({ name, body, skipped: current.skipped });
 globalThis.xit = (name, body) => current.children.push({ name, body, skipped: true });
 
-await import(pathToFileURL(process.argv[2]).href);
+// A Kotlin/Wasm (JS) test module reads the kotlinTest namespace, which a browser test page defines, and registers its
+// tests only when started. Kotlin/JS calls the namespace's adapter transformer, so it keeps the adapter as it is.
+globalThis.kotlinTest ??= { adapterTransformer: (adapter) => adapter };
+const tests = await import(pathToFileURL(process.argv[2]).href);
+if (typeof tests.startUnitTests === "function") tests.startUnitTests();
 
 const counts = { passed: 0, failed: 0, ignored: 0 };
 

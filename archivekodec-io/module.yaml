@@ -25,8 +25,9 @@ product:
     - androidNativeX64
 
 description: >-
-  kotlinx-io convenience adapters for ArchiveKodec: drain a RawSource to a ByteArray, wrap one as an in-memory
-  RandomAccessSource, and run a Codec over it. No RawSink bridge and no seekable file handles. Android, iOS, JVM.
+  Files and kotlinx-io for ArchiveKodec: a FileRandomAccessSource that reads an archive from disk on demand,
+  extract to write chosen entries to RawSinks, and adapters between RawSource, RawSink and the core's codecs.
+  Android, JVM, JS, Wasm, Apple, Linux, Windows and Android Native.
 
 apply:
   - ../library.module-template.yaml

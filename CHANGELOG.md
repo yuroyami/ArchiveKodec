@@ -3,8 +3,18 @@
 ## Unreleased
 
 - Build. The project now builds with the Kotlin Toolchain (`./kotlin`) instead of Gradle,
-  with Kotlin 2.4.21 and Android compileSdk 37. The published coordinates and klib names
-  do not change. What changes for consumers:
+  with Kotlin 2.4.21 and Android compileSdk 37. The root coordinates and klib names do
+  not change. What changes for consumers:
+  - The Wasm platform artifacts end in `-wasmjs` and `-wasmwasi` (for example
+    `archivekodec-wasmjs`), where the Kotlin Gradle plugin uses `-wasm-js` and
+    `-wasm-wasi`. Depend on the root coordinates, which Gradle resolves to the platform
+    artifact through the module metadata.
+  - The `-javadoc.jar` of each publication is an empty placeholder instead of the Dokka
+    HTML. The API reference is at https://yuroyami.github.io/ArchiveKodec/api/. The POM
+    no longer has an `inceptionYear`.
+  - The JS and Wasm klibs carry no `jsOutputName`, so a Kotlin/JS app that depends on
+    them names their output files after the klib (`kotlin_io_github_yuroyami_archivekodec.mjs`)
+    instead of `ArchiveKodec-KMP-archivekodec.mjs`.
   - The JVM jars of `archivekodec` and `archivekodec-io` carry a `module-info.class`
     instead of an `Automatic-Module-Name` manifest entry. The module names stay the
     same, and the module path sees explicit modules.
@@ -12,7 +22,8 @@
     `Automatic-Module-Name`. Java takes the module name from the file name instead,
     `archivekodec.crypto.jvm`. The cryptography-kotlin jars that it needs have no module
     names, so it cannot have a `module-info.class` either.
-  - The Android AAR holds the same classes as the JVM jar.
+  - The Android AAR holds the same classes as the JVM jar, and has no ABI reference of
+    its own: the JVM reference covers its classes.
   - The JavaScript module is assembled from one `.mjs` file per source file, with an
     entry file of the old name, `ArchiveKodec-KMP-archivekodec.mjs`, and its `.d.mts`.
   - The API reference covers the common code of each module, plus the Apple and
@@ -385,9 +396,10 @@
   inlined at compile time. Kotlin source that reads it is unchanged, but it can no
   longer appear in constant expressions such as annotation arguments. Java callers
   use `ArchiveKodec.getVERSION()` instead of the removed static field. The value
-  is generated from the publishing version in `library.module-template.yaml`, the only
-  place the version is written. The portable CI lane fails when the README coordinates
-  name another release.
+  is copied from the publishing version in `library.module-template.yaml` by
+  `./kotlin do updateVersion`, and `./kotlin check version` fails when the two differ.
+  The portable CI lane runs that check, and fails when the README coordinates name
+  another release.
 
 - The JVM and Android classes are Java 8 bytecode (major version 52) instead of
   Java 21 (65), so they load on Java 8 through 20 as well. The JVM compilation uses
@@ -436,7 +448,7 @@
   entry change; persist the documented error codes rather than ordinal positions.
   Direct `Deflate`, `Inflate`, `Gzip` and `Zlib` operations remain supported
   low-level public APIs. Both modules require strict explicit API declarations
-  and committed ABI references for JVM, Android, JS and iOS.
+  and committed ABI references for the JVM and for the klib platforms.
 
 - DEFLATE dynamic trees use optimal length-limited package-merge coding with
   symbol-coverage, length and code-space checks. This fixes oversubscribed trees
@@ -492,8 +504,9 @@
   offsets into the archive. IO adapters wrap source IO failures in
   `ArchiveIOException` while preserving the original cause.
 - The IO framework explicitly exports its core and kotlinx-io API dependencies,
-  giving standalone Swift consumers usable public types. `swiftConsumerTest`
-  compiles and runs independent core/IO consumers and verifies NSError signatures.
+  giving standalone Swift consumers usable public types.
+  `integration-tests/swift-consumer/run.py` compiles and runs independent core/IO
+  consumers and verifies NSError signatures.
 
 - ZIP validates every non-null CRC-32, including zero. Mismatches report the
   entry name and payload offset through `ArchiveFormatException`.

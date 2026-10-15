@@ -23,7 +23,7 @@ product:
 
 description: >-
   Platform cryptography for ArchiveKodec's encrypted archives: a CryptoProvider backed by cryptography-kotlin (JDK,
-  OpenSSL 3, Apple) for WinZip AES and 7z AES. Android, iOS, JVM, Linux, Windows.
+  OpenSSL 3, Apple) for WinZip AES and 7z AES. Android, JVM, Apple, Linux, Windows and Android Native.
 
 apply:
   - ../library.module-template.yaml
