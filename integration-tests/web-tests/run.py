@@ -20,14 +20,21 @@ CACHE = Path.home() / ("Library/Caches/JetBrains/Kotlin" if sys.platform == "dar
 
 
 def node():
-    """Node from PATH, else the one the Kotlin Toolchain downloaded."""
+    """The newest Node the Kotlin Toolchain downloaded, else Node from PATH.
+
+    `./kotlin test -p wasmJs` downloads the toolchain's Node. It comes first because the wasmWasi test entry point
+    calls `WASI.finalizeBindings`, which older Node releases such as 22 lack.
+    """
+    def version(path):
+        return tuple(int(part) for part in re.search(r"node-v(\d+)\.(\d+)\.(\d+)", path).groups())
+
+    downloaded = sorted(glob.glob(str(CACHE / "extract.cache/*node-v*/bin/node")), key=version)
+    if downloaded:
+        return downloaded[-1]
     found = shutil.which("node")
     if found:
         return found
-    downloaded = sorted(glob.glob(str(CACHE / "extract.cache/*node-v*/bin/node")))
-    if downloaded:
-        return downloaded[-1]
-    raise RuntimeError(f"No node executable on PATH or in {CACHE}")
+    raise RuntimeError(f"No node executable in {CACHE} or on PATH")
 
 
 def run(*args, capture=False):

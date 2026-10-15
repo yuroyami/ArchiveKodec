@@ -44,7 +44,8 @@ device.
 
 `./kotlin test -p wasmJs` runs the wasmJs tests in headless Chrome. `./kotlin test` cannot run
 the JS and wasmWasi tests, so `integration-tests/web-tests/run.py` links both and runs them in
-Node.
+Node. It uses the Node that `./kotlin test -p wasmJs` downloads, and the Node on `PATH` only
+when the toolchain has none. Node 22 cannot run the wasmWasi tests.
 
 The JVM tests also check interoperability with the JDK:
 

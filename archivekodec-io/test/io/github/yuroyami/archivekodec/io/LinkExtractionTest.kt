@@ -60,9 +60,10 @@ class LinkExtractionTest {
             assertFalse(SystemFileSystem.exists(Path(base, "payload")))
             assertFalse(SystemFileSystem.exists(Path(base, "a", "payload")))
             assertTrue(SystemFileSystem.metadataOrNull(Path(out, "link"))?.isDirectory == true)
-            assertContentEquals("escaped".encodeToByteArray(), SystemFileSystem.source(Path(out, "link", "payload")).buffered().readByteArray())
+            // Close each file after reading it: Windows cannot delete an open file in the cleanup below.
+            assertContentEquals("escaped".encodeToByteArray(), SystemFileSystem.source(Path(out, "link", "payload")).buffered().use { it.readByteArray() })
             // The hard link became an ordinary file with the data it names.
-            assertContentEquals("fine".encodeToByteArray(), SystemFileSystem.source(Path(out, "same")).buffered().readByteArray())
+            assertContentEquals("fine".encodeToByteArray(), SystemFileSystem.source(Path(out, "same")).buffered().use { it.readByteArray() })
         } finally {
             fun delete(path: Path) {
                 if (SystemFileSystem.metadataOrNull(path)?.isDirectory == true) SystemFileSystem.list(path).forEach { delete(it) }

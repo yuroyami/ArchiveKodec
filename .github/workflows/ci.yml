@@ -37,7 +37,7 @@ jobs:
           key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
           restore-keys: kotlin-toolchain-${{ runner.os }}-
       - name: Install the required Android SDK
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Run verification
         env:
           FAILURE_CANARY: ${{ inputs.failure_canary || false }}
@@ -75,7 +75,7 @@ jobs:
           xcodebuild -version
           xcrun simctl list runtimes
       - name: Install the Android SDK for the complete build
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Run verification
         run: python3 integration-tests/ci/run.py apple
       - name: Retain test reports
@@ -118,7 +118,7 @@ jobs:
           key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
           restore-keys: kotlin-toolchain-${{ runner.os }}-
       - name: Install the Android SDK for the project model
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Verify the comparison gate
         run: python3 -B -m unittest discover -s benchmarks -p 'test_*.py'
       - name: Run both runtimes and compare the baseline
@@ -175,7 +175,7 @@ jobs:
           key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
           restore-keys: kotlin-toolchain-${{ runner.os }}-
       - name: Install the Android SDK for the project model
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
       - name: Generate and merge the Dokka API reference
         run: |
           # Dokka reads the standard libraries of the documented platform folders from the toolchain cache.
