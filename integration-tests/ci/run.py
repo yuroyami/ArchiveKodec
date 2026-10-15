@@ -21,7 +21,12 @@ def platforms(*names):
 PORTABLE_BUILD = ("jvm", "android", "js", "wasmJs", "wasmWasi", "linuxX64", "linuxArm64",
                   "androidNativeArm32", "androidNativeArm64", "androidNativeX86", "androidNativeX64")
 # linuxX64 tests run only on a Linux host. The CI runs this lane on Linux.
-PORTABLE_TESTS = ("jvm", "android", "wasmJs") + (("linuxX64",) if sys.platform.startswith("linux") else ())
+PORTABLE_TESTS = ("jvm", "android") + (("linuxX64",) if sys.platform.startswith("linux") else ())
+# The toolchain stops a browser test run after 30 seconds in all, and the core's wasmJs tests take longer, so they run
+# in batches of test classes. A batch takes the classes its patterns match that no earlier batch took, and a last batch
+# takes the rest. Keep each batch well under 30 seconds; a batch over the limit fails with a Playwright TimeoutError.
+WASM_JS_BATCHES = (("*.archivekodec.codec.Bzip2Test",), ("*.archivekodec.codec.StreamingDecompressTest",),
+                   ("*.archivekodec.codec.*",))
 APPLE_TESTS = ("iosSimulatorArm64", "macosArm64", "tvosSimulatorArm64", "watchosSimulatorArm64")
 APPLE_DEBUG_FRAMEWORKS = ("iosSimulatorArm64", "iosArm64", "iosX64")
 CANARY = ROOT / "archivekodec/test@jvm/io/github/yuroyami/archivekodec/CiFailureCanaryTest.kt"
@@ -118,12 +123,23 @@ def verify_bytecode():
             print(f"{module} {target}: {len(majors)} classes, newest major {newest[1]}", flush=True)
 
 
+def wasm_js_tests():
+    """Run the wasmJs tests in headless Chrome, those of the core in WASM_JS_BATCHES."""
+    kotlin("test", *[arg for module in TESTED if module != "archivekodec" for arg in ("-m", module)], "-p", "wasmJs")
+    taken = []
+    for batch in WASM_JS_BATCHES + ((),):
+        kotlin("test", "-m", "archivekodec", "-p", "wasmJs", *[f"--include-classes={pattern}" for pattern in batch],
+               *[f"--exclude-classes={pattern}" for pattern in taken])
+        taken += batch
+
+
 def portable():
     if "linuxX64" not in PORTABLE_TESTS:
         print("Skipping the linuxX64 tests: they run only on a Linux host", flush=True)
     kotlin("build", *platforms(*PORTABLE_BUILD))
     kotlin("test", *[arg for module in TESTED for arg in ("-m", module)], *platforms(*PORTABLE_TESTS))
     verify_reports(("jvm", "android"))
+    wasm_js_tests()
     script("integration-tests/web-tests/run.py")
     kotlin("check", "abi", "version")
     check_readme_version()

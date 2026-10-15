@@ -42,7 +42,10 @@ headless Chrome, Linux, Windows, macOS and the iOS, tvOS and watchOS simulators.
 tests run on the host JVM against the Android target's compiled code, not on an emulator or a
 device.
 
-`./kotlin test -p wasmJs` runs the wasmJs tests in headless Chrome. `./kotlin test` cannot run
+`./kotlin test -p wasmJs` runs the wasmJs tests in headless Chrome. The toolchain stops a browser
+test run after 30 seconds in all, which is too short for the core's wasmJs tests, so
+`integration-tests/ci/run.py` runs them in batches of test classes (`WASM_JS_BATCHES`). Running
+them all at once can stop with a Playwright `TimeoutError`. `./kotlin test` cannot run
 the JS and wasmWasi tests, so `integration-tests/web-tests/run.py` links both and runs them in
 Node. It uses the Node that `./kotlin test -p wasmJs` downloads, and the Node on `PATH` only
 when the toolchain has none. Node 22 cannot run the wasmWasi tests.
