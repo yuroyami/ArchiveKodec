@@ -6,4 +6,4 @@ pluginInfo:
   settingsClass: io.github.yuroyami.buildplugins.jvmmodule.JvmModuleSettings
 
 dependencies:
-  - org.ow2.asm:asm:9.11
+  - org.ow2.asm:asm:9.11.1

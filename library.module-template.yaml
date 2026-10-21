@@ -25,7 +25,9 @@ settings:
       systemProperties:
         archivekodec.expectedVersion: 0.2.0-SNAPSHOT
   android:
-    compileSdk: 37
+    compileSdk:
+      apiLevel: 37
+      minorApiLevel: 2
     minSdk: 21
   publishing:
     enabled: true

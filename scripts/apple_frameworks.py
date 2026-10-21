@@ -75,13 +75,17 @@ def dependency_klibs(module, platform):
         if name != module:
             klibs[name] = module_klib(name, platform)
     suffix = platform.lower()
-    for group, artifact, version in re.findall(rf"([\w.\-]+):([\w.\-]+)-{suffix}:([\w.\-]+)", tree):
-        base = artifact
+    # "a -> b" means the build resolved version b. A folder can hold cinterop klibs next to the main one.
+    pattern = rf"([\w.\-]+):([\w.\-]+)-{suffix}:([\w.\-]+)(?: -> ([\w.\-]+))?"
+    for group, artifact, declared, resolved in re.findall(pattern, tree):
+        version = resolved or declared
         jar_dir = CACHE / ".m2.cache" / group.replace(".", "/") / f"{artifact}-{suffix}" / version
-        files = list(jar_dir.glob("*.klib"))
+        files = sorted(jar_dir.glob("*.klib"))
         if not files:
             raise RuntimeError(f"No klib for {group}:{artifact}-{suffix}:{version} in {jar_dir}")
-        klibs[base] = files[0]
+        for klib in files:
+            name = klib.name.removesuffix(".klib").removeprefix(f"{artifact}-{suffix}-{version}")
+            klibs[artifact + name] = klib
     return klibs
 
 
