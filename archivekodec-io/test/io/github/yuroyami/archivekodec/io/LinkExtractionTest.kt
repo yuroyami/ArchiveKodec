@@ -36,6 +36,9 @@ class LinkExtractionTest {
     private val attack = record("link", '2', link = "../../..") + record("link/payload", '0', "escaped".encodeToByteArray()) +
         record("ok.txt", '0', "fine".encodeToByteArray()) + record("same", '1', link = "ok.txt") + ByteArray(1024)
 
+    // Closed after the read: Windows does not delete a file that is still open, so the clean-up failed there.
+    private fun readFile(path: Path): ByteArray = SystemFileSystem.source(path).buffered().use { it.readByteArray() }
+
     @Test
     fun theLinkAttackStaysInsideTheOutputFolder() = runTest {
         val base: Path
@@ -60,9 +63,9 @@ class LinkExtractionTest {
             assertFalse(SystemFileSystem.exists(Path(base, "payload")))
             assertFalse(SystemFileSystem.exists(Path(base, "a", "payload")))
             assertTrue(SystemFileSystem.metadataOrNull(Path(out, "link"))?.isDirectory == true)
-            assertContentEquals("escaped".encodeToByteArray(), SystemFileSystem.source(Path(out, "link", "payload")).buffered().readByteArray())
+            assertContentEquals("escaped".encodeToByteArray(), readFile(Path(out, "link", "payload")))
             // The hard link became an ordinary file with the data it names.
-            assertContentEquals("fine".encodeToByteArray(), SystemFileSystem.source(Path(out, "same")).buffered().readByteArray())
+            assertContentEquals("fine".encodeToByteArray(), readFile(Path(out, "same")))
         } finally {
             fun delete(path: Path) {
                 if (SystemFileSystem.metadataOrNull(path)?.isDirectory == true) SystemFileSystem.list(path).forEach { delete(it) }
