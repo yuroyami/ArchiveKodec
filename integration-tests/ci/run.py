@@ -25,7 +25,9 @@ PORTABLE_BUILD_GROUPS = (("jvm", "android"), ("js", "wasmJs", "wasmWasi"), ("lin
                          ("androidNativeArm32", "androidNativeArm64"), ("androidNativeX86", "androidNativeX64"))
 PORTABLE_BUILD = tuple(name for group in PORTABLE_BUILD_GROUPS for name in group)
 # linuxX64 tests run only on a Linux host. The CI runs this lane on Linux.
-PORTABLE_TESTS = ("jvm", "android", "wasmJs") + (("linuxX64",) if sys.platform.startswith("linux") else ())
+# wasmJs runs in Node with the JS and wasmWasi tests, in integration-tests/web-tests/run.py: the toolchain gives
+# a module 30 seconds in all in Chrome, and the archivekodec tests timed out there on CI.
+PORTABLE_TESTS = ("jvm", "android") + (("linuxX64",) if sys.platform.startswith("linux") else ())
 APPLE_TESTS = ("iosSimulatorArm64", "macosArm64", "tvosSimulatorArm64", "watchosSimulatorArm64")
 APPLE_DEBUG_FRAMEWORKS = ("iosSimulatorArm64", "iosArm64", "iosX64")
 CANARY = ROOT / "archivekodec/test@jvm/io/github/yuroyami/archivekodec/CiFailureCanaryTest.kt"

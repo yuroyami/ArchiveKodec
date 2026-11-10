@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Run the JS and wasmWasi tests in Node.
+"""Run the JS, wasmJs and wasmWasi tests in Node.
 
-`./kotlin test` cannot run these two platforms. This script links the tests with the toolchain, then runs them:
-JS through runner.mjs, and wasmWasi through the test entry point that the module exports.
+`./kotlin test` cannot run JS and wasmWasi tests, and it gives the wasmJs tests of a module 30 seconds in all in
+headless Chrome, which CI's runner did not always finish archivekodec in. This script links the tests with the
+toolchain, then runs them: JS through runner.mjs, and wasmJs and wasmWasi through the test entry point that the
+module exports.
 """
 import argparse
 import glob
@@ -47,36 +49,38 @@ def js_tests(module, executable):
     run(executable, HERE / "runner.mjs", entry)
 
 
-def wasi_tests(module, executable):
-    kotlin("task", f":{module}:linkWasmWasiTestDebug")
-    entry = ARTIFACTS / f"{module}wasmWasiTestdebug/kotlin-output/{module}_test.mjs"
+def wasm_tests(module, executable, platform):
+    task = platform[0].upper() + platform[1:]
+    kotlin("task", f":{module}:link{task}TestDebug")
+    entry = ARTIFACTS / f"{module}{platform}Testdebug/kotlin-output/{module}_test.mjs"
     script = f"const tests = await import({entry.as_uri()!r}); tests.startUnitTests();"
     result = run(executable, "--input-type=module", "-e", script, capture=True)
-    # kotlin-test for wasmWasi reports in the TeamCity service message format.
+    # kotlin-test for Wasm reports in the TeamCity service message format.
     output = result.stdout
     finished = len(re.findall(r"##teamcity\[testFinished ", output))
     failed = re.findall(r"##teamcity\[testFailed name='([^']*)'", output)
     ignored = len(re.findall(r"##teamcity\[testIgnored ", output))
     for name in failed:
         print(f"Failed {name}", flush=True)
-    print(f"{module} wasmWasi: {finished - len(failed)} passed, {len(failed)} failed, {ignored} ignored", flush=True)
+    print(f"{module} {platform}: {finished - len(failed)} passed, {len(failed)} failed, {ignored} ignored", flush=True)
     if result.returncode != 0 or failed or finished == 0:
         print(output[-4000:], flush=True)
-        raise RuntimeError(f"wasmWasi tests of {module} failed")
+        raise RuntimeError(f"{platform} tests of {module} failed")
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--platform", choices=("js", "wasmWasi"), action="append",
-                        help="run one platform; repeat it for both (default: both)")
+    parser.add_argument("--platform", choices=("js", "wasmJs", "wasmWasi"), action="append",
+                        help="run one platform; repeat it for more (default: all three)")
     args = parser.parse_args()
-    platforms = args.platform or ["js", "wasmWasi"]
+    platforms = args.platform or ["js", "wasmJs", "wasmWasi"]
     executable = node()
     for module in MODULES:
         if "js" in platforms:
             js_tests(module, executable)
-        if "wasmWasi" in platforms:
-            wasi_tests(module, executable)
+        for platform in ("wasmJs", "wasmWasi"):
+            if platform in platforms:
+                wasm_tests(module, executable, platform)
 
 
 if __name__ == "__main__":

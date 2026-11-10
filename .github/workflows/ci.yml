@@ -38,6 +38,11 @@ jobs:
           restore-keys: kotlin-toolchain-${{ runner.os }}-
       - name: Install the required Android SDK
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.2" "build-tools;37.0.0"'
+      # The JS, wasmJs and wasmWasi tests run in Node. Node 22 has no wasi.finalizeBindings, which the
+      # wasmWasi test entry calls; Node 26 runs all three, as KitePDF's CI does.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
       - name: Run verification
         env:
           FAILURE_CANARY: ${{ inputs.failure_canary || false }}
