@@ -28,6 +28,13 @@ PORTABLE_BUILD = tuple(name for group in PORTABLE_BUILD_GROUPS for name in group
 # wasmJs runs in Node with the JS and wasmWasi tests, in integration-tests/web-tests/run.py: the toolchain gives
 # a module 30 seconds in all in Chrome, and the archivekodec tests timed out there on CI.
 PORTABLE_TESTS = ("jvm", "android") + (("linuxX64",) if sys.platform.startswith("linux") else ())
+# The macOS lane builds every platform, for the klib ABI check, one at a time: a macOS runner has
+# about 7 GB, and one build of all of them thrashed until the job passed its time limit.
+APPLE_BUILD_GROUPS = (("jvm", "android"), ("js",), ("wasmJs",), ("wasmWasi",), ("linuxX64",), ("linuxArm64",),
+                      ("mingwX64",), ("androidNativeArm32",), ("androidNativeArm64",), ("androidNativeX86",),
+                      ("androidNativeX64",), ("macosArm64",), ("iosArm64",), ("iosSimulatorArm64",), ("iosX64",),
+                      ("tvosArm64",), ("tvosSimulatorArm64",), ("watchosArm32",), ("watchosArm64",),
+                      ("watchosDeviceArm64",), ("watchosSimulatorArm64",))
 APPLE_TESTS = ("iosSimulatorArm64", "macosArm64", "tvosSimulatorArm64", "watchosSimulatorArm64")
 APPLE_DEBUG_FRAMEWORKS = ("iosSimulatorArm64", "iosArm64", "iosX64")
 CANARY = ROOT / "archivekodec/test@jvm/io/github/yuroyami/archivekodec/CiFailureCanaryTest.kt"
@@ -140,7 +147,8 @@ def portable():
 
 def apple():
     # The klib ABI check reads the klibs of every platform, and only macOS builds the Apple ones.
-    kotlin("build")
+    for group in APPLE_BUILD_GROUPS:
+        kotlin("build", *platforms(*group))
     kotlin("test", *[arg for module in TESTED for arg in ("-m", module)], *platforms(*APPLE_TESTS))
     kotlin("check", "klibAbi")
     script("integration-tests/swift-consumer/run.py")

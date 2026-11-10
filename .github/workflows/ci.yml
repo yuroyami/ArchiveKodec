@@ -61,7 +61,8 @@ jobs:
   apple:
     name: Apple simulators, macOS and Swift consumers
     runs-on: macos-26
-    timeout-minutes: 60
+    # Twenty-one platforms built one at a time, then the Apple tests, frameworks and Swift checks.
+    timeout-minutes: 120
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
