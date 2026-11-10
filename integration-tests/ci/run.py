@@ -18,8 +18,12 @@ def platforms(*names):
     return [arg for name in names for arg in ("-p", name)]
 
 
-PORTABLE_BUILD = ("jvm", "android", "js", "wasmJs", "wasmWasi", "linuxX64", "linuxArm64",
-                  "androidNativeArm32", "androidNativeArm64", "androidNativeX86", "androidNativeX64")
+# Built a group at a time. One build of all eleven compiles them side by side, and on a 16 GB
+# runner it ran out of memory and the runner went down with a "shutdown signal". Measured alone,
+# the largest group, two androidNative targets, peaks at 7.5 GB.
+PORTABLE_BUILD_GROUPS = (("jvm", "android"), ("js", "wasmJs", "wasmWasi"), ("linuxX64", "linuxArm64"),
+                         ("androidNativeArm32", "androidNativeArm64"), ("androidNativeX86", "androidNativeX64"))
+PORTABLE_BUILD = tuple(name for group in PORTABLE_BUILD_GROUPS for name in group)
 # linuxX64 tests run only on a Linux host. The CI runs this lane on Linux.
 PORTABLE_TESTS = ("jvm", "android", "wasmJs") + (("linuxX64",) if sys.platform.startswith("linux") else ())
 APPLE_TESTS = ("iosSimulatorArm64", "macosArm64", "tvosSimulatorArm64", "watchosSimulatorArm64")
@@ -121,7 +125,8 @@ def verify_bytecode():
 def portable():
     if "linuxX64" not in PORTABLE_TESTS:
         print("Skipping the linuxX64 tests: they run only on a Linux host", flush=True)
-    kotlin("build", *platforms(*PORTABLE_BUILD))
+    for group in PORTABLE_BUILD_GROUPS:
+        kotlin("build", *platforms(*group))
     kotlin("test", *[arg for module in TESTED for arg in ("-m", module)], *platforms(*PORTABLE_TESTS))
     verify_reports(("jvm", "android"))
     script("integration-tests/web-tests/run.py")
