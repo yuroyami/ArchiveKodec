@@ -17,7 +17,7 @@ You need the Android SDK. Set `ANDROID_HOME` to it, because the toolchain does n
 ./kotlin build                                   # all modules, all platforms this host can build
 ./kotlin test -p jvm -p android                  # some platforms; -m archivekodec for one module
 ./kotlin check abi klibAbi version               # the ABI and version checks
-python3 integration-tests/web-tests/run.py       # the JS and wasmWasi tests in Node
+python3 integration-tests/web-tests/run.py       # the JS, wasmJs and wasmWasi tests in Node
 python3 integration-tests/swift-consumer/run.py  # macOS arm64: compile and run the Swift consumers
 ```
 
@@ -38,13 +38,15 @@ them.
 ## Tests
 
 The common tests run on every platform that can run them: the JVM, the Android host, Node.js,
-headless Chrome, Linux, Windows, macOS and the iOS, tvOS and watchOS simulators. The Android
-tests run on the host JVM against the Android target's compiled code, not on an emulator or a
-device.
+Linux, Windows, macOS and the iOS, tvOS and watchOS simulators. The Android tests run on the
+host JVM against the Android target's compiled code, not on an emulator or a device.
 
-`./kotlin test -p wasmJs` runs the wasmJs tests in headless Chrome. `./kotlin test` cannot run
-the JS and wasmWasi tests, so `integration-tests/web-tests/run.py` links both and runs them in
-Node.
+`integration-tests/web-tests/run.py` links the JS, wasmJs and wasmWasi tests and runs them in
+Node. `./kotlin test` cannot run the JS and wasmWasi tests. `./kotlin test -p wasmJs` runs the
+wasmJs tests in headless Chrome, but the toolchain stops a module's run after 30 seconds in
+all, which is too short for the core's tests. The script uses the Node on `PATH`, and the Node
+that the toolchain downloaded when `PATH` has none. Node 22 cannot run the wasmWasi tests; CI
+uses Node 26.
 
 The JVM tests also check interoperability with the JDK:
 
@@ -103,8 +105,17 @@ it as the `archivekodec.expectedVersion` test property, which `VersionTest` comp
 - The portable lane fails unless every coordinate in `README.md` and `docs/index.md` names the
   same release.
 
-To release, remove the suffix and publish. Then set the next `-SNAPSHOT` and update the
-coordinates in `README.md` and `docs/index.md` in the same commit.
+`./kotlin publish` runs no checks, so a release can carry a stale `ArchiveKodec.VERSION` unless
+you follow these steps:
+
+1. Remove the suffix from `publishing.version` and `archivekodec.expectedVersion`.
+2. Run `./kotlin do updateVersion`, then `./kotlin check version` and the tests, and commit.
+3. Run `./kotlin publish mavenCentral` with `KOTLIN_TOOLCHAIN_SIGNING_KEY` (an ASCII-armored
+   private key), `KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE` if the key has one,
+   `KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME` and `KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD`.
+   `publishingMode: auto` releases the deployment without a manual review on the Central Portal.
+4. Set the next `-SNAPSHOT` in both places, run `./kotlin do updateVersion`, and update the
+   coordinates in `README.md` and `docs/index.md` in the same commit.
 
 ## CI
 
@@ -112,9 +123,10 @@ Every pull request and every push to `main` runs the `CI` workflow. Its `Verific
 needs all three platform lanes and the benchmark check to pass, so select `Verification` in
 branch protection. Each lane runs `integration-tests/ci/run.py`:
 
-- **Linux:** builds every non-Apple platform. Runs the JVM, Android host, wasmJs and `linuxX64`
-  tests, and the JS and wasmWasi tests in Node. Runs the JVM ABI check, the version checks and
-  the class file checks, and runs the JavaScript and TypeScript consumers.
+- **Linux:** builds every platform except the Apple ones and `mingwX64`, which the macOS and
+  Windows lanes build. Runs the JVM, Android host and `linuxX64` tests, and the JS, wasmJs and
+  wasmWasi tests in Node. Runs the JVM ABI check, the version checks and the class file checks,
+  and runs the JavaScript and TypeScript consumers.
 - **macOS:** builds every platform. Runs the iOS, macOS, tvOS and watchOS simulator tests and
   the klib ABI check. Runs the Swift consumers and the Swift package over the release
   XCFrameworks.

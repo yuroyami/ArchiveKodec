@@ -12,7 +12,8 @@
     `Automatic-Module-Name`. Java takes the module name from the file name instead,
     `archivekodec.crypto.jvm`. The cryptography-kotlin jars that it needs have no module
     names, so it cannot have a `module-info.class` either.
-  - The Android AAR holds the same classes as the JVM jar.
+  - The Android AAR holds the same classes as the JVM jar, and has no ABI reference of
+    its own: the JVM reference covers its classes.
   - The JavaScript module is assembled from one `.mjs` file per source file, with an
     entry file of the old name, `ArchiveKodec-KMP-archivekodec.mjs`, and its `.d.mts`.
   - The API reference covers the common code of each module, plus the Apple and
@@ -385,9 +386,10 @@
   inlined at compile time. Kotlin source that reads it is unchanged, but it can no
   longer appear in constant expressions such as annotation arguments. Java callers
   use `ArchiveKodec.getVERSION()` instead of the removed static field. The value
-  is generated from the publishing version in `library.module-template.yaml`, the only
-  place the version is written. The portable CI lane fails when the README coordinates
-  name another release.
+  is copied from the publishing version in `library.module-template.yaml` by
+  `./kotlin do updateVersion`, and `./kotlin check version` fails when the two differ.
+  The portable CI lane runs that check, and fails when the README coordinates name
+  another release.
 
 - The JVM and Android classes are Java 8 bytecode (major version 52) instead of
   Java 21 (65), so they load on Java 8 through 20 as well. The JVM compilation uses
@@ -436,7 +438,7 @@
   entry change; persist the documented error codes rather than ordinal positions.
   Direct `Deflate`, `Inflate`, `Gzip` and `Zlib` operations remain supported
   low-level public APIs. Both modules require strict explicit API declarations
-  and committed ABI references for JVM, Android, JS and iOS.
+  and committed ABI references for the JVM and for the klib platforms.
 
 - DEFLATE dynamic trees use optimal length-limited package-merge coding with
   symbol-coverage, length and code-space checks. This fixes oversubscribed trees
@@ -492,8 +494,9 @@
   offsets into the archive. IO adapters wrap source IO failures in
   `ArchiveIOException` while preserving the original cause.
 - The IO framework explicitly exports its core and kotlinx-io API dependencies,
-  giving standalone Swift consumers usable public types. `swiftConsumerTest`
-  compiles and runs independent core/IO consumers and verifies NSError signatures.
+  giving standalone Swift consumers usable public types.
+  `integration-tests/swift-consumer/run.py` compiles and runs independent core/IO
+  consumers and verifies NSError signatures.
 
 - ZIP validates every non-null CRC-32, including zero. Mismatches report the
   entry name and payload offset through `ArchiveFormatException`.

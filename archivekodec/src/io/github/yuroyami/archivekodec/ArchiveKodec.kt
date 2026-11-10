@@ -23,9 +23,10 @@ import kotlin.jvm.JvmOverloads
  * codec by id, name or format, decode a recognized compressed stream, or open
  * bytes/a seekable source as a container reader, including one gzip wrapper.
  *
- * Pure common code, `kotlin-stdlib` only. The separate `:archivekodec-io` artifact
- * provides convenience adapters that drain a kotlinx-io `RawSource` into memory;
- * it does not provide streaming codecs or seekable file handles. *
+ * Pure common code, `kotlin-stdlib` only. The separate `archivekodec-io` artifact adds
+ * `FileRandomAccessSource`, which reads an archive from disk on demand, `extract`, and
+ * adapters between kotlinx-io `RawSource`/`RawSink` and the codecs.
+ *
  * Swift imports this object from the `ArchiveKodecKit` module as `ArchiveKodec.shared`.
  * The framework is not named `ArchiveKodec` because a Swift type named like its module
  * hides the module, so `ArchiveKodec.Crc32` would not resolve. On Apple platforms the
@@ -37,9 +38,9 @@ public object ArchiveKodec {
     /**
      * The version of the ArchiveKodec artifact that is running, such as `0.2.0`.
      *
-     * The build writes it from the publishing version in the module settings. It is a property,
-     * not a `const`, so a caller compiled against one release reads the value of the
-     * release it runs with.
+     * It is copied from the publishing version in the build settings, and a build check fails
+     * when the two differ. It is a property, not a `const`, so a caller compiled against one
+     * release reads the value of the release it runs with.
      */
     @JvmStatic
     public val VERSION: String get() = GENERATED_VERSION
