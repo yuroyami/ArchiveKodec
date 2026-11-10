@@ -25,10 +25,11 @@ product:
     - androidNativeX64
 
 description: >-
-  Pure-Kotlin compression and archive core for Kotlin Multiplatform: DEFLATE, gzip, zlib, LZ4 and Snappy codecs,
-  ZIP read/write (+ZIP64), TAR/ar/cpio readers, CRC and Adler checksums, a magic sniffer, default output-size and
-  compression-ratio limits, and opt-in path checks. Whole-array API, no streaming. kotlin-stdlib only; Android, JVM,
-  JS, Wasm, Apple, Linux and Windows.
+  Pure-Kotlin compression and archive core for Kotlin Multiplatform: DEFLATE, Deflate64, gzip, zlib, bzip2, LZMA,
+  LZMA2, xz, zstd, brotli, PPMd, LZ4 and Snappy codecs, ZIP (+ZIP64), TAR, ar and cpio read/write, 7z, RAR4/RAR5,
+  ISO 9660, CAB, WIM and SquashFS readers, CRC, Adler and xxHash checksums, a magic sniffer, default output-size and
+  compression-ratio limits, and path checks on every listing. Whole-array API, with DEFLATE, Deflate64, zlib and gzip also
+  streaming to a sink. kotlin-stdlib only; Android, JVM, JS, Wasm, Apple, Linux and Windows.
 
 apply:
   - ../library.module-template.yaml

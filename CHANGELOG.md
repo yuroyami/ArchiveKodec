@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-11-10
+
 - Build. The project now builds with the Kotlin Toolchain (`./kotlin`) instead of Gradle,
   with Kotlin 2.4.21 and Android compileSdk 37. The published coordinates and klib names
   do not change. What changes for consumers:

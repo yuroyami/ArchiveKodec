@@ -25,7 +25,7 @@ settings:
     test:
       # VersionTest compares ArchiveKodec.VERSION with this value. Keep it equal to publishing.version.
       systemProperties:
-        archivekodec.expectedVersion: 0.2.0-SNAPSHOT
+        archivekodec.expectedVersion: 0.2.0
   android:
     compileSdk:
       apiLevel: 37
@@ -35,7 +35,7 @@ settings:
     enabled: true
     group: io.github.yuroyami
     # After a change, run `./kotlin do updateVersion` to update ArchiveKodec.VERSION.
-    version: 0.2.0-SNAPSHOT
+    version: 0.2.0
     pom:
       url: https://github.com/yuroyami/ArchiveKodec
       licenses:

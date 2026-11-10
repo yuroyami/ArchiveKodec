@@ -20,8 +20,6 @@ native binary. The core artifact depends on `kotlin-stdlib` and nothing else.
 
 ## Install
 
-0.2.0 is not published to Maven Central yet. These are the coordinates it will use:
-
 | Artifact | Coordinates | What it adds |
 | --- | --- | --- |
 | Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers and writers, checksums, the sniffer and the limits |

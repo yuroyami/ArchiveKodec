@@ -19,8 +19,6 @@ binary, and the core artifact depends on `kotlin-stdlib` and nothing else.
 
 ## Install
 
-0.2.0 is not published to Maven Central yet. These are the coordinates it will use:
-
 ```kotlin
 kotlin {
     sourceSets {
