@@ -105,17 +105,35 @@ it as the `archivekodec.expectedVersion` test property, which `VersionTest` comp
 - The portable lane fails unless every coordinate in `README.md` and `docs/index.md` names the
   same release.
 
-`./kotlin publish` runs no checks, so a release can carry a stale `ArchiveKodec.VERSION` unless
-you follow these steps:
+A release takes four steps:
 
 1. Remove the suffix from `publishing.version` and `archivekodec.expectedVersion`.
 2. Run `./kotlin do updateVersion`, then `./kotlin check version` and the tests, and commit.
-3. Run `./kotlin publish mavenCentral` with `KOTLIN_TOOLCHAIN_SIGNING_KEY` (an ASCII-armored
-   private key), `KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE` if the key has one,
-   `KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME` and `KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD`.
-   `publishingMode: auto` releases the deployment without a manual review on the Central Portal.
+3. Publish a GitHub release whose tag is the version, with or without a leading `v`. The
+   `Publish` workflow then builds every platform, runs the ABI and version checks, signs the
+   artifacts and publishes them to Maven Central.
 4. Set the next `-SNAPSHOT` in both places, run `./kotlin do updateVersion`, and update the
    coordinates in `README.md` and `docs/index.md` in the same commit.
+
+A release on Maven Central cannot be removed, and `publishingMode: auto` releases the deployment
+without a manual review on the Central Portal. To test a release first, run the `Publish`
+workflow by hand with `dry_run` on. A dry run builds and signs into Maven Local, lists the files
+and uploads nothing.
+
+The workflow reads four repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `MAVEN_CENTRAL_USERNAME` | The name of a user token of the Central Portal |
+| `MAVEN_CENTRAL_PASSWORD` | The password of that user token |
+| `SIGNING_KEY` | An ASCII-armored private PGP key |
+| `SIGNING_KEY_PASSWORD` | The passphrase of that key |
+
+To publish from a Mac instead, run `python3 integration-tests/ci/run.py release`, because
+`./kotlin publish` runs no checks by itself. Then run `./kotlin publish mavenCentral` with the
+same four values in `KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_USERNAME`,
+`KOTLIN_TOOLCHAIN_MAVEN_CENTRAL_PASSWORD`, `KOTLIN_TOOLCHAIN_SIGNING_KEY` and
+`KOTLIN_TOOLCHAIN_SIGNING_KEY_PASSPHRASE`.
 
 ## CI
 

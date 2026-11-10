@@ -161,7 +161,16 @@ def windows():
     kotlin("test", *[arg for module in TESTED for arg in ("-m", module)], *platforms("mingwX64"))
 
 
-LANES = {"portable": portable, "apple": apple, "windows": windows}
+def release():
+    # What the Publish workflow runs before it signs: every platform built, then the checks that
+    # read the binaries. The tests run in the three CI lanes.
+    for group in APPLE_BUILD_GROUPS:
+        kotlin("build", *platforms(*group))
+    kotlin("check", "abi", "klibAbi", "version")
+    check_readme_version()
+
+
+LANES = {"portable": portable, "apple": apple, "windows": windows, "release": release}
 
 
 def main():
