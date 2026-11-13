@@ -1,4 +1,5 @@
-@file:OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+// UnsafeNumber: NSData sizes are 32-bit on watchosArm32 and 64-bit elsewhere; convert() handles both.
+@file:OptIn(ExperimentalForeignApi::class, BetaInteropApi::class, UnsafeNumber::class)
 
 package io.github.yuroyami.archivekodec
 
@@ -10,6 +11,7 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.checkedArraySize
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
