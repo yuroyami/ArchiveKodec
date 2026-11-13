@@ -20,6 +20,15 @@
     entry file of the old name, `ArchiveKodec-KMP-archivekodec.mjs`, and its `.d.mts`.
   - The API reference covers the common code of each module, plus the Apple and
     JavaScript functions of the core.
+  - The Wasm platform artifacts end in `-wasmjs` and `-wasmwasi` (for example
+    `archivekodec-wasmjs`). The Kotlin Gradle plugin used `-wasm-js` and `-wasm-wasi`.
+    A consumer that depends on the root coordinates is not affected, because Gradle finds
+    the platform artifact through the module metadata.
+  - The `-javadoc.jar` of each publication is a placeholder that holds a README, not the
+    Dokka HTML. The API reference is on the documentation site. The POM has no
+    `inceptionYear`.
+  - The JS and Wasm klibs carry no `jsOutputName`. A Kotlin/JS app that depends on them
+    names their output files after the klib, not `ArchiveKodec-KMP-archivekodec.mjs`.
 
 - Swift. Every Apple target now builds a framework, gathered into the
   `ArchiveKodecKit` and `ArchiveKodecIo` XCFrameworks; `integration-tests/swift-package/package.py`
