@@ -2,6 +2,7 @@
 """Run the same verification commands locally and in the hosted platform lanes."""
 import argparse
 import io
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -35,7 +36,11 @@ APPLE_BUILD_GROUPS = (("jvm", "android"), ("js",), ("wasmJs",), ("wasmWasi",), (
                       ("androidNativeX64",), ("macosArm64",), ("iosArm64",), ("iosSimulatorArm64",), ("iosX64",),
                       ("tvosArm64",), ("tvosSimulatorArm64",), ("watchosArm32",), ("watchosArm64",),
                       ("watchosDeviceArm64",), ("watchosSimulatorArm64",))
-APPLE_TESTS = ("iosSimulatorArm64", "macosArm64", "tvosSimulatorArm64", "watchosSimulatorArm64")
+APPLE_TESTS = ("iosSimulatorArm64", "macosArm64")
+# Kotlin Toolchain 0.13.0 starts only the iOS simulator tests through simctl. It starts the tvOS and
+# watchOS test programs on the Mac itself, where dyld stops them, so this script starts them instead.
+SIMULATOR_TESTS = {"tvosSimulatorArm64": "tvOS", "watchosSimulatorArm64": "watchOS"}
+PASSED = re.compile(r"(?m)^\[  PASSED  \] (\d+) tests?\.")
 APPLE_DEBUG_FRAMEWORKS = ("iosSimulatorArm64", "iosArm64", "iosX64")
 CANARY = ROOT / "archivekodec/test@jvm/io/github/yuroyami/archivekodec/CiFailureCanaryTest.kt"
 CANARY_SOURCE = """package io.github.yuroyami.archivekodec
@@ -81,6 +86,44 @@ def verify_reports(targets):
             if totals["failures"] or totals["errors"] or totals["tests"] <= totals["skipped"]:
                 raise RuntimeError(f"No passing test execution for {module} {target}: {totals}")
             print(f"{module} {target}: {totals}", flush=True)
+
+
+def simctl_json(*args):
+    output = subprocess.run(["xcrun", "simctl", "list", "-j", *args], check=True, capture_output=True, text=True)
+    return json.loads(output.stdout)
+
+
+def simulator(os_name):
+    """The UDID of an available simulator on the newest installed runtime of os_name, created if none exists."""
+    runtimes = [r for r in simctl_json("runtimes", "available")["runtimes"]
+                if r.get("platform") == os_name and r.get("isAvailable")]
+    if not runtimes:
+        raise RuntimeError(f"No {os_name} simulator runtime is installed")
+    runtime = max(runtimes, key=lambda r: tuple(int(part) for part in r["version"].split(".")))
+    devices = simctl_json("devices", "available")["devices"].get(runtime["identifier"], [])
+    if devices:
+        return devices[0]["udid"]
+    device_type = runtime["supportedDeviceTypes"][0]["identifier"]
+    created = subprocess.run(["xcrun", "simctl", "create", f"ArchiveKodec {os_name}", device_type,
+                              runtime["identifier"]], check=True, capture_output=True, text=True)
+    return created.stdout.strip()
+
+
+def simulator_tests():
+    """Link the tvOS and watchOS test programs, then run each one in a simulator of its OS."""
+    for target, os_name in SIMULATOR_TESTS.items():
+        link = f"link{target[0].upper()}{target[1:]}TestDebug"
+        kotlin("task", *[f":{module}:{link}" for module in TESTED])
+        device = simulator(os_name)
+        for module in TESTED:
+            program = ROOT / f"build/tasks/_{module}_{link}/{module}_test.kexe"
+            print(f"Running {program.name} for {target} in simulator {device}", flush=True)
+            result = subprocess.run(["xcrun", "simctl", "spawn", "--standalone", device, str(program)],
+                                    cwd=ROOT, capture_output=True, text=True)
+            print(result.stdout + result.stderr, flush=True)
+            passed = PASSED.search(result.stdout)
+            if result.returncode != 0 or not passed or int(passed.group(1)) == 0:
+                raise RuntimeError(f"{module} {target} tests failed with exit code {result.returncode}")
 
 
 def check_readme_version():
@@ -150,6 +193,7 @@ def apple():
     for group in APPLE_BUILD_GROUPS:
         kotlin("build", *platforms(*group))
     kotlin("test", *[arg for module in TESTED for arg in ("-m", module)], *platforms(*APPLE_TESTS))
+    simulator_tests()
     kotlin("check", "klibAbi")
     script("integration-tests/swift-consumer/run.py")
     script("scripts/apple_frameworks.py", "--build-type", "release")
