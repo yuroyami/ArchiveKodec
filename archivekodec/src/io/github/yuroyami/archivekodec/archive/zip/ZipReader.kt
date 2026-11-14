@@ -144,9 +144,10 @@ public class ZipReader(
      * and entries from elsewhere are rejected.
      *
      * @throws io.github.yuroyami.archivekodec.ArchiveClosedException if the reader is closed.
-     * @throws ArchiveFormatException for an entry this reader did not list, changed entry metadata, malformed headers or failed integrity checks.
+     * @throws ArchiveFormatException for an entry this reader did not list, changed entry metadata, malformed headers, failed integrity checks,
+     *   or malformed or truncated compressed data. For such data the codec's own exception, for example
+     *   [io.github.yuroyami.archivekodec.codec.deflate.InflateException], is the cause.
      * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for encryption or an unsupported ZIP method or feature.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      * @throws ArchiveException if the underlying source or directory listing reports another archive failure.
@@ -166,7 +167,14 @@ public class ZipReader(
         val listed = directory.entries.resolveIssued(this, entry, "ZIP")
         val member = directory.members.getValue(listed.dataOffset)
         val method = member.method
-        if (listed.isEncrypted || member.flags and 0x20 != 0 || (method != 0 && method != 8 && method != 9) ||
+        // Only the built-in engines stream. A registry that replaces one decodes in memory, through it.
+        val builtIn = when (method) {
+            0 -> Codecs.STORE
+            8 -> Codecs.DEFLATE
+            9 -> Codecs.DEFLATE64
+            else -> null
+        }
+        if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn ||
             (method != 0 && listed.compressedSize > Int.MAX_VALUE)
         ) {
             val bytes = readListed(member, limits)

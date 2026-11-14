@@ -101,6 +101,27 @@ class ZipCodecRegistryTest {
         }
     }
 
+    @Test fun readingToASinkUsesTheRegisteredInstancesToo() {
+        for ((method, builtin) in listOf(ZipMethod.DEFLATED to Codecs.DEFLATE, ZipMethod.STORED to Codecs.STORE)) {
+            val engine = Decoder(CodecId(builtin.id.name.uppercase())) { input, limits -> builtin.decompress(input, limits) }
+            val bytes = zip(method)
+            fun readToSink(reader: ZipReader): ByteArray {
+                var written = ByteArray(0)
+                val count = reader.read(reader.entries().single(), { chunk, offset, length -> written += chunk.copyOfRange(offset, offset + length) })
+                assertEquals(written.size.toLong(), count)
+                return written
+            }
+            ZipReader(ByteArrayRandomAccessSource(bytes), CodecRegistry.DEFAULT.with(engine)).use { reader ->
+                assertContentEquals(data, readToSink(reader))
+            }
+            assertEquals(1, engine.calls)
+            ZipReader(ByteArrayRandomAccessSource(bytes)).use { reader ->
+                assertContentEquals(data, readToSink(reader))
+            }
+            assertEquals(1, engine.calls)
+        }
+    }
+
     @Test fun customRegistryConstructorsKeepNamesAndReadPolicies() {
         val engine = Decoder(CodecId("zstd")) { input, limits -> Codecs.STORE.decompress(input, limits) }
         val registry = CodecRegistry.DEFAULT.with(engine)
