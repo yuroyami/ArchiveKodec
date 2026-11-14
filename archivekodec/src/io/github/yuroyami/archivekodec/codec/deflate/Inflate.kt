@@ -158,6 +158,94 @@ public object Inflate {
         return output.takeByteArray()
     }
 
+    /**
+     * Inflate one raw DEFLATE stream that takes the whole of [input], under [options], and
+     * report how much input it took. See the overload with a range.
+     *
+     * @throws InflateException on malformed or truncated DEFLATE input, unless [InflateOptions.keepPartialOutput] is set.
+     * @throws ArchiveFormatException if bytes remain after the stream, unless [InflateOptions.allowTrailingData] or [InflateOptions.keepPartialOutput] is set.
+     * @throws ArchiveSizeException if the output cannot fit in a single ByteArray.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or the ratio of output to input exceeds [InflateOptions.limits].
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun inflate(input: ByteArray, options: InflateOptions): InflateResult = inflate(input, 0, input.size, options)
+
+    /**
+     * Inflate one raw DEFLATE stream that starts at [offset] and lies within the next [length]
+     * bytes of [input], under [options]. The range is read in place, not copied.
+     *
+     * The result reports the bytes the stream took, so a caller can find what follows it:
+     *
+     * ```kotlin
+     * val result = Inflate.inflate(file, dataStart, file.size - dataStart, InflateOptions { allowTrailingData = true })
+     * val next = dataStart + result.inputConsumed
+     * ```
+     *
+     * With [InflateOptions.keepPartialOutput], a damaged stream gives the output decoded
+     * before the damage, and [InflateResult.error] holds the failure. The ratio limit
+     * compares the output with [length], so keep the range close to the stream.
+     *
+     * @throws IllegalArgumentException if [offset] and [length] do not lie inside [input].
+     * @throws InflateException on malformed or truncated DEFLATE input, unless [InflateOptions.keepPartialOutput] is set.
+     * @throws ArchiveFormatException if bytes remain after the stream, unless [InflateOptions.allowTrailingData] or [InflateOptions.keepPartialOutput] is set.
+     * @throws ArchiveSizeException if the output cannot fit in a single ByteArray.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or the ratio of output to input exceeds [InflateOptions.limits].
+     */
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    @JvmStatic
+    public fun inflate(input: ByteArray, offset: Int, length: Int, options: InflateOptions): InflateResult =
+        decodeRange(input, offset, length, options, "deflate") { output, listener ->
+            options.dictionaryBytes?.let(output::preload)
+            inflateInto(input, offset, offset + length, output, onBlock = listener, origin = offset)
+        }
+
+    /**
+     * Run one decode under [options] for raw DEFLATE and zlib. [decode] fills the output and
+     * returns the index after its stream. Damage is thrown, or kept as the result's error.
+     */
+    internal fun decodeRange(
+        input: ByteArray, offset: Int, length: Int, options: InflateOptions, format: String,
+        decode: (Output, InflateBlockListener?) -> Int,
+    ): InflateResult {
+        require(offset >= 0 && length >= 0 && offset <= input.size && length <= input.size - offset) {
+            "invalid $format slice: offset $offset, length $length, size ${input.size}"
+        }
+        val output = Output(
+            options.limits, length, sizeHint = options.sizeHint.takeIf { it > 0 }, reserveInputSize = !options.allowTrailingData,
+        )
+        // What the listener throws must pass through, even if it is one of the decoder's own types.
+        var thrownByListener: Throwable? = null
+        val listener = options.onBlock?.let { hook ->
+            InflateBlockListener { consumed, produced ->
+                try {
+                    hook.onBlock(consumed, produced)
+                } catch (failure: Throwable) {
+                    thrownByListener = failure
+                    throw failure
+                }
+            }
+        }
+        var error: ArchiveException? = null
+        var consumed: Int
+        try {
+            val end = decode(output, listener)
+            consumed = end - offset
+            if (consumed != length && !options.allowTrailingData) {
+                error = ArchiveFormatException("$format: trailing bytes after stream", end.toLong())
+            }
+        } catch (failure: ArchiveException) {
+            val damage = failure is InflateException || failure is ArchiveFormatException
+            if (!options.keepPartialOutput || !damage || failure === thrownByListener) throw failure
+            error = failure
+            consumed = ((failure.offset ?: offset.toLong()) - offset).coerceIn(0L, length.toLong()).toInt()
+        }
+        if (error != null && !options.keepPartialOutput) throw error
+        return InflateResult(output.takeByteArray(), consumed, error)
+    }
+
     /** Stream one raw DEFLATE stream's output to [sink]; return the byte count. */
     internal fun inflateTo(input: ByteArray, limits: ArchiveLimits, sink: ByteSink, deflate64: Boolean = false): Long {
         val output = Output(limits, input.size, sink = sink)
@@ -186,15 +274,19 @@ public object Inflate {
     /**
      * Return the first byte after the final block, including its partial final byte. With
      * [keepHistory], matches may reach everything already in [output], as MSZIP's blocks do.
+     * [onBlock] runs before each block, outside the error handling, with the input count taken
+     * from [origin].
      */
     internal fun inflateInto(
         input: ByteArray, offset: Int, end: Int, output: Output, deflate64: Boolean = false, keepHistory: Boolean = false,
+        onBlock: InflateBlockListener? = null, origin: Int = offset,
     ): Int {
         require(offset >= 0 && end >= offset && end <= input.size) { "Invalid DEFLATE input slice" }
         val s = State(input, offset, end, output, deflate64, keepHistory)
-        try {
-            var last: Int
-            do {
+        var last = 0
+        do {
+            onBlock?.onBlock(s.consumedPosition - origin, output.produced)
+            try {
                 last = s.bits(1)
                 val type = s.bits(2)
                 val err = when (type) {
@@ -204,13 +296,13 @@ public object Inflate {
                     else -> InflateError.INVALID_BLOCK_TYPE.code
                 }
                 if (err != 0) throw InflateException(InflateError.fromPuff(err), s.consumedPosition.toLong(), null, null)
-            } while (last == 0)
-        } catch (_: OutOfInput) {
-            throw InflateException(InflateError.DATA_DID_NOT_TERMINATE, s.position.toLong(), null, null)
-        } catch (error: InflateException) {
-            if (error.offset != null) throw error
-            throw InflateException(error.error, s.consumedPosition.toLong(), null, error)
-        }
+            } catch (_: OutOfInput) {
+                throw InflateException(InflateError.DATA_DID_NOT_TERMINATE, s.position.toLong(), null, null)
+            } catch (error: InflateException) {
+                if (error.offset != null) throw error
+                throw InflateException(error.error, s.consumedPosition.toLong(), null, error)
+            }
+        } while (last == 0)
         return s.consumedPosition
     }
 
@@ -225,6 +317,8 @@ public object Inflate {
         private val expectedSize: Long? = null,
         sizeHint: Long? = expectedSize,
         private val sink: ByteSink? = null,
+        /** False when the input may hold more than the stream, so its size says nothing about the output. */
+        reserveInputSize: Boolean = true,
     ) {
         private val maximum: Int
         private val hint: Int
@@ -248,7 +342,7 @@ public object Inflate {
             // memory, and DEFLATE rarely shrinks data: stored and incompressible
             // streams then decode without growth copies.
             bytes = if (sink != null) ByteArray(STREAM_BUFFER + WINDOW)
-                else ByteArray(minOf(maxOf(if (hint > 0) minOf(4096, hint) else 256, compressedBytes), maximum))
+                else ByteArray(minOf(maxOf(if (hint > 0) minOf(4096, hint) else 256, if (reserveInputSize) compressedBytes else 0), maximum))
         }
 
         /** Bytes of preset dictionary at the start; they are history, not output. */

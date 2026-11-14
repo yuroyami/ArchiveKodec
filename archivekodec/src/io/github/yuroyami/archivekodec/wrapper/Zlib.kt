@@ -10,6 +10,9 @@ import io.github.yuroyami.archivekodec.checksum.Adler32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
+import io.github.yuroyami.archivekodec.codec.deflate.InflateBlockListener
+import io.github.yuroyami.archivekodec.codec.deflate.InflateOptions
+import io.github.yuroyami.archivekodec.codec.deflate.InflateResult
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.be32
@@ -111,39 +114,102 @@ public object Zlib {
     @JvmStatic
     public fun decompress(input: ByteArray, limits: ArchiveLimits, dictionary: ByteArray?): ByteArray {
         val output = Inflate.Output(limits, input.size)
-        decode(input, dictionary, output)
+        rejectTrailing(input, decode(input, 0, input.size, dictionary, output))
         return output.takeByteArray()
     }
+
+    /**
+     * Decode one zlib stream that takes the whole of [input], under [options], and report
+     * how much input it took. See the overload with a range.
+     *
+     * @throws ArchiveFormatException for an invalid header, trailer, checksum or dictionary, or bytes after the stream,
+     *   unless an [InflateOptions] setting accepts it.
+     * @throws ArchiveUnsupportedException if the stream needs a dictionary and [InflateOptions.dictionary] is null.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE,
+     *   unless [InflateOptions.keepPartialOutput] is set.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or the ratio of output to input exceeds [InflateOptions.limits].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun decompress(input: ByteArray, options: InflateOptions): InflateResult = decompress(input, 0, input.size, options)
+
+    /**
+     * Decode one zlib stream that starts at [offset] and lies within the next [length] bytes
+     * of [input], under [options]. The range is read in place, not copied.
+     *
+     * The options relax the checks one at a time, for input from writers that do not follow
+     * RFC 1950 to the letter:
+     *
+     * ```kotlin
+     * val lenient = InflateOptions {
+     *     verifyChecksum = false      // the Adler-32 may be wrong or missing
+     *     allowTrailingData = true    // ignore bytes after the stream
+     *     keepPartialOutput = true    // a damaged stream gives what was decoded
+     * }
+     * val result = Zlib.decompress(stream, 0, stream.size, lenient)
+     * if (!result.isComplete) println("damaged: ${result.error}")
+     * ```
+     *
+     * The header is always checked. The ratio limit compares the output with [length], so keep
+     * the range close to the stream.
+     *
+     * @throws IllegalArgumentException if [offset] and [length] do not lie inside [input].
+     * @throws ArchiveFormatException for an invalid header, trailer, checksum or dictionary, or bytes after the stream,
+     *   unless an [InflateOptions] setting accepts it.
+     * @throws ArchiveUnsupportedException if the stream needs a dictionary and [InflateOptions.dictionary] is null.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for invalid DEFLATE,
+     *   unless [InflateOptions.keepPartialOutput] is set.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException
+     *   if the output or the ratio of output to input exceeds [InflateOptions.limits].
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    @JvmStatic
+    public fun decompress(input: ByteArray, offset: Int, length: Int, options: InflateOptions): InflateResult =
+        Inflate.decodeRange(input, offset, length, options, "zlib") { output, listener ->
+            decode(input, offset, offset + length, options.dictionaryBytes, output, options.verifyChecksum, listener)
+        }
 
     /** Stream the output to [sink]; return the byte count. */
     internal fun decompressTo(input: ByteArray, limits: ArchiveLimits, sink: ByteSink): Long {
         val output = Inflate.Output(limits, input.size, sink = sink)
-        decode(input, null, output)
+        rejectTrailing(input, decode(input, 0, input.size, null, output))
         return output.finish()
     }
 
-    private fun decode(input: ByteArray, dictionary: ByteArray?, output: Inflate.Output) {
-        if (input.size < 2) throw ArchiveFormatException("zlib: truncated header", 0)
-        if (!hasZlibHeader(input)) {
-            throw ArchiveFormatException("zlib: invalid header", 0)
+    private fun rejectTrailing(input: ByteArray, streamEnd: Int) {
+        if (streamEnd != input.size) throw ArchiveFormatException("zlib: trailing bytes after stream", streamEnd.toLong())
+    }
+
+    /** Decode the stream that starts at [offset] and return the index after it. Without [verifyChecksum], the trailer is skipped unread. */
+    private fun decode(
+        input: ByteArray, offset: Int, end: Int, dictionary: ByteArray?, output: Inflate.Output,
+        verifyChecksum: Boolean = true, onBlock: InflateBlockListener? = null,
+    ): Int {
+        if (end - offset < 2) throw ArchiveFormatException("zlib: truncated header", offset.toLong())
+        if (!hasZlibHeader(input, offset)) {
+            throw ArchiveFormatException("zlib: invalid header", offset.toLong())
         }
-        var start = 2
-        if (input[1].toInt() and 0x20 != 0) {
-            if (input.size < 6) throw ArchiveFormatException("zlib: truncated dictionary ID", 2)
-            val id = readU32Be(input, 2)
+        var start = offset + 2
+        if (input[offset + 1].toInt() and 0x20 != 0) {
+            if (end - offset < 6) throw ArchiveFormatException("zlib: truncated dictionary ID", start.toLong())
+            val id = readU32Be(input, start)
             if (dictionary == null) {
-                throw ArchiveUnsupportedException("zlib: stream needs preset dictionary ${id.toString(16)}; pass it to decompress", 2)
+                throw ArchiveUnsupportedException("zlib: stream needs preset dictionary ${id.toString(16)}; pass it to decompress", start.toLong())
             }
-            if (Adler32.of(dictionary) != id) throw ArchiveFormatException("zlib: dictionary does not match DICTID ${id.toString(16)}", 2)
+            if (Adler32.of(dictionary) != id) throw ArchiveFormatException("zlib: dictionary does not match DICTID ${id.toString(16)}", start.toLong())
             output.preload(dictionary)
-            start = 6
+            start = offset + 6
         }
-        output.startChecksum(Adler32())
-        val trailer = Inflate.inflateInto(input, start, input.size, output)
-        if (input.size - trailer < 4) throw ArchiveFormatException("zlib: truncated Adler-32 trailer", trailer.toLong())
+        if (verifyChecksum) output.startChecksum(Adler32())
+        val trailer = Inflate.inflateInto(input, start, end, output, onBlock = onBlock, origin = offset)
+        if (!verifyChecksum) return minOf(end, trailer + 4)
+        if (end - trailer < 4) throw ArchiveFormatException("zlib: truncated Adler-32 trailer", trailer.toLong())
         val expected = readU32Be(input, trailer)
         if (expected != output.checksumValue()) throw ArchiveFormatException("zlib: Adler-32 mismatch", trailer.toLong())
-        if (input.size - trailer != 4) throw ArchiveFormatException("zlib: trailing bytes after stream", (trailer + 4).toLong())
+        return trailer + 4
     }
 
     /**

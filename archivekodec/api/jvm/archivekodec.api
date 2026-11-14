@@ -1040,8 +1040,14 @@ public final class io/github/yuroyami/archivekodec/codec/deflate/DeflateStrategy
 public final class io/github/yuroyami/archivekodec/codec/deflate/Inflate {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/deflate/Inflate;
 	public static final fun inflate ([B)[B
+	public static final fun inflate ([BIILio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateResult;
+	public static final fun inflate ([BLio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateResult;
 	public static final fun inflate ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static final fun inflate ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;[B)[B
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/codec/deflate/InflateBlockListener {
+	public abstract fun onBlock (IJ)V
 }
 
 public final class io/github/yuroyami/archivekodec/codec/deflate/InflateError : java/lang/Enum {
@@ -1075,6 +1081,59 @@ public final class io/github/yuroyami/archivekodec/codec/deflate/InflateExceptio
 	public fun <init> (Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;)V
 	public fun <init> (Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;Ljava/lang/Long;Ljava/lang/String;Ljava/lang/Throwable;)V
 	public final fun getError ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateError;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/InflateOptions {
+	public static final field Companion Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public final fun copy ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public final fun copy (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public static synthetic fun copy$default (Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAllowTrailingData ()Z
+	public final fun getDictionary ()[B
+	public final fun getKeepPartialOutput ()Z
+	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun getOnBlock ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateBlockListener;
+	public final fun getSizeHint ()J
+	public final fun getVerifyChecksum ()Z
+	public fun hashCode ()I
+	public static final fun invoke ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public static final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/InflateOptions$Builder {
+	public fun <init> ()V
+	public final fun build ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public final fun getAllowTrailingData ()Z
+	public final fun getDictionary ()[B
+	public final fun getKeepPartialOutput ()Z
+	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
+	public final fun getOnBlock ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateBlockListener;
+	public final fun getSizeHint ()J
+	public final fun getVerifyChecksum ()Z
+	public final fun setAllowTrailingData (Z)V
+	public final fun setDictionary ([B)V
+	public final fun setKeepPartialOutput (Z)V
+	public final fun setLimits (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public final fun setOnBlock (Lio/github/yuroyami/archivekodec/codec/deflate/InflateBlockListener;)V
+	public final fun setSizeHint (J)V
+	public final fun setVerifyChecksum (Z)V
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/InflateOptions$Companion {
+	public final fun invoke ()Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+	public static synthetic fun invoke$default (Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions$Companion;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;
+}
+
+public final class io/github/yuroyami/archivekodec/codec/deflate/InflateResult {
+	public final fun getError ()Lio/github/yuroyami/archivekodec/ArchiveException;
+	public final fun getInputConsumed ()I
+	public final fun getOutput ()[B
+	public final fun isComplete ()Z
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/lz4/Lz4 {
@@ -1326,7 +1385,9 @@ public final class io/github/yuroyami/archivekodec/wrapper/Zlib {
 	public static final fun compress ([B)[B
 	public static final fun compress ([BLio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;)[B
 	public static final fun decompress ([B)[B
+	public static final fun decompress ([BIILio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateResult;
 	public static final fun decompress ([BJ)[B
+	public static final fun decompress ([BLio/github/yuroyami/archivekodec/codec/deflate/InflateOptions;)Lio/github/yuroyami/archivekodec/codec/deflate/InflateResult;
 	public static final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static final fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;[B)[B
 	public static synthetic fun decompress$default ([BJILjava/lang/Object;)[B

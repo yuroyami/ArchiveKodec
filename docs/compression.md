@@ -103,6 +103,45 @@ rejects any other trailing bytes. zlib checks Adler-32 and needs exactly one com
 Raw DEFLATE also rejects bytes after its final block. A failed check throws
 `ArchiveFormatException`.
 
+## Lenient and partial decodes
+
+Some writers do not follow the format to the letter: a zlib stream with a wrong Adler-32,
+padding after the stream, or a file that was cut short. `InflateOptions` relaxes the checks
+of raw DEFLATE and zlib one at a time. gzip takes limits only.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `limits` | `ArchiveLimits.DEFAULT` | The output and ratio ceilings. They always throw. |
+| `dictionary` | `null` | The preset dictionary of the stream. |
+| `sizeHint` | 0 | The output size that you expect. An output of exactly this size needs no final copy. It is not a limit. |
+| `allowTrailingData` | `false` | Ignore the bytes after the stream. |
+| `verifyChecksum` | `true` | zlib only. `false` leaves the Adler-32 unread, so it can be wrong, cut short or missing. |
+| `keepPartialOutput` | `false` | A damaged or cut-short stream gives the output decoded before the damage. |
+| `onBlock` | `null` | Runs before each DEFLATE block with the input and output counts. Throw from it to stop the decode. |
+
+A call with options returns an `InflateResult`. It holds the `output`, the `inputConsumed`
+count of bytes that the stream took, and the `error` that `keepPartialOutput` kept.
+
+```kotlin
+// A stream inside a larger array: read it in place, then find what follows it.
+val found = Inflate.inflate(file, start, file.size - start, InflateOptions { allowTrailingData = true })
+val next = start + found.inputConsumed
+
+// A zlib stream from a careless writer: take what can be decoded.
+val lenient = InflateOptions {
+    verifyChecksum = false
+    allowTrailingData = true
+    keepPartialOutput = true
+}
+val result = Zlib.decompress(stream, lenient)
+if (!result.isComplete) println("damaged stream: ${result.error}")
+```
+
+`keepPartialOutput` covers damage only: `InflateException` and `ArchiveFormatException`. A
+limit, a missing dictionary and an output too large for one array still throw. The ratio
+limit compares the output with the length of the range, so keep the range close to the
+stream.
+
 ## gzip header metadata
 
 `Gzip` reads and writes the optional fields of a gzip member header:

@@ -108,6 +108,10 @@ abstract fun interface io.github.yuroyami.archivekodec.archive/FormatReaderFacto
     abstract fun open(io.github.yuroyami.archivekodec.archive/RandomAccessSource, io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions): io.github.yuroyami.archivekodec.archive/ArchiveReader // io.github.yuroyami.archivekodec.archive/FormatReaderFactory.open|open(io.github.yuroyami.archivekodec.archive.RandomAccessSource;io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions){}[0]
 }
 
+abstract fun interface io.github.yuroyami.archivekodec.codec.deflate/InflateBlockListener { // io.github.yuroyami.archivekodec.codec.deflate/InflateBlockListener|null[0]
+    abstract fun onBlock(kotlin/Int, kotlin/Long) // io.github.yuroyami.archivekodec.codec.deflate/InflateBlockListener.onBlock|onBlock(kotlin.Int;kotlin.Long){}[0]
+}
+
 abstract fun interface io.github.yuroyami.archivekodec.codec/ByteSink { // io.github.yuroyami.archivekodec.codec/ByteSink|null[0]
     abstract fun write(kotlin/ByteArray, kotlin/Int, kotlin/Int) // io.github.yuroyami.archivekodec.codec/ByteSink.write|write(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
 }
@@ -732,6 +736,76 @@ final class io.github.yuroyami.archivekodec.codec.deflate/InflateException : io.
         final fun <get-error>(): io.github.yuroyami.archivekodec.codec.deflate/InflateError // io.github.yuroyami.archivekodec.codec.deflate/InflateException.error.<get-error>|<get-error>(){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.codec.deflate/InflateOptions { // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions|null[0]
+    final val allowTrailingData // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.allowTrailingData|{}allowTrailingData[0]
+        final fun <get-allowTrailingData>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.allowTrailingData.<get-allowTrailingData>|<get-allowTrailingData>(){}[0]
+    final val dictionary // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.dictionary|{}dictionary[0]
+        final fun <get-dictionary>(): kotlin/ByteArray? // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.dictionary.<get-dictionary>|<get-dictionary>(){}[0]
+    final val keepPartialOutput // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.keepPartialOutput|{}keepPartialOutput[0]
+        final fun <get-keepPartialOutput>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.keepPartialOutput.<get-keepPartialOutput>|<get-keepPartialOutput>(){}[0]
+    final val limits // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.limits|{}limits[0]
+        final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.limits.<get-limits>|<get-limits>(){}[0]
+    final val onBlock // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.onBlock|{}onBlock[0]
+        final fun <get-onBlock>(): io.github.yuroyami.archivekodec.codec.deflate/InflateBlockListener? // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.onBlock.<get-onBlock>|<get-onBlock>(){}[0]
+    final val sizeHint // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.sizeHint|{}sizeHint[0]
+        final fun <get-sizeHint>(): kotlin/Long // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.sizeHint.<get-sizeHint>|<get-sizeHint>(){}[0]
+    final val verifyChecksum // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.verifyChecksum|{}verifyChecksum[0]
+        final fun <get-verifyChecksum>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.verifyChecksum.<get-verifyChecksum>|<get-verifyChecksum>(){}[0]
+
+    final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.codec.deflate/InflateOptions // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.codec.deflate.InflateOptions.Builder,kotlin.Unit>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.toString|toString(){}[0]
+
+    final class Builder { // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder|null[0]
+        constructor <init>() // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.<init>|<init>(){}[0]
+
+        final var allowTrailingData // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.allowTrailingData|{}allowTrailingData[0]
+            final fun <get-allowTrailingData>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.allowTrailingData.<get-allowTrailingData>|<get-allowTrailingData>(){}[0]
+            final fun <set-allowTrailingData>(kotlin/Boolean) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.allowTrailingData.<set-allowTrailingData>|<set-allowTrailingData>(kotlin.Boolean){}[0]
+        final var dictionary // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.dictionary|{}dictionary[0]
+            final fun <get-dictionary>(): kotlin/ByteArray? // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.dictionary.<get-dictionary>|<get-dictionary>(){}[0]
+            final fun <set-dictionary>(kotlin/ByteArray?) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.dictionary.<set-dictionary>|<set-dictionary>(kotlin.ByteArray?){}[0]
+        final var keepPartialOutput // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.keepPartialOutput|{}keepPartialOutput[0]
+            final fun <get-keepPartialOutput>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.keepPartialOutput.<get-keepPartialOutput>|<get-keepPartialOutput>(){}[0]
+            final fun <set-keepPartialOutput>(kotlin/Boolean) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.keepPartialOutput.<set-keepPartialOutput>|<set-keepPartialOutput>(kotlin.Boolean){}[0]
+        final var limits // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.limits|{}limits[0]
+            final fun <get-limits>(): io.github.yuroyami.archivekodec.security/ArchiveLimits // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.limits.<get-limits>|<get-limits>(){}[0]
+            final fun <set-limits>(io.github.yuroyami.archivekodec.security/ArchiveLimits) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.limits.<set-limits>|<set-limits>(io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+        final var onBlock // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.onBlock|{}onBlock[0]
+            final fun <get-onBlock>(): io.github.yuroyami.archivekodec.codec.deflate/InflateBlockListener? // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.onBlock.<get-onBlock>|<get-onBlock>(){}[0]
+            final fun <set-onBlock>(io.github.yuroyami.archivekodec.codec.deflate/InflateBlockListener?) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.onBlock.<set-onBlock>|<set-onBlock>(io.github.yuroyami.archivekodec.codec.deflate.InflateBlockListener?){}[0]
+        final var sizeHint // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.sizeHint|{}sizeHint[0]
+            final fun <get-sizeHint>(): kotlin/Long // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.sizeHint.<get-sizeHint>|<get-sizeHint>(){}[0]
+            final fun <set-sizeHint>(kotlin/Long) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.sizeHint.<set-sizeHint>|<set-sizeHint>(kotlin.Long){}[0]
+        final var verifyChecksum // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.verifyChecksum|{}verifyChecksum[0]
+            final fun <get-verifyChecksum>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.verifyChecksum.<get-verifyChecksum>|<get-verifyChecksum>(){}[0]
+            final fun <set-verifyChecksum>(kotlin/Boolean) // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.verifyChecksum.<set-verifyChecksum>|<set-verifyChecksum>(kotlin.Boolean){}[0]
+
+        final fun build(): io.github.yuroyami.archivekodec.codec.deflate/InflateOptions // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder.build|build(){}[0]
+    }
+
+    final object Companion { // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Companion|null[0]
+        final val DEFAULT // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.codec.deflate/InflateOptions // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+
+        final fun invoke(kotlin/Function1<io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.codec.deflate/InflateOptions // io.github.yuroyami.archivekodec.codec.deflate/InflateOptions.Companion.invoke|invoke(kotlin.Function1<io.github.yuroyami.archivekodec.codec.deflate.InflateOptions.Builder,kotlin.Unit>){}[0]
+    }
+}
+
+final class io.github.yuroyami.archivekodec.codec.deflate/InflateResult { // io.github.yuroyami.archivekodec.codec.deflate/InflateResult|null[0]
+    final val error // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.error|{}error[0]
+        final fun <get-error>(): io.github.yuroyami.archivekodec/ArchiveException? // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.error.<get-error>|<get-error>(){}[0]
+    final val inputConsumed // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.inputConsumed|{}inputConsumed[0]
+        final fun <get-inputConsumed>(): kotlin/Int // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.inputConsumed.<get-inputConsumed>|<get-inputConsumed>(){}[0]
+    final val isComplete // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.isComplete|{}isComplete[0]
+        final fun <get-isComplete>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.isComplete.<get-isComplete>|<get-isComplete>(){}[0]
+    final val output // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.output|{}output[0]
+        final fun <get-output>(): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.output.<get-output>|<get-output>(){}[0]
+
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.codec.deflate/InflateResult.toString|toString(){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.codec.lz4/Lz4Options : io.github.yuroyami.archivekodec.codec/CodecOptions { // io.github.yuroyami.archivekodec.codec.lz4/Lz4Options|null[0]
     final val blockChecksum // io.github.yuroyami.archivekodec.codec.lz4/Lz4Options.blockChecksum|{}blockChecksum[0]
         final fun <get-blockChecksum>(): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.lz4/Lz4Options.blockChecksum.<get-blockChecksum>|<get-blockChecksum>(){}[0]
@@ -1342,8 +1416,10 @@ final object io.github.yuroyami.archivekodec.codec.deflate/Deflate { // io.githu
 
 final object io.github.yuroyami.archivekodec.codec.deflate/Inflate { // io.github.yuroyami.archivekodec.codec.deflate/Inflate|null[0]
     final fun inflate(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.deflate/Inflate.inflate|inflate(kotlin.ByteArray){}[0]
+    final fun inflate(kotlin/ByteArray, io.github.yuroyami.archivekodec.codec.deflate/InflateOptions): io.github.yuroyami.archivekodec.codec.deflate/InflateResult // io.github.yuroyami.archivekodec.codec.deflate/Inflate.inflate|inflate(kotlin.ByteArray;io.github.yuroyami.archivekodec.codec.deflate.InflateOptions){}[0]
     final fun inflate(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.deflate/Inflate.inflate|inflate(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     final fun inflate(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits, kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.deflate/Inflate.inflate|inflate(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits;kotlin.ByteArray){}[0]
+    final fun inflate(kotlin/ByteArray, kotlin/Int, kotlin/Int, io.github.yuroyami.archivekodec.codec.deflate/InflateOptions): io.github.yuroyami.archivekodec.codec.deflate/InflateResult // io.github.yuroyami.archivekodec.codec.deflate/Inflate.inflate|inflate(kotlin.ByteArray;kotlin.Int;kotlin.Int;io.github.yuroyami.archivekodec.codec.deflate.InflateOptions){}[0]
 }
 
 final object io.github.yuroyami.archivekodec.codec.lz4/Lz4 { // io.github.yuroyami.archivekodec.codec.lz4/Lz4|null[0]
@@ -1430,8 +1506,10 @@ final object io.github.yuroyami.archivekodec.wrapper/Zlib { // io.github.yuroyam
     final fun compress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Zlib.compress|compress(kotlin.ByteArray){}[0]
     final fun compress(kotlin/ByteArray, io.github.yuroyami.archivekodec.codec.deflate/DeflateOptions): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Zlib.compress|compress(kotlin.ByteArray;io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions){}[0]
     final fun decompress(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Zlib.decompress|decompress(kotlin.ByteArray){}[0]
+    final fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.codec.deflate/InflateOptions): io.github.yuroyami.archivekodec.codec.deflate/InflateResult // io.github.yuroyami.archivekodec.wrapper/Zlib.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.codec.deflate.InflateOptions){}[0]
     final fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Zlib.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
     final fun decompress(kotlin/ByteArray, io.github.yuroyami.archivekodec.security/ArchiveLimits, kotlin/ByteArray?): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Zlib.decompress|decompress(kotlin.ByteArray;io.github.yuroyami.archivekodec.security.ArchiveLimits;kotlin.ByteArray?){}[0]
+    final fun decompress(kotlin/ByteArray, kotlin/Int, kotlin/Int, io.github.yuroyami.archivekodec.codec.deflate/InflateOptions): io.github.yuroyami.archivekodec.codec.deflate/InflateResult // io.github.yuroyami.archivekodec.wrapper/Zlib.decompress|decompress(kotlin.ByteArray;kotlin.Int;kotlin.Int;io.github.yuroyami.archivekodec.codec.deflate.InflateOptions){}[0]
     final fun decompress(kotlin/ByteArray, kotlin/Long = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.wrapper/Zlib.decompress|decompress(kotlin.ByteArray;kotlin.Long){}[0]
 }
 
