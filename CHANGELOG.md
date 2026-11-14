@@ -144,6 +144,35 @@
   than inflated, and mixed input compresses within 0.1% of zlib level 6. Output bytes
   change for inputs longer than one block.
 
+- Decoder options. `InflateOptions` relaxes the checks of raw DEFLATE and zlib one at a
+  time: `allowTrailingData` ignores bytes after the stream, `verifyChecksum = false`
+  leaves zlib's Adler-32 unread, and `keepPartialOutput` returns the output decoded
+  before a damaged or cut-short part instead of throwing. `sizeHint` guides the size of
+  the output buffer, `onBlock` runs before each block (throw from it to stop a decode),
+  and `dictionary` and `limits` work as in the other overloads.
+  `Inflate.inflate(input, options)` and `Zlib.decompress(input, options)` take the
+  options, also for a range of an array (`input, offset, length, options`) that is read
+  in place. They return an `InflateResult`: the output, the count of input bytes that the
+  stream took, and the failure if one was kept. The overloads without options decode as
+  before.
+
+- The DEFLATE encoder joins neighbouring stored blocks. Data that does not compress now
+  costs 5 bytes for each 65,535 bytes instead of 5 bytes for each block: 85 bytes
+  instead of 320 for 1 MiB of random data. Output bytes change for such inputs.
+
+- Fixed: the DEFLATE encoder repeated its match search when a short match lay exactly one
+  window (32,768 bytes) back. Input with many such matches was about 100 times slower
+  at level 9: 1 MiB took 2.6 s instead of 25 ms. The output was valid.
+
+- Fixed: `ZipReader.read(entry, sink)` used the built-in codec when the `CodecRegistry`
+  of the reader replaced STORE, DEFLATE or Deflate64. The call now decodes through the
+  registered codec, as `read(entry)` does.
+
+- Docs: the text of `ArchiveLimits.maxCompressionRatio` said that the default cannot
+  reject a valid stream of any codec. That holds for DEFLATE, gzip, zlib, LZ4, Snappy
+  and STORE only. A valid Deflate64, bzip2, zstd or brotli stream can pass 10,000:1,
+  and the text now says so.
+
 - Encrypted archives. ZIP reads ZipCrypto and WinZip AES (AE-1 and AE-2, 128 to 256
   bits) and writes WinZip AES through `ZipWriter.write(files, ZipEncryption(...))`; the
   7z reader decrypts AES-256 data and encrypted headers. Passwords come from the new

@@ -33,11 +33,13 @@ public class ArchiveLimits private constructor(builder: Builder) {
 
     /**
      * Uncompressed/compressed ratio ceiling, checked during decode. Default 10000:1.
-     * This default cannot reject a valid stream from any currently implemented codec:
+     * This default cannot reject a valid DEFLATE, gzip, zlib, LZ4, Snappy or STORE stream:
      * DEFLATE (including gzip/zlib) stays below 1032:1, LZ4 below 255:1, Snappy
-     * (raw or framed) below 64:3, and STORE is 1:1. It can still reject impossible
-     * declared sizes before decoding. The high default preserves highly compressible
-     * legitimate input; choose a lower value when ratio-based rejection is required.
+     * (raw or framed) below 64:3, and STORE is 1:1. Codecs without such a bound can pass
+     * it with valid input: a 6-byte Deflate64 stream can hold 65,539 bytes and a 13-byte
+     * Brotli stream 16 MiB. Raise the ratio to read input like that. The default can also
+     * reject impossible declared sizes before decoding. The high default preserves highly
+     * compressible legitimate input; choose a lower value when ratio-based rejection is required.
      *
      * [maxUncompressedBytes] is the effective default output bound and applies to one
      * decode/read call. Bound cumulative output across reads with an [ExtractionBudget].

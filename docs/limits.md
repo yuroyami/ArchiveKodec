@@ -64,8 +64,9 @@ TAR, ar and cpio check their 1:1 ratio.
 
 The default ratio of 10,000:1 cannot reject a valid stream from DEFLATE (below 1,032:1), LZ4
 (below 255:1), Snappy (below 22:1) or STORE (1:1). It still rejects a declared size that no
-valid stream could reach. bzip2, zstd and brotli can pass it on input with long runs of one
-byte:
+valid stream could reach. Deflate64, bzip2, zstd and brotli can pass it on input with long
+runs of one byte. A 6-byte Deflate64 stream can hold 65,539 bytes, which is about 10,900:1.
+Larger examples:
 
 | 100 MiB of zeros | Compressed size | Ratio |
 | --- | --- | --- |
