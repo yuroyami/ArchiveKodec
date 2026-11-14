@@ -37,6 +37,9 @@ aliases:
   - jvmAndAndroid: [ jvm, android ]
   # Every native platform except mingwX64: Apple, Linux and Android native share the POSIX file API.
   - posix: [ iosArm64, iosSimulatorArm64, iosX64, macosArm64, tvosArm64, tvosSimulatorArm64, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, linuxX64, linuxArm64, androidNativeArm32, androidNativeArm64, androidNativeX86, androidNativeX64 ]
+  # posix without Android native, for positioned reads: off_t is 64-bit on all of these. Android native
+  # (src@androidNative) reads through pread64, because off_t is 32-bit on androidNativeArm32 and androidNativeX86.
+  - appleAndLinux: [ iosArm64, iosSimulatorArm64, iosX64, macosArm64, tvosArm64, tvosSimulatorArm64, watchosArm32, watchosArm64, watchosDeviceArm64, watchosSimulatorArm64, linuxX64, linuxArm64 ]
 
 dependencies:
   - //archivekodec: exported

@@ -1,8 +1,9 @@
 package io.github.yuroyami.archivekodec.io
 
 import io.github.yuroyami.archivekodec.ArchiveIOException
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.UnsafeNumber
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.convert
@@ -14,7 +15,6 @@ import platform.posix.O_RDONLY
 import platform.posix.errno
 import platform.posix.fstat
 import platform.posix.open
-import platform.posix.pread
 import platform.posix.stat
 import platform.posix.strerror
 
@@ -34,13 +34,14 @@ internal actual fun openPlatformFile(path: String): PlatformFile {
     return PosixFile(fd, size)
 }
 
-// UnsafeNumber: size_t and off_t are 32-bit on some targets (androidNative 32-bit, watchosArm32) and 64-bit elsewhere.
-@OptIn(ExperimentalForeignApi::class, UnsafeNumber::class)
+/** Reads up to [length] bytes at the 64-bit [offset] of [fd] into [buffer]. Returns the count, or -1 with errno set. */
+@OptIn(ExperimentalForeignApi::class)
+internal expect fun preadAt(fd: Int, buffer: CPointer<ByteVar>, length: Int, offset: Long): Long
+
+@OptIn(ExperimentalForeignApi::class)
 private class PosixFile(private val fd: Int, override val size: Long) : PlatformFile {
     override fun readAt(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
-        val n = into.usePinned { pinned ->
-            pread(fd, pinned.addressOf(intoOffset), length.convert(), offset.convert()).convert<Long>()
-        }
+        val n = into.usePinned { pinned -> preadAt(fd, pinned.addressOf(intoOffset), length, offset) }
         if (n < 0) throw ArchiveIOException("read failed: ${strerror(errno)?.toKString()}", IllegalStateException("errno $errno"), offset)
         return n.toInt()
     }
