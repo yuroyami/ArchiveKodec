@@ -40,7 +40,8 @@ import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
  * lazy at 4 to 9 with zlib's search limits (see [DeflateOptions]), cut into blocks of at most
  * 16,384 symbols (zlib's default). Each block is written as whichever of **stored**
  * (BTYPE=00), **fixed** (BTYPE=01) or **dynamic** (BTYPE=10) is smallest, so each part
- * of a mixed input gets its own codes and incompressible stretches are stored. Dynamic
+ * of a mixed input gets its own codes and incompressible stretches are stored. Neighbouring
+ * stored blocks are joined, so one 5-byte stored header carries up to 65,535 bytes. Dynamic
  * trees use optimal binary package-merge lengths, capped at 15 bits (7 for the
  * code-length code). Symbol coverage, length bounds and Kraft equality are checked
  * before the tables can be selected.
@@ -116,6 +117,7 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
     private val dFreq = IntArray(30)     // distance codes
     private var extraBits = 0L
     private var blockStart = start       // first input byte of the current block
+    private var storedFrom = -1          // first input byte of the stored run not yet written, or -1
     private var emitted = start          // input covered by the tokens so far
     private val workspace = LengthLimitedHuffman.Workspace()
 
@@ -172,19 +174,22 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
         // Pick the smallest of stored, fixed and dynamic.
         val dynamicBits = 3 + dynamicHeaderBits(numCl, clSeq, clLen) + symbolBits(llLen, dLen) + extraBits
         val fixedBits = 3 + fixedSymbolBits() + extraBits
-        val storedBits = storedBits(end - blockStart)
+        val length = end - blockStart
+        val storedBits = if (storedFrom >= 0) joinedStoredBits(blockStart - storedFrom, length) else storedBits(length)
         val finalBit = if (final) 1 else 0
         val dynamicAllowed = options.strategy != DeflateStrategy.FIXED
-        when {
-            storedBits < (if (dynamicAllowed) minOf(dynamicBits, fixedBits) else fixedBits) -> writeStored(blockStart, end, final)
-            dynamicAllowed && dynamicBits < fixedBits -> {
-                writeBits(finalBit, 1)
+        if (storedBits < (if (dynamicAllowed) minOf(dynamicBits, fixedBits) else fixedBits)) {
+            // Not written yet: the next block may also be stored, and then both share headers.
+            if (storedFrom < 0) storedFrom = blockStart
+            if (final) writeStoredRun(end, final = true)
+        } else {
+            writeStoredRun(blockStart, final = false)
+            writeBits(finalBit, 1)
+            if (dynamicAllowed && dynamicBits < fixedBits) {
                 writeBits(0b10, 2)
                 writeDynamicHeader(hlit, hdist, numCl, clSeq, clLen)
                 emitData(canonicalCodes(llLen), llLen, canonicalCodes(dLen), dLen)
-            }
-            else -> {
-                writeBits(finalBit, 1)
+            } else {
                 writeBits(0b01, 2)
                 emitData(FIXED_LITLEN_CODE, FIXED_LITLEN_LEN, FIXED_DIST_CODE, FIXED_DIST_LEN)
             }
@@ -211,6 +216,19 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
         return bits
     }
 
+    /** Bits that [length] more bytes add to a stored run of [pending] bytes: the bytes, and a header for each 65,535 bytes begun. */
+    private fun joinedStoredBits(pending: Int, length: Int): Long {
+        fun headers(bytes: Long) = (bytes + MAX_STORED - 1) / MAX_STORED
+        return 8L * length + 40L * (headers(pending.toLong() + length) - headers(pending.toLong()))
+    }
+
+    /** Write the stored run that starts at [storedFrom], if there is one, up to [end]. */
+    private fun writeStoredRun(end: Int, final: Boolean) {
+        if (storedFrom < 0) return
+        writeStored(storedFrom, end, final)
+        storedFrom = -1
+    }
+
     private fun writeStored(start: Int, end: Int, final: Boolean) {
         var position = start
         do {
@@ -230,7 +248,8 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
 
     private val head = EncoderMatchTable(HASH_BITS, data.size)
     // Each position's predecessor in its hash chain. Only positions inside the window
-    // are followed, and those slots have not been reused yet, so a ring suffices.
+    // are followed, and those slots have not been reused yet, so a ring suffices. The one
+    // exception is the position a whole window back: the current position now owns its slot.
     private val prev = IntArray(minOf(data.size, windowSize).coerceAtLeast(1))
     private var matchStart = 0
 
@@ -275,6 +294,9 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
                     if (length >= nice) break
                 }
             }
+            // The oldest candidate ends the chain. Its slot holds the current position's
+            // link, which leads back to chainHead and would repeat the search until the limit.
+            if (candidate == oldest) break
             candidate = prev[candidate and mask]
         }
         return best
