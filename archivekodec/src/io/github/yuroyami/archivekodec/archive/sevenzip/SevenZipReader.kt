@@ -49,10 +49,11 @@ import kotlin.jvm.JvmSynthetic
  * Supported coders: copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, the x86 BCJ
  * filter and AES-256, chained through bind pairs. BCJ2 and other branch filters are refused
  * with [ArchiveUnsupportedException] naming the method. AES needs a password from
- * [ArchiveOpenOptions.password] (asked with a null name for encrypted headers) and a
- * [ArchiveOpenOptions.crypto] provider; 7z AES has no authentication, so a wrong password
- * surfaces as [io.github.yuroyami.archivekodec.ArchivePasswordException] when the decrypted
- * data fails to decode or to match its CRC. Folder and file CRC-32s are verified.
+ * [ArchiveOpenOptions.password] (asked with a null name for encrypted headers) and uses
+ * [ArchiveOpenOptions.crypto]. The reader derives the key once for each password and salt.
+ * 7z AES has no authentication, so a wrong password surfaces as
+ * [io.github.yuroyami.archivekodec.ArchivePasswordException] when the decrypted data fails
+ * to decode or to match its CRC. Folder and file CRC-32s are verified.
  * Entries report UTC modification times, Unix modes from p7zip's attribute extension, and
  * for solid folders a share of the packed size proportional to each file's size.
  *
@@ -72,7 +73,8 @@ public class SevenZipReader(
     }
 
     private var passwords: ArchivePasswordProvider? = null
-    private var crypto: CryptoProvider? = null
+    private var crypto: CryptoProvider = CryptoProvider.DEFAULT
+    private val keys = SevenZipAes.KeyCache()
 
     private class Coder(val method: String, val inputs: Int, val outputs: Int, val properties: ByteArray)
 
@@ -128,6 +130,7 @@ public class SevenZipReader(
     override fun close() {
         cachedBytes = null
         cachedFolder = -1
+        keys.clear()
         ownedSource.close()
     }
 
@@ -210,10 +213,10 @@ public class SevenZipReader(
         limits.checkRatio(packedTotal, folder.size)
         val encrypted = folder.coders.any { it.method == AES }
         val password = if (encrypted) {
-            passwords?.password(name) ?: throw ArchivePasswordException(
-                if (name == null) "7z: the header is encrypted and no password was supplied" else "7z: entry is encrypted and no password was supplied",
-                entryName = name,
-            )
+            val subject = if (name == null) "7z: the header is encrypted" else "7z: entry is encrypted"
+            val password = passwords?.password(name) ?: throw ArchivePasswordException("$subject and no password was supplied", entryName = name)
+            if (password.isEmpty()) throw ArchivePasswordException("$subject and the password is empty", entryName = name)
+            password
         } else null
         try {
             val out = decodeOutput(streams, folder, folder.mainOutput, limits, 0, password)
@@ -258,10 +261,7 @@ public class SevenZipReader(
         val out = when (coder.method) {
             COPY -> input
             AES -> {
-                val crypto = crypto ?: throw ArchiveUnsupportedException(
-                    "7z: AES needs a CryptoProvider, such as CryptographyKotlinProvider from archivekodec-crypto",
-                )
-                val plain = SevenZipAes.decrypt(crypto, password!!, coder.properties, input)
+                val plain = SevenZipAes.decrypt(crypto, password!!, coder.properties, input, keys)
                 // The cipher works in 16-byte blocks; the coder's size drops the padding.
                 if (plain.size < size) throw ArchiveFormatException("7z: AES output is shorter than its declared size")
                 plain.copyOf(size.toInt())

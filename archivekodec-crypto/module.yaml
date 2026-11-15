@@ -22,8 +22,8 @@ product:
     - androidNativeX64
 
 description: >-
-  Platform cryptography for ArchiveKodec's encrypted archives: a CryptoProvider backed by cryptography-kotlin (JDK,
-  OpenSSL 3, Apple) for WinZip AES and 7z AES. Android, JVM, Apple, Linux and Windows.
+  Optional platform cryptography for ArchiveKodec's encrypted archives: a CryptoProvider backed by cryptography-kotlin
+  (JDK, OpenSSL 3, Apple) for faster WinZip AES and 7z AES. Android, JVM, Apple, Linux and Windows.
 
 apply:
   - ../library.module-template.yaml
@@ -37,7 +37,7 @@ settings:
   kotlin:
     optIns: [ io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation ]
   android:
-    namespace: io.github.yuroyami.archivekodec.crypto
+    namespace: io.github.yuroyami.archivekodec.crypto.platform
   publishing:
     pom:
       name: ArchiveKodec Crypto

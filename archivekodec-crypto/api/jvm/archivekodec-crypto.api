@@ -1,4 +1,4 @@
-public final class io/github/yuroyami/archivekodec/crypto/CryptographyKotlinProvider : io/github/yuroyami/archivekodec/crypto/CryptoProvider {
+public final class io/github/yuroyami/archivekodec/crypto/platform/CryptographyKotlinProvider : io/github/yuroyami/archivekodec/crypto/CryptoProvider {
 	public fun <init> ()V
 	public fun <init> (Ldev/whyoleg/cryptography/CryptographyProvider;)V
 	public fun aesCbcDecrypt ([B[B[B)[B

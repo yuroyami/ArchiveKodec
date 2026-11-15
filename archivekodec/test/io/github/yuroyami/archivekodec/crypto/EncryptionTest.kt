@@ -3,7 +3,6 @@ package io.github.yuroyami.archivekodec.crypto
 import io.github.yuroyami.archivekodec.ArchiveAuthenticationException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchivePasswordException
-import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
 import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -201,9 +200,10 @@ class EncryptionTest {
     private val plain = text(3000)
     private val crypto = TestCrypto()
 
+    /** Options with [password]; a null [crypto] leaves the built-in default in place. */
     private fun options(password: String?, crypto: CryptoProvider? = this.crypto, codecs: CodecRegistry = CodecRegistry.DEFAULT) = ArchiveOpenOptions {
         this.password = password?.let { ArchivePasswordProvider.of(it) }
-        this.crypto = crypto
+        if (crypto != null) this.crypto = crypto
         this.codecs = codecs
     }
 
@@ -227,21 +227,23 @@ class EncryptionTest {
     }
 
     @Test
-    fun winZipAesReadsWithThePasswordAndAProvider() {
+    fun winZipAesReadsWithThePasswordAndEitherProvider() {
         for ((zip, encryption) in listOf(aes256Zip to ArchiveEncryption.WINZIP_AES_256, aes128Zip to ArchiveEncryption.WINZIP_AES_128)) {
-            open(zip, options("SECRET")).use { reader ->
-                val entry = reader.entries().single()
-                assertTrue(entry.isEncrypted)
-                assertEquals(encryption, entry.encryption)
-                assertEquals(99, entry.zipMethod)
-                assertEquals(if (zip === aes256Zip) CodecId.DEFLATE else CodecId.STORE, entry.codec)
-                assertContentEquals(plain, reader.read(entry))
+            for (provider in listOf(crypto, null)) {
+                open(zip, options("SECRET", crypto = provider)).use { reader ->
+                    val entry = reader.entries().single()
+                    assertTrue(entry.isEncrypted)
+                    assertEquals(encryption, entry.encryption)
+                    assertEquals(99, entry.zipMethod)
+                    assertEquals(if (zip === aes256Zip) CodecId.DEFLATE else CodecId.STORE, entry.codec)
+                    assertContentEquals(plain, reader.read(entry))
+                }
             }
         }
     }
 
     @Test
-    fun missingOrWrongPasswordsAndMissingProvidersFailClearly() {
+    fun missingWrongAndEmptyPasswordsFailClearly() {
         open(aes256Zip, options(null)).use { reader ->
             val error = assertFailsWith<ArchivePasswordException> { reader.read(reader.entries().single()) }
             assertTrue(error.message!!.contains("no password"), error.message)
@@ -249,9 +251,9 @@ class EncryptionTest {
         open(aes256Zip, options("wrong")).use { reader ->
             assertFailsWith<ArchivePasswordException> { reader.read(reader.entries().single()) }
         }
-        open(aes256Zip, options("SECRET", crypto = null)).use { reader ->
-            val error = assertFailsWith<ArchiveUnsupportedException> { reader.read(reader.entries().single()) }
-            assertTrue(error.message!!.contains("CryptoProvider"), error.message)
+        open(aes256Zip, options("")).use { reader ->
+            val error = assertFailsWith<ArchivePasswordException> { reader.read(reader.entries().single()) }
+            assertTrue(error.message!!.contains("empty"), error.message)
         }
         // The default options carry no password at all.
         ArchiveKodec.open(aes256Zip).use { reader ->
@@ -318,7 +320,13 @@ class EncryptionTest {
         }
         open(aesHeaders7z, options("wrong")).use { reader -> assertFailsWith<ArchivePasswordException> { reader.entries() } }
         open(aesHeaders7z, options("SECRET")).use { reader -> assertContentEquals(plain, reader.read(reader.entries().single())) }
-        open(aesHeaders7z, options("SECRET", crypto = null)).use { reader -> assertFailsWith<ArchiveUnsupportedException> { reader.entries() } }
+        // The built-in provider, with no crypto option set.
+        open(aes7z, options("SECRET", crypto = null)).use { reader -> assertContentEquals(plain, reader.read(reader.entries().single())) }
+        open(aesHeaders7z, options("SECRET", crypto = null)).use { reader -> assertContentEquals(plain, reader.read(reader.entries().single())) }
+        open(aesHeaders7z, options("")).use { reader ->
+            val error = assertFailsWith<ArchivePasswordException> { reader.entries() }
+            assertTrue(error.message!!.contains("empty"), error.message)
+        }
     }
 
     @Test
@@ -330,7 +338,7 @@ class EncryptionTest {
             ZipWriter.FileSpec("empty", ByteArray(0)),
         )
         for (bits in listOf(128, 192, 256)) {
-            val zip = ZipWriter.write(files, "a comment", ZipEncryption("pässword".toCharArray(), crypto, bits))
+            val zip = ZipWriter.write(files, "a comment", ZipEncryption("pässword".toCharArray(), bits, crypto))
             open(zip, options("pässword")).use { reader ->
                 val entries = reader.entries()
                 assertFalse(entries[0].isEncrypted)
@@ -344,7 +352,7 @@ class EncryptionTest {
                 assertFailsWith<ArchivePasswordException> { reader.read(reader.entries()[1]) }
             }
         }
-        assertFailsWith<IllegalArgumentException> { ZipEncryption("x".toCharArray(), crypto, 64) }
-        assertFailsWith<IllegalArgumentException> { ZipEncryption(CharArray(0), crypto) }
+        assertFailsWith<IllegalArgumentException> { ZipEncryption("x".toCharArray(), 64) }
+        assertFailsWith<IllegalArgumentException> { ZipEncryption(CharArray(0)) }
     }
 }

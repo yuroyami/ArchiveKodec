@@ -16,10 +16,6 @@
   - The JVM jars of `archivekodec` and `archivekodec-io` carry a `module-info.class`
     instead of an `Automatic-Module-Name` manifest entry. The module names stay the
     same, and the module path sees explicit modules.
-  - Breaking for the Java module path: the `archivekodec-crypto` jar no longer has an
-    `Automatic-Module-Name`. Java takes the module name from the file name instead,
-    `archivekodec.crypto.jvm`. The cryptography-kotlin jars that it needs have no module
-    names, so it cannot have a `module-info.class` either.
   - The Android AAR holds the same classes as the JVM jar, and has no ABI reference of
     its own: the JVM reference covers its classes.
   - The JavaScript module is assembled from one `.mjs` file per source file, with an
@@ -180,15 +176,24 @@
   and the text now says so.
 
 - Encrypted archives. ZIP reads ZipCrypto and WinZip AES (AE-1 and AE-2, 128 to 256
-  bits) and writes WinZip AES through `ZipWriter.write(files, ZipEncryption(...))`; the
-  7z reader decrypts AES-256 data and encrypted headers. Passwords come from the new
-  `ArchiveOpenOptions.password` (`ArchivePasswordProvider`), AES from
-  `ArchiveOpenOptions.crypto` (`CryptoProvider`). WinZip AES tags are verified before
-  any decompression. New `ArchiveEntry.encryption`, `ArchiveEncryption`,
-  `ArchivePasswordException`, `ArchiveAuthenticationException`, and `ZipReader` and
-  `SevenZipReader` constructors that take `ArchiveOpenOptions`.
-- New artifact `archivekodec-crypto`: `CryptographyKotlinProvider`, backed by
-  cryptography-kotlin, so the core stays free of hand-written AES.
+  bits) and writes WinZip AES through `ZipWriter.write(files, ZipEncryption(password))`;
+  the 7z reader decrypts AES-256 data and encrypted headers. Passwords come from the new
+  `ArchiveOpenOptions.password` (`ArchivePasswordProvider`). AES comes from
+  `ArchiveOpenOptions.crypto`, which defaults to the built-in `CryptoProvider.DEFAULT`, so
+  encrypted archives work on every target, JS and Wasm included. The built-in AES is a
+  constant-time port of BearSSL's AES, with HMAC-SHA1, PBKDF2 and the operating system's
+  secure random generator. WinZip AES tags are verified before any decompression. New
+  `ArchiveEntry.encryption`, `ArchiveEncryption`, `ArchivePasswordException`,
+  `ArchiveAuthenticationException`, and `ZipReader` and `SevenZipReader` constructors that
+  take `ArchiveOpenOptions`. In the JS module, `open` takes a password, and `zip` takes a
+  password and a key size.
+- New optional artifact `archivekodec-crypto`: `CryptographyKotlinProvider`, in the package
+  `io.github.yuroyami.archivekodec.crypto.platform`, runs the platform's AES through
+  cryptography-kotlin. It is faster where the processor has AES instructions, and builds for
+  every target except JS, wasmJs and wasmWasi. The cryptography-kotlin jars have no module
+  names, so its jar has no `module-info.class`, and Java takes the module name
+  `archivekodec.crypto.jvm` from the file name. It shares no package with the core, so both
+  jars load together on the Java module path.
 
 - Added PPMd. `Codecs.PPMD` and `ArchiveKodec.ppmd` are var.I revision 1 in ZIP's
   method 98 framing, so ZIP PPMd entries now read; decoding supports the restart and

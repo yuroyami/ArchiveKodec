@@ -185,6 +185,7 @@ def portable():
     kotlin("check", "abi", "version")
     check_readme_version()
     verify_bytecode()
+    script("integration-tests/module-path/run.py")
     script("integration-tests/js-consumer/run.py")
 
 

@@ -27,7 +27,7 @@ kotlin {
             // Optional: a file source, extract and kotlinx-io adapters.
             implementation("io.github.yuroyami:archivekodec-io:0.2.0")
         }
-        // Optional: AES for encrypted ZIP and 7z archives. Not on JS or Wasm.
+        // Optional: the platform's AES, faster for large encrypted archives. Not on JS or Wasm.
         jvmMain.dependencies {
             implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
         }
@@ -110,7 +110,8 @@ pages: [Java](docs/java.md), [Swift](docs/swift.md) and
 - **Archives, read and write:** ZIP and ZIP64, TAR, GNU ar and cpio.
 - **Archives, read only:** 7z, RAR4 and RAR5, ISO 9660, CAB, WIM and SquashFS.
 - **Checksums:** CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32.
-- **Encryption:** WinZip AES read and write, ZipCrypto and 7z AES read.
+- **Encryption:** WinZip AES read and write, ZipCrypto and 7z AES read, on every target
+  with the built-in constant-time AES.
 
 [Format support](docs/formats.md) lists what each codec and reader handles, and what it
 refuses.
@@ -125,7 +126,8 @@ refuses.
 | Web | `js` and `wasmJs` (browser and Node), `wasmWasi` (Node) |
 
 The core and `archivekodec-io` build for every target in the table. `archivekodec-crypto`
-builds for all of them except `js`, `wasmJs` and `wasmWasi`. In a browser and on WASI the file
+builds for all of them except `js`, `wasmJs` and `wasmWasi`, and the core reads and writes
+encrypted archives on every target without it. In a browser and on WASI the file
 source cannot open a file, so read the file into a `ByteArray` there.
 
 ## Limits

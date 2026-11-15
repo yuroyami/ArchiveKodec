@@ -879,6 +879,39 @@ expectFailure("ZIP encryption without a password", check: {
     $0 is ArchivePasswordException && $0.entryName == "a.txt" && $0.offset?.int64Value == 6 && $0.message?.contains("password") == true
 }) { _ = try encryptedReader.read(entry: encryptedEntry, limits: limits) }
 try encryptedReader.close()
+
+// WinZip AES through the built-in crypto provider: written, read back, and refused with a wrong password.
+func chars(_ text: String) -> KotlinCharArray {
+    let units = Array(text.utf16)
+    let result = KotlinCharArray(size: Int32(units.count))
+    for (index, unit) in units.enumerated() { result.set(index: Int32(index), value: unit) }
+    return result
+}
+final class FixedPassword: NSObject, ArchivePasswordProvider {
+    let text: String
+    init(_ text: String) { self.text = text }
+    func password(entryName: String?) -> KotlinCharArray? { chars(text) }
+}
+func passwordOptions(_ password: String) throws -> ArchiveOpenOptions {
+    let builder = ArchiveOpenOptions.Builder()
+    builder.password = FixedPassword(password)
+    return try builder.build()
+}
+let aesPlain = bytes(Array(String(repeating: "an encrypted archive, ", count: 300).utf8))
+let aesZip = try ZipWriter.shared.write(
+    files: [try ZipWriter.FileSpec(name: "secret.txt", data: aesPlain)],
+    encryption: try ZipEncryption(password: chars("pässword"), keyBits: 128, crypto: CryptoProviderCompanion.shared.DEFAULT)
+)
+let aesReader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: aesZip), options: try passwordOptions("pässword"))
+let aesEntry = try aesReader.entries()[0]
+precondition(aesEntry.isEncrypted && aesEntry.encryption == ArchiveEncryption.companion.WINZIP_AES_128)
+let aesRead = try aesReader.read(entry: aesEntry, limits: limits)
+precondition(aesRead.size == aesPlain.size && (0..<aesPlain.size).allSatisfy { aesRead.get(index: $0) == aesPlain.get(index: $0) })
+try aesReader.close()
+expectFailure("WinZip AES with a wrong password", check: { $0 is ArchivePasswordException && $0.entryName == "secret.txt" }) {
+    let reader: ArchiveReader = ZipReader(source: ByteArrayRandomAccessSource(data: aesZip), options: try passwordOptions("wrong"))
+    _ = try reader.read(entry: try reader.entries()[0], limits: limits)
+}
 let overlapHex = "504b03041400000000000000210021f8f5ad2d0000002d0000000100000061504b03041400000000000000210024e8d09f0e0000000e00000001000000625348415245442d5041594c4f4144504b010214001400000000000000210021f8f5ad2d0000002d00000001000000000000000000000000000000000061504b010214001400000000000000210024e8d09f0e0000000e00000001000000000000000000000000001f00000062504b050600000000020002005e0000004c0000000000"
 let overlappingZip = bytes(stride(from: 0, to: overlapHex.count, by: 2).map {
     UInt8(String(overlapHex.dropFirst($0).prefix(2)), radix: 16)!

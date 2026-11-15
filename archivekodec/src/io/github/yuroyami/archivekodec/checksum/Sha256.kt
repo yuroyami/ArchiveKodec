@@ -14,13 +14,22 @@ internal class Sha256 {
         var i = offset
         val end = offset + length
         total += length
-        while (i < end) {
+        if (blockSize > 0) {
             val n = minOf(64 - blockSize, end - i)
             data.copyInto(block, blockSize, i, i + n)
             blockSize += n
             i += n
-            if (blockSize == 64) { compress(); blockSize = 0 }
+            if (blockSize < 64) return
+            compress(block, 0)
+            blockSize = 0
         }
+        // Whole blocks are hashed where they are, without a copy.
+        while (end - i >= 64) {
+            compress(data, i)
+            i += 64
+        }
+        data.copyInto(block, 0, i, end)
+        blockSize = end - i
     }
 
     fun digest(): ByteArray {
@@ -32,10 +41,11 @@ internal class Sha256 {
         return ByteArray(32) { (h[it / 4] ushr (24 - 8 * (it % 4))).toByte() }
     }
 
-    private fun compress() {
+    private fun compress(source: ByteArray, at: Int) {
         for (t in 0 until 16) {
-            w[t] = (block[4 * t].toInt() and 0xFF shl 24) or (block[4 * t + 1].toInt() and 0xFF shl 16) or
-                (block[4 * t + 2].toInt() and 0xFF shl 8) or (block[4 * t + 3].toInt() and 0xFF)
+            val o = at + 4 * t
+            w[t] = (source[o].toInt() and 0xFF shl 24) or (source[o + 1].toInt() and 0xFF shl 16) or
+                (source[o + 2].toInt() and 0xFF shl 8) or (source[o + 3].toInt() and 0xFF)
         }
         for (t in 16 until 64) {
             val s0 = w[t - 15].rotateRight(7) xor w[t - 15].rotateRight(18) xor (w[t - 15] ushr 3)

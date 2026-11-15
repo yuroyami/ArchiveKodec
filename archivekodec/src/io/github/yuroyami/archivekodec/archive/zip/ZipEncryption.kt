@@ -10,14 +10,15 @@ import kotlin.jvm.JvmOverloads
  * the plaintext's checksum does not leak. Directories are not encrypted. ZipCrypto is
  * never written: it is broken.
  *
- * @property crypto Supplies AES, HMAC, PBKDF2 and secure random salts.
  * @property keyBits AES key size: 128, 192 or 256 (the default).
+ * @property crypto Supplies AES, HMAC, PBKDF2 and secure random salts. The default is the
+ *   built-in [CryptoProvider.DEFAULT].
  * @throws IllegalArgumentException if [password] is empty or [keyBits] is not 128, 192 or 256.
  */
 public class ZipEncryption @Throws(IllegalArgumentException::class) @JvmOverloads public constructor(
     password: CharArray,
-    public val crypto: CryptoProvider,
     public val keyBits: Int = 256,
+    public val crypto: CryptoProvider = CryptoProvider.DEFAULT,
 ) {
     private val secret = password.copyOf()
 

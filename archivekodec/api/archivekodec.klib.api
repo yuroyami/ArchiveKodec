@@ -175,6 +175,11 @@ abstract interface io.github.yuroyami.archivekodec.crypto/CryptoProvider { // io
     abstract fun hmacSha1(kotlin/ByteArray, kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptoProvider.hmacSha1|hmacSha1(kotlin.ByteArray;kotlin.ByteArray){}[0]
     abstract fun pbkdf2HmacSha1(kotlin/ByteArray, kotlin/ByteArray, kotlin/Int, kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptoProvider.pbkdf2HmacSha1|pbkdf2HmacSha1(kotlin.ByteArray;kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
     abstract fun randomBytes(kotlin/Int): kotlin/ByteArray // io.github.yuroyami.archivekodec.crypto/CryptoProvider.randomBytes|randomBytes(kotlin.Int){}[0]
+
+    final object Companion { // io.github.yuroyami.archivekodec.crypto/CryptoProvider.Companion|null[0]
+        final val DEFAULT // io.github.yuroyami.archivekodec.crypto/CryptoProvider.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.crypto/CryptoProvider.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+    }
 }
 
 final class io.github.yuroyami.archivekodec.archive.ar/ArReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.ar/ArReader|null[0]
@@ -366,7 +371,7 @@ final class io.github.yuroyami.archivekodec.archive.wim/WimReader : io.github.yu
 }
 
 final class io.github.yuroyami.archivekodec.archive.zip/ZipEncryption { // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption|null[0]
-    constructor <init>(kotlin/CharArray, io.github.yuroyami.archivekodec.crypto/CryptoProvider, kotlin/Int = ...) // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.<init>|<init>(kotlin.CharArray;io.github.yuroyami.archivekodec.crypto.CryptoProvider;kotlin.Int){}[0]
+    constructor <init>(kotlin/CharArray, kotlin/Int = ..., io.github.yuroyami.archivekodec.crypto/CryptoProvider = ...) // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.<init>|<init>(kotlin.CharArray;kotlin.Int;io.github.yuroyami.archivekodec.crypto.CryptoProvider){}[0]
 
     final val crypto // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.crypto|{}crypto[0]
         final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.crypto.<get-crypto>|<get-crypto>(){}[0]
@@ -556,7 +561,7 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.g
     final val codecs // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.codecs|{}codecs[0]
         final fun <get-codecs>(): io.github.yuroyami.archivekodec.codec/CodecRegistry // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.codecs.<get-codecs>|<get-codecs>(){}[0]
     final val crypto // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.crypto|{}crypto[0]
-        final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.crypto.<get-crypto>|<get-crypto>(){}[0]
+        final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.crypto.<get-crypto>|<get-crypto>(){}[0]
     final val externalMembers // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.externalMembers|{}externalMembers[0]
         final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
     final val limits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.limits|{}limits[0]
@@ -575,8 +580,8 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.g
             final fun <get-codecs>(): io.github.yuroyami.archivekodec.codec/CodecRegistry // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs.<get-codecs>|<get-codecs>(){}[0]
             final fun <set-codecs>(io.github.yuroyami.archivekodec.codec/CodecRegistry) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.codecs.<set-codecs>|<set-codecs>(io.github.yuroyami.archivekodec.codec.CodecRegistry){}[0]
         final var crypto // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto|{}crypto[0]
-            final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto.<get-crypto>|<get-crypto>(){}[0]
-            final fun <set-crypto>(io.github.yuroyami.archivekodec.crypto/CryptoProvider?) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto.<set-crypto>|<set-crypto>(io.github.yuroyami.archivekodec.crypto.CryptoProvider?){}[0]
+            final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto.<get-crypto>|<get-crypto>(){}[0]
+            final fun <set-crypto>(io.github.yuroyami.archivekodec.crypto/CryptoProvider) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto.<set-crypto>|<set-crypto>(io.github.yuroyami.archivekodec.crypto.CryptoProvider){}[0]
         final var externalMembers // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers|{}externalMembers[0]
             final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
             final fun <set-externalMembers>(io.github.yuroyami.archivekodec.archive/ExternalMemberResolver?) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers.<set-externalMembers>|<set-externalMembers>(io.github.yuroyami.archivekodec.archive.ExternalMemberResolver?){}[0]
@@ -1706,7 +1711,7 @@ final fun io.github.yuroyami.archivekodec.js/unzlib(kotlin/ByteArray, kotlin/Dou
 final fun io.github.yuroyami.archivekodec.js/version(): kotlin/String // io.github.yuroyami.archivekodec.js/version|version(){}[0]
 
 // Targets: [js]
-final fun io.github.yuroyami.archivekodec.js/zip(kotlin/Array<io.github.yuroyami.archivekodec.js/ZipMember>): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/zip|zip(kotlin.Array<io.github.yuroyami.archivekodec.js.ZipMember>){}[0]
+final fun io.github.yuroyami.archivekodec.js/zip(kotlin/Array<io.github.yuroyami.archivekodec.js/ZipMember>, kotlin/String? = ..., kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/zip|zip(kotlin.Array<io.github.yuroyami.archivekodec.js.ZipMember>;kotlin.String?;kotlin.Int){}[0]
 
 // Targets: [js]
 final fun io.github.yuroyami.archivekodec.js/zlib(kotlin/ByteArray, kotlin/Int = ...): kotlin/ByteArray // io.github.yuroyami.archivekodec.js/zlib|zlib(kotlin.ByteArray;kotlin.Int){}[0]

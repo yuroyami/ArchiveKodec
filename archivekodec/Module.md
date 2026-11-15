@@ -8,5 +8,9 @@ cpio, 7z, RAR, ISO 9660, CAB, WIM and SquashFS, and writers exist for ZIP, TAR, 
 The module also has CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32, a format sniffer and
 the `ArchiveLimits` checks. It does no file I/O and depends on `kotlin-stdlib` only.
 
+ZIP reads ZipCrypto and WinZip AES and writes WinZip AES, and the 7z reader decrypts AES-256.
+`CryptoProvider.DEFAULT` supplies the AES on every target: a constant-time port of BearSSL's
+AES, with HMAC-SHA1, PBKDF2 and the operating system's secure random generator.
+
 Builds for Android, JVM, JS, wasmJs, wasmWasi, iOS, macOS (arm64), tvOS, watchOS, Linux,
 mingwX64 and androidNative. `archivekodec-io` shares this target list.

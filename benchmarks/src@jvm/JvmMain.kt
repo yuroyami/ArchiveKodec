@@ -20,6 +20,17 @@ private val timer = ManagementFactory.getThreadMXBean().also {
 internal actual fun cpuNanos(): Double = timer.currentThreadCpuTime.toDouble()
 internal actual fun consume(value: Any) { sink = value }
 internal actual fun profile(): String = System.getenv("BENCHMARK_PROFILE") ?: "smoke"
+internal actual fun suite(): String = System.getenv("BENCHMARK_SUITE") ?: "codecs"
+
+// The JDK's AES and HMAC run on the processor's AES and SHA instructions where it has them.
+internal actual fun referenceCryptoCases(input: ByteArray, key: ByteArray): List<Case> {
+    val aes = javax.crypto.spec.SecretKeySpec(key, "AES")
+    val hmac = javax.crypto.spec.SecretKeySpec(key, "HmacSHA1")
+    return listOf(
+        Case("jdk.aes256.ecb") { javax.crypto.Cipher.getInstance("AES/ECB/NoPadding").apply { init(javax.crypto.Cipher.ENCRYPT_MODE, aes) }.doFinal(input) },
+        Case("jdk.hmac.sha1") { javax.crypto.Mac.getInstance("HmacSHA1").apply { init(hmac) }.doFinal(input) },
+    )
+}
 internal actual fun runtime(): String = "${System.getProperty("java.vm.name")} ${System.getProperty("java.version")}"
 
 internal actual fun referenceCases(input: ByteArray, deflated: ByteArray, stored: Boolean): List<Case> {

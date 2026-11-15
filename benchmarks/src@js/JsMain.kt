@@ -8,5 +8,7 @@ internal actual fun cpuNanos(): Double {
 }
 internal actual fun consume(value: Any) { js("globalThis.archivekodecBenchmarkSink = value") }
 internal actual fun profile(): String = (process.env.BENCHMARK_PROFILE as String?) ?: "smoke"
+internal actual fun suite(): String = (process.env.BENCHMARK_SUITE as String?) ?: "codecs"
+internal actual fun referenceCryptoCases(input: ByteArray, key: ByteArray): List<Case> = emptyList()
 internal actual fun runtime(): String = "Node ${process.version} / V8 ${process.versions.v8}"
 internal actual fun referenceCases(input: ByteArray, deflated: ByteArray, stored: Boolean): List<Case> = emptyList()

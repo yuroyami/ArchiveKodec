@@ -22,6 +22,7 @@ file.
 | Snappy | `snappy` | `snappy.cc`, `snappy-internal.h` and `format_description.txt` | BSD-3 |
 | ZIP, TAR, ar, cpio, 7z | `commons-compress/.../archivers` | `zip/*`, `tar/*`, `ar/*`, `cpio/*`, `sevenz/*`. The LZMA of 7z comes from xz-java | Apache-2.0 |
 | CRC-32, CRC-32C, Adler-32, CRC-64 | `zlib` and `xz-java` | `crc32.c`, `adler32.c`, `xz-java/.../check/CRC64.java` | zlib, 0BSD |
+| AES for WinZip AES and 7z AES | [BearSSL](https://bearssl.org/gitweb/?p=BearSSL;a=tree;f=src/symcipher), remote | `aes_ct.c`, `aes_ct_enc.c`, `aes_ct_dec.c`, `aes_ct_cbcdec.c`: the bitsliced AES that `ConstantTimeAes.kt` is ported from | MIT |
 
 PPMd is ported from `Ppmd7.c` and `Ppmd8.c` of Igor Pavlov's LZMA SDK, which are in the public
 domain. That tree is not kept under `reference/`.

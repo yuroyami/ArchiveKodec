@@ -19,6 +19,11 @@ COMMON_OPERATIONS = {"inflate", "crc32", "crc32c", "adler32", "crc64", "xxhash32
                      "deflate", "lz4.encode", "lz4.decode", "snappy.encode", "snappy.decode"}
 JDK_OPERATIONS = {"jdk.inflate", "jdk.crc32", "jdk.crc32c", "jdk.adler32",
                   "jdk.deflate.1", "jdk.deflate.6"}
+# The crypto suite has no committed baseline. Throughput cases report MB/s, key derivations ms per call.
+CRYPTO_THROUGHPUT = {"aes128.ecb", "aes256.ecb", "aes256.cbc.decrypt", "hmac.sha1",
+                     "winzip.aes256.write", "winzip.aes256.read"}
+CRYPTO_JDK = {"jdk.aes256.ecb", "jdk.hmac.sha1"}
+CRYPTO_PER_CALL = {"pbkdf2.sha1.1000", "sevenzip.aes.open"}
 
 
 def key(row):
@@ -91,6 +96,41 @@ def compare(report, baseline):
                for identity, row in current.items())
 
 
+def validate_crypto(report):
+    """Reject a crypto run with missing operations or invalid timings."""
+    sizes = (65536,) if report["profile"] == "smoke" else (65536, 4194304)
+    expected = set()
+    for target in ("jvm", "js"):
+        throughput = CRYPTO_THROUGHPUT | (CRYPTO_JDK if target == "jvm" else set())
+        expected.update((target, operation, size) for operation in throughput for size in sizes)
+        expected.update((target, operation, 0) for operation in CRYPTO_PER_CALL)
+    rows = report["results"]
+    actual = {(row["platform"], row["operation"], row["bytes"]) for row in rows}
+    if len(actual) != len(rows) or actual != expected:
+        raise ValueError(f"Incomplete or duplicate crypto results: missing {sorted(expected - actual)}, "
+                         f"unexpected {sorted(actual - expected)}")
+    for row in rows:
+        value = row.get("mb_per_second") if row["bytes"] else row.get("ms_per_call")
+        if value is None or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"Invalid crypto measurement: {row['platform']} {row['operation']}")
+
+
+def print_crypto(report):
+    rows = {(row["platform"], row["operation"], row["bytes"]): row for row in report["results"]}
+    print(f"{'Operation':<22}{'Bytes':>9}  {'JVM':>14}  {'Node':>14}")
+    for operation, size in sorted({(o, b) for _, o, b in rows}, key=lambda item: (item[1] == 0, item[1], item[0])):
+        cells = []
+        for target in ("jvm", "js"):
+            row = rows.get((target, operation, size))
+            if row is None:
+                cells.append("-")
+            elif size:
+                cells.append(f"{row['mb_per_second']:.1f} MB/s")
+            else:
+                cells.append(f"{row['ms_per_call']:.2f} ms")
+        print(f"{operation:<22}{size if size else '-':>9}  {cells[0]:>14}  {cells[1]:>14}")
+
+
 def node():
     """Node from PATH, else the one the Kotlin Toolchain downloaded."""
     found = shutil.which("node")
@@ -106,16 +146,24 @@ def node():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", choices=("smoke", "full"), default="smoke")
+    parser.add_argument("--suite", choices=("codecs", "crypto"), default="codecs",
+                        help="codecs (the default, with the committed baseline) or crypto (encryption costs, no baseline)")
     parser.add_argument("--check", action="store_true", help="Compare smoke results with the committed baseline")
     parser.add_argument("--record-baseline", action="store_true", help="Deliberately replace the smoke baseline")
-    parser.add_argument("--output", type=Path, default=ROOT / "benchmarks/build/results.json")
+    parser.add_argument("--output", type=Path, help="Where to save the report (default: benchmarks/build/<suite>.json, "
+                                                     "or results.json for the codecs suite)")
     args = parser.parse_args()
+    if args.output is None:
+        args.output = ROOT / ("benchmarks/build/results.json" if args.suite == "codecs" else f"benchmarks/build/{args.suite}.json")
+    if args.suite != "codecs" and (args.check or args.record_baseline):
+        parser.error("Only the codecs suite has a baseline")
     if args.profile != "smoke" and (args.check or args.record_baseline):
         parser.error("Baseline checks and updates require the smoke profile")
     if args.check and args.record_baseline:
         parser.error("Checking and replacing the baseline are separate operations")
     kotlin = str(ROOT / ("kotlin.bat" if sys.platform == "win32" else "kotlin"))
-    environment = dict(os.environ, BENCHMARK_PROFILE=args.profile, KOTLIN_CLI_NO_WELCOME_BANNER="1")
+    environment = dict(os.environ, BENCHMARK_PROFILE=args.profile, BENCHMARK_SUITE=args.suite,
+                       KOTLIN_CLI_NO_WELCOME_BANNER="1")
     # Finish both builds before timing, then run each runtime on its own,
     # so neither measures CPU contention from the compiler or the other runtime.
     subprocess.run([kotlin, "build", "-m", "benchmarks-jvm"], cwd=ROOT, env=environment, check=True)
@@ -147,6 +195,14 @@ def main():
         "dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True)),
         "runtimes": metadata, "results": results,
     }
+    if args.suite == "crypto":
+        report["suite"] = "crypto"
+        validate_crypto(report)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, indent=2) + "\n")
+        print(f"Saved {len(results)} measurements to {args.output}")
+        print_crypto(report)
+        return
     validate(report)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")

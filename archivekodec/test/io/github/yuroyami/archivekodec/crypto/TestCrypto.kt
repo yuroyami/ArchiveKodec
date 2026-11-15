@@ -5,8 +5,8 @@ import io.github.yuroyami.archivekodec.ExperimentalArchiveImplementation
 /**
  * A plain-Kotlin [CryptoProvider] for tests only: table-driven AES, SHA-1, HMAC and PBKDF2
  * written straight from FIPS 197, FIPS 180-4 and RFC 2104/8018. It is slow and not constant
- * time, which is why the library itself ships none of it. The JVM tests check it against
- * javax.crypto.
+ * time, so the library ships a bitsliced engine instead, and the tests compare the two. The
+ * JVM tests check both against javax.crypto.
  */
 @OptIn(ExperimentalArchiveImplementation::class)
 internal class TestCrypto(private var seed: Long = 1) : CryptoProvider {

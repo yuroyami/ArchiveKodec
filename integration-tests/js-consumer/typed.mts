@@ -17,6 +17,9 @@ if (size !== 5 || link != null || (modified != null && !(new Date(modified).getT
 if (archive.read("a.txt").join() !== hello.join()) throw new Error("zip read failed");
 archive.close();
 
+const locked: Int8Array = zip([new ZipMember("a.txt", hello)], "secret", 192);
+if (open(locked, null, "secret").read("a.txt").join() !== hello.join()) throw new Error("WinZip AES read failed");
+
 // Compiled only, never called: each line must be a type error.
 export function rejected(): void {
     // @ts-expect-error: bytes are an Int8Array, not a string.
@@ -25,6 +28,8 @@ export function rejected(): void {
     new Entry();
     // @ts-expect-error: sizes are numbers, not bigints or Kotlin Longs.
     const wide: bigint = archive.entries[0].size;
+    // @ts-expect-error: the key size is a number of bits, not a string.
+    zip([], "secret", "256");
 }
 
 console.log("typed.mts: ok");

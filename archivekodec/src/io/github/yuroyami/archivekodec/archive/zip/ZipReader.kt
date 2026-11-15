@@ -59,9 +59,9 @@ import kotlin.text.CharacterCodingException
  * [ArchiveEntry.zipMethod] preserves the numeric method; unbound methods use a
  * `zip-method-N` codec identifier instead of STORE. Encryption flags or method 99
  * set [ArchiveEntry.isEncrypted] and [ArchiveEntry.encryption]. With a password from
- * [ArchiveOpenOptions.password], ZipCrypto members are decrypted, and WinZip AES members
- * too when [ArchiveOpenOptions.crypto] supplies AES; their authentication code is checked
- * before any decompression. A WinZip AES entry reports its underlying compression codec.
+ * [ArchiveOpenOptions.password], ZipCrypto and WinZip AES members are decrypted. WinZip AES
+ * uses [ArchiveOpenOptions.crypto], and its authentication code is checked before any
+ * decompression. A WinZip AES entry reports its underlying compression codec.
  * PKWARE strong encryption is refused.
  *
  * Security: local-header and compressed-data extents must be disjoint and end
@@ -107,7 +107,7 @@ public class ZipReader(
     }
 
     private var passwords: ArchivePasswordProvider? = null
-    private var crypto: CryptoProvider? = null
+    private var crypto: CryptoProvider = CryptoProvider.DEFAULT
 
     private class Member(
         val entry: ArchiveEntry,
@@ -147,7 +147,7 @@ public class ZipReader(
      * @throws ArchiveFormatException for an entry this reader did not list, changed entry metadata, malformed headers, failed integrity checks,
      *   or malformed or truncated compressed data. For such data the codec's own exception, for example
      *   [io.github.yuroyami.archivekodec.codec.deflate.InflateException], is the cause.
-     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for encryption or an unsupported ZIP method or feature.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for an unsupported encryption scheme, ZIP method or feature.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      * @throws ArchiveException if the underlying source or directory listing reports another archive failure.
@@ -252,16 +252,13 @@ public class ZipReader(
         if (!entry.isEncrypted && method == 0 && entry.compressedSize != entry.size) {
             throw ArchiveFormatException("ZIP: stored compressed size ${entry.compressedSize} differs from output size ${entry.size}", dataStart, entry.name)
         }
-        // Ask for the password, and check AES has a provider, before reading any ciphertext.
+        // Ask for the password before reading any ciphertext.
         val password = if (entry.isEncrypted) {
             val field = entry.dataOffset + if (member.method == 99) 8 else 6
             val password = passwords?.password(entry.name)
                 ?: throw ArchivePasswordException("ZIP: entry is encrypted and no password was supplied", field, entry.name)
-            if (member.aesStrength != 0 && crypto == null) {
-                password.fill('\u0000')
-                throw ArchiveUnsupportedException(
-                    "ZIP: WinZip AES needs a CryptoProvider, such as CryptographyKotlinProvider from archivekodec-crypto", field, entry.name,
-                )
+            if (member.aesStrength != 0 && password.isEmpty()) {
+                throw ArchivePasswordException("ZIP: entry is encrypted with WinZip AES and the password is empty", field, entry.name)
             }
             password
         } else null
@@ -287,7 +284,7 @@ public class ZipReader(
         val entry = member.entry
         try {
             return if (member.aesStrength != 0) {
-                WinZipAes.decrypt(crypto!!, password, member.aesStrength, stored)
+                WinZipAes.decrypt(crypto, password, member.aesStrength, stored)
             } else {
                 val check = ((entry.crc32 ?: 0L) ushr 24).toInt() and 0xFF
                 val timeCheck = if (member.flags and 0x08 != 0) readU16Le(local, 10) ushr 8 else null

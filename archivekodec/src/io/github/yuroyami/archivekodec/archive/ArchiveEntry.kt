@@ -54,7 +54,7 @@ public class ArchiveEntry private constructor(builder: Builder) {
 
     /**
      * Whether encryption is advertised. Built-in readers decrypt ZipCrypto, WinZip AES and
-     * 7z AES given a password and, for AES, a crypto provider; see [encryption].
+     * 7z AES given a password; see [encryption].
      */
     public val isEncrypted: Boolean = builder.isEncrypted
 

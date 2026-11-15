@@ -3,7 +3,7 @@
 // single-block ECB encryption. Neither is used as a hash or a mode on its own.
 @file:OptIn(DelicateCryptographyApi::class)
 
-package io.github.yuroyami.archivekodec.crypto
+package io.github.yuroyami.archivekodec.crypto.platform
 
 import dev.whyoleg.cryptography.BinarySize.Companion.bytes
 import dev.whyoleg.cryptography.CryptographyProvider
@@ -13,10 +13,14 @@ import dev.whyoleg.cryptography.algorithms.AES
 import dev.whyoleg.cryptography.algorithms.HMAC
 import dev.whyoleg.cryptography.algorithms.PBKDF2
 import dev.whyoleg.cryptography.algorithms.SHA1
+import io.github.yuroyami.archivekodec.crypto.CryptoProvider
 
 /**
  * A [CryptoProvider] backed by cryptography-kotlin, so AES runs in the platform's
  * implementation: hardware-accelerated and constant-time where the platform offers it.
+ * The core's built-in [CryptoProvider.DEFAULT] gives the same bytes on every platform. Use
+ * this provider when encrypted archives are large and AES speed matters.
+ *
  * [provider] defaults to cryptography-kotlin's default, which this artifact supplies: the
  * JDK on the JVM and Android, OpenSSL 3 on Linux, Windows and Android Native, and Apple's
  * libraries on Apple targets. Random salts come from the platform's secure generator.

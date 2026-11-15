@@ -48,14 +48,15 @@ const out = new Uint8Array(data.buffer, data.byteOffset, data.length);
 | `compress(codec, data, level?)`, `decompress(codec, data, maxBytes?)` | Any codec by id. `codecs()` lists the ids |
 | `decompressAny(data, maxBytes?)` | Detects the compressed format, like `ArchiveKodec.decompress` |
 | `sniff(data)` | The format id that the bytes start with, such as `"zip"`, or `"unknown"` |
-| `open(data, format?, password?, maxBytes?)` | An `Archive` over any readable format. `format` skips detection |
+| `open(data, format?, password?, maxBytes?)` | An `Archive` over any readable format. `format` skips detection. `password` opens ZipCrypto, WinZip AES and 7z AES |
 | `Archive` | `format`, `entries` (an array of `Entry`), `read(name)`, `readAt(index)` and `close()` |
 | `Entry` | `index`, `name`, `size`, `compressedSize`, `isDirectory`, `isEncrypted`, `isSymbolicLink`, `isHardLink`, `linkTarget`, `lastModified` (milliseconds, for `new Date`), `crc32`, `unixMode`, `codec` and `comment` |
-| `zip(members)`, `ZipMember(name, data)` | Writes a ZIP with DEFLATE |
+| `zip(members, password?, keyBits?)`, `ZipMember(name, data)` | Writes a ZIP with DEFLATE. With a `password`, each file is encrypted with WinZip AES under a 128-, 192- or 256-bit key (256 by default) |
 | `version()` | The library version |
 
 Every decoding call uses the default [limits](limits.md), with the output cap set by
-`maxBytes`. Entry names are stored names and not safe paths, so check them as
+`maxBytes`. Decryption runs on the calling thread, so open large encrypted archives in a web
+worker. [Encrypted archives](encryption.md) has the details. Entry names are stored names and not safe paths, so check them as
 [Entry names and Zip-Slip](entry-names.md) describes before you write files.
 
 The `wasmJs` build exports nothing. Kotlin/Wasm can export only top-level functions over

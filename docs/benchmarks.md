@@ -68,6 +68,23 @@ samples or five full samples. A JVM volatile sink and a Node global sink retain
 results to prevent dead-code elimination. Sink and call overhead is included,
 which matters most for tiny inputs and hardware-accelerated JDK checksums.
 
+## Encryption
+
+```sh
+python3 benchmarks/run.py --suite crypto
+```
+
+The crypto suite measures the built-in provider, `CryptoProvider.DEFAULT`, on random data:
+
+- AES-128 and AES-256 in ECB mode, AES-256 CBC decryption, HMAC-SHA1, and the write and read
+  of one stored WinZip AES-256 entry, in MB/s of input.
+- The PBKDF2 of one WinZip AES-256 entry, and the opening of a 7z AES archive that 7-Zip wrote
+  with 2^19 key rounds, in milliseconds per call.
+
+On the JVM it adds the JDK's AES-256 and HMAC-SHA1 as references. The suite has no baseline,
+and CI does not run it. It saves its report to `benchmarks/build/crypto.json`, and
+[Encrypted archives](encryption.md#speed) shows the latest numbers.
+
 ## Baseline and CI
 
 `benchmarks/baseline.json` contains all measurements from the documented smoke

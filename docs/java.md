@@ -57,6 +57,8 @@ The jars hold Java 8 class files (major version 52), compiled against the Java 8
 `archivekodec` and `archivekodec-io` declare the JPMS module names
 `io.github.yuroyami.archivekodec` and `io.github.yuroyami.archivekodec.io` in a
 `module-info.class`. `archivekodec-crypto` declares none, so Java takes
-`archivekodec.crypto.jvm` from the file name.
+`archivekodec.crypto.jvm` from the file name. Its classes are in
+`io.github.yuroyami.archivekodec.crypto.platform`, so it shares no package with the core, and
+the two jars load together on the module path.
 
 A Maven project depends on the platform artifact, as [Install](index.md#install) shows.

@@ -1,4 +1,4 @@
-package io.github.yuroyami.archivekodec.crypto
+package io.github.yuroyami.archivekodec.crypto.platform
 
 import io.github.yuroyami.archivekodec.ArchiveAuthenticationException
 import io.github.yuroyami.archivekodec.ArchiveKodec
@@ -8,6 +8,8 @@ import io.github.yuroyami.archivekodec.archive.use
 import io.github.yuroyami.archivekodec.archive.zip.ZipEncryption
 import io.github.yuroyami.archivekodec.archive.zip.ZipMethod
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.crypto.ArchiveEncryption
+import io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -44,7 +46,7 @@ class CryptographyKotlinProviderTest {
         val text = "an encrypted archive, ".repeat(500).encodeToByteArray()
         val zip = ZipWriter.write(
             listOf(ZipWriter.FileSpec("a.txt", text), ZipWriter.FileSpec("b.bin", byteArrayOf(1, 2, 3), ZipMethod.STORED)),
-            ZipEncryption("correct horse".toCharArray(), crypto),
+            ZipEncryption("correct horse".toCharArray(), 256, crypto),
         )
         val options = ArchiveOpenOptions { password = ArchivePasswordProvider.of("correct horse"); this.crypto = this@CryptographyKotlinProviderTest.crypto }
         ArchiveKodec.open(zip, null, options).use { reader ->

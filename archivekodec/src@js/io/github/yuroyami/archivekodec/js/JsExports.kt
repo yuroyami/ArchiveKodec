@@ -22,6 +22,7 @@ import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.zip.ZipEncryption
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
@@ -87,8 +88,11 @@ public fun unlz4(data: ByteArray, maxBytes: Double = DEFAULT_MAX_BYTES): ByteArr
 /**
  * Open an archive held in [data]: ZIP, TAR (also gzip-wrapped), 7z, RAR, CAB, ISO 9660,
  * WIM, SquashFS, ar or cpio. The format is detected unless [format] names it, as an id from
- * [sniff]. [password] opens encrypted members. Each member read produces at most [maxBytes]
- * bytes.
+ * [sniff]. [password] opens encrypted members: ZipCrypto, WinZip AES and 7z AES, also 7z
+ * archives with encrypted headers. Each member read produces at most [maxBytes] bytes.
+ *
+ * Decryption runs on the calling thread. In a browser, open large encrypted archives in a
+ * worker so the page stays responsive.
  *
  * The archive keeps [data]; do not change it until [Archive.close].
  */
@@ -105,9 +109,23 @@ public fun open(
     return Archive(ArchiveKodec.open(data, format, options))
 }
 
-/** Write a ZIP archive holding [members], each DEFLATE-compressed, in the order given. */
-public fun zip(members: Array<ZipMember>): ByteArray =
-    ZipWriter.write(members.map { ZipWriter.FileSpec(it.name, it.data) })
+/**
+ * Write a ZIP archive holding [members], each DEFLATE-compressed, in the order given. With a
+ * [password], each file is encrypted with WinZip AES (AE-2) under a [keyBits]-bit key: 128,
+ * 192 or 256. 7-Zip, WinZip and [open] read such archives. Directories are not encrypted.
+ *
+ * @throws Error if [password] is empty or [keyBits] is not 128, 192 or 256.
+ */
+public fun zip(members: Array<ZipMember>, password: String? = null, keyBits: Int = 256): ByteArray {
+    val files = members.map { ZipWriter.FileSpec(it.name, it.data) }
+    if (password == null) return ZipWriter.write(files)
+    val secret = password.toCharArray()
+    try {
+        return ZipWriter.write(files, ZipEncryption(secret, keyBits))
+    } finally {
+        secret.fill('\u0000')
+    }
+}
 
 /** An open archive, from [open]. Read members by name or by position in [entries], then [close] it. */
 public class Archive internal constructor(private val reader: ArchiveReader) {

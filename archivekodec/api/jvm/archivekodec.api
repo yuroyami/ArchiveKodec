@@ -704,9 +704,10 @@ public final class io/github/yuroyami/archivekodec/archive/wim/WimReader : io/gi
 }
 
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipEncryption {
-	public fun <init> ([CLio/github/yuroyami/archivekodec/crypto/CryptoProvider;)V
-	public fun <init> ([CLio/github/yuroyami/archivekodec/crypto/CryptoProvider;I)V
-	public synthetic fun <init> ([CLio/github/yuroyami/archivekodec/crypto/CryptoProvider;IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> ([C)V
+	public fun <init> ([CI)V
+	public fun <init> ([CILio/github/yuroyami/archivekodec/crypto/CryptoProvider;)V
+	public synthetic fun <init> ([CILio/github/yuroyami/archivekodec/crypto/CryptoProvider;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getCrypto ()Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
 	public final fun getKeyBits ()I
 	public fun toString ()Ljava/lang/String;
@@ -1239,11 +1240,16 @@ public final class io/github/yuroyami/archivekodec/crypto/ArchivePasswordProvide
 }
 
 public abstract interface class io/github/yuroyami/archivekodec/crypto/CryptoProvider {
+	public static final field Companion Lio/github/yuroyami/archivekodec/crypto/CryptoProvider$Companion;
+	public static final field DEFAULT Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
 	public abstract fun aesCbcDecrypt ([B[B[B)[B
 	public abstract fun aesEcbEncrypt ([B[B)[B
 	public abstract fun hmacSha1 ([B[B)[B
 	public abstract fun pbkdf2HmacSha1 ([B[BII)[B
 	public abstract fun randomBytes (I)[B
+}
+
+public final class io/github/yuroyami/archivekodec/crypto/CryptoProvider$Companion {
 }
 
 public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {

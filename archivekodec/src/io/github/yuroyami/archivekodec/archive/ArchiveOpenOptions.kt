@@ -25,8 +25,8 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
     public val externalMembers: ExternalMemberResolver? = builder.externalMembers
     /** Supplies passwords for encrypted ZIP and 7z members; null refuses encrypted data. */
     public val password: ArchivePasswordProvider? = builder.password
-    /** AES, HMAC and PBKDF2 for WinZip AES and 7z AES; null refuses them. ZipCrypto needs none. */
-    public val crypto: CryptoProvider? = builder.crypto
+    /** AES, HMAC and PBKDF2 for WinZip AES and 7z AES. ZipCrypto needs none. */
+    public val crypto: CryptoProvider = builder.crypto
 
     /** Mutable single-thread configuration; [build] snapshots the property values. */
     public class Builder public constructor() {
@@ -40,8 +40,8 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
         public var externalMembers: ExternalMemberResolver? = null
         /** Password source for encrypted members, initially null. */
         public var password: ArchivePasswordProvider? = null
-        /** Crypto primitives for AES-encrypted members, initially null. */
-        public var crypto: CryptoProvider? = null
+        /** Crypto primitives for AES-encrypted members, initially the built-in [CryptoProvider.DEFAULT]. */
+        public var crypto: CryptoProvider = CryptoProvider.DEFAULT
 
         internal constructor(source: ArchiveOpenOptions) : this() {
             limits = source.limits

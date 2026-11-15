@@ -24,7 +24,7 @@ native binary. The core artifact depends on `kotlin-stdlib` and nothing else.
 | --- | --- | --- |
 | Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers and writers, checksums, the sniffer and the limits |
 | Files | `io.github.yuroyami:archivekodec-io:0.2.0` | A file source, `extract` and kotlinx-io adapters |
-| Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0` | Platform AES for encrypted ZIP and 7z archives |
+| Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0` | Optional: the platform's AES, faster for large encrypted archives |
 
 ```kotlin
 kotlin {
@@ -33,7 +33,7 @@ kotlin {
             implementation("io.github.yuroyami:archivekodec:0.2.0")
             implementation("io.github.yuroyami:archivekodec-io:0.2.0")
         }
-        // archivekodec-crypto has no JS or Wasm build.
+        // Optional: the platform's AES. archivekodec-crypto has no JS or Wasm build.
         jvmMain.dependencies {
             implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
         }
@@ -112,4 +112,4 @@ From other languages: [Java](java.md), [Swift](swift.md) and
 The core and `archivekodec-io` build for Android, `jvm`, `js`, `wasmJs`, `wasmWasi`, iOS,
 `macosArm64`, tvOS, watchOS, `linuxX64`, `linuxArm64`, `mingwX64` and the four
 androidNative targets. `archivekodec-crypto` builds for all of them except `js`, `wasmJs` and
-`wasmWasi`.
+`wasmWasi`. The core reads and writes encrypted archives on every target without it.
