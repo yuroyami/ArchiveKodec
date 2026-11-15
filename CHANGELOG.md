@@ -2,11 +2,17 @@
 
 ## Unreleased
 
-## 0.2.0 - 2026-11-10
+## 0.2.0 - 2026-11-15
+
+- **Breaking:** the library is renamed from KiteArchive to ArchiveKodec. The artifacts are
+  `io.github.yuroyami:archivekodec` and `io.github.yuroyami:archivekodec-io`. The packages
+  start with `io.github.yuroyami.archivekodec`, and the `KiteArchive` object is now
+  `ArchiveKodec`. Version 0.1.0 stays on Maven Central under the old name,
+  `io.github.yuroyami:kitearchive`.
 
 - Build. The project now builds with the Kotlin Toolchain (`./kotlin`) instead of Gradle,
-  with Kotlin 2.4.21 and Android compileSdk 37. The published coordinates and klib names
-  do not change. What changes for consumers:
+  with Kotlin 2.4.21 and Android compileSdk 37. The move to the Kotlin Toolchain does not
+  change the published coordinates or the klib names. What changes for consumers:
   - The JVM jars of `archivekodec` and `archivekodec-io` carry a `module-info.class`
     instead of an `Automatic-Module-Name` manifest entry. The module names stay the
     same, and the module path sees explicit modules.
