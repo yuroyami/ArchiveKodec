@@ -180,8 +180,9 @@ public object Lzw {
      * libtiff does; without it, at 4096 codes.
      *
      * @throws IllegalArgumentException if a byte of [data] is not below `2^literalBits`.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
-    @Throws(IllegalArgumentException::class)
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
     @JvmStatic
     @JvmOverloads
     public fun encode(data: ByteArray, options: LzwOptions = LzwOptions.DEFAULT): ByteArray {

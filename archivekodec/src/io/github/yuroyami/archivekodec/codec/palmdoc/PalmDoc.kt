@@ -128,7 +128,10 @@ public object PalmDoc {
     /**
      * Encode [data]. Copies are found with hash chains over the last 2047 bytes, a space before a
      * byte from 0x40 to 0x7F becomes one byte, and bytes that need it go into raw runs.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
+    @Throws(ArchiveException::class)
     @JvmStatic
     public fun encode(data: ByteArray): ByteArray {
         val n = data.size

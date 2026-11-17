@@ -129,7 +129,10 @@ public object PackBits {
     /**
      * Encode [data]: a run of three or more equal bytes becomes a repeat, everything else literal
      * runs, each at most 128 bytes long. [PackBitsVariant.PDF_RUN_LENGTH] appends the length byte 128.
+     *
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
+    @Throws(ArchiveException::class)
     @JvmStatic
     @JvmOverloads
     public fun encode(data: ByteArray, options: PackBitsOptions = PackBitsOptions.DEFAULT): ByteArray {
