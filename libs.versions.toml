@@ -1,6 +1,6 @@
 [versions]
 # Used by :archivekodec-io only. The :archivekodec core depends on kotlin-stdlib only.
-kotlinxIo = "0.9.1"
+kotlinxIo = "0.9.3"
 kotlinxCoroutines = "1.11.0"
 # Used by :archivekodec-crypto only.
 cryptography = "0.6.0"

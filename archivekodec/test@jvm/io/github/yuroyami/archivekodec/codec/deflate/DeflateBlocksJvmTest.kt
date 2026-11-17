@@ -63,12 +63,11 @@ class DeflateBlocksJvmTest {
     @Test
     fun workingMemoryDoesNotGrowWithTheInput() {
         val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
-        val id = Thread.currentThread().id
         Deflate.encode(text(1 shl 20, 3)) // warm up class loading
         fun allocated(data: ByteArray): Long {
-            val before = threads.getThreadAllocatedBytes(id)
+            val before = threads.currentThreadAllocatedBytes
             Deflate.encode(data)
-            return threads.getThreadAllocatedBytes(id) - before
+            return threads.currentThreadAllocatedBytes - before
         }
         // Beyond fixed-size chain and block buffers, only the growing output is allocated.
         // The single-block encoder allocated 6.7 times the input for text.
