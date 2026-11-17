@@ -26,7 +26,7 @@ product:
 
 description: >-
   Pure-Kotlin compression and archive core for Kotlin Multiplatform: DEFLATE, Deflate64, gzip, zlib, bzip2, LZMA,
-  LZMA2, xz, zstd, brotli, PPMd, LZ4 and Snappy codecs, ZIP (+ZIP64), TAR, ar and cpio read/write, 7z, RAR4/RAR5,
+  LZMA2, xz, zstd, brotli, PPMd, LZ4, Snappy, LZW, PackBits, PalmDOC and HUFF/CDIC codecs, ZIP (+ZIP64), TAR, ar and cpio read/write, 7z, RAR4/RAR5,
   ISO 9660, CAB, WIM and SquashFS readers, CRC, Adler and xxHash checksums, a magic sniffer, default output-size and
   compression-ratio limits, and path checks on every listing. Whole-array API, with DEFLATE, Deflate64, zlib and gzip also
   streaming to a sink. kotlin-stdlib only; Android, JVM, JS, Wasm, Apple, Linux and Windows.

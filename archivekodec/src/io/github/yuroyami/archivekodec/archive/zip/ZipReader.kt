@@ -9,6 +9,9 @@ import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.CrcMismatchListener
+import io.github.yuroyami.archivekodec.archive.CrcPolicy
+import io.github.yuroyami.archivekodec.archive.DuplicateNamePolicy
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
@@ -26,6 +29,9 @@ import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.CodecRegistry
 import io.github.yuroyami.archivekodec.codec.Codecs
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
+import io.github.yuroyami.archivekodec.codec.deflate.InflateError
+import io.github.yuroyami.archivekodec.codec.deflate.InflateException
+import io.github.yuroyami.archivekodec.codec.deflate.InflateOptions
 import io.github.yuroyami.archivekodec.codec.lzma.ZipLzma
 import io.github.yuroyami.archivekodec.codec.ppmd.PpmdZip
 import io.github.yuroyami.archivekodec.crypto.ArchiveEncryption
@@ -64,10 +70,17 @@ import kotlin.text.CharacterCodingException
  * decompression. A WinZip AES entry reports its underlying compression codec.
  * PKWARE strong encryption is refused.
  *
+ * An entry whose sizes and CRC-32 appear only in the data descriptor after its data (flag
+ * bit 3 with zeros in the central directory) lists with a size and compressed size of -1 and
+ * no CRC-32. A read finds its end from the data: a stored entry by a scan for the descriptor,
+ * a DEFLATE entry by the end of its stream. Only stored, DEFLATE and Deflate64 entries that
+ * are not encrypted can be read this way.
+ *
  * Security: local-header and compressed-data extents must be disjoint and end
- * before the central directory. Duplicate local-header offsets are also rejected
- * at parse time; [read] enforces [ArchiveLimits] (size + ratio) and verifies
- * the central-directory output size and stored CRC-32. Listing refuses unsafe names
+ * before the central directory. Records that share one local header must agree on the
+ * method, flags and sizes, and each read of one counts as its own read;
+ * [read] enforces [ArchiveLimits] (size + ratio) and verifies
+ * the central-directory output size and stored CRC-32, as [ArchiveOpenOptions.crcPolicy] says. Listing refuses unsafe names
  * unless [ArchiveLimits.rejectUnsafeNames] is off; names keep their stored spelling, so
  * join [io.github.yuroyami.archivekodec.security.PathGuard.sanitize]'s result when writing to disk.
  * [limits] caps the listing count and supplies the default policy for each read.
@@ -104,10 +117,25 @@ public class ZipReader(
         this(source, options.nameDecoder ?: ArchiveNameDecoder.CP437, options.limits, options.codecs) {
         passwords = options.password
         crypto = options.crypto
+        crcPolicy = options.crcPolicy
+        crcListener = options.crcMismatchListener
+        duplicateNames = options.duplicateNames
     }
 
     private var passwords: ArchivePasswordProvider? = null
     private var crypto: CryptoProvider = CryptoProvider.DEFAULT
+    private var crcPolicy: CrcPolicy = CrcPolicy.STRICT
+    private var crcListener: CrcMismatchListener? = null
+    private var duplicateNames: DuplicateNamePolicy = DuplicateNamePolicy.LAST_WINS
+
+    /** How one read treats a CRC-32 mismatch; [mismatch] records one that did not throw. */
+    private class CrcCheck(val mode: CrcMode) {
+        var mismatch = false
+    }
+
+    private enum class CrcMode { STRICT, LENIENT, REPORT }
+
+    private fun crcCheck() = CrcCheck(if (crcPolicy == CrcPolicy.LENIENT) CrcMode.LENIENT else CrcMode.STRICT)
 
     private class Member(
         val entry: ArchiveEntry,
@@ -119,9 +147,34 @@ public class ZipReader(
         val aesVersion: Int = 0,
         val aesStrength: Int = 0,
         val aesMethod: Int = 0,
+        /** The name in the local header; another record's name when two records share one header. */
+        val localNameBytes: ByteArray = nameBytes,
+        /** True when only the data descriptor after the data gives the sizes and the CRC-32. */
+        val sizedByDescriptor: Boolean = false,
     )
 
-    private class Directory(val entries: List<ArchiveEntry>, val members: Map<Long, Member>)
+    private class Directory(
+        val entries: List<ArchiveEntry>,
+        /** The member of each entry, in listing order. */
+        val members: List<Member>,
+        val byName: Map<String, ArchiveEntry>,
+        /** The distinct local header offsets, sorted. */
+        val headerOffsets: LongArray,
+        val directoryStart: Long,
+    ) {
+        fun memberOf(owner: Any, listed: ArchiveEntry): Member = members[listed.slotIn(owner)]
+
+        /** Where the entry whose local header is at [localOffset] must end: the next local header or the directory. */
+        fun boundaryAfter(localOffset: Long): Long {
+            var lo = 0
+            var hi = headerOffsets.size
+            while (lo < hi) {
+                val mid = (lo + hi) ushr 1
+                if (headerOffsets[mid] <= localOffset) lo = mid + 1 else hi = mid
+            }
+            return if (lo < headerOffsets.size) headerOffsets[lo] else directoryStart
+        }
+    }
 
     private val ownedSource = ReaderSource<Directory>(source)
     private val source: RandomAccessSource get() = ownedSource.source
@@ -157,15 +210,120 @@ public class ZipReader(
         withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
         val directory = directory()
         val listed = directory.entries.resolveIssued(this, entry, "ZIP")
-        return readListed(directory.members.getValue(listed.dataOffset), limits)
+        return readListed(directory.memberOf(this, listed), limits, crcCheck())
     }
 
     @Throws(ArchiveException::class)
-    override fun read(entry: ArchiveEntry, sink: ByteSink, limits: ArchiveLimits): Long {
+    override fun read(entry: ArchiveEntry, sink: ByteSink, limits: ArchiveLimits): Long = readTo(entry, sink, limits, crcCheck())
+
+    /**
+     * True when [entry] decodes whole and matches its CRC-32, or has none, and false when its
+     * CRC-32 does not match. The bytes are not kept: stored, DEFLATE and Deflate64 entries that
+     * are not encrypted stream through the check, so memory does not grow with the entry.
+     *
+     * @throws ArchiveException for the other failures documented by [read].
+     */
+    @Throws(ArchiveException::class)
+    public fun verify(entry: ArchiveEntry, limits: ArchiveLimits = this.limits): Boolean {
+        val check = CrcCheck(CrcMode.REPORT)
+        readTo(entry, ByteSink { _, _, _ -> }, limits, check)
+        return !check.mismatch
+    }
+
+    /** Check whether [entry] matches its CRC-32 with this reader's [limits]; see the overload with limits. */
+    @Throws(ArchiveException::class)
+    public fun verify(entry: ArchiveEntry): Boolean = verify(entry, limits)
+
+    @Throws(ArchiveException::class)
+    override fun entry(name: String): ArchiveEntry? = directory().byName[name]
+
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    override fun readPrefix(entry: ArchiveEntry, maxBytes: Int, limits: ArchiveLimits): ByteArray {
+        require(maxBytes >= 0) { "maxBytes must not be negative, not $maxBytes" }
         withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
         val directory = directory()
         val listed = directory.entries.resolveIssued(this, entry, "ZIP")
-        val member = directory.members.getValue(listed.dataOffset)
+        val member = directory.memberOf(this, listed)
+        val method = member.method
+        val builtIn = when (method) {
+            0 -> Codecs.STORE
+            8 -> Codecs.DEFLATE
+            9 -> Codecs.DEFLATE64
+            else -> null
+        }
+        if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn) {
+            return super.readPrefix(entry, maxBytes, limits)
+        }
+        // A prefix that covers the whole entry is the whole read, with all its checks.
+        if (!member.sizedByDescriptor && maxBytes >= listed.size) return readListed(member, limits, crcCheck())
+        if (maxBytes == 0) return ByteArray(0)
+        return withEntryContext(listed.name, listed.dataOffset) { prefix(directory, member, maxBytes, limits) }
+    }
+
+    private fun prefix(directory: Directory, member: Member, maxBytes: Int, limits: ArchiveLimits): ByteArray {
+        val entry = member.entry
+        val source = ownedSource.source
+        val dataStart = validateLocalHeader(member, source.readFully(entry.dataOffset, 30), source)
+        val available = if (member.sizedByDescriptor) directory.boundaryAfter(entry.dataOffset) - dataStart else entry.compressedSize
+        if (member.method == 0) {
+            if (member.sizedByDescriptor) {
+                // A descriptor within reach ends a short entry; the prefix then checks it whole.
+                val span = source.readFullyChecked(dataStart, minOf(available, maxBytes.toLong() + DESCRIPTOR_MAX))
+                storedDescriptor(span, hasZip64Extra(member))?.let { found ->
+                    if (found.size <= maxBytes) {
+                        val data = span.copyOf(found.size.toInt())
+                        limits.checkOutputSize(data.size.toLong())
+                        checkCrc(crcCheck(), member, found.crc, Crc32.of(data), dataStart)
+                        return data
+                    }
+                }
+                val n = minOf(maxBytes.toLong(), available).toInt()
+                limits.checkOutputSize(n.toLong())
+                return span.copyOf(n)
+            }
+            val n = minOf(maxBytes.toLong(), available)
+            limits.checkOutputSize(n)
+            return source.readFullyChecked(dataStart, n)
+        }
+        // DEFLATE and Deflate64: read the compressed data a span at a time, so a header costs little.
+        var span = minOf(available, 2L * maxBytes + 1024)
+        while (true) {
+            val comp = source.readFullyChecked(dataStart, span)
+            val options = InflateOptions {
+                this.limits = limits
+                allowTrailingData = true
+                stopAfterBytes = maxBytes.toLong()
+            }
+            val result = try {
+                Inflate.decodeRange(comp, 0, comp.size, options, "deflate") { output, listener ->
+                    Inflate.inflateInto(comp, 0, comp.size, output, deflate64 = member.method == 9, onBlock = listener)
+                }
+            } catch (error: InflateException) {
+                if (error.error == InflateError.DATA_DID_NOT_TERMINATE && span < available) {
+                    span = minOf(available, span * 2)
+                    continue
+                }
+                throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+            } catch (error: ArchiveException) {
+                throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+            }
+            if (!result.isStopped) {
+                // The whole stream fit in the prefix, so check it as a read would.
+                if (member.sizedByDescriptor) {
+                    checkDescriptorAfter(member, comp, result.inputConsumed, result.output, dataStart, crcCheck())
+                } else {
+                    throw ArchiveFormatException("ZIP: output size ${result.output.size} differs from declared size ${entry.size}", dataStart, entry.name)
+                }
+            }
+            return result.output
+        }
+    }
+
+    private fun readTo(entry: ArchiveEntry, sink: ByteSink, limits: ArchiveLimits, check: CrcCheck): Long {
+        withEntryContext(entry.name, entry.dataOffset) { ownedSource.source }
+        val directory = directory()
+        val listed = directory.entries.resolveIssued(this, entry, "ZIP")
+        val member = directory.memberOf(this, listed)
         val method = member.method
         // Only the built-in engines stream. A registry that replaces one decodes in memory, through it.
         val builtIn = when (method) {
@@ -175,17 +333,31 @@ public class ZipReader(
             else -> null
         }
         if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn ||
-            (method != 0 && listed.compressedSize > Int.MAX_VALUE)
+            (method != 0 && listed.compressedSize > Int.MAX_VALUE) || member.sizedByDescriptor
         ) {
-            val bytes = readListed(member, limits)
+            val bytes = readListed(member, limits, check)
             if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
             return bytes.size.toLong()
         }
-        return withEntryContext(listed.name, listed.dataOffset) { stream(member, sink, limits) }
+        return withEntryContext(listed.name, listed.dataOffset) { stream(member, sink, limits, check) }
+    }
+
+    /**
+     * Apply [check]'s mode to a CRC-32 mismatch: throw, tell the listener, or record it. ZipCrypto
+     * stays strict under [CrcPolicy.LENIENT], since a mismatch there is how a wrong password shows.
+     */
+    private fun checkCrc(check: CrcCheck, member: Member, expected: Long, actual: Long, dataStart: Long) {
+        if (expected == actual) return
+        val entry = member.entry
+        val strict = check.mode == CrcMode.STRICT ||
+            (check.mode == CrcMode.LENIENT && entry.encryption == ArchiveEncryption.ZIP_CRYPTO_INSECURE)
+        if (strict) throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
+        check.mismatch = true
+        if (check.mode == CrcMode.LENIENT) crcListener?.onMismatch(entry, expected, actual)
     }
 
     /** Stream a stored, DEFLATE or Deflate64 member, checking its size and CRC-32 at the end. */
-    private fun stream(member: Member, sink: ByteSink, limits: ArchiveLimits): Long {
+    private fun stream(member: Member, sink: ByteSink, limits: ArchiveLimits, check: CrcCheck): Long {
         val entry = member.entry
         val source = ownedSource.source
         val dataStart = validateLocalHeader(member, source.readFully(entry.dataOffset, 30), source)
@@ -221,13 +393,11 @@ public class ZipReader(
             output.finish()
         }
         if (written != entry.size) throw ArchiveFormatException("ZIP: output size $written differs from declared size ${entry.size}", dataStart, entry.name)
-        entry.crc32?.let { expected ->
-            if (crc.value() != expected) throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
-        }
+        entry.crc32?.let { expected -> checkCrc(check, member, expected, crc.value(), dataStart) }
         return written
     }
 
-    private fun readListed(member: Member, limits: ArchiveLimits): ByteArray = withEntryContext(member.entry.name, member.entry.dataOffset) {
+    private fun readListed(member: Member, limits: ArchiveLimits, check: CrcCheck): ByteArray = withEntryContext(member.entry.name, member.entry.dataOffset) {
         val entry = member.entry
         val source = ownedSource.source
         val lh = source.readFully(entry.dataOffset, 30)
@@ -240,6 +410,7 @@ public class ZipReader(
         if (member.flags and 0x20 != 0) {
             throw ArchiveUnsupportedException("ZIP compressed patched data is not supported", entry.dataOffset + 6, entry.name)
         }
+        if (member.sizedByDescriptor) return@withEntryContext readByDescriptor(member, dataStart, limits, check)
 
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.compressedSize, entry.size)
@@ -271,13 +442,124 @@ public class ZipReader(
         // surfaces as undecodable data or a CRC mismatch; report that as a password problem.
         if (encryption == ArchiveEncryption.ZIP_CRYPTO_INSECURE) {
             try {
-                return@withEntryContext decode(member, codec, method, comp, dataStart, limits)
+                return@withEntryContext decode(member, codec, method, comp, dataStart, limits, check)
             } catch (error: ArchiveException) {
                 if (error is DecompressionBombException) throw error
                 throw ArchivePasswordException("ZIP: wrong password or corrupt data", dataStart, entry.name, error)
             }
         }
-        return@withEntryContext decode(member, codec, method, comp, dataStart, limits)
+        return@withEntryContext decode(member, codec, method, comp, dataStart, limits, check)
+    }
+
+    /** A data descriptor's fields: the CRC-32, the compressed size and the size. */
+    private class Descriptor(val crc: Long, val compressed: Long, val size: Long)
+
+    /** True when the entry's local header carries a ZIP64 extra field, so its descriptor has 8-byte sizes. */
+    private fun hasZip64Extra(member: Member): Boolean {
+        if (member.localExtraLength < 4) return false
+        val extra = ownedSource.source.readFully(member.entry.dataOffset + 30 + member.localNameBytes.size, member.localExtraLength)
+        var pos = 0
+        while (extra.size - pos >= 4) {
+            if (readU16Le(extra, pos) == 0x0001) return true
+            pos += 4 + readU16Le(extra, pos + 2)
+        }
+        return false
+    }
+
+    /**
+     * The stored entry's descriptor in [span]: the first place whose size fields equal the
+     * distance from the start and whose CRC-32 matches the bytes before it, with or without the
+     * signature. Failing that, the first signed descriptor whose sizes match, so a damaged entry
+     * reads as a CRC-32 mismatch. Null when neither exists.
+     */
+    private fun storedDescriptor(span: ByteArray, zip64: Boolean): Descriptor? {
+        val width = if (zip64) 8 else 4
+        fun size(at: Int): Long = if (zip64) readI64Le(span, at) else readU32Le(span, at)
+        val crc = Crc32()
+        var crcTo = 0
+        var damaged: Descriptor? = null
+        var p = 0
+        while (p + 4 + 2 * width <= span.size) {
+            val signed = p + 8 + 2 * width <= span.size && readU32Le(span, p) == ZipFormat.DATA_DESCRIPTOR &&
+                size(p + 8) == p.toLong() && size(p + 8 + width) == p.toLong()
+            val bare = p > 0 && size(p + 4) == p.toLong() && size(p + 4 + width) == p.toLong()
+            if (signed || bare) {
+                crc.update(span, crcTo, p - crcTo)
+                crcTo = p
+                val actual = crc.value()
+                if (signed && readU32Le(span, p + 4) == actual) return Descriptor(actual, p.toLong(), p.toLong())
+                if (bare && readU32Le(span, p) == actual) return Descriptor(actual, p.toLong(), p.toLong())
+                if (signed && damaged == null) damaged = Descriptor(readU32Le(span, p + 4), p.toLong(), p.toLong())
+            }
+            p++
+        }
+        return damaged
+    }
+
+    /** Check the descriptor at [at] in [comp] against a DEFLATE stream that took [at] bytes and gave [output]. */
+    private fun checkDescriptorAfter(member: Member, comp: ByteArray, at: Int, output: ByteArray, dataStart: Long, check: CrcCheck) {
+        val entry = member.entry
+        val width = if (hasZip64Extra(member)) 8 else 4
+        fun parse(base: Int): Descriptor? {
+            if (base + 4 + 2 * width > comp.size) return null
+            fun size(p: Int): Long = if (width == 8) readI64Le(comp, p) else readU32Le(comp, p)
+            return Descriptor(readU32Le(comp, base), size(base + 4), size(base + 4 + width))
+        }
+        val candidates = listOfNotNull(
+            if (at + 4 <= comp.size && readU32Le(comp, at) == ZipFormat.DATA_DESCRIPTOR) parse(at + 4) else null,
+            parse(at),
+        )
+        if (candidates.isEmpty()) throw ArchiveFormatException("ZIP: missing data descriptor after the data", dataStart + at, entry.name)
+        val found = candidates.firstOrNull { it.compressed == at.toLong() && it.size == output.size.toLong() }
+            ?: throw ArchiveFormatException("ZIP: data descriptor sizes differ from the data", dataStart + at, entry.name)
+        checkCrc(check, member, found.crc, Crc32.of(output), dataStart)
+    }
+
+    /** Read an entry that only its data descriptor sizes; see the class KDoc. */
+    private fun readByDescriptor(member: Member, dataStart: Long, limits: ArchiveLimits, check: CrcCheck): ByteArray {
+        val entry = member.entry
+        val source = ownedSource.source
+        if (entry.isEncrypted) {
+            throw ArchiveUnsupportedException("ZIP: an encrypted entry sized only by its data descriptor is not supported", entry.dataOffset + 6, entry.name)
+        }
+        val method = member.method
+        val builtIn = when (method) {
+            0 -> Codecs.STORE
+            8 -> Codecs.DEFLATE
+            9 -> Codecs.DEFLATE64
+            else -> null
+        }
+        if (builtIn == null || codecs.byZipMethod(method) !== builtIn) {
+            throw ArchiveUnsupportedException("ZIP method $method cannot be read without its sizes", entry.dataOffset + 8, entry.name)
+        }
+        val available = directory().boundaryAfter(entry.dataOffset) - dataStart
+        if (method == 0) {
+            val window = minOf(available, limits.maxUncompressedBytes + DESCRIPTOR_MAX, Int.MAX_VALUE - 8L)
+            val span = source.readFullyChecked(dataStart, window)
+            val found = storedDescriptor(span, hasZip64Extra(member))
+            if (found == null) {
+                if (window < available) limits.checkOutputSize(window)
+                throw ArchiveFormatException("ZIP: no data descriptor matches the stored data", dataStart, entry.name)
+            }
+            limits.checkOutputSize(found.size)
+            val data = span.copyOf(found.size.toInt())
+            checkCrc(check, member, found.crc, Crc32.of(data), dataStart)
+            return data
+        }
+        val comp = source.readFullyChecked(dataStart, available)
+        val options = InflateOptions {
+            this.limits = limits
+            allowTrailingData = true
+        }
+        val result = try {
+            Inflate.decodeRange(comp, 0, comp.size, options, "deflate") { output, listener ->
+                Inflate.inflateInto(comp, 0, comp.size, output, deflate64 = method == 9, onBlock = listener)
+            }
+        } catch (error: ArchiveException) {
+            throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+        }
+        checkDescriptorAfter(member, comp, result.inputConsumed, result.output, dataStart, check)
+        return result.output
     }
 
     private fun decrypt(member: Member, local: ByteArray, stored: ByteArray, dataStart: Long, password: CharArray): ByteArray {
@@ -297,7 +579,7 @@ public class ZipReader(
         }
     }
 
-    private fun decode(member: Member, codec: Codec, method: Int, comp: ByteArray, dataStart: Long, limits: ArchiveLimits): ByteArray {
+    private fun decode(member: Member, codec: Codec, method: Int, comp: ByteArray, dataStart: Long, limits: ArchiveLimits, check: CrcCheck): ByteArray {
         val entry = member.entry
         val out = try {
             when {
@@ -322,11 +604,7 @@ public class ZipReader(
 
         // WinZip AE-2 stores no CRC; its authentication code covers the data instead.
         if (member.aesVersion != 2) {
-            entry.crc32?.let { expected ->
-                if (Crc32.of(out) != expected) {
-                    throw ArchiveFormatException("ZIP: CRC-32 mismatch", dataStart, entry.name)
-                }
-            }
+            entry.crc32?.let { expected -> checkCrc(check, member, expected, Crc32.of(out), dataStart) }
         }
         return out
     }
@@ -349,7 +627,7 @@ public class ZipReader(
                 throw ArchiveFormatException("ZIP: local method differs from the central directory", offset + 8, entry.name)
             }
             val nameLength = readU16Le(local, 26)
-            if (nameLength != member.nameBytes.size) {
+            if (nameLength != member.localNameBytes.size) {
                 throw ArchiveFormatException("ZIP: local filename length differs from the central directory", offset + 26, entry.name)
             }
             val extraLength = readU16Le(local, 28)
@@ -357,11 +635,12 @@ public class ZipReader(
                 throw ArchiveFormatException("ZIP: local extra length changed since directory validation", offset + 28, entry.name)
             }
             source.requireRange(offset + 30, (nameLength + extraLength).toLong())
-            if (!source.readFully(offset + 30, nameLength).contentEquals(member.nameBytes)) {
+            if (!source.readFully(offset + 30, nameLength).contentEquals(member.localNameBytes)) {
                 throw ArchiveFormatException("ZIP: local filename differs from the central directory", offset + 30, entry.name)
             }
             val dataStart = offset + 30 + nameLength + extraLength
-            source.requireRange(dataStart, entry.compressedSize)
+            // An entry sized by its descriptor ends at the next local header, which bounds it already.
+            if (!member.sizedByDescriptor) source.requireRange(dataStart, entry.compressedSize)
             dataStart
         }
 
@@ -373,8 +652,8 @@ public class ZipReader(
             val boundary = next?.entry?.dataOffset ?: directoryOffset
             // validateLocalHeader bounded the fixed header, variable fields and
             // compressed range against the source; their sum cannot overflow.
-            val end = member.entry.dataOffset + 30 + member.nameBytes.size +
-                member.localExtraLength + member.entry.compressedSize
+            val end = member.entry.dataOffset + 30 + member.localNameBytes.size +
+                member.localExtraLength + member.entry.compressedSize.coerceAtLeast(0)
             if (end > boundary) {
                 val target = if (next == null) "central directory" else "next local header"
                 throw ArchiveFormatException("ZIP: entry extent ending at $end overlaps $target at $boundary", boundary, member.entry.name)
@@ -462,7 +741,9 @@ public class ZipReader(
         limits.checkEntryCount(cdEntries.toInt())
         val cd = source.readFullyChecked(cdOffset, cdSize)
         val entries = ArrayList<ArchiveEntry>()
-        val members = HashMap<Long, Member>()
+        val members = ArrayList<Member>()
+        val byOffset = HashMap<Long, Member>()
+        val byName = HashMap<String, ArchiveEntry>()
         var p = 0
         var n = 0L
         while (p < cd.size) {
@@ -566,14 +847,19 @@ public class ZipReader(
             if (readU32Le(local, 0) != ZipFormat.LOC) {
                 throw ArchiveFormatException("ZIP: invalid local file header", localOffset, name)
             }
-            if (members.containsKey(localOffset)) {
-                throw DecompressionBombException("ZIP: multiple entries reference local header offset $localOffset", localOffset, name, null)
+            // Records that share one local header read the same bytes, so they must agree on how.
+            val sharing = byOffset[localOffset]
+            if (sharing != null && (sharing.method != method || sharing.flags != flags ||
+                    sharing.entry.compressedSize.coerceAtLeast(0) != compSize || sharing.entry.size.coerceAtLeast(0) != uncompSize)
+            ) {
+                throw ArchiveFormatException("ZIP: records that share the local header at $localOffset disagree on method, flags or sizes", localOffset, name)
             }
+            val sizedByDescriptor = flags and 0x08 != 0 && compSize == 0L && uncompSize == 0L && crc == 0L
 
             val aes = if (method == 99) winZipAes(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen, cdOffset, name) else null
             val dataMethod = aes?.get(2) ?: method
-            val provisional = ArchiveEntry(name, uncompSize, false) {
-                compressedSize = compSize
+            val provisional = ArchiveEntry(name, if (sizedByDescriptor) -1 else uncompSize, false) {
+                compressedSize = if (sizedByDescriptor) -1 else compSize
                 codec = codecs.idForZipMethod(dataMethod) ?: CodecId("zip-method-$dataMethod")
                 isEncrypted = flags and 0x41 != 0 || method == 99
                 encryption = when {
@@ -587,13 +873,17 @@ public class ZipReader(
                     flags and 0x01 != 0 -> ArchiveEncryption.ZIP_CRYPTO_INSECURE
                     else -> null
                 }
-                crc32 = crc
+                crc32 = if (sizedByDescriptor) null else crc
                 lastModifiedEpochSeconds = modified
                 this.unixMode = unixMode
                 this.comment = comment
             }.withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
             val localExtraLength = readU16Le(local, 28)
-            validateLocalHeader(Member(provisional, nameBytes, method, flags, localExtraLength), local, source)
+            val localNameBytes = sharing?.localNameBytes ?: nameBytes
+            validateLocalHeader(
+                Member(provisional, nameBytes, method, flags, localExtraLength, localNameBytes = localNameBytes, sizedByDescriptor = sizedByDescriptor),
+                local, source,
+            )
             val localUnicode = if (!utf8 && localExtraLength > 0) {
                 val extraOffset = localOffset + 30 + nameLen
                 val extra = source.readFully(extraOffset, localExtraLength)
@@ -605,8 +895,16 @@ public class ZipReader(
             name = if (utf8) ArchiveNameDecoder.UTF8.decodeStoredName(nameBytes, nameOffset)
                 else centralUnicode ?: localUnicode ?: nameDecoder.decodeStoredName(nameBytes, nameOffset)
             val entry = provisional.copy { this.name = name; isDirectory = name.endsWith("/") }.withNameBytes(nameBytes)
-            val member = Member(entry, nameBytes, method, flags, localExtraLength, aes?.get(0) ?: 0, aes?.get(1) ?: 0, aes?.get(2) ?: 0)
-            members[localOffset] = member
+            val member = Member(
+                entry, nameBytes, method, flags, localExtraLength, aes?.get(0) ?: 0, aes?.get(1) ?: 0, aes?.get(2) ?: 0,
+                localNameBytes = localNameBytes, sizedByDescriptor = sizedByDescriptor,
+            )
+            if (duplicateNames == DuplicateNamePolicy.REJECT && name in byName) {
+                throw ArchiveFormatException("ZIP: two entries are named '$name'", nameOffset, name)
+            }
+            if (sharing == null) byOffset[localOffset] = member
+            byName[name] = entry
+            members.add(member)
             entries.add(entry)
             p += 46 + nameLen + extraLen + commentLen
             n++
@@ -615,8 +913,14 @@ public class ZipReader(
         if (countForComparison != cdEntries) {
             throw ArchiveFormatException("ZIP: central directory count $n differs from declared count $cdEntries", cdOffset)
         }
-        validateMemberExtents(members.values, cdOffset)
-        return Directory(entries.issuedBy(this, limits), members)
+        validateMemberExtents(byOffset.values, cdOffset)
+        val offsets = byOffset.keys.toLongArray().also { it.sort() }
+        return Directory(entries.issuedBy(this, limits), members, byName, offsets, cdOffset)
+    }
+
+    private companion object {
+        /** The longest data descriptor: signature, CRC-32 and two 8-byte sizes. */
+        const val DESCRIPTOR_MAX = 24L
     }
 
     /**

@@ -168,9 +168,10 @@ public object Zlib {
     @Throws(ArchiveException::class, IllegalArgumentException::class)
     @JvmStatic
     public fun decompress(input: ByteArray, offset: Int, length: Int, options: InflateOptions): InflateResult =
-        Inflate.decodeRange(input, offset, length, options, "zlib") { output, listener ->
-            decode(input, offset, offset + length, options.dictionaryBytes, output, options.verifyChecksum, listener)
-        }
+        Inflate.platformResult(input, offset, length, options, zlib = true)
+            ?: Inflate.decodeRange(input, offset, length, options, "zlib") { output, listener ->
+                decode(input, offset, offset + length, options.dictionaryBytes, output, options.verifyChecksum, listener)
+            }
 
     /** Stream the output to [sink]; return the byte count. */
     internal fun decompressTo(input: ByteArray, limits: ArchiveLimits, sink: ByteSink): Long {

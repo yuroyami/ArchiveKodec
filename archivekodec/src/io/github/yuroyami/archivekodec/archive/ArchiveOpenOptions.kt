@@ -27,6 +27,12 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
     public val password: ArchivePasswordProvider? = builder.password
     /** AES, HMAC and PBKDF2 for WinZip AES and 7z AES. ZipCrypto needs none. */
     public val crypto: CryptoProvider = builder.crypto
+    /** What a ZIP read does on a CRC-32 mismatch. Other readers stay strict. */
+    public val crcPolicy: CrcPolicy = builder.crcPolicy
+    /** Told about each mismatch under [CrcPolicy.LENIENT]; null tells no one. */
+    public val crcMismatchListener: CrcMismatchListener? = builder.crcMismatchListener
+    /** What a ZIP listing does when two entries share one name. Other readers list both. */
+    public val duplicateNames: DuplicateNamePolicy = builder.duplicateNames
 
     /** Mutable single-thread configuration; [build] snapshots the property values. */
     public class Builder public constructor() {
@@ -42,6 +48,12 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
         public var password: ArchivePasswordProvider? = null
         /** Crypto primitives for AES-encrypted members, initially the built-in [CryptoProvider.DEFAULT]. */
         public var crypto: CryptoProvider = CryptoProvider.DEFAULT
+        /** See [ArchiveOpenOptions.crcPolicy]; initially [CrcPolicy.STRICT]. */
+        public var crcPolicy: CrcPolicy = CrcPolicy.STRICT
+        /** See [ArchiveOpenOptions.crcMismatchListener]; initially null. */
+        public var crcMismatchListener: CrcMismatchListener? = null
+        /** See [ArchiveOpenOptions.duplicateNames]; initially [DuplicateNamePolicy.LAST_WINS]. */
+        public var duplicateNames: DuplicateNamePolicy = DuplicateNamePolicy.LAST_WINS
 
         internal constructor(source: ArchiveOpenOptions) : this() {
             limits = source.limits
@@ -50,6 +62,9 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
             externalMembers = source.externalMembers
             password = source.password
             crypto = source.crypto
+            crcPolicy = source.crcPolicy
+            crcMismatchListener = source.crcMismatchListener
+            duplicateNames = source.duplicateNames
         }
 
         /** Snapshot settings, reserving an argument-validation error contract for future options. */

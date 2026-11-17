@@ -15,15 +15,40 @@ internal object ZipEndRecord {
         val size = source.size
         if (size < 0) throw ArchiveFormatException("negative source size $size", 0)
         if (size < 22) return null
+        // Most archives have no comment, so the record is the last 22 bytes. Checking those first
+        // keeps the search from reading 64 KiB of a slow or damaged source.
+        val last = source.readFully(size - 22, 22)
+        if (readU32Le(last, 0) == ZipFormat.EOCD && readU16Le(last, 20) == 0) {
+            val record = Record(size - 22, last)
+            if (coherent(source, record)) return record
+        }
         val count = minOf(size, 65557L).toInt()
         val start = size - count
         val tail = source.readFully(start, count)
+        var first: Record? = null
         for (i in count - 22 downTo 0) {
             if (readU32Le(tail, i) == ZipFormat.EOCD && readU16Le(tail, i + 20) == count - i - 22) {
-                return Record(start + i, tail.copyOfRange(i, i + 22))
+                val record = Record(start + i, tail.copyOfRange(i, i + 22))
+                // A comment can hold bytes that frame like an end record. Prefer the record whose
+                // directory checks out, and fall back to the last one in the file.
+                if (coherent(source, record)) return record
+                if (first == null) first = record
             }
         }
-        return null
+        return first
+    }
+
+    /**
+     * True when a ZIP64 locator sits right before [record], or when the record names entries and
+     * its directory, ending at the record, starts with a central directory header.
+     */
+    private fun coherent(source: RandomAccessSource, record: Record): Boolean {
+        val at = record.offset
+        if (at >= 20 && readU32Le(source.readFully(at - 20, 4), 0) == ZipFormat.Z64_LOC) return true
+        val entries = readU16Le(record.bytes, 10)
+        val directorySize = readU32Le(record.bytes, 12)
+        if (entries == 0 || directorySize < 46 || directorySize > at) return false
+        return hasDirectorySignature(source, at - directorySize, directorySize)
     }
 
     fun shift(value: Long, base: Long, fieldOffset: Long, name: String? = null): Long {

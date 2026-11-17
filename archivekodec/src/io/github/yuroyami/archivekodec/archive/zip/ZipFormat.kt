@@ -8,5 +8,6 @@ internal object ZipFormat {
     const val EOCD = 0x06054b50L         // end of central directory
     const val Z64_EOCD = 0x06064b50L     // zip64 end of central directory
     const val Z64_LOC = 0x07064b50L      // zip64 EOCD locator
+    const val DATA_DESCRIPTOR = 0x08074b50L // optional signature of a data descriptor
 
 }

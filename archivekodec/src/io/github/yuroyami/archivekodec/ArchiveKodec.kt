@@ -147,6 +147,15 @@ public object ArchiveKodec {
     /** Standard Snappy framed-stream encoder and decoder. */
     @JvmStatic
     public val snappyFramed: Codec get() = Codecs.SNAPPY_FRAMED
+    /** LZW codec in the form of PDF and TIFF; [io.github.yuroyami.archivekodec.codec.lzw.Lzw] has the GIF form. */
+    @JvmStatic
+    public val lzw: Codec get() = Codecs.LZW
+    /** PackBits codec, as TIFF uses it; [io.github.yuroyami.archivekodec.codec.packbits.PackBits] has PDF's variant. */
+    @JvmStatic
+    public val packBits: Codec get() = Codecs.PACKBITS
+    /** PalmDOC codec of PalmDOC and MOBI text records. */
+    @JvmStatic
+    public val palmDoc: Codec get() = Codecs.PALMDOC
 
     /**
      * Detect and decode one supported compressed stream with [ArchiveLimits.DEFAULT].

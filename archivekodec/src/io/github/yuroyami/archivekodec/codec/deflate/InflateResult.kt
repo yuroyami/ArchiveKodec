@@ -21,10 +21,16 @@ public class InflateResult internal constructor(
      * [InflateOptions.keepPartialOutput] makes it non-null, since without it the failure is thrown.
      */
     public val error: ArchiveException?,
+    /**
+     * True when [InflateOptions.stopAfterBytes] ended the decode, so [output] is the start of the
+     * output only and the rest of the stream was not checked.
+     */
+    public val isStopped: Boolean = false,
 ) {
     /** True when the stream was complete and valid, so [output] is the whole output. */
-    public val isComplete: Boolean get() = error == null
+    public val isComplete: Boolean get() = error == null && !isStopped
 
     /** Describe the sizes and the failure, not the bytes. */
-    override fun toString(): String = "InflateResult(output=${output.size} B, inputConsumed=$inputConsumed, error=$error)"
+    override fun toString(): String =
+        "InflateResult(output=${output.size} B, inputConsumed=$inputConsumed, error=$error, isStopped=$isStopped)"
 }

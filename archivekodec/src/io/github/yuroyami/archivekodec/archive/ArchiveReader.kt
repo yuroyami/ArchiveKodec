@@ -8,6 +8,7 @@ import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ExtractionBudget
+import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.jvm.JvmName
 import kotlin.native.HiddenFromObjC
@@ -96,6 +97,44 @@ public interface ArchiveReader {
     }
 
     /**
+     * The first [maxBytes] bytes of [entry], or all of it when it is shorter, for example to read
+     * a file header. When the prefix covers the whole entry, the read checks it as [read] does.
+     * Otherwise it checks no CRC-32, since it does not see the whole entry.
+     *
+     * The ZIP reader stops decoding stored, DEFLATE and Deflate64 entries once it has the bytes.
+     * Other entries and readers decode the entry under [limits] as [read] does and keep its start.
+     *
+     * @throws IllegalArgumentException if [maxBytes] is negative.
+     * @throws ArchiveException for the listing, decoding and limit failures documented by [read].
+     */
+    @Throws(ArchiveException::class, IllegalArgumentException::class)
+    public fun readPrefix(entry: ArchiveEntry, maxBytes: Int, limits: ArchiveLimits = this.limits): ByteArray {
+        require(maxBytes >= 0) { "maxBytes must not be negative, not $maxBytes" }
+        if (maxBytes == 0) return ByteArray(0)
+        val prefix = ByteArrayBuilder(minOf(maxBytes, 1 shl 16))
+        try {
+            read(entry, ByteSink { bytes, offset, length ->
+                prefix.append(bytes, offset, minOf(length, maxBytes - prefix.size))
+                if (prefix.size >= maxBytes) throw PrefixComplete()
+            }, limits)
+        } catch (_: PrefixComplete) {
+            // The sink has the prefix; the rest of the entry is not needed.
+        }
+        return prefix.toByteArray()
+    }
+
+    /**
+     * The entry named [name], or null. Names compare exactly as decoded, with no case folding or
+     * path normalization. When two entries share the name, the last one wins, as Info-ZIP's
+     * `unzip` extracts it, and [entries] still lists both. The ZIP reader looks names up in a map
+     * built once; other readers search the listing.
+     *
+     * @throws ArchiveException for the listing failures documented by [entries].
+     */
+    @Throws(ArchiveException::class)
+    public fun entry(name: String): ArchiveEntry? = entries().lastOrNull { it.name == name }
+
+    /**
      * Read one entry and charge its size to [budget], an archive-wide total shared across
      * reads. The decode runs with its output ceiling lowered to the budget's remaining bytes,
      * so it stops as soon as the budget would be passed. A failed read charges nothing.
@@ -135,6 +174,9 @@ public interface ArchiveReader {
     @Throws(ArchiveException::class)
     public fun close() {}
 }
+
+/** Ends a prefix read once the sink has its bytes. */
+internal class PrefixComplete : RuntimeException()
 
 /**
  * A view that closes this reader, suitable for standard Kotlin resource cleanup

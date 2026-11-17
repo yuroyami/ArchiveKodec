@@ -21,6 +21,11 @@ import io.github.yuroyami.archivekodec.codec.zstd.ZstdEncoder
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.lz4.Lz4
 import io.github.yuroyami.archivekodec.codec.snappy.Snappy
+import io.github.yuroyami.archivekodec.codec.lzw.Lzw
+import io.github.yuroyami.archivekodec.codec.lzw.LzwOptions
+import io.github.yuroyami.archivekodec.codec.packbits.PackBits
+import io.github.yuroyami.archivekodec.codec.packbits.PackBitsOptions
+import io.github.yuroyami.archivekodec.codec.palmdoc.PalmDoc
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import io.github.yuroyami.archivekodec.wrapper.Zlib
@@ -198,6 +203,45 @@ public object Codecs {
         override fun compress(data: ByteArray): ByteArray = Snappy.frameCompress(data)
         override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
             Snappy.frameDecompress(data, limits)
+    }
+
+    /**
+     * LZW in the form of PDF's `LZWDecode` with `EarlyChange` 1 and of TIFF compression 5. Encoding
+     * takes [LzwOptions] for the GIF and old-style TIFF forms; [Lzw] decodes them, with an expected size.
+     */
+    @JvmField
+    public val LZW: Codec = object : Codec {
+        override val id = CodecId.LZW
+        override fun compress(data: ByteArray): ByteArray = Lzw.encode(data)
+        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Lzw.encode(
+            data, options as? LzwOptions ?: throw IllegalArgumentException("$id takes LzwOptions, not ${options::class.simpleName}"),
+        )
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            Lzw.decode(data, LzwOptions { this.limits = limits }).output
+    }
+
+    /**
+     * TIFF's PackBits. Encoding takes [PackBitsOptions] for PDF's `RunLengthDecode`; [PackBits]
+     * decodes it, with an expected size.
+     */
+    @JvmField
+    public val PACKBITS: Codec = object : Codec {
+        override val id = CodecId.PACKBITS
+        override fun compress(data: ByteArray): ByteArray = PackBits.encode(data)
+        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = PackBits.encode(
+            data, options as? PackBitsOptions ?: throw IllegalArgumentException("$id takes PackBitsOptions, not ${options::class.simpleName}"),
+        )
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            PackBits.decode(data, PackBitsOptions { this.limits = limits }).output
+    }
+
+    /** PalmDOC compression of one PalmDOC or MOBI text record. */
+    @JvmField
+    public val PALMDOC: Codec = object : Codec {
+        override val id = CodecId.PALMDOC
+        override fun compress(data: ByteArray): ByteArray = PalmDoc.encode(data)
+        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+            PalmDoc.decode(data, 0, data.size, limits).output
     }
 
     /** The codec for [id], or null if not yet implemented. */

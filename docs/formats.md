@@ -19,6 +19,10 @@
 | LZ4 (frame and block) | Yes | 64 KiB to 4 MiB blocks, block and content checksums, content size, linked blocks |
 | Snappy (raw block) | Yes | Greedy matching |
 | Snappy (framed `.sz`) | CRC-32C checks | Yes, with stored chunks when incompressible |
+| LZW (PDF, TIFF, GIF) | 9- to 12-bit codes in either bit order, early change or not, 2- to 8-bit literals | Yes, in every form it decodes |
+| PackBits (TIFF, PDF `RunLengthDecode`) | Yes | Yes |
+| PalmDOC (PalmDOC and MOBI text) | Yes | Hash-chain matching over the 2047-byte window |
+| HUFF/CDIC (MOBI text) | Yes, with phrases decoded once and kept | No |
 
 Refused on decode: zstd dictionaries, xz BCJ filters other than x86, PPMd's freeze restore and
 supplied LZ4 dictionaries.
@@ -85,8 +89,17 @@ Sniffing does not close the source. `open` adds the ZIP footer search for an unk
 - Every listing compares each local header with the central directory: name bytes, method
   and flags. A contradiction throws `ArchiveFormatException`.
 - Each member's header, name, extra fields and data must sit in its own range before the
-  directory. An overlap throws `ArchiveFormatException`, and a duplicate offset throws
-  `DecompressionBombException`. These checks stay on under `ArchiveLimits.UNBOUNDED`.
+  directory. An overlap throws `ArchiveFormatException`. These checks stay on under
+  `ArchiveLimits.UNBOUNDED`.
+- Two directory records may point at one local header when they agree on the method, flags
+  and sizes. Each reads the same bytes, as its own read. Records that disagree throw
+  `ArchiveFormatException`.
+- An entry whose sizes and CRC-32 appear only in the data descriptor after its data (flag bit
+  3, with zeros in the directory) lists with a size and compressed size of -1 and no CRC-32.
+  A read finds a DEFLATE entry's end where its stream ends, and a stored entry's end by a scan
+  for a descriptor whose sizes and CRC-32 match the bytes before it. Neither reads past the
+  next local header. Only stored, DEFLATE and Deflate64 entries that are not encrypted can be
+  read this way.
 
 ### TAR
 

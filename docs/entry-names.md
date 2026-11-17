@@ -72,6 +72,11 @@ that disagree throw `ArchiveFormatException`. A stale CRC, an unknown version or
 UTF-8 payload falls back to the stored name. TAR, ar and cpio use strict UTF-8, and invalid
 UTF-8 throws `ArchiveFormatException`.
 
+Many tools write UTF-8 names without bit 11, and EPUB names are UTF-8.
+`ArchiveNameDecoder.UTF8_OR_CP437` reads a name that is valid UTF-8 as UTF-8, and any other
+name as CP437. Pass it in `ArchiveOpenOptions.nameDecoder` for such archives. Pure ASCII names
+decode the same with every built-in decoder.
+
 For another legacy encoding, pass an `ArchiveNameDecoder` to `open` or to a reader. On the
 JVM, for example:
 

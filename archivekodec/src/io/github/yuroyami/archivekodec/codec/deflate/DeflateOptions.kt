@@ -31,6 +31,7 @@ public enum class DeflateStrategy {
  * - [strategy] [DeflateStrategy.DEFAULT].
  * - [windowBits] 15: a 32 KiB window.
  * - [dictionary] null.
+ * - [usePlatformDeflater] false: the pure-Kotlin encoder only.
  *
  * Levels follow zlib's table: 0 stores, 1 to 3 match greedily with a short search, and
  * 4 to 9 match lazily, searching deeper as the level rises. Instances are immutable.
@@ -55,6 +56,14 @@ public class DeflateOptions private constructor(builder: Builder) : CodecOptions
 
     internal val dictionaryBytes: ByteArray? get() = storedDictionary
 
+    /**
+     * When true, the JVM and Android encode with `java.util.zip.Deflater`, which runs the
+     * platform's native zlib and is faster. Its output differs from the pure encoder's, and any
+     * DEFLATE decoder reads both. Other platforms, a [dictionary], a [windowBits] below 15 and the
+     * strategies [DeflateStrategy.RLE] and [DeflateStrategy.FIXED] use the pure encoder.
+     */
+    public val usePlatformDeflater: Boolean = builder.usePlatformDeflater
+
     init {
         require(level in 0..9) { "DEFLATE level must be in 0..9, not $level" }
         require(windowBits in 9..15) { "DEFLATE windowBits must be in 9..15, not $windowBits" }
@@ -74,11 +83,15 @@ public class DeflateOptions private constructor(builder: Builder) : CodecOptions
         /** See [DeflateOptions.dictionary]; initially null. Copied by [build]. */
         public var dictionary: ByteArray? = null
 
+        /** See [DeflateOptions.usePlatformDeflater]; initially false. */
+        public var usePlatformDeflater: Boolean = false
+
         internal constructor(source: DeflateOptions) : this() {
             level = source.level
             strategy = source.strategy
             windowBits = source.windowBits
             dictionary = source.storedDictionary
+            usePlatformDeflater = source.usePlatformDeflater
         }
 
         /**
@@ -99,16 +112,18 @@ public class DeflateOptions private constructor(builder: Builder) : CodecOptions
 
     /** Compare every setting, dictionaries by content. */
     override fun equals(other: Any?): Boolean = other is DeflateOptions && level == other.level &&
-        strategy == other.strategy && windowBits == other.windowBits &&
+        strategy == other.strategy && windowBits == other.windowBits && usePlatformDeflater == other.usePlatformDeflater &&
         (storedDictionary?.contentEquals(other.storedDictionary) ?: (other.storedDictionary == null))
 
     /** Hash every setting. */
     override fun hashCode(): Int =
-        ((level * 31 + strategy.hashCode()) * 31 + windowBits) * 31 + (storedDictionary?.contentHashCode() ?: 0)
+        (((level * 31 + strategy.hashCode()) * 31 + windowBits) * 31 + (storedDictionary?.contentHashCode() ?: 0)) * 31 +
+            usePlatformDeflater.hashCode()
 
     /** Describe the settings, with the dictionary's size rather than its bytes. */
     override fun toString(): String =
-        "DeflateOptions(level=$level, strategy=$strategy, windowBits=$windowBits, dictionary=${storedDictionary?.let { "${it.size} B" }})"
+        "DeflateOptions(level=$level, strategy=$strategy, windowBits=$windowBits, dictionary=${storedDictionary?.let { "${it.size} B" }}, " +
+            "usePlatformDeflater=$usePlatformDeflater)"
 
     /** Defaults and builder-based construction. */
     public companion object {

@@ -21,7 +21,7 @@ public fun interface ArchiveNameDecoder {
     @Throws(ArchiveException::class)
     public fun decode(bytes: ByteArray): String
 
-    /** Built-in strict UTF-8 and legacy CP437 filename decoders. */
+    /** Built-in strict UTF-8, legacy CP437 and mixed filename decoders. */
     public companion object {
         /** Strict UTF-8; malformed sequences raise [ArchiveFormatException]. */
         @JvmField
@@ -41,6 +41,20 @@ public fun interface ArchiveNameDecoder {
                     val value = byte.toInt() and 255
                     append(if (value < 128) value.toChar() else CP437_HIGH[value - 128])
                 }
+            }
+        }
+
+        /**
+         * Valid UTF-8 as UTF-8, and any other bytes as [CP437]. Choose it when writers may store
+         * UTF-8 names without ZIP's UTF-8 flag (bit 11), as many tools do and as EPUB names are.
+         * Pure ASCII names decode the same with every built-in decoder.
+         */
+        @JvmField
+        public val UTF8_OR_CP437: ArchiveNameDecoder = ArchiveNameDecoder { bytes ->
+            try {
+                bytes.decodeToString(throwOnInvalidSequence = true)
+            } catch (_: CharacterCodingException) {
+                CP437.decode(bytes)
             }
         }
     }

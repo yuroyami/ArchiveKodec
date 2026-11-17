@@ -118,6 +118,8 @@ of raw DEFLATE and zlib one at a time. gzip takes limits only.
 | `verifyChecksum` | `true` | zlib only. `false` leaves the Adler-32 unread, so it can be wrong, cut short or missing. |
 | `keepPartialOutput` | `false` | A damaged or cut-short stream gives the output decoded before the damage. |
 | `onBlock` | `null` | Runs before each DEFLATE block with the input and output counts. Throw from it to stop the decode. |
+| `stopAfterBytes` | -1 | Stop once the output has this many bytes, and return them. `isStopped` is then true, and the checksum and trailing data are not checked. |
+| `usePlatformInflater` | `false` | On the JVM and Android, decode with `java.util.zip.Inflater` first. See below. |
 
 A call with options returns an `InflateResult`. It holds the `output`, the `inputConsumed`
 count of bytes that the stream took, and the `error` that `keepPartialOutput` kept.
@@ -141,6 +143,24 @@ if (!result.isComplete) println("damaged stream: ${result.error}")
 limit, a missing dictionary and an output too large for one array still throw. The ratio
 limit compares the output with the length of the range, so keep the range close to the
 stream.
+
+## Platform zlib on the JVM and Android
+
+`java.util.zip` runs the platform's native zlib, which inflates several times faster than the
+pure decoder. Ask for it per call:
+
+```kotlin
+val fast = Zlib.decompress(stream, InflateOptions { usePlatformInflater = true })
+val packed = Zlib.compress(data, DeflateOptions { usePlatformDeflater = true })
+```
+
+The inflate result is the same as without the setting. zlib and the pure decoder give the
+same bytes for every valid stream. Damage, a limit, trailing data, a dictionary or `onBlock`
+send the call to the pure decoder, which then gives its usual result or error.
+
+The deflate output differs from the pure encoder's, and any DEFLATE decoder reads both. A
+dictionary, a window below 15 bits and the RLE and FIXED strategies use the pure encoder.
+Other platforms ignore both settings.
 
 ## gzip header metadata
 
@@ -183,6 +203,30 @@ bad header CRC. It does not decode or check the payload, so use `Gzip.decompress
 - `Codecs.PPMD` is PPMd var.I revision 1 in the framing of ZIP method 98. The 7z reader
   decodes 7z's var.H itself. Both allocate the model memory that the header names, and
   `ArchiveLimits.maxDecoderMemory` (256 MiB by default) caps it before the allocation.
+
+## Image and e-book codecs
+
+These codecs serve image and document formats. Each takes an expected size, can keep the bytes
+before damage, and returns a `DecodeResult` with the `output`, the `inputConsumed` count and
+the kept `error`.
+
+```kotlin
+val pdf = Lzw.decode(stream)                                         // PDF LZWDecode, TIFF LZW
+val gif = Lzw.decode(data, LzwOptions.gif(minimumCodeSize).copy { expectedSize = pixels }).output
+val tiff = PackBits.decode(strip, PackBitsOptions { expectedSize = rowBytes * rows }).output
+val runLength = PackBits.decode(stream, PackBitsOptions.PDF_RUN_LENGTH).output
+val text = PalmDoc.decode(record)                                    // a PalmDOC or MOBI text record
+val mobi = HuffCdic(huffRecord, cdicRecords).decode(record, 0, record.size - trailingEntries)
+```
+
+- `LzwOptions` picks the bit order, the literal size and early change. The decoder accepts data
+  with or without a leading clear code and without the end code, as many PDF writers leave it
+  out. `LzwOptions.TIFF_OLD_STYLE` reads the old-style TIFF LZW that libtiff still reads.
+- `PackBitsOptions.variant` decides what the length byte 128 means: nothing in TIFF, the end
+  of the data in PDF.
+- A `HuffCdic` decoder keeps the phrases it has decoded, so use one from one thread at a time.
+- `HuffmanCode.lengths(frequencies, maxLength)` and `HuffmanCode.canonicalCodes(lengths)` build
+  the length-limited canonical Huffman codes of DEFLATE and lossless WebP.
 
 ## Checksums
 

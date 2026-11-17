@@ -107,6 +107,8 @@ pages: [Java](docs/java.md), [Swift](docs/swift.md) and
 
 - **Codecs, both directions:** DEFLATE, Deflate64, gzip, zlib, bzip2, LZMA, LZMA2, xz, zstd,
   brotli, PPMd, LZ4 and Snappy.
+- **Image and e-book codecs:** LZW (PDF, TIFF and GIF), PackBits and PalmDOC in both
+  directions, and MOBI's HUFF/CDIC decode.
 - **Archives, read and write:** ZIP and ZIP64, TAR, GNU ar and cpio.
 - **Archives, read only:** 7z, RAR4 and RAR5, ISO 9660, CAB, WIM and SquashFS.
 - **Checksums:** CRC-32, CRC-32C, Adler-32, CRC-64/XZ and xxHash32.

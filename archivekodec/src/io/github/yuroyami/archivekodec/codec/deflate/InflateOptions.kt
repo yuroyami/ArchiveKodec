@@ -32,6 +32,8 @@ public fun interface InflateBlockListener {
  * - [verifyChecksum] true: zlib's Adler-32 must be present and correct.
  * - [keepPartialOutput] false: a damaged stream throws.
  * - [onBlock] null.
+ * - [usePlatformInflater] false: the pure-Kotlin decoder only.
+ * - [stopAfterBytes] -1: decode the whole stream.
  *
  * The defaults decode exactly as the overloads without options do. Instances are immutable.
  */
@@ -82,8 +84,26 @@ public class InflateOptions private constructor(builder: Builder) {
     /** Called before each DEFLATE block; see [InflateBlockListener]. */
     public val onBlock: InflateBlockListener? = builder.onBlock
 
+    /**
+     * When true, the JVM and Android decode with `java.util.zip.Inflater` first, which runs the
+     * platform's native zlib and is several times faster. Other platforms ignore this setting.
+     *
+     * The result is the same as without it. zlib and the pure decoder give the same bytes for every
+     * valid stream. Damage, a limit, trailing data, a [dictionary] or an [onBlock] listener send the
+     * call to the pure decoder, which then gives its usual result or error.
+     */
+    public val usePlatformInflater: Boolean = builder.usePlatformInflater
+
+    /**
+     * When 0 or more, the decode stops once it has this many output bytes and returns them, for
+     * example to read a file header without the rest of the stream. [InflateResult.isStopped] is
+     * then true, and the zlib checksum and trailing data are not checked. -1 decodes the whole stream.
+     */
+    public val stopAfterBytes: Long = builder.stopAfterBytes
+
     init {
         require(sizeHint >= 0) { "sizeHint must not be negative, not $sizeHint" }
+        require(stopAfterBytes >= -1) { "stopAfterBytes must be -1 or more, not $stopAfterBytes" }
     }
 
     /** Mutable single-thread configuration; [build] takes an immutable snapshot. */
@@ -102,6 +122,10 @@ public class InflateOptions private constructor(builder: Builder) {
         public var keepPartialOutput: Boolean = false
         /** See [InflateOptions.onBlock]; initially null. */
         public var onBlock: InflateBlockListener? = null
+        /** See [InflateOptions.usePlatformInflater]; initially false. */
+        public var usePlatformInflater: Boolean = false
+        /** See [InflateOptions.stopAfterBytes]; initially -1. */
+        public var stopAfterBytes: Long = -1
 
         internal constructor(source: InflateOptions) : this() {
             limits = source.limits
@@ -111,11 +135,13 @@ public class InflateOptions private constructor(builder: Builder) {
             verifyChecksum = source.verifyChecksum
             keepPartialOutput = source.keepPartialOutput
             onBlock = source.onBlock
+            usePlatformInflater = source.usePlatformInflater
+            stopAfterBytes = source.stopAfterBytes
         }
 
         /**
          * Snapshot the settings.
-         * @throws IllegalArgumentException if [sizeHint] is negative.
+         * @throws IllegalArgumentException if [sizeHint] is negative or [stopAfterBytes] is below -1.
          */
         @Throws(IllegalArgumentException::class)
         public fun build(): InflateOptions = InflateOptions(this)
@@ -133,6 +159,7 @@ public class InflateOptions private constructor(builder: Builder) {
     override fun equals(other: Any?): Boolean = other is InflateOptions && limits == other.limits &&
         sizeHint == other.sizeHint && allowTrailingData == other.allowTrailingData &&
         verifyChecksum == other.verifyChecksum && keepPartialOutput == other.keepPartialOutput && onBlock == other.onBlock &&
+        usePlatformInflater == other.usePlatformInflater && stopAfterBytes == other.stopAfterBytes &&
         (storedDictionary?.contentEquals(other.storedDictionary) ?: (other.storedDictionary == null))
 
     /** Hash every setting. */
@@ -143,6 +170,8 @@ public class InflateOptions private constructor(builder: Builder) {
         result = result * 31 + verifyChecksum.hashCode()
         result = result * 31 + keepPartialOutput.hashCode()
         result = result * 31 + (onBlock?.hashCode() ?: 0)
+        result = result * 31 + usePlatformInflater.hashCode()
+        result = result * 31 + stopAfterBytes.hashCode()
         return result * 31 + (storedDictionary?.contentHashCode() ?: 0)
     }
 
@@ -150,7 +179,7 @@ public class InflateOptions private constructor(builder: Builder) {
     override fun toString(): String =
         "InflateOptions(limits=$limits, dictionary=${storedDictionary?.let { "${it.size} B" }}, sizeHint=$sizeHint, " +
             "allowTrailingData=$allowTrailingData, verifyChecksum=$verifyChecksum, keepPartialOutput=$keepPartialOutput, " +
-            "onBlock=${if (onBlock == null) "null" else "set"})"
+            "onBlock=${if (onBlock == null) "null" else "set"}, usePlatformInflater=$usePlatformInflater, stopAfterBytes=$stopAfterBytes)"
 
     /** Defaults and builder-based construction. */
     public companion object {

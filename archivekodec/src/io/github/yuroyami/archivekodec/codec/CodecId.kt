@@ -70,5 +70,11 @@ public class CodecId @Throws(IllegalArgumentException::class) public constructor
         @JvmField public val BROTLI: CodecId = CodecId("brotli")
         /** Prediction by partial matching compression. */
         @JvmField public val PPMD: CodecId = CodecId("ppmd")
+        /** LZW with 9- to 12-bit codes, in the form PDF's `LZWDecode` and TIFF use by default. */
+        @JvmField public val LZW: CodecId = CodecId("lzw")
+        /** PackBits run-length coding, as TIFF compression 32773 uses it. */
+        @JvmField public val PACKBITS: CodecId = CodecId("packbits")
+        /** PalmDOC compression, the LZ77 variant of PalmDOC and MOBI text records. */
+        @JvmField public val PALMDOC: CodecId = CodecId("palmdoc")
     }
 }

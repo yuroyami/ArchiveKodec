@@ -33,6 +33,7 @@ import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.checksum.Checksum
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 import io.github.yuroyami.archivekodec.util.readI32Le
 import io.github.yuroyami.archivekodec.util.readU16Le
@@ -197,10 +198,31 @@ public object Inflate {
     @Throws(ArchiveException::class, IllegalArgumentException::class)
     @JvmStatic
     public fun inflate(input: ByteArray, offset: Int, length: Int, options: InflateOptions): InflateResult =
-        decodeRange(input, offset, length, options, "deflate") { output, listener ->
+        platformResult(input, offset, length, options, zlib = false) ?: decodeRange(input, offset, length, options, "deflate") { output, listener ->
             options.dictionaryBytes?.let(output::preload)
             inflateInto(input, offset, offset + length, output, onBlock = listener, origin = offset)
         }
+
+    /**
+     * The platform inflater's result for [options], or null when the pure decoder must run: no
+     * platform inflater, a setting it cannot honor, damage, trailing data or a limit.
+     */
+    internal fun platformResult(input: ByteArray, offset: Int, length: Int, options: InflateOptions, zlib: Boolean): InflateResult? {
+        if (!options.usePlatformInflater || options.dictionaryBytes != null || options.onBlock != null || options.stopAfterBytes >= 0) return null
+        if (offset < 0 || length < 0 || offset > input.size || length > input.size - offset) return null
+        val limits = options.limits
+        val sizeHint = options.sizeHint.coerceAtMost(1L shl 30).toInt()
+        val result = platformInflate(input, offset, length, zlib, sizeHint, limits.maxUncompressedBytes) ?: return null
+        if (result.consumed != length && !options.allowTrailingData) return null
+        // The ratio over the stream alone is the strictest reading; the pure decoder decides any doubt.
+        try {
+            limits.checkOutputSize(result.output.size.toLong())
+            limits.checkRatio(result.consumed.toLong(), result.output.size.toLong())
+        } catch (_: DecompressionBombException) {
+            return null
+        }
+        return InflateResult(result.output, result.consumed, null)
+    }
 
     /**
      * Run one decode under [options] for raw DEFLATE and zlib. [decode] fills the output and
@@ -215,6 +237,7 @@ public object Inflate {
         }
         val output = Output(
             options.limits, length, sizeHint = options.sizeHint.takeIf { it > 0 }, reserveInputSize = !options.allowTrailingData,
+            stopAt = options.stopAfterBytes,
         )
         // What the listener throws must pass through, even if it is one of the decoder's own types.
         var thrownByListener: Throwable? = null
@@ -233,9 +256,11 @@ public object Inflate {
         try {
             val end = decode(output, listener)
             consumed = end - offset
-            if (consumed != length && !options.allowTrailingData) {
+            if (consumed != length && !options.allowTrailingData && !output.stopped) {
                 error = ArchiveFormatException("$format: trailing bytes after stream", end.toLong())
             }
+        } catch (stop: StopInflate) {
+            consumed = (stop.position - offset).coerceIn(0, length)
         } catch (failure: ArchiveException) {
             val damage = failure is InflateException || failure is ArchiveFormatException
             if (!options.keepPartialOutput || !damage || failure === thrownByListener) throw failure
@@ -243,7 +268,8 @@ public object Inflate {
             consumed = ((failure.offset ?: offset.toLong()) - offset).coerceIn(0L, length.toLong()).toInt()
         }
         if (error != null && !options.keepPartialOutput) throw error
-        return InflateResult(output.takeByteArray(), consumed, error)
+        val stopped = output.stopped
+        return InflateResult(output.takeByteArray(), consumed, error, stopped)
     }
 
     /** Stream one raw DEFLATE stream's output to [sink]; return the byte count. */
@@ -296,6 +322,9 @@ public object Inflate {
                     else -> InflateError.INVALID_BLOCK_TYPE.code
                 }
                 if (err != 0) throw InflateException(InflateError.fromPuff(err), s.consumedPosition.toLong(), null, null)
+            } catch (stop: StopInflate) {
+                if (stop.position < 0) stop.position = s.consumedPosition
+                throw stop
             } catch (_: OutOfInput) {
                 throw InflateException(InflateError.DATA_DID_NOT_TERMINATE, s.position.toLong(), null, null)
             } catch (error: InflateException) {
@@ -319,6 +348,8 @@ public object Inflate {
         private val sink: ByteSink? = null,
         /** False when the input may hold more than the stream, so its size says nothing about the output. */
         reserveInputSize: Boolean = true,
+        /** Output bytes after which the decode stops, or -1; see [InflateOptions.stopAfterBytes]. */
+        private val stopAt: Long = -1,
     ) {
         private val maximum: Int
         private val hint: Int
@@ -330,9 +361,11 @@ public object Inflate {
             if (expectedSize != null && expectedSize < 0) throw ArchiveFormatException("deflate: negative expected size $expectedSize")
             limits.checkOutputSize(0)
             limits.checkRatio(compressedBytes.toLong(), 0)
+            require(stopAt < 0 || sink == null) { "a streaming output cannot stop early" }
             maximum = minOf(
                 Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes, expectedSize ?: Long.MAX_VALUE,
                 if (compressedBytes > 0) compressedBytes.toLong() * limits.maxCompressionRatio else Long.MAX_VALUE,
+                if (stopAt >= 0) maxOf(stopAt, 1) else Long.MAX_VALUE,
             ).toInt()
             hint = (sizeHint ?: 0).coerceIn(0, maximum.toLong()).toInt()
             // File-controlled sizes guide growth, but never reserve a large array
@@ -376,12 +409,26 @@ public object Inflate {
             return checksum.value()
         }
 
+        /** True once the output passed [stopAt]. */
+        private var passedStop = false
+
+        /** True when the decode stopped at [stopAt] or produced more than it. */
+        val stopped: Boolean get() = passedStop || (stopAt >= 0 && size - base > stopAt)
+
         private fun ensure(extra: Int) {
             // Every allocation is capped by all three immutable budgets. Writes
             // within that capacity need no Long arithmetic or ratio division.
             if (extra <= bytes.size - size) return
             if (sink != null) return makeRoom(extra)
             val required = size.toLong() - base + extra
+            if (stopAt >= 0 && required > stopAt) {
+                // Let the write that crosses the stop finish, then stop at the next one.
+                val full = passedStop || size - base >= stopAt
+                passedStop = true
+                if (full) throw StopInflate()
+                bytes = bytes.copyOf(size + extra)
+                return
+            }
             limits.checkOutputSize(required)
             limits.checkRatio(compressedBytes.toLong(), required)
             if (expectedSize != null && required > expectedSize) {
@@ -489,7 +536,8 @@ public object Inflate {
 
         /** Transfer a finished buffer without retaining a mutable alias. */
         fun takeByteArray(): ByteArray {
-            val result = if (base == 0 && size == bytes.size) bytes else bytes.copyOfRange(base, size)
+            val end = if (stopAt >= 0 && size - base > stopAt) base + stopAt.toInt() else size
+            val result = if (base == 0 && end == bytes.size) bytes else bytes.copyOfRange(base, end)
             bytes = ByteArray(0)
             size = 0
             return result
@@ -504,6 +552,11 @@ public object Inflate {
 
     /** Non-local "out of input" signal, replacing puff's setjmp/longjmp. */
     private class OutOfInput : Throwable()
+
+    /** Non-local "stop after enough output" signal; [position] is where the input was read to. */
+    internal class StopInflate : Throwable() {
+        var position: Int = -1
+    }
 
     /** Per-stream input and bit cursor, with a dictionary starting at [outputStart]. */
     private class State(

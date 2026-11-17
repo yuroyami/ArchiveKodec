@@ -1378,7 +1378,7 @@ class CorpusSliceTest {
             for ((name, data, _) in slices) {
                 val encoded = codec.compress(data)
                 assertContentEquals(data, codec.decompress(encoded, ArchiveLimits.UNBOUNDED), "$id $name")
-                if (id != CodecId.STORE && id != CodecId.SNAPPY) {
+                if (id != CodecId.STORE && id != CodecId.SNAPPY && id != CodecId.PACKBITS) {
                     assertTrue(encoded.size < data.size, "$id did not compress $name: ${encoded.size} >= ${data.size}")
                 }
             }

@@ -7,7 +7,6 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
-import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.readU32Le
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -241,11 +240,24 @@ class ZipOverlapTest {
     }
 
     @Test
-    fun repeatedOffsetsKeepTheirExistingGuardCategory() {
+    fun recordsThatShareALocalHeaderReadTheSameBytes() {
+        // Both directory records point at the one local header, named "a".
         val first = zipExtentPiece("a", byteArrayOf(65))
-        val second = zipExtentPiece("b", byteArrayOf(66))
+        val second = zipExtentPiece("b", byteArrayOf(65))
+        val archive = zipExtentArchive(first.local, listOf(first.directory, second.directory))
+        val reader = ZipReader(ByteArrayRandomAccessSource(archive))
+        val (a, b) = reader.entries()
+        assertEquals(listOf("a", "b"), listOf(a.name, b.name))
+        assertContentEquals(byteArrayOf(65), reader.read(a))
+        assertContentEquals(byteArrayOf(65), reader.read(b))
+    }
+
+    @Test
+    fun recordsThatShareALocalHeaderButDisagreeAreRefused() {
+        val first = zipExtentPiece("a", byteArrayOf(65))
+        val second = zipExtentPiece("b", byteArrayOf(66, 67))
         val archive = zipExtentArchive(first.local + second.local, listOf(first.directory, second.directory))
-        val error = assertFailsWith<DecompressionBombException> { ZipReader(ByteArrayRandomAccessSource(archive)).entries() }
+        val error = assertFailsWith<ArchiveFormatException> { ZipReader(ByteArrayRandomAccessSource(archive)).entries() }
         assertEquals("b", error.entryName)
         assertEquals(0L, error.offset)
     }

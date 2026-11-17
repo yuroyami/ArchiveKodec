@@ -46,8 +46,8 @@ class CorpusRoundTripTest {
             for ((name, data) in files) {
                 val encoded = codec.compress(data)
                 assertContentEquals(data, codec.decompress(encoded, unbounded), "$id $name")
-                // Raw Snappy and STORE do not try to beat their input on every file.
-                if (id != CodecId.STORE && id != CodecId.SNAPPY) {
+                // Raw Snappy, STORE and PackBits do not try to beat their input on every file.
+                if (id != CodecId.STORE && id != CodecId.SNAPPY && id != CodecId.PACKBITS) {
                     assertTrue(encoded.size < data.size, "$id did not compress $name: ${encoded.size} >= ${data.size}")
                 }
             }

@@ -190,7 +190,8 @@ class ZipPrefixTest {
         for (count in listOf(-1, 0, 65558)) {
             val source = ObservedSource(ByteArray(100000) { 65 } + zipMetadataBase()).also { it.tailCount = count }
             val error = assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(source) }
-            assertEquals(source.size - 65557, error.offset); assertEquals(0, source.closes)
+            // The first footer read is the last 22 bytes, where an end record without a comment sits.
+            assertEquals(source.size - 22, error.offset); assertEquals(0, source.closes)
         }
     }
 

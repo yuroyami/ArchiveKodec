@@ -77,7 +77,18 @@ public object Deflate {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun encode(data: ByteArray, options: DeflateOptions): ByteArray = Deflater(data, options).encode()
+    public fun encode(data: ByteArray, options: DeflateOptions): ByteArray {
+        if (options.usePlatformDeflater && options.windowBits == 15 && options.dictionaryBytes == null) {
+            val strategy = when (options.strategy) {
+                DeflateStrategy.DEFAULT -> 0
+                DeflateStrategy.FILTERED -> 1
+                DeflateStrategy.HUFFMAN_ONLY -> 2
+                else -> -1
+            }
+            if (strategy >= 0) platformDeflate(data, options.level, strategy)?.let { return it }
+        }
+        return Deflater(data, options).encode()
+    }
 
     /**
      * Compress [data] to a Deflate64 stream. Deflate64 shares DEFLATE's codes except length

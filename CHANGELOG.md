@@ -10,6 +10,47 @@
   `ArchiveKodec`. Version 0.1.0 stays on Maven Central under the old name,
   `io.github.yuroyami:kitearchive`.
 
+- Image and e-book codecs. `Lzw` decodes and encodes LZW in the forms of PDF and TIFF (codes
+  packed most significant bit first, early change), GIF (least significant bit first, a
+  minimum code size of 2 to 8) and the old-style TIFF LZW that libtiff reads, set through
+  `LzwOptions`. `PackBits` covers TIFF's PackBits and PDF's `RunLengthDecode`. `PalmDoc`
+  decodes and encodes the LZ77 of PalmDOC and MOBI text records, and `HuffCdic` decodes MOBI's
+  HUFF/CDIC records. All four take an expected size, keep the bytes before damage on request
+  (`DecodeResult`) and honor `ArchiveLimits`. LZW, PackBits and PalmDOC are also registered
+  codecs (`Codecs.LZW`, `Codecs.PACKBITS`, `Codecs.PALMDOC`). `HuffmanCode` builds
+  length-limited canonical Huffman codes, the builder the DEFLATE, bzip2 and brotli encoders use.
+
+- Platform zlib on the JVM and Android. `InflateOptions.usePlatformInflater` decodes raw
+  DEFLATE and zlib with `java.util.zip.Inflater`, and steps aside to the pure decoder on
+  damage, a limit, trailing data, a dictionary or a block listener, so results and errors stay
+  the same. `DeflateOptions.usePlatformDeflater` encodes with `java.util.zip.Deflater`. Both
+  are off by default, and other platforms ignore them.
+
+- Prefix reads. `InflateOptions.stopAfterBytes` stops a raw DEFLATE or zlib decode after that
+  many output bytes, and `InflateResult.isStopped` says so; `isComplete` is false for a
+  stopped decode. `ArchiveReader.readPrefix(entry, maxBytes)` returns the start of an entry in
+  every format. ZIP stops decoding stored, DEFLATE and Deflate64 entries once it has the bytes.
+
+- ZIP reading. `ArchiveOpenOptions.crcPolicy` set to `CrcPolicy.LENIENT` returns an entry whose
+  CRC-32 does not match and tells `crcMismatchListener`; ZipCrypto entries stay strict.
+  `ZipReader.verify(entry)` checks an entry's CRC-32 without keeping its bytes.
+  `ArchiveReader.entry(name)` finds an entry by its exact name; when two share it, the last
+  wins, and `ArchiveOpenOptions.duplicateNames = DuplicateNamePolicy.REJECT` refuses such a
+  ZIP. An entry whose sizes and CRC-32 appear only in the data descriptor after its data now
+  reads: it lists with a size and compressed size of -1 and no CRC-32, and a read finds its
+  end in the data, without reading past the next local header.
+  `ArchiveNameDecoder.UTF8_OR_CP437` reads valid UTF-8 names as UTF-8 and other names as CP437.
+
+- Changed: two ZIP directory records that point at one local header now read the same bytes
+  when they agree on the method, flags and sizes. Before, such an archive threw
+  `DecompressionBombException`. Records that disagree throw `ArchiveFormatException`, and
+  data that starts inside another entry's data is still refused.
+
+- Changed: the ZIP reader finds the end record of an archive without a comment from its last
+  22 bytes, where it read the last 64 KiB before. A damaged region in that span no longer
+  hides the whole archive. Bytes in a comment that frame like an end record are skipped when
+  an earlier end record has a directory that checks out; before, they gave an empty archive.
+
 - Build. The project now builds with the Kotlin Toolchain (`./kotlin`) instead of Gradle,
   with Kotlin 2.4.21 and Android compileSdk 37. The move to the Kotlin Toolchain does not
   change the published coordinates or the klib names. What changes for consumers:

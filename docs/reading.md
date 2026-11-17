@@ -74,6 +74,47 @@ val written: Long = reader.read(entry, ByteSink { chunk, offset, length ->
 Unencrypted ZIP members that are stored, DEFLATE or Deflate64 stream about 1 MiB at a time, so
 their size is not bound by a `ByteArray`. Every other entry is read whole and then written.
 
+## Read the first bytes
+
+`readPrefix(entry, maxBytes)` returns the start of an entry, for example to read an image
+header inside a comic book:
+
+```kotlin
+val header = reader.readPrefix(entry, 64)
+```
+
+ZIP stops decoding stored, DEFLATE and Deflate64 entries once it has the bytes, so a header of
+a large entry costs little. Other entries and readers decode the entry and keep its start.
+When the prefix covers the whole entry, the read checks it as `read` does. Otherwise it checks
+no CRC-32, since it does not see the whole entry.
+
+## Find an entry by name
+
+`entry(name)` returns the entry with that exact name, or null. Names compare as decoded, with
+no case folding and no path normalization. When two entries share a name, the last one wins,
+as Info-ZIP's `unzip` extracts it, and `entries()` still lists both. ZIP looks names up in a
+map built once. To refuse a ZIP with two entries of one name:
+
+```kotlin
+val strict = ArchiveOpenOptions { duplicateNames = DuplicateNamePolicy.REJECT }
+```
+
+## A wrong CRC-32
+
+A ZIP read throws `ArchiveFormatException` when an entry's bytes do not match its CRC-32. A
+reader that would rather show part of a damaged document can take the bytes anyway:
+
+```kotlin
+val options = ArchiveOpenOptions {
+    crcPolicy = CrcPolicy.LENIENT
+    crcMismatchListener = CrcMismatchListener { entry, expected, actual -> log("bad CRC: ${entry.name}") }
+}
+```
+
+ZipCrypto entries stay strict, because there a mismatch is how a wrong password shows.
+`ZipReader.verify(entry)` checks an entry's CRC-32 without keeping its bytes, and returns false
+on a mismatch whatever the policy.
+
 ## Close the reader
 
 A reader owns its source and closes it. The rules:

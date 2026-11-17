@@ -150,7 +150,8 @@ class ArchiveFacadeTest {
             CodecId.DEFLATE64 to Codecs.DEFLATE64, CodecId.BZIP2 to Codecs.BZIP2,
             CodecId.LZMA to Codecs.LZMA, CodecId.LZMA2 to Codecs.LZMA2, CodecId.XZ to Codecs.XZ, CodecId.ZSTD to Codecs.ZSTD, CodecId.BROTLI to Codecs.BROTLI, CodecId.PPMD to Codecs.PPMD, CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
             CodecId.LZ4 to Codecs.LZ4, CodecId.SNAPPY to Codecs.SNAPPY,
-            CodecId.SNAPPY_FRAMED to Codecs.SNAPPY_FRAMED,
+            CodecId.SNAPPY_FRAMED to Codecs.SNAPPY_FRAMED, CodecId.LZW to Codecs.LZW, CodecId.PACKBITS to Codecs.PACKBITS,
+            CodecId.PALMDOC to Codecs.PALMDOC,
         )
         assertEquals(expected.size, ArchiveKodec.codecs.size)
         assertEquals(expected.keys, ArchiveKodec.codecs.toSet())
@@ -173,6 +174,9 @@ class ArchiveFacadeTest {
         assertSame(Codecs.ZSTD, ArchiveKodec.zstd)
         assertSame(Codecs.BROTLI, ArchiveKodec.brotli)
         assertSame(Codecs.PPMD, ArchiveKodec.ppmd)
+        assertSame(Codecs.LZW, ArchiveKodec.lzw)
+        assertSame(Codecs.PACKBITS, ArchiveKodec.packBits)
+        assertSame(Codecs.PALMDOC, ArchiveKodec.palmDoc)
         assertSame(Codecs.GZIP, ArchiveKodec.gzip)
         assertSame(Codecs.ZLIB, ArchiveKodec.zlib)
         assertSame(Codecs.LZ4, ArchiveKodec.lz4)
