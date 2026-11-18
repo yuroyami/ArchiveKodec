@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">ArchiveKodec — Compression seam</title>
+<desc id="desc">An interlocking zipper runs through the kite as its spine; inward chevrons express compression and a slider opens the archive. A short-tailed geometric kite in Kotlin violet, magenta and orange.</desc>
+<defs>
+<linearGradient id="sail" gradientUnits="userSpaceOnUse" x1="352" y1="256" x2="672" y2="576">
+ <stop offset="0" stop-color="#7F52FF"/><stop offset="0.333333" stop-color="#7136F4"/>
+ <stop offset="0.333333" stop-color="#BC35E8"/><stop offset="0.666667" stop-color="#D63BDD"/>
+ <stop offset="0.666667" stop-color="#FF8C25"/><stop offset="1" stop-color="#FF6950"/>
+</linearGradient>
+<linearGradient id="tail" gradientUnits="userSpaceOnUse" x1="500" y1="736" x2="570" y2="944">
+ <stop offset="0" stop-color="#7136F4"/><stop offset="0.333333" stop-color="#7F42FC"/>
+ <stop offset="0.333333" stop-color="#BC35E8"/><stop offset="0.666667" stop-color="#D63BDD"/>
+ <stop offset="0.666667" stop-color="#FF8C25"/><stop offset="1" stop-color="#FF7840"/>
+</linearGradient>
+<clipPath id="inner"><path d="M512 152L776 416L512 680L248 416Z"/></clipPath>
+</defs>
+<polygon fill="url(#tail)" transform="translate(512 736) scale(.7) translate(-512 -736)" points="512,716 472,786 546,838 494,898 574,956 574,920 536,892 586,832 512,780 532,728"/>
+<path fill="url(#sail)" d="M512 96L832 416L512 736L192 416Z"/>
+<g fill="#FFFFFF"><rect x="483" y="205" width="26" height="20"/><rect x="515" y="234" width="26" height="20"/><rect x="483" y="263" width="26" height="20"/><rect x="515" y="292" width="26" height="20"/><rect x="483" y="321" width="26" height="20"/><rect x="515" y="350" width="26" height="20"/><rect x="483" y="379" width="26" height="20"/><rect x="515" y="408" width="26" height="20"/><rect x="483" y="437" width="26" height="20"/><rect x="515" y="466" width="26" height="20"/><rect x="483" y="495" width="26" height="20"/><rect x="515" y="524" width="26" height="20"/><rect x="483" y="553" width="26" height="20"/><rect x="515" y="582" width="26" height="20"/><rect x="483" y="611" width="26" height="20"/><rect x="515" y="640" width="26" height="20"/><path d="M358 364L412 418L358 472L338 452L372 418L338 384ZM666 364L612 418L666 472L686 452L652 418L686 384Z"/>
+    <path d="M475 358H549L565 391V454L545 478H479L459 454V391Z" fill="url(#sail)" stroke="#FFFFFF" stroke-width="15"/>
+    <rect x="493" y="386" width="38" height="64" rx="10" fill="none" stroke="#FFFFFF" stroke-width="13"/></g></svg>
