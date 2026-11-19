@@ -86,8 +86,8 @@ public interface ArchiveReader {
      * ZIP streams the output of stored, DEFLATE and Deflate64 members that are not
      * encrypted and whose sizes are in the central directory, about 1 MiB at a time, so the
      * output may be larger than memory (raise [ArchiveLimits.maxUncompressedBytes] above its
-     * 2 GiB default). Stored data is also read in chunks, but DEFLATE and Deflate64 input is
-     * read whole, so a member's compressed size must fit in memory. Their CRC-32 is checked
+     * 2 GiB default). Their input is read as the decoder needs it too, so neither side has
+     * to fit in memory. Their CRC-32 is checked
      * at the end, after the data was written. Other members and readers read the whole entry
      * first and then write it, which is also this default.
      *

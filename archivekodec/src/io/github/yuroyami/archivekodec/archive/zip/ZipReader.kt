@@ -24,6 +24,8 @@ import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.ByteSink
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
+import io.github.yuroyami.archivekodec.codec.ByteSource
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.CodecRegistry
@@ -336,7 +338,7 @@ public class ZipReader(
             else -> null
         }
         if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn ||
-            (method != 0 && listed.compressedSize > Int.MAX_VALUE) || member.sizedByDescriptor
+            member.sizedByDescriptor
         ) {
             val bytes = readListed(member, limits, check)
             if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
@@ -385,14 +387,28 @@ public class ZipReader(
             }
             done
         } else {
-            val comp = source.readFullyChecked(dataStart, entry.compressedSize)
-            val output = Inflate.Output(limits, comp.size, expectedSize = entry.size, sink = checked)
-            val end = try {
-                Inflate.inflateInto(comp, 0, comp.size, output, deflate64 = member.method == 9)
+            // The compressed span is read as the decoder needs it, so neither side is held whole.
+            // Output is held to the declared size, whose ratio was checked above, so the
+            // decoder's running ratio check, against the bytes read so far, would add nothing.
+            source.requireRange(dataStart, entry.compressedSize)
+            var position = dataStart
+            val end = dataStart + entry.compressedSize
+            val input = SourceBuffer(ByteSource { into, offset, length ->
+                if (position == end) -1 else {
+                    val n = minOf(length.toLong(), end - position).toInt()
+                    source.readFullyInto(position, into, n, offset)
+                    position += n
+                    n
+                }
+            })
+            val output = Inflate.Output(limits.copy { maxCompressionRatio = Int.MAX_VALUE }, Int.MAX_VALUE,
+                expectedSize = entry.size, sink = checked, reserveInputSize = false)
+            try {
+                Inflate.inflateFrom(input, output, deflate64 = member.method == 9)
             } catch (error: ArchiveException) {
                 throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
             }
-            if (end != comp.size) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + end, entry.name)
+            if (!input.atEnd()) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + input.streamPosition, entry.name)
             output.finish()
         }
         if (written != entry.size) throw ArchiveFormatException("ZIP: output size $written differs from declared size ${entry.size}", dataStart, entry.name)

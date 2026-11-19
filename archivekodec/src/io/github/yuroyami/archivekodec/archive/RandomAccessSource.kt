@@ -86,10 +86,10 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
 }
 
 /** Fill `into[0, count)` from [offset], which the caller has range-checked. */
-internal fun RandomAccessSource.readFullyInto(offset: Long, into: ByteArray, count: Int) {
+internal fun RandomAccessSource.readFullyInto(offset: Long, into: ByteArray, count: Int, intoOffset: Int = 0) {
     var got = 0
     while (got < count) {
-        val n = read(offset + got, into, got, count - got)
+        val n = read(offset + got, into, intoOffset + got, count - got)
         if (n <= 0 || n > count - got) {
             throw ArchiveFormatException("unexpected read at ${offset + got} (wanted ${count - got}, got $n)", offset + got)
         }

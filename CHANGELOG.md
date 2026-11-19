@@ -92,6 +92,8 @@
   `maxDecoderMemory` bounds.
   Unix compress decodes from a source in the memory of its code table, and lzop one block at
   a time.
+  `ZipReader.read(entry, sink)` reads DEFLATE and Deflate64 input as it decodes, so a member
+  whose compressed data is larger than the heap streams through it, as a 32 MiB test checks.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
