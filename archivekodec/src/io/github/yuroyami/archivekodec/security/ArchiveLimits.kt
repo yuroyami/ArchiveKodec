@@ -54,7 +54,9 @@ public class ArchiveLimits private constructor(builder: Builder) {
 
     /**
      * Ceiling on memory a decoder allocates up front because the stream's header asks for
-     * it, in bytes. PPMd sizes its whole model this way; it is checked before allocating.
+     * it, in bytes, checked before allocating: the PPMd model, the RAR5 window, the bzip2
+     * block table (4 bytes per byte of block size, 3.6 MB at level 9) and an LZMA literal table
+     * whose lc + lp exceeds 4 (up to 6 MiB).
      * Default 256 MiB, which covers every ZIP PPMd stream and 7-Zip's settings up to -mx9.
      */
     public val maxDecoderMemory: Long = builder.maxDecoderMemory

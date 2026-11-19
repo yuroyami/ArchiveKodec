@@ -458,4 +458,17 @@ class Bzip2Test {
         assertFailsWith<DecompressionBombException> { Codecs.BZIP2.decompress(runs, ArchiveLimits { maxCompressionRatio = 100 }) }
         assertEquals(700_000, Codecs.BZIP2.decompress(runs, ArchiveLimits.UNBOUNDED).size)
     }
+
+    @Test
+    fun theBlockTableIsCheckedAgainstTheDecoderMemoryLimit() {
+        val text = "decoder memory ".repeat(100).encodeToByteArray()
+        val level9 = ArchiveKodec.bzip2.compress(text)
+        assertEquals('9'.code.toByte(), level9[3])
+        // The level digit is outside every CRC, and a short block fits a level 1 table too.
+        val level1 = level9.copyOf().also { it[3] = '1'.code.toByte() }
+        val small = ArchiveLimits { maxDecoderMemory = 1_000_000 }
+        assertFailsWith<DecompressionBombException> { ArchiveKodec.bzip2.decompress(level9, small) }
+        assertContentEquals(text, ArchiveKodec.bzip2.decompress(level1, small))
+        assertContentEquals(text, ArchiveKodec.bzip2.decompress(level9))
+    }
 }

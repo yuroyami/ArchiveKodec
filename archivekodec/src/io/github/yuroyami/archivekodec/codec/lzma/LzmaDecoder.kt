@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.codec.lzma
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.byteArrayCapacity
 
 internal const val NUM_STATES = 12
@@ -55,6 +56,21 @@ internal class LengthModel {
  * four repeated distances. LZMA2 keeps one across chunks and resets it on demand.
  */
 internal class LzmaModel(properties: LzmaProperties) {
+    companion object {
+        /**
+         * A model for a stream whose header chose [properties], after checking its literal
+         * table against [ArchiveLimits.maxDecoderMemory]. Only lc + lp above 4, which LZMA2
+         * forbids, asks for more than 24 KiB; lc 8 with lp 4 asks for 6 MiB.
+         */
+        fun checked(properties: LzmaProperties, limits: ArchiveLimits): LzmaModel {
+            val bytes = 2L * (0x300L shl (properties.lc + properties.lp))
+            if (properties.lc + properties.lp > 4 && bytes > limits.maxDecoderMemory) {
+                throw DecompressionBombException("LZMA: lc ${properties.lc} with lp ${properties.lp} needs $bytes B, above the decoder memory limit ${limits.maxDecoderMemory} B")
+            }
+            return LzmaModel(properties)
+        }
+    }
+
     var properties = properties
         private set
     var literals = probabilities(0x300 shl (properties.lc + properties.lp))

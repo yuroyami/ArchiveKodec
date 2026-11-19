@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.codec.bzip2
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -41,6 +42,7 @@ internal object Bzip2Decoder {
         val level = bits.bits(8) - '0'.code
         if (level !in 1..9) throw ArchiveFormatException("bzip2: invalid block size level", start + 3)
         val maxBlock = level * 100_000
+        out.checkDecoderMemory(4L * maxBlock)
         val tt = IntArray(maxBlock)
         var combined = 0
         while (true) {
@@ -283,6 +285,13 @@ internal object Bzip2Decoder {
 
     /** Output bounded by the caller's limits before each growth. */
     private class Output(private val limits: ArchiveLimits, private val compressedBytes: Int) {
+        /** Check the block table a stream header asks for against [ArchiveLimits.maxDecoderMemory]. */
+        fun checkDecoderMemory(bytes: Long) {
+            if (bytes > limits.maxDecoderMemory) {
+                throw DecompressionBombException("bzip2: a $bytes B block table exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+            }
+        }
+
         private val builder = ByteArrayBuilder(4096)
         private val chunk = ByteArray(4096)
         private var pending = 0

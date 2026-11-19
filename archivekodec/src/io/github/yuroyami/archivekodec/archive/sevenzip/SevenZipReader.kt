@@ -288,7 +288,7 @@ public class SevenZipReader(
                 val properties = LzmaProperties.of(coder.properties[0].toInt() and 0xFF, 0)
                 val dictionary = maxOf(4096L, readI32Le(coder.properties, 1).toLong() and 0xFFFFFFFFL)
                 val output = LzOutput(capped, input.size)
-                decodeLzma(RangeDecoder(input, 0, input.size), LzmaModel(properties), output, size, dictionary, markerAllowed = true)
+                decodeLzma(RangeDecoder(input, 0, input.size), LzmaModel.checked(properties, limits), output, size, dictionary, markerAllowed = true)
                 output.take()
             }
             LZMA2 -> {

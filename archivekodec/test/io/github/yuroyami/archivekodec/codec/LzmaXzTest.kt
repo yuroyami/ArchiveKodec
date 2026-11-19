@@ -568,4 +568,15 @@ class LzmaXzTest {
         assertFailsWith<DecompressionBombException> { Codecs.LZMA.decompress(zeros, ArchiveLimits { maxUncompressedBytes = 1000 }) }
         assertFailsWith<DecompressionBombException> { Codecs.LZMA2.decompress(Codecs.LZMA2.compress(ByteArray(1_000_000)), ArchiveLimits { maxCompressionRatio = 100 }) }
     }
+
+    @Test
+    fun aLargeLiteralTableIsCheckedAgainstTheDecoderMemoryLimit() {
+        // An .lzma header asking for lc 8 and lp 4: a 6 MiB literal table, then no real stream.
+        val properties = (2 * 5 + 4) * 9 + 8
+        val header = byteArrayOf(properties.toByte(), 0, 0, 1, 0) + ByteArray(8) { -1 } + ByteArray(32)
+        val small = io.github.yuroyami.archivekodec.security.ArchiveLimits { maxDecoderMemory = 1_000_000 }
+        assertFailsWith<io.github.yuroyami.archivekodec.security.DecompressionBombException> {
+            io.github.yuroyami.archivekodec.ArchiveKodec.lzma.decompress(header, small)
+        }
+    }
 }

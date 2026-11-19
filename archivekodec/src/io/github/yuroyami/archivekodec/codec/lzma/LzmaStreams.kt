@@ -44,7 +44,7 @@ internal object LzmaAlone {
         }
         val out = LzOutput(limits, input.size)
         val rc = RangeDecoder(input, 13, input.size)
-        decodeLzma(rc, LzmaModel(properties), out, size, dictionary, markerAllowed = true)
+        decodeLzma(rc, LzmaModel.checked(properties, limits), out, size, dictionary, markerAllowed = true)
         if (rc.position != input.size) throw ArchiveFormatException("LZMA: trailing bytes after stream", rc.position.toLong())
         return out.take()
     }
@@ -197,7 +197,7 @@ internal object ZipLzma {
         val dictionary = maxOf(4096L, readI32Le(input, 5).toLong() and 0xFFFFFFFFL)
         val out = LzOutput(limits, input.size)
         val rc = RangeDecoder(input, 9, input.size)
-        decodeLzma(rc, LzmaModel(properties), out, size, dictionary, markerAllowed = true)
+        decodeLzma(rc, LzmaModel.checked(properties, limits), out, size, dictionary, markerAllowed = true)
         if (rc.position != input.size) throw ArchiveFormatException("ZIP LZMA: trailing bytes after stream", rc.position.toLong())
         return out.take()
     }
