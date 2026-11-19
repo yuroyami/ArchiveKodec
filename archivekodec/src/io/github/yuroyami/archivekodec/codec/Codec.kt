@@ -83,10 +83,11 @@ public interface Codec {
      * number of bytes written. [limits] are checked before every write; the ratio is measured
      * against the compressed bytes read so far.
      *
-     * DEFLATE, zlib, gzip, bzip2, xz, zstd, LZ4, lzip and `.lzma` read their input as they need it and write their
-     * output as it is produced, so neither side has to fit in memory: memory stays near a
-     * window, a block or a dictionary. Other codecs read the whole input first
-     * and decode it as [decompress] with a sink does, which is also this default.
+     * DEFLATE, zlib, gzip, bzip2, xz, zstd, LZ4, lzip, `.lzma` and Unix compress read their
+     * input as they need it and write their output as it is produced, so neither side has to
+     * fit in memory: memory stays near a window, a block, a dictionary or a code table. Other
+     * codecs read the whole input first and decode it as [decompress] with a sink does, which
+     * is also this default.
      *
      * @throws ArchiveException for the failures documented by [decompress], and for failures
      *   the source or the sink reports. Output written before a failure stays written.

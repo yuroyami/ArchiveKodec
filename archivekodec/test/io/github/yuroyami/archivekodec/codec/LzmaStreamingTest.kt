@@ -1,70 +1,30 @@
 package io.github.yuroyami.archivekodec.codec
 
-import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.hex
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
-import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import kotlin.io.encoding.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /** The streaming lzip and `.lzma` decoders against the whole-array ones: same bytes, same failures. */
 class LzmaStreamingTest {
-    private fun data(size: Int, seed: Int): ByteArray {
-        var x = seed
-        val words = listOf("range ", "coder ", "lzip ", "member ", "window ").map { it.encodeToByteArray() }
-        val out = ByteArrayBuilder(size)
-        while (out.size < size) {
-            x = x xor (x shl 13); x = x xor (x ushr 17); x = x xor (x shl 5)
-            if (x and 7 == 0) out.append(byteArrayOf(x.toByte())) else out.append(words[(x ushr 1) % words.size])
-        }
-        return out.takeByteArray().copyOf(size)
-    }
-
-    private fun trickle(bytes: ByteArray, step: Int): ByteSource {
-        var position = 0
-        return ByteSource { into, offset, length ->
-            if (position == bytes.size) -1 else {
-                val n = minOf(length, step, bytes.size - position)
-                bytes.copyInto(into, offset, position, position + n)
-                position += n
-                n
-            }
-        }
-    }
-
-    private fun arrayOutcome(codec: Codec, stream: ByteArray, limits: ArchiveLimits): String = try {
-        codec.decompress(stream, limits).decodeToString()
-    } catch (e: ArchiveException) { e::class.simpleName!! }
-
-    private fun streamOutcome(codec: Codec, stream: ByteArray, step: Int, limits: ArchiveLimits): String = try {
-        val out = ByteArrayBuilder(1024)
-        val count = codec.decompress(trickle(stream, step), { b, o, l -> out.append(b, o, l) }, limits)
-        val bytes = out.takeByteArray()
-        assertEquals(bytes.size.toLong(), count)
-        bytes.decodeToString()
-    } catch (e: ArchiveException) { e::class.simpleName!! }
-
-    private fun assertSame(codec: Codec, stream: ByteArray, what: String, limits: ArchiveLimits = ArchiveLimits.DEFAULT, steps: List<Int> = listOf(1, 7, 65_536)) {
-        val expected = arrayOutcome(codec, stream, limits)
-        for (step in steps) assertEquals(expected, streamOutcome(codec, stream, step, limits), "${codec.id} $what, step $step")
-    }
+    private fun data(size: Int, seed: Int) = StreamParity.text(size, seed)
 
     // xz 5.4.5: `printf 'marker stream %.0s' $(seq 1 30) | xz --format=lzma`, size unknown, with an end marker.
     private val marker = hex("5d00008000ffffffffffffffff0036984aab67db7fe343366f003283fe872341d30f0f37ffffed0c8000")
 
     @Test
     fun bothFormatsDecodeTheSame() {
-        assertEquals("marker stream ".repeat(30), arrayOutcome(Codecs.LZMA, marker, ArchiveLimits.DEFAULT))
-        assertSame(Codecs.LZMA, marker, "end marker")
+        assertEquals("marker stream ".repeat(30), StreamParity.arrayOutcome(Codecs.LZMA, marker, ArchiveLimits.DEFAULT))
+        StreamParity.assertSame(Codecs.LZMA, marker, "end marker")
         for (input in listOf(ByteArray(0), data(1, 2), data(200_000, 3))) {
-            for (codec in listOf(Codecs.LZMA, Codecs.LZIP)) assertSame(codec, codec.compress(input), "${input.size} bytes", steps = listOf(7, 65_536))
+            for (codec in listOf(Codecs.LZMA, Codecs.LZIP)) StreamParity.assertSame(codec, codec.compress(input), "${input.size} bytes", steps = listOf(7, 65_536))
         }
         val a = Codecs.LZIP.compress(data(70_000, 4))
         val b = Codecs.LZIP.compress(data(5000, 5))
-        assertSame(Codecs.LZIP, a + b + a, "three members", steps = listOf(13, 65_536))
-        assertSame(Codecs.LZMA, Codecs.LZMA.compress(data(5000, 6)) + byteArrayOf(0), "trailing byte")
-        assertSame(Codecs.LZIP, b + byteArrayOf(1, 2), "trailing junk")
+        StreamParity.assertSame(Codecs.LZIP, a + b + a, "three members", steps = listOf(13, 65_536))
+        StreamParity.assertSame(Codecs.LZMA, Codecs.LZMA.compress(data(5000, 6)) + byteArrayOf(0), "trailing byte")
+        StreamParity.assertSame(Codecs.LZIP, b + byteArrayOf(1, 2), "trailing junk")
     }
 
     @Test
@@ -72,23 +32,23 @@ class LzmaStreamingTest {
         val input = data(3000, 8)
         for (codec in listOf(Codecs.LZMA, Codecs.LZIP)) {
             val stream = codec.compress(input)
-            for (cut in 0 until stream.size step 3) assertSame(codec, stream.copyOf(cut), "cut at $cut", steps = listOf(13))
+            for (cut in 0 until stream.size step 3) StreamParity.assertSame(codec, stream.copyOf(cut), "cut at $cut", steps = listOf(13))
             for (at in stream.indices step 2) {
                 val bad = stream.copyOf().also { it[at] = (it[at].toInt() xor 0x41).toByte() }
                 if (codec == Codecs.LZMA && at in 5..12) {
                     // A corrupted declared size: the array decoder knows the input's size and may
                     // refuse the ratio up front, where the streamed one fails later; both fail.
-                    assertEquals(arrayOutcome(codec, bad, ArchiveLimits.DEFAULT).endsWith("Exception"),
-                        streamOutcome(codec, bad, 13, ArchiveLimits.DEFAULT).endsWith("Exception"), "byte $at")
+                    assertEquals(StreamParity.arrayOutcome(codec, bad).endsWith("Exception"),
+                        StreamParity.streamOutcome(codec, bad, 13).endsWith("Exception"), "byte $at")
                 } else {
-                    assertSame(codec, bad, "byte $at", steps = listOf(13))
+                    StreamParity.assertSame(codec, bad, "byte $at", steps = listOf(13))
                 }
             }
             val zeros = codec.compress(ByteArray(500_000))
-            assertSame(codec, zeros, "size limit", ArchiveLimits { maxUncompressedBytes = 100_000 }, listOf(4096))
-            assertSame(codec, zeros, "ratio limit", ArchiveLimits { maxCompressionRatio = 50 }, listOf(4096))
+            StreamParity.assertSame(codec, zeros, "size limit", ArchiveLimits { maxUncompressedBytes = 100_000 }, listOf(4096))
+            StreamParity.assertSame(codec, zeros, "ratio limit", ArchiveLimits { maxCompressionRatio = 50 }, listOf(4096))
         }
-        for (cut in marker.indices) assertSame(Codecs.LZMA, marker.copyOf(cut), "marker cut at $cut", steps = listOf(1))
+        for (cut in marker.indices) StreamParity.assertSame(Codecs.LZMA, marker.copyOf(cut), "marker cut at $cut", steps = listOf(1))
     }
 
     // `seq 1 20000`, 108894 bytes, with 4 KiB dictionaries, so matches reach to the window's edge
@@ -248,13 +208,13 @@ class LzmaStreamingTest {
     fun referenceStreamsWithSmallDictionariesSlideTheWindow() {
         val expected = (1..20000).joinToString("\n", postfix = "\n")
         for ((codec, stream) in listOf(Codecs.LZIP to seqLz, Codecs.LZMA to seqLzma)) {
-            assertEquals(expected, arrayOutcome(codec, stream, ArchiveLimits.DEFAULT))
-            assertSame(codec, stream, "seq", steps = listOf(1, 4096, 65_536))
+            assertEquals(expected, StreamParity.arrayOutcome(codec, stream, ArchiveLimits.DEFAULT))
+            StreamParity.assertSame(codec, stream, "seq", steps = listOf(1, 4096, 65_536))
         }
         // Each window holds the dictionary, not the output: well under a 64 KiB memory limit.
         val tight = ArchiveLimits { maxDecoderMemory = 64 * 1024 }
-        assertEquals(expected, streamOutcome(Codecs.LZIP, seqLz, 4096, tight))
-        assertEquals(expected, streamOutcome(Codecs.LZMA, seqLzma, 4096, tight))
-        assertEquals("DecompressionBombException", streamOutcome(Codecs.LZIP, seqLz, 4096, ArchiveLimits { maxDecoderMemory = 2048 }))
+        assertEquals(expected, StreamParity.streamOutcome(Codecs.LZIP, seqLz, 4096, tight))
+        assertEquals(expected, StreamParity.streamOutcome(Codecs.LZMA, seqLzma, 4096, tight))
+        assertEquals("DecompressionBombException", StreamParity.streamOutcome(Codecs.LZIP, seqLz, 4096, ArchiveLimits { maxDecoderMemory = 2048 }))
     }
 }

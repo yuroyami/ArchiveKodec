@@ -90,6 +90,7 @@
   LZ4 decodes from a source one block at a time, keeping 64 KiB of history for linked blocks.
   lzip and `.lzma` decode from a source through a window of the dictionary, which
   `maxDecoderMemory` bounds.
+  Unix compress decodes from a source in the memory of its code table.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

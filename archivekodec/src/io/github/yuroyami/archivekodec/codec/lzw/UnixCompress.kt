@@ -2,6 +2,9 @@ package io.github.yuroyami.archivekodec.codec.lzw
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.codec.ByteSink
+import io.github.yuroyami.archivekodec.codec.ByteSource
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
@@ -22,9 +25,28 @@ internal object UnixCompress {
     fun isCompress(bytes: ByteArray): Boolean = bytes.size >= 3 && bytes[0] == 0x1F.toByte() && bytes[1] == 0x9D.toByte()
 
     fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+        val out = ByteArrayBuilder(minOf(maxOf(256, input.size * 3), 1 shl 20))
+        decode(SourceBuffer(ByteSource.of(input)), { b, o, n -> out.append(b, o, n) }, limits) { input.size.toLong() }
+        return out.takeByteArray()
+    }
+
+    /**
+     * Decode the stream read from [source] to [sink] and return the byte count. Memory is the
+     * code table, at most 64 Ki entries, whatever the input's size.
+     */
+    fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = SourceBuffer(source)
+        return decode(input, sink, limits) { input.streamPosition }
+    }
+
+    /** The decoder; [compressed] gives the compressed size the ratio limit is measured against. */
+    private fun decode(input: SourceBuffer, sink: ByteSink, limits: ArchiveLimits, compressed: () -> Long): Long {
         limits.checkOutputSize(0)
-        if (!isCompress(input)) throw ArchiveFormatException("compress: missing 1F 9D magic", 0)
-        val flags = input[2].toInt() and 0xFF
+        val header = ByteArray(3)
+        if (!input.ensure(3)) throw ArchiveFormatException("compress: missing 1F 9D magic", 0)
+        input.readFully(header, 0, 3, "compress header")
+        if (!isCompress(header)) throw ArchiveFormatException("compress: missing 1F 9D magic", 0)
+        val flags = header[2].toInt() and 0xFF
         val maxBits = flags and 0x1F
         if (maxBits !in INIT_BITS..16) throw ArchiveFormatException("compress: maximum code width $maxBits is not 9 to 16", 2)
         // ncompress changes width differently when the first width is already the widest, in a way
@@ -37,7 +59,9 @@ internal object UnixCompress {
         val suffix = ByteArray(maxMaxCode)
         for (i in 0 until 256) suffix[i] = i.toByte()
         val stack = ByteArray(maxMaxCode)
-        val out = ByteArrayBuilder(minOf(maxOf(256, input.size * 3), 1 shl 20))
+        val pending = ByteArray(64 * 1024)
+        var pendingSize = 0
+        var total = 0L
 
         var bits = INIT_BITS
         // At the widest code the table fills completely before anything changes.
@@ -45,9 +69,9 @@ internal object UnixCompress {
         var maxCode = limitFor(bits)
         var freeEnt = if (block) FIRST else 256
         var clearFlag = false
-        // The current group: its first byte, how many bits it holds, and the bit offset into it.
-        var position = 3
-        var groupStart = 3
+        // The current group of `bits` bytes: its stream offset, how many bits it holds, and the bit offset into it.
+        val group = ByteArray(16)
+        var groupStart = 3L
         var groupBits = 0
         var offset = 0
 
@@ -63,10 +87,15 @@ internal object UnixCompress {
                     clearFlag = false
                 }
                 // A new group of `bits` bytes; whatever was left of the old one is padding.
-                groupStart = position
-                val length = minOf(bits, input.size - position)
+                groupStart = input.streamPosition
+                var length = 0
+                while (length < bits && input.ensure(1)) {
+                    val n = minOf(bits - length, input.available)
+                    input.buffer.copyInto(group, length, input.position, input.position + n)
+                    input.position += n
+                    length += n
+                }
                 if (length <= 0) return -1
-                position += length
                 groupBits = length * 8
                 offset = 0
                 if (offset + bits > groupBits) return -1
@@ -74,21 +103,28 @@ internal object UnixCompress {
             var code = 0
             for (i in 0 until bits) {
                 val bit = offset + i
-                if ((input[groupStart + (bit ushr 3)].toInt() ushr (bit and 7)) and 1 != 0) code = code or (1 shl i)
+                if ((group[bit ushr 3].toInt() ushr (bit and 7)) and 1 != 0) code = code or (1 shl i)
             }
             offset += bits
             return code
         }
 
+        fun flush() {
+            if (pendingSize > 0) { sink.write(pending, 0, pendingSize); pendingSize = 0 }
+        }
+
         fun emit(bytes: ByteArray, from: Int, to: Int) {
-            val total = out.size.toLong() + (to - from)
-            limits.checkOutputSize(total)
-            limits.checkRatio(input.size.toLong(), total)
-            out.append(bytes, from, to - from)
+            val length = to - from
+            limits.checkOutputSize(total + length)
+            limits.checkRatio(compressed(), total + length)
+            if (pendingSize + length > pending.size) flush()
+            if (length > pending.size) sink.write(bytes, from, length)
+            else { bytes.copyInto(pending, pendingSize, from, to); pendingSize += length }
+            total += length
         }
 
         var oldCode = getCode()
-        if (oldCode == -1) return ByteArray(0)
+        if (oldCode == -1) return 0
         if (oldCode > 255) throw ArchiveFormatException("compress: the first code $oldCode is not a literal", 3)
         var finChar = oldCode
         emit(byteArrayOf(finChar.toByte()), 0, 1)
@@ -104,12 +140,12 @@ internal object UnixCompress {
             val inCode = code
             var top = stack.size
             if (code >= freeEnt) {
-                if (code > freeEnt) throw ArchiveFormatException("compress: code $code is past the table's next entry $freeEnt", groupStart.toLong())
+                if (code > freeEnt) throw ArchiveFormatException("compress: code $code is past the table's next entry $freeEnt", groupStart)
                 stack[--top] = finChar.toByte()
                 code = oldCode
             }
             while (code >= 256) {
-                if (top == 0) throw ArchiveFormatException("compress: a code's string is longer than the table", groupStart.toLong())
+                if (top == 0) throw ArchiveFormatException("compress: a code's string is longer than the table", groupStart)
                 stack[--top] = suffix[code]
                 code = prefix[code]
             }
@@ -123,7 +159,8 @@ internal object UnixCompress {
             }
             oldCode = inCode
         }
-        return out.takeByteArray()
+        flush()
+        return total
     }
 
     fun compress(data: ByteArray, maxBits: Int = 16): ByteArray {
