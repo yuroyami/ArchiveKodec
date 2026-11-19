@@ -101,7 +101,7 @@ does. zstd, LZ4 and lzip write each 1 to 4 MiB
 of input as a complete frame or member, which their decoders join. The xz, zstd, lzip and `.lzma`
 decoders keep a window of the dictionary or the frame's window, which `maxDecoderMemory` bounds, and
 the LZ4 decoder keeps one block of at most 4 MiB and 64 KiB of history; Unix compress needs only
-its code table; an xz
+its code table and lzop one block; an xz
 block with a branch filter is held whole until its end. The other codecs keep the input and compress
 it at `finish`, until they stream too.
 

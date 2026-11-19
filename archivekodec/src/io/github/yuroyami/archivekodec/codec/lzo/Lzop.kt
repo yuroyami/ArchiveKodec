@@ -4,6 +4,9 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.Adler32
 import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.ByteSink
+import io.github.yuroyami.archivekodec.codec.ByteSource
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
@@ -30,71 +33,103 @@ internal object Lzop {
     fun isLzop(bytes: ByteArray): Boolean = bytes.size >= MAGIC.size && MAGIC.indices.all { bytes[it] == MAGIC[it] }
 
     fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
+        val out = ByteArrayBuilder(minOf(maxOf(256, input.size * 3), 1 shl 20))
+        decode(SourceBuffer(ByteSource.of(input)), { b, o, n -> out.append(b, o, n) }, limits) { input.size.toLong() }
+        return out.takeByteArray()
+    }
+
+    /**
+     * Decode the file read from [source] to [sink] and return the byte count. Memory is one
+     * block, as the file's writer chose it: 256 KiB for `lzop`, at most 64 MiB.
+     */
+    fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = SourceBuffer(source)
+        return decode(input, sink, limits) { input.streamPosition }
+    }
+
+    /** The decoder; [compressed] gives the compressed size the ratio limit is measured against. */
+    private fun decode(input: SourceBuffer, sink: ByteSink, limits: ArchiveLimits, compressed: () -> Long): Long {
         limits.checkOutputSize(0)
-        if (!isLzop(input)) throw ArchiveFormatException("lzop: missing magic", 0)
-        var pos = MAGIC.size
-        fun need(count: Int) { if (input.size - pos < count) throw ArchiveFormatException("lzop: truncated", pos.toLong()) }
-        fun u8(): Int { need(1); return input[pos++].toInt() and 0xFF }
+        val magic = ByteArray(MAGIC.size)
+        if (!input.ensure(MAGIC.size)) throw ArchiveFormatException("lzop: missing magic", 0)
+        input.readFully(magic, 0, magic.size, "lzop magic")
+        if (!isLzop(magic)) throw ArchiveFormatException("lzop: missing magic", 0)
+        // The header's bytes as read, for its checksum.
+        val header = ByteArrayBuilder(64)
+        fun u8(): Int {
+            val b = input.read()
+            if (b < 0) throw ArchiveFormatException("lzop: truncated", input.streamPosition)
+            header.append(b.toByte())
+            return b
+        }
         fun u16(): Int = (u8() shl 8) or u8()
         fun u32(): Long = (u16().toLong() shl 16) or u16().toLong()
 
-        val headerStart = pos
         val version = u16()
         u16() // library version
         if (version >= 0x0940) {
             val needed = u16()
-            if (needed > 0x1040) throw ArchiveUnsupportedException("lzop: version ${needed.toString(16)} is needed to extract", pos - 2L)
+            if (needed > 0x1040) throw ArchiveUnsupportedException("lzop: version ${needed.toString(16)} is needed to extract", input.streamPosition - 2)
         }
         val method = u8()
-        if (method !in 1..3) throw ArchiveUnsupportedException("lzop: method $method is not LZO1X", pos - 1L)
+        if (method !in 1..3) throw ArchiveUnsupportedException("lzop: method $method is not LZO1X", input.streamPosition - 1)
         if (version >= 0x0940) u8() // level
         val flags = u32().toInt()
-        if (flags and F_H_FILTER != 0) throw ArchiveUnsupportedException("lzop: filters are not supported", pos - 4L)
-        if (flags and F_MULTIPART != 0) throw ArchiveUnsupportedException("lzop: multi-part files are not supported", pos - 4L)
+        if (flags and F_H_FILTER != 0) throw ArchiveUnsupportedException("lzop: filters are not supported", input.streamPosition - 4)
+        if (flags and F_MULTIPART != 0) throw ArchiveUnsupportedException("lzop: multi-part files are not supported", input.streamPosition - 4)
         u32() // mode
         u32() // modification time, low
         if (version >= 0x0940) u32() // modification time, high
-        val nameLength = u8()
-        need(nameLength)
-        pos += nameLength
-        val headerSum = checksum(flags and F_H_CRC32 != 0, input, headerStart, pos)
-        val storedHeaderSum = u32()
-        if (storedHeaderSum != headerSum) throw ArchiveFormatException("lzop: header checksum mismatch", pos - 4L)
+        repeat(u8()) { u8() } // name
+        val headerBytes = header.toByteArray()
+        val headerSum = checksum(flags and F_H_CRC32 != 0, headerBytes, 0, headerBytes.size)
+        if (u32() != headerSum) throw ArchiveFormatException("lzop: header checksum mismatch", input.streamPosition - 4)
         if (flags and F_H_EXTRA_FIELD != 0) {
-            val length = u32()
-            if (length > input.size - pos - 4L) throw ArchiveFormatException("lzop: extra field passes the end", pos.toLong())
-            pos += length.toInt() + 4
+            var skip = u32() + 4
+            while (skip > 0) {
+                if (!input.ensure(1)) throw ArchiveFormatException("lzop: extra field passes the end", input.streamPosition)
+                val n = minOf(skip, input.available.toLong()).toInt()
+                input.position += n
+                skip -= n
+            }
         }
 
-        val out = ByteArrayBuilder(minOf(maxOf(256, input.size * 3), 1 shl 20))
+        var total = 0L
         while (true) {
-            val blockStart = pos
+            val blockStart = input.streamPosition
             val size = u32()
             if (size == 0L) break
-            if (size > MAX_BLOCK) throw ArchiveFormatException("lzop: block of $size bytes is larger than 64 MiB", blockStart.toLong())
+            if (size > MAX_BLOCK) throw ArchiveFormatException("lzop: block of $size bytes is larger than 64 MiB", blockStart)
             val packed = u32()
-            if (packed > size) throw ArchiveFormatException("lzop: compressed block is larger than its data", blockStart + 4L)
+            if (packed > size) throw ArchiveFormatException("lzop: compressed block is larger than its data", blockStart + 4)
             val dataAdler = if (flags and F_ADLER32_D != 0) u32() else null
             val dataCrc = if (flags and F_CRC32_D != 0) u32() else null
-            val compressed = packed < size
-            val packedAdler = if (compressed && flags and F_ADLER32_C != 0) u32() else null
-            val packedCrc = if (compressed && flags and F_CRC32_C != 0) u32() else null
-            need(packed.toInt())
-            val total = out.size.toLong() + size
-            limits.checkOutputSize(total)
-            limits.checkRatio(input.size.toLong(), total)
-            val from = pos
-            pos += packed.toInt()
-            if (packedAdler != null && packedAdler != checksum(false, input, from, pos)) throw ArchiveFormatException("lzop: compressed block Adler-32 mismatch", from.toLong())
-            if (packedCrc != null && packedCrc != checksum(true, input, from, pos)) throw ArchiveFormatException("lzop: compressed block CRC-32 mismatch", from.toLong())
-            val block = if (compressed) Lzo1x.decode(input, from, pos, size.toInt()) else input.copyOfRange(from, pos)
-            if (block.size.toLong() != size) throw ArchiveFormatException("lzop: block decodes to ${block.size} bytes, not $size", from.toLong())
-            if (dataAdler != null && dataAdler != checksum(false, block, 0, block.size)) throw ArchiveFormatException("lzop: block Adler-32 mismatch", from.toLong())
-            if (dataCrc != null && dataCrc != checksum(true, block, 0, block.size)) throw ArchiveFormatException("lzop: block CRC-32 mismatch", from.toLong())
-            out.append(block)
+            val isCompressed = packed < size
+            val packedAdler = if (isCompressed && flags and F_ADLER32_C != 0) u32() else null
+            val packedCrc = if (isCompressed && flags and F_CRC32_C != 0) u32() else null
+            val from = input.streamPosition
+            // Read in pieces, so a block that claims more than the input holds allocates only what arrives.
+            val data = ByteArrayBuilder(minOf(packed, 1L shl 20).toInt())
+            while (data.size < packed) {
+                if (!input.ensure(1)) throw ArchiveFormatException("lzop: truncated", input.streamPosition)
+                val n = minOf(packed - data.size, input.available.toLong()).toInt()
+                data.append(input.buffer, input.position, n)
+                input.position += n
+            }
+            val bytes = data.takeByteArray()
+            limits.checkOutputSize(total + size)
+            limits.checkRatio(compressed(), total + size)
+            if (packedAdler != null && packedAdler != checksum(false, bytes, 0, bytes.size)) throw ArchiveFormatException("lzop: compressed block Adler-32 mismatch", from)
+            if (packedCrc != null && packedCrc != checksum(true, bytes, 0, bytes.size)) throw ArchiveFormatException("lzop: compressed block CRC-32 mismatch", from)
+            val block = if (isCompressed) Lzo1x.decode(bytes, 0, bytes.size, size.toInt()) else bytes
+            if (block.size.toLong() != size) throw ArchiveFormatException("lzop: block decodes to ${block.size} bytes, not $size", from)
+            if (dataAdler != null && dataAdler != checksum(false, block, 0, block.size)) throw ArchiveFormatException("lzop: block Adler-32 mismatch", from)
+            if (dataCrc != null && dataCrc != checksum(true, block, 0, block.size)) throw ArchiveFormatException("lzop: block CRC-32 mismatch", from)
+            sink.write(block, 0, block.size)
+            total += size
         }
-        if (pos != input.size) throw ArchiveFormatException("lzop: ${input.size - pos} bytes follow the end", pos.toLong())
-        return out.takeByteArray()
+        if (!input.atEnd()) throw ArchiveFormatException("lzop: bytes follow the end", input.streamPosition)
+        return total
     }
 
     fun compress(data: ByteArray): ByteArray {

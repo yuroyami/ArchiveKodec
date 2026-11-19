@@ -412,4 +412,5 @@ internal object LzopCodec : Codec {
     override val id = CodecId.LZOP
     override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzo.Lzop.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzo.Lzop.decompress(data, limits)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = io.github.yuroyami.archivekodec.codec.lzo.Lzop.decompress(source, sink, limits)
 }
