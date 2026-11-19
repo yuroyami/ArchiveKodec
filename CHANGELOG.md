@@ -36,6 +36,9 @@
   initializes the other 17, and a shrinker keeps only the codecs a program uses. `Codecs.GZIP`
   and the others are now static getters (`Codecs.getGZIP()` from Java) instead of fields.
   Kotlin and Swift source is unchanged.
+- The JavaScript facade (`JsExports.kt`) moved from the core into the `archivekodec-js` module.
+  A Kotlin/JS program that depends on the core no longer keeps the facade's exports. The npm
+  module that `scripts/js_package.py` assembles exports the same functions as before.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

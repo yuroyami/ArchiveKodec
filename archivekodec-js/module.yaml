@@ -1,4 +1,4 @@
-# Links the @JsExport facade of :archivekodec into an ES module with TypeScript declarations,
+# The @JsExport facade over :archivekodec, linked into an ES module with TypeScript declarations,
 # for plain JavaScript and TypeScript callers. Not published.
 product: js/app
 
