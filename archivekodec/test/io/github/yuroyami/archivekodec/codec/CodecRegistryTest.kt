@@ -14,7 +14,7 @@ import kotlin.test.assertSame
 
 internal val knownCodecIds = listOf(CodecId.STORE, CodecId.DEFLATE, CodecId.ZLIB, CodecId.GZIP,
     CodecId.LZ4, CodecId.SNAPPY, CodecId.SNAPPY_FRAMED, CodecId.BZIP2, CodecId.LZMA,
-    CodecId.LZMA2, CodecId.XZ, CodecId.ZSTD, CodecId.BROTLI, CodecId.PPMD, CodecId.LZW, CodecId.PACKBITS, CodecId.PALMDOC)
+    CodecId.LZMA2, CodecId.XZ, CodecId.LZIP, CodecId.ZSTD, CodecId.BROTLI, CodecId.PPMD, CodecId.LZW, CodecId.PACKBITS, CodecId.PALMDOC)
 
 class CodecRegistryTest {
     private val defaults = CodecRegistry.DEFAULT
@@ -34,7 +34,7 @@ class CodecRegistryTest {
         assertEquals(custom.name, custom.toString())
         assertNotEquals(custom, CodecId("another"))
         assertEquals(CodecId.ZSTD, CodecId("ZSTD"))
-        assertEquals(17, knownCodecIds.toSet().size)
+        assertEquals(18, knownCodecIds.toSet().size)
     }
 
     @Test fun invalidIdentifiersAreRejectedAndInvalidLookupReturnsNull() {
@@ -47,7 +47,7 @@ class CodecRegistryTest {
     }
 
     @Test fun supportComesFromTheRegistryAndFacadeUsesDefault() {
-        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.ZSTD, Codecs.BROTLI, Codecs.PPMD, Codecs.GZIP, Codecs.ZLIB,
+        val expected = listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.LZIP, Codecs.ZSTD, Codecs.BROTLI, Codecs.PPMD, Codecs.GZIP, Codecs.ZLIB,
             Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED, Codecs.LZW, Codecs.PACKBITS, Codecs.PALMDOC)
         assertEquals(expected.map { it.id }, defaults.implemented)
         assertEquals(defaults.implemented, Codecs.implemented)

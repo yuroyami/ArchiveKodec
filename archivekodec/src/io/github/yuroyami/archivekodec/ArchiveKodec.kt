@@ -167,7 +167,7 @@ public object ArchiveKodec {
     public fun decompress(bytes: ByteArray): ByteArray = decompress(bytes, ArchiveLimits.DEFAULT)
 
     /**
-     * Sniff [bytes] and decode gzip, zlib, bzip2, xz, zstd, LZ4 or framed Snappy under [limits].
+     * Sniff [bytes] and decode gzip, zlib, bzip2, xz, lzip, zstd, LZ4 or framed Snappy under [limits].
      * Only one framing layer is decoded; concatenated members follow the codec's
      * rules. Raw DEFLATE, raw Snappy, LZMA and brotli cannot be reliably sniffed and
      * need an explicit codec. Unsupported errors name the detected format.
@@ -233,7 +233,7 @@ public object ArchiveKodec {
 
     /**
      * Open a container reader for a seekable [source], dispatching on the sniffed
-     * format. One compression layer (gzip, bzip2, xz, zstd, an LZ4 frame or framed Snappy) is
+     * format. One compression layer (gzip, bzip2, xz, lzip, zstd, an LZ4 frame or framed Snappy) is
      * decoded fully before its contained archive is opened; a second layer, zlib, raw
      * DEFLATE, LZMA and brotli are not removed.
      * An unknown header falls back to a bounded ZIP footer search, allowing
@@ -391,7 +391,7 @@ public object ArchiveKodec {
 
     /** Compression layers that [open] removes, one at most, before it opens the archive inside. */
     private val WRAPPERS = setOf(
-        ArchiveFormat.GZIP, ArchiveFormat.BZIP2, ArchiveFormat.XZ, ArchiveFormat.ZSTD, ArchiveFormat.LZ4, ArchiveFormat.SNAPPY,
+        ArchiveFormat.GZIP, ArchiveFormat.BZIP2, ArchiveFormat.XZ, ArchiveFormat.LZIP, ArchiveFormat.ZSTD, ArchiveFormat.LZ4, ArchiveFormat.SNAPPY,
     )
 
     /** Decode one compression layer whole under the open options' limits. */

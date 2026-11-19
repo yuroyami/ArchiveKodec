@@ -82,6 +82,14 @@ public object Codecs {
     public val XZ: Codec get() = XzCodec
 
     /**
+     * lzip (`.lz`, version 1): LZMA members ending with an end marker, each with a CRC-32, data
+     * size and member size trailer. Decoding joins concatenated members and checks every
+     * trailer; encoding writes one member.
+     */
+    @JvmStatic
+    public val LZIP: Codec get() = LzipCodec
+
+    /**
      * Zstandard (RFC 8878). Decoding handles every block and table mode, repeat offsets,
      * skippable and concatenated frames, and verifies the xxHash64 content checksum;
      * dictionary frames are refused. Encoding writes one frame with predefined tables.
@@ -320,4 +328,11 @@ internal object PalmdocCodec : Codec {
     override fun compress(data: ByteArray): ByteArray = PalmDoc.encode(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
         PalmDoc.decode(data, 0, data.size, limits).output
+}
+
+/** The implementation of [Codecs.LZIP]. */
+internal object LzipCodec : Codec {
+    override val id = CodecId.LZIP
+    override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.decompress(data, limits)
 }

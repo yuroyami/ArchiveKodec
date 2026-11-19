@@ -13,6 +13,7 @@
 | LZMA (`.lzma`) | Known size or end marker | Greedy and lazy parser, no end marker |
 | LZMA2 (raw chunks) | Yes | LZMA chunks, stored when incompressible |
 | xz | CRC-32, CRC-64 and SHA-256 checks, delta and x86 BCJ filters, the index, concatenated streams | One LZMA2 block with CRC-64 |
+| lzip (`.lz`, version 1) | Concatenated members, CRC-32 and size trailers | One member with an end marker |
 | zstd (RFC 8878) | All block, literal and table modes, skippable and concatenated frames, xxHash64 checks | Predefined tables, raw literals |
 | brotli (RFC 7932) | Context modeling, block switching, the static dictionary with all 121 transforms | One prefix code for each category, no dictionary references |
 | PPMd var.I rev. 1 (ZIP method 98) | Restart and cut-off restore | Order 6, up to 16 MiB of model memory |

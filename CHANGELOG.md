@@ -58,6 +58,9 @@
 - `ArchiveKodec.open` removes one layer of bzip2, xz, zstd, LZ4 or framed Snappy as well as
   gzip, so `.tar.xz` and `.tar.zst` open in one call. The layer is still decoded whole; bounded
   memory comes with streaming.
+- Added lzip (`.lz`): `Codecs.LZIP` decodes concatenated members and checks every trailer, and
+  encodes one member; the sniffer detects it and `open` removes it like the other layers. The
+  lzip tool reads our output, and we read its output, single and multi-member.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

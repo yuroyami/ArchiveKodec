@@ -57,6 +57,7 @@ class GoldenEncoderTest {
             "lzma" to "12852:ca7daf62",
             "lzma2" to "12846:5fedaaad",
             "xz" to "12904:d868dfed",
+            "lzip" to "12871:b71cdccd",
             "zstd" to "15165:7a320d71",
             "brotli" to "13470:a86d79d7",
             "ppmd" to "10837:7c4253e0",
