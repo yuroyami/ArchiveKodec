@@ -3,6 +3,10 @@ package io.github.yuroyami.archivekodec.codec.lzma
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.ByteSink
+import io.github.yuroyami.archivekodec.codec.ByteSource
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.readI32Le
@@ -54,6 +58,58 @@ internal object Lzip {
             pos = trailer + TRAILER
         } while (pos < input.size)
         return out.takeByteArray()
+    }
+
+    /**
+     * Decode every member read from [source] to [sink] and return the byte count. Output leaves
+     * through a window of the member's dictionary, which [ArchiveLimits.maxDecoderMemory]
+     * bounds, and the ratio is measured against the compressed bytes read so far.
+     */
+    fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = SourceBuffer(source)
+        val begin = input.streamPosition
+        val crc = Crc32()
+        val out = LzOutput(limits, Int.MAX_VALUE, sink = sink)
+        // While a member decodes, its range decoder holds the read position, not the buffer.
+        var rc: RangeDecoder? = null
+        out.compressedProgress = { (rc?.offset ?: input.streamPosition) - begin }
+        out.onWrite = { b, o, n -> crc.update(b, o, n) }
+        val header = ByteArray(TRAILER)
+        var members = 0
+        while (members == 0 || !input.atEnd()) {
+            val start = input.streamPosition
+            if (!input.ensure(HEADER + 5 + TRAILER) || !isLzip(input.buffer.copyOfRange(input.position, input.position + 5))) {
+                throw ArchiveFormatException("lzip: missing or truncated member header", start)
+            }
+            input.readFully(header, 0, HEADER, "lzip header")
+            val version = header[4].toInt() and 0xFF
+            if (version != 1) throw ArchiveUnsupportedException("lzip: version $version is not supported", start + 4)
+            val dictionary = dictionarySize(header[5].toInt() and 0xFF, start + 5)
+            if (dictionary > limits.maxDecoderMemory) {
+                throw DecompressionBombException("lzip: a $dictionary B dictionary exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+            }
+            out.dropHistory()
+            out.window = dictionary.toInt()
+            crc.reset()
+            val outStart = out.produced
+            val decoder = RangeDecoder(input)
+            rc = decoder
+            if (!decodeLzma(decoder, LzmaModel(PROPERTIES), out, -1, dictionary, markerAllowed = true)) {
+                throw ArchiveFormatException("lzip: the LZMA stream has no end marker", start)
+            }
+            decoder.release()
+            rc = null
+            out.flush()
+            val trailer = input.streamPosition
+            if (!input.ensure(TRAILER)) throw ArchiveFormatException("lzip: truncated member trailer", trailer)
+            input.readFully(header, 0, TRAILER, "lzip trailer")
+            val size = out.produced - outStart
+            if ((readI32Le(header, 0).toLong() and 0xFFFFFFFFL) != crc.value()) throw ArchiveFormatException("lzip: CRC-32 mismatch", trailer)
+            if (readU64(header, 4) != size) throw ArchiveFormatException("lzip: data size $size does not match the trailer's ${readU64(header, 4)}", trailer + 4)
+            if (readU64(header, 12) != trailer + TRAILER - start) throw ArchiveFormatException("lzip: member size does not match the trailer", trailer + 12)
+            members++
+        }
+        return out.produced
     }
 
     fun compress(data: ByteArray): ByteArray {

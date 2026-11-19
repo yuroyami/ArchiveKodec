@@ -49,6 +49,35 @@ internal object LzmaAlone {
         return out.take()
     }
 
+    /**
+     * Decode the stream read from [source] to [sink] and return the byte count. Output leaves
+     * through a window of the dictionary, or of the declared size when that is smaller, which
+     * [ArchiveLimits.maxDecoderMemory] bounds.
+     */
+    fun decompress(source: io.github.yuroyami.archivekodec.codec.ByteSource, sink: io.github.yuroyami.archivekodec.codec.ByteSink, limits: ArchiveLimits): Long {
+        val input = io.github.yuroyami.archivekodec.codec.SourceBuffer(source)
+        val header = ByteArray(13)
+        input.readFully(header, 0, 13, "LZMA header")
+        val properties = LzmaProperties.of(header[0].toInt() and 0xFF, 0)
+        val dictionary = maxOf(4096L, readI32Le(header, 1).toLong() and 0xFFFFFFFFL)
+        val size = readI32Le(header, 5).toLong() and 0xFFFFFFFFL or (readI32Le(header, 9).toLong() shl 32)
+        if (size < -1) throw ArchiveFormatException("LZMA: uncompressed size exceeds Long", 5)
+        if (size >= 0) limits.checkOutputSize(size)
+        val window = if (size >= 0) minOf(dictionary, maxOf(size, 4096L)) else dictionary
+        if (window > limits.maxDecoderMemory) {
+            throw io.github.yuroyami.archivekodec.security.DecompressionBombException(
+                "LZMA: a $window B dictionary exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+        }
+        val out = LzOutput(limits, Int.MAX_VALUE, sink = sink, window = window.toInt())
+        val rc = RangeDecoder(input)
+        out.compressedProgress = { rc.offset }
+        decodeLzma(rc, LzmaModel.checked(properties, limits), out, size, dictionary, markerAllowed = true)
+        rc.release()
+        out.flush()
+        if (!input.atEnd()) throw ArchiveFormatException("LZMA: trailing bytes after stream", input.streamPosition)
+        return out.produced
+    }
+
     fun compress(data: ByteArray): ByteArray {
         val dictionary = writerDictionarySize(data.size)
         val out = ByteArrayBuilder(maxOf(64, data.size / 3))

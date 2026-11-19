@@ -205,7 +205,7 @@ internal class LzOutput(
     fun dropHistory() {
         flush()
         discarded += size
-        dictionaryStart -= size
+        dictionaryStart = 0
         size = 0
         pending = 0
     }
@@ -258,7 +258,7 @@ internal fun decodeLzma(
     val pbMask = (1 shl props.pb) - 1
     val lpMask = (1 shl props.lp) - 1
     var remaining = unpackSize
-    fun fail(message: String): Nothing = throw ArchiveFormatException("LZMA: $message", rc.position.toLong())
+    fun fail(message: String): Nothing = throw ArchiveFormatException("LZMA: $message", rc.offset)
     while (true) {
         if (remaining == 0L) {
             if (!markerAllowed) return false

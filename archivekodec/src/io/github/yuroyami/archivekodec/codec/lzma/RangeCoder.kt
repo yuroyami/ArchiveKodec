@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.codec.lzma
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /** Probabilities are 11-bit, start at one half and adapt by a shift of 5, as LZMA defines. */
@@ -17,7 +18,17 @@ internal fun probabilities(size: Int): ShortArray = ShortArray(size) { PROB_INIT
  * 32-bit values held in Ints. The model drives it through [bit], [bitTree],
  * [reverseBitTree] and [directBits], so LZMA, LZMA2 and PPMd can share it.
  */
-internal class RangeDecoder(private val input: ByteArray, start: Int, private val end: Int) {
+internal class RangeDecoder private constructor(
+    private var input: ByteArray, start: Int, private var end: Int, private val source: SourceBuffer?,
+) {
+    constructor(input: ByteArray, start: Int, end: Int) : this(input, start, end, null)
+
+    /**
+     * A decoder that reads [source] as it needs bytes, from its current position. Call
+     * [release] when the stream ends, to hand the bytes after it back to [source].
+     */
+    constructor(source: SourceBuffer) : this(source.buffer, source.position, source.position, source)
+
     var position = start
         private set
     private var range = -1
@@ -25,10 +36,27 @@ internal class RangeDecoder(private val input: ByteArray, start: Int, private va
 
     init {
         // The first byte is always zero; the next four seed the code.
-        if (end - position < 5) throw ArchiveFormatException("LZMA: truncated range coder header", position.toLong())
-        if (input[position++].toInt() != 0) throw ArchiveFormatException("LZMA: nonzero range coder first byte", position - 1L)
+        if (source != null && source.ensure(5)) { input = source.buffer; position = source.position; end = source.end }
+        if (end - position < 5) throw ArchiveFormatException("LZMA: truncated range coder header", offset)
+        if (input[position++].toInt() != 0) throw ArchiveFormatException("LZMA: nonzero range coder first byte", offset - 1)
         repeat(4) { code = code shl 8 or (input[position++].toInt() and 0xFF) }
-        if (code == range) throw ArchiveFormatException("LZMA: invalid range coder start", position.toLong())
+        if (code == range) throw ArchiveFormatException("LZMA: invalid range coder start", offset)
+    }
+
+    /** Offset of the next byte in the whole input, for error positions. */
+    val offset: Long get() = (source?.base ?: 0L) + position
+
+    /** Give the bytes read ahead and not used back to the source. */
+    fun release() {
+        source?.position = position
+    }
+
+    private fun refill(): Boolean {
+        val s = source ?: return false
+        s.position = position
+        if (!s.ensure(1)) return false
+        input = s.buffer; position = s.position; end = s.end
+        return true
     }
 
     /** True when the stream ended cleanly: no pending code. */
@@ -36,7 +64,7 @@ internal class RangeDecoder(private val input: ByteArray, start: Int, private va
 
     private fun normalize() {
         if (Integer.compareUnsigned(range, TOP) < 0) {
-            if (position >= end) throw ArchiveFormatException("LZMA: truncated compressed data", position.toLong())
+            if (position >= end && !refill()) throw ArchiveFormatException("LZMA: truncated compressed data", offset)
             range = range shl 8
             code = code shl 8 or (input[position++].toInt() and 0xFF)
         }
@@ -66,7 +94,7 @@ internal class RangeDecoder(private val input: ByteArray, start: Int, private va
             code -= range
             val t = -(code ushr 31) // all ones when code went negative
             code += range and t
-            if (code == range) throw ArchiveFormatException("LZMA: corrupted direct bits", position.toLong())
+            if (code == range) throw ArchiveFormatException("LZMA: corrupted direct bits", offset)
             normalize()
             result = result shl 1 or (t + 1)
         }

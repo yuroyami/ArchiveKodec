@@ -254,6 +254,7 @@ internal object LzmaCodec : Codec {
     override val id = CodecId.LZMA
     override fun compress(data: ByteArray): ByteArray = LzmaAlone.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = LzmaAlone.decompress(data, limits)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = io.github.yuroyami.archivekodec.codec.lzma.LzmaAlone.decompress(source, sink, limits)
 }
 
 /** The implementation of [Codecs.LZMA2]. */
@@ -395,6 +396,7 @@ internal object LzipCodec : Codec {
     override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.decompress(data, limits)
     override fun encoder(sink: ByteSink): EncoderSession = ChunkedEncoderSession(2 shl 20, { compress(it) }, sink)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = io.github.yuroyami.archivekodec.codec.lzma.Lzip.decompress(source, sink, limits)
 }
 
 /** The implementation of [Codecs.COMPRESS]. */
