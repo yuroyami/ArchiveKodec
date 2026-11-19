@@ -47,8 +47,8 @@ public object Codecs {
     public val DEFLATE: Codec get() = DeflateCodec
 
     /**
-     * Raw Deflate64 (PKWARE "enhanced deflate", ZIP method 9). Decoding handles the 64 KiB
-     * window and long matches; encoding emits DEFLATE-compatible codes within 32 KiB.
+     * Raw Deflate64 (PKWARE "enhanced deflate", ZIP method 9). Decoding and encoding both use
+     * the 64 KiB window and matches up to 65,538 bytes, so the output is not plain DEFLATE.
      */
     @JvmStatic
     public val DEFLATE64: Codec get() = Deflate64Codec

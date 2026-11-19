@@ -51,6 +51,8 @@
   support nothing else. `ZipEncryption.scheme` names the scheme a `ZipEncryption` writes.
 - `CpioWriter.Dialect.ODC` writes POSIX odc cpio, which GNU cpio lists and extracts.
 - `ArWriter.NameStyle.BSD` writes long ar names inline as BSD and macOS `ar` do.
+- The Deflate64 encoder uses the 64 KiB window, distance codes 30 and 31 and matches up to
+  65,538 bytes, instead of writing plain DEFLATE. 7-Zip decodes its output.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
