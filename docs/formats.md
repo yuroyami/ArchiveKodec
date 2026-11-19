@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | STORE | Yes | Yes |
 | DEFLATE (RFC 1951) | Yes, with an optional preset dictionary | zlib's levels 0 to 9 and strategies, 9 to 15 window bits, preset dictionaries |
-| Deflate64 (ZIP method 9) | Yes (64 KiB window, long matches) | DEFLATE-compatible codes with a 32 KiB window |
+| Deflate64 (ZIP method 9) | Yes (64 KiB window, long matches) | Yes (64 KiB window, long matches) |
 | zlib (RFC 1950) | Yes, with FDICT when you pass the dictionary | Yes, with FDICT |
 | gzip (RFC 1952) | All members, with header and trailer checks | Yes |
 | bzip2 | Any level, concatenated streams, randomized blocks, CRC checks | Level 9 |
