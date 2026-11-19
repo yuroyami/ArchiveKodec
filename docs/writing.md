@@ -106,7 +106,7 @@ defaults are zero and octal `0100644`.
 No symbol index is written, so run `ranlib` when a linker needs one. Thin archives are not
 written. `ArWriter.write(files, ArWriter.NameStyle.BSD)` stores long names as BSD and macOS `ar`
 do, as `#1/length` with the name at the start of the member's data; GNU `ar` and `bsdtar` read
-both styles.
+both styles. For a Debian package, the order and contents of the members are your job.
 
 ## cpio
 
