@@ -73,6 +73,8 @@
   and BCJ2 are still refused.
 - LZ4 decodes legacy frames (`lz4 -l`, the Linux kernel's format), alone or mixed with standard
   and skippable frames, instead of refusing them.
+- `Bzip2Options` sets the bzip2 block size level, 1 to 9, as `bzip2 -1` to `-9` do. bzip2 1.0.8
+  reads every level, and our output is a little smaller than its own at levels 1, 5 and 9.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

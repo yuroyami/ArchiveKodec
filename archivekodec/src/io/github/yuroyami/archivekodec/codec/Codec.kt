@@ -34,7 +34,8 @@ public interface Codec {
     /**
      * Compress [data] with encoder [options]. Built-in DEFLATE, zlib and gzip take
      * [io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions] and LZ4 takes
-     * [io.github.yuroyami.archivekodec.codec.lz4.Lz4Options], LZW takes
+     * [io.github.yuroyami.archivekodec.codec.lz4.Lz4Options], bzip2 takes
+     * [io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options], LZW takes
      * [io.github.yuroyami.archivekodec.codec.lzw.LzwOptions] and PackBits takes
      * [io.github.yuroyami.archivekodec.codec.packbits.PackBitsOptions]. The default rejects all options.
      *

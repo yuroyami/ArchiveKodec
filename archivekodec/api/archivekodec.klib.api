@@ -1661,6 +1661,33 @@ final object io.github.yuroyami.archivekodec.checksum/XxHash32 { // io.github.yu
     final fun hash(kotlin/ByteArray, kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): kotlin/Long // io.github.yuroyami.archivekodec.checksum/XxHash32.hash|hash(kotlin.ByteArray;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options : io.github.yuroyami.archivekodec.codec/CodecOptions { // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options|null[0]
+    final val level // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.level|{}level[0]
+        final fun <get-level>(): kotlin/Int // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.level.<get-level>|<get-level>(){}[0]
+
+    final fun copy(kotlin/Function1<io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.copy|copy(kotlin.Function1<io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options.Builder,kotlin.Unit>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.toString|toString(){}[0]
+
+    final class Builder { // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder|null[0]
+        constructor <init>() // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder.<init>|<init>(){}[0]
+
+        final var level // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder.level|{}level[0]
+            final fun <get-level>(): kotlin/Int // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder.level.<get-level>|<get-level>(){}[0]
+            final fun <set-level>(kotlin/Int) // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder.level.<set-level>|<set-level>(kotlin.Int){}[0]
+
+        final fun build(): io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder.build|build(){}[0]
+    }
+
+    final object Companion { // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Companion|null[0]
+        final val DEFAULT // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+
+        final fun invoke(kotlin/Function1<io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Builder, kotlin/Unit> = ...): io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options // io.github.yuroyami.archivekodec.codec.bzip2/Bzip2Options.Companion.invoke|invoke(kotlin.Function1<io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options.Builder,kotlin.Unit>){}[0]
+    }
+}
+
 final object io.github.yuroyami.archivekodec.codec.deflate/Deflate { // io.github.yuroyami.archivekodec.codec.deflate/Deflate|null[0]
     final fun encode(kotlin/ByteArray): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.deflate/Deflate.encode|encode(kotlin.ByteArray){}[0]
     final fun encode(kotlin/ByteArray, io.github.yuroyami.archivekodec.codec.deflate/DeflateOptions): kotlin/ByteArray // io.github.yuroyami.archivekodec.codec.deflate/Deflate.encode|encode(kotlin.ByteArray;io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions){}[0]

@@ -471,4 +471,21 @@ class Bzip2Test {
         assertContentEquals(text, ArchiveKodec.bzip2.decompress(level1, small))
         assertContentEquals(text, ArchiveKodec.bzip2.decompress(level9))
     }
+
+    @Test
+    fun everyLevelWritesItsBlockSize() {
+        var x = 5
+        fun next(): Int { x = x xor (x shl 13); x = x xor (x ushr 17); x = x xor (x shl 5); return x }
+        val words = listOf("block ", "sort ", "huffman ", "level ")
+        val data = buildString { repeat(70_000) { append(words[(next() ushr 1) % words.size]) } }.encodeToByteArray()
+        val sizes = (1..9).map { level ->
+            val packed = ArchiveKodec.bzip2.compress(data, io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options { this.level = level })
+            assertEquals('0'.code + level, packed[3].toInt(), "level $level header")
+            assertContentEquals(data, ArchiveKodec.bzip2.decompress(packed), "level $level")
+            packed.size
+        }
+        assertEquals(sizes[8], ArchiveKodec.bzip2.compress(data).size)
+        assertFailsWith<IllegalArgumentException> { io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options { level = 0 } }
+        assertFailsWith<IllegalArgumentException> { ArchiveKodec.bzip2.compress(data, io.github.yuroyami.archivekodec.codec.lz4.Lz4Options.DEFAULT) }
+    }
 }

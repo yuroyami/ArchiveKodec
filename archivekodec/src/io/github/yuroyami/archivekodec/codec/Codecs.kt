@@ -54,7 +54,8 @@ public object Codecs {
     public val DEFLATE64: Codec get() = Deflate64Codec
 
     /**
-     * bzip2 at block size level 9. Decoding accepts any level, concatenated streams
+     * bzip2 at block size level 9, or the level of
+     * [io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options]. Decoding accepts any level, concatenated streams
      * and randomised blocks, and verifies the block and stream CRCs.
      */
     @JvmStatic
@@ -224,6 +225,10 @@ internal object Deflate64Codec : Codec {
 internal object Bzip2Codec : Codec {
     override val id = CodecId.BZIP2
     override fun compress(data: ByteArray): ByteArray = Bzip2Encoder.compress(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Bzip2Encoder.compress(
+        data, (options as? io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options
+            ?: throw IllegalArgumentException("$id takes Bzip2Options, not ${options::class.simpleName}")).level,
+    )
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Bzip2Decoder.decompress(data, limits)
 }
 

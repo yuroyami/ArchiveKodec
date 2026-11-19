@@ -9,7 +9,7 @@
 | Deflate64 (ZIP method 9) | Yes (64 KiB window, long matches) | Yes (64 KiB window, long matches) |
 | zlib (RFC 1950) | Yes, with FDICT when you pass the dictionary | Yes, with FDICT |
 | gzip (RFC 1952) | All members, with header and trailer checks | Yes |
-| bzip2 | Any level, concatenated streams, randomized blocks, CRC checks | Level 9 |
+| bzip2 | Any level, concatenated streams, randomized blocks, CRC checks | Levels 1 to 9 (`Bzip2Options`) |
 | LZMA (`.lzma`) | Known size or end marker | Greedy and lazy parser, no end marker |
 | LZMA2 (raw chunks) | Yes | LZMA chunks, stored when incompressible |
 | xz | CRC-32, CRC-64 and SHA-256 checks, delta and branch filters (x86, PowerPC, IA-64, ARM, ARM-Thumb, SPARC, ARM64; RISC-V refused), the index, concatenated streams | One LZMA2 block with CRC-64 |
