@@ -113,13 +113,32 @@ internal fun stateAfterShortRep(state: Int): Int = if (state < 7) 9 else 11
  * limits; [dictionaryStart] marks the last LZMA2 dictionary reset, before which no match
  * may reach.
  */
-internal class LzOutput(private val limits: ArchiveLimits, private val compressedSize: Int) {
+internal class LzOutput(
+    private val limits: ArchiveLimits, private val compressedSize: Int,
+    /**
+     * With a sink, the output slides: bytes older than [window] are written to the sink and
+     * dropped, so memory stays near the window whatever the output's size. [size] and
+     * [dictionaryStart] are then indices into the current buffer and move together.
+     */
+    private val sink: io.github.yuroyami.archivekodec.codec.ByteSink? = null,
+    var window: Int = 0,
+) {
     var bytes = ByteArray(256)
         private set
     var size = 0
         private set
     var dictionaryStart = 0
-    private val maximum: Int = minOf(
+    /** Bytes dropped from the front of [bytes]: the output so far is [discarded] + [size] bytes. */
+    var discarded = 0L
+        private set
+    /** Index in [bytes] of the first byte not yet written to the sink. */
+    private var pending = 0
+    /** Sees every byte on its way to the sink, as an xz block's check must. */
+    var onWrite: ((ByteArray, Int, Int) -> Unit)? = null
+    /** For streamed input, the compressed bytes read so far, for the ratio limit. */
+    var compressedProgress: (() -> Long)? = null
+
+    private val maximum: Int = if (sink != null) Int.MAX_VALUE else minOf(
         Int.MAX_VALUE.toLong(), limits.maxUncompressedBytes,
         if (compressedSize > 0) compressedSize.toLong() * limits.maxCompressionRatio else Long.MAX_VALUE,
     ).toInt()
@@ -129,13 +148,66 @@ internal class LzOutput(private val limits: ArchiveLimits, private val compresse
         limits.checkRatio(compressedSize.toLong(), 0)
     }
 
+    /** All output so far, written or not. */
+    val produced: Long get() = discarded + size
+
     private fun ensure(extra: Int) {
         val needed = size.toLong() + extra
+        if (sink != null) {
+            val total = discarded + needed
+            limits.checkOutputSize(total)
+            limits.checkRatio(compressedProgress?.invoke() ?: compressedSize.toLong(), total)
+            if (needed > bytes.size) slide(extra)
+            return
+        }
         if (needed > maximum) {
             limits.checkOutputSize(needed)
             limits.checkRatio(compressedSize.toLong(), needed)
         }
         if (needed > bytes.size) bytes = bytes.copyOf(byteArrayCapacity(bytes.size, size, extra, maximum))
+    }
+
+    /** Make room for [extra] more bytes: write what is pending, keep the last [window] bytes. */
+    private fun slide(extra: Int) {
+        flush()
+        val keep = minOf(size, window)
+        val drop = size - keep
+        if (drop > 0 && keep + extra <= bytes.size) {
+            bytes.copyInto(bytes, 0, drop, size)
+            size = keep
+            pending = keep
+            dictionaryStart -= drop
+            discarded += drop
+            return
+        }
+        // Grow up to the window plus a chunk; a single huge match can need more for a moment.
+        val wanted = maxOf(keep.toLong() + extra, minOf(window.toLong() + SLIDE_CHUNK, Int.MAX_VALUE - 8L), bytes.size * 2L)
+        val grown = ByteArray(minOf(wanted, Int.MAX_VALUE - 8L).toInt())
+        bytes.copyInto(grown, 0, drop, size)
+        bytes = grown
+        size = keep
+        pending = keep
+        dictionaryStart -= drop
+        discarded += drop
+    }
+
+    /** Write every byte not yet written to the sink. */
+    fun flush() {
+        val target = sink ?: return
+        if (size > pending) {
+            onWrite?.invoke(bytes, pending, size - pending)
+            target.write(bytes, pending, size - pending)
+            pending = size
+        }
+    }
+
+    /** Forget the history, as an xz block boundary does; flush first. */
+    fun dropHistory() {
+        flush()
+        discarded += size
+        dictionaryStart -= size
+        size = 0
+        pending = 0
     }
 
     fun put(value: Int) {
@@ -167,6 +239,10 @@ internal class LzOutput(private val limits: ArchiveLimits, private val compresse
     }
 
     fun take(): ByteArray = if (size == bytes.size) bytes else bytes.copyOf(size)
+
+    private companion object {
+        const val SLIDE_CHUNK = 1 shl 20
+    }
 }
 
 /**

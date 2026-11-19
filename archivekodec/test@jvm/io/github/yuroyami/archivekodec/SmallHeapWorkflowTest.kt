@@ -23,12 +23,20 @@ import kotlin.test.assertTrue
  */
 class SmallHeapWorkflowTest {
     @Test
-    fun aTarGzLargerThanTheHeapIsWrittenAndReadInThirtyTwoMegabytes() {
+    fun aTarGzLargerThanTheHeapIsWrittenAndReadInThirtyTwoMegabytes() = run("gzip", 3, 32L shl 20)
+
+    @Test
+    fun aTarBz2LargerThanTheHeapIsWrittenAndReadInThirtyTwoMegabytes() = run("bzip2", 2, 20L shl 20)
+
+    @Test
+    fun aTarXzLargerThanTheHeapIsWrittenAndReadInThirtyTwoMegabytes() = run("xz", 2, 20L shl 20)
+
+    private fun run(codec: String, entries: Int, entrySize: Long) {
         val dir = kotlin.io.path.createTempDirectory("archivekodec-small-heap").toFile()
         try {
             val java = File(System.getProperty("java.home"), "bin/java").path
             val process = ProcessBuilder(java, "-Xmx32m", "-cp", System.getProperty("java.class.path"),
-                SmallHeapWorkflow::class.java.name, dir.path)
+                SmallHeapWorkflow::class.java.name, dir.path, codec, entries.toString(), entrySize.toString())
                 .redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().readText()
             assertEquals(0, process.waitFor(), output)
@@ -41,8 +49,6 @@ class SmallHeapWorkflowTest {
 
 /** The child process: write the archive to a file, read it back, compare checksums. */
 object SmallHeapWorkflow {
-    private const val ENTRIES = 3
-    private const val ENTRY_SIZE = 32L shl 20
 
     /** Deterministic, partly compressible bytes: words, then noise, in turns. */
     private fun generator(seed: Int, size: Long, crc: Crc32): ByteSource {
@@ -65,10 +71,13 @@ object SmallHeapWorkflow {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        val file = File(args[0], "big.tar.gz")
+        val codec = Codecs.byName(args[1])!!
+        val ENTRIES = args[2].toInt()
+        val ENTRY_SIZE = args[3].toLong()
+        val file = File(args[0], "big.tar.${args[1]}")
         val written = LongArray(ENTRIES)
         FileOutputStream(file).buffered().use { out ->
-            val gzip = Codecs.GZIP.encoder(ByteSink { b, o, n -> out.write(b, o, n) })
+            val gzip = codec.encoder(ByteSink { b, o, n -> out.write(b, o, n) })
             val tar = TarStreamWriter(ByteSink { b, o, n -> gzip.write(b, o, n) })
             for (i in 0 until ENTRIES) {
                 val crc = Crc32()
@@ -94,13 +103,13 @@ object SmallHeapWorkflow {
             }
         })
         FileInputStream(file).buffered().use { input ->
-            Codecs.GZIP.decompress(ByteSource { b, o, n -> input.read(b, o, n) }, sink, ArchiveLimits.UNBOUNDED)
+            codec.decompress(ByteSource { b, o, n -> input.read(b, o, n) }, sink, ArchiveLimits.UNBOUNDED)
         }
         sink.finish()
         read += crc.value(); sizes += size
         check(read == written.toList()) { "CRC-32s differ: wrote ${written.toList()}, read $read" }
         check(sizes.all { it == ENTRY_SIZE }) { "sizes $sizes" }
         val heap = Runtime.getRuntime().maxMemory()
-        println("OK ${ENTRIES * ENTRY_SIZE} bytes through a ${heap shr 20} MiB heap, archive ${file.length()} bytes")
+        println("OK ${args[1]}: ${ENTRIES * ENTRY_SIZE} bytes through a ${heap shr 20} MiB heap, archive ${file.length()} bytes")
     }
 }

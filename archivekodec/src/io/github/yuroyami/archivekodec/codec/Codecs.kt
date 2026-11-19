@@ -268,6 +268,8 @@ internal object XzCodec : Codec {
     override val id = CodecId.XZ
     override fun compress(data: ByteArray): ByteArray = Xz.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Xz.decompress(data, limits)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = Xz.decompress(source, sink, limits)
+    override fun encoder(sink: ByteSink): EncoderSession = Xz.EncoderSession(sink)
 }
 
 /** The implementation of [Codecs.ZSTD]. */

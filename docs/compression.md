@@ -81,7 +81,7 @@ The limits apply before every write, so raise `maxUncompressedBytes` for an outp
 ## Stream both sides
 
 A `ByteSource` is the input side of a `ByteSink`: decoders pull compressed bytes from it as
-they need them. With a source and a sink, DEFLATE, zlib, gzip and bzip2 hold neither the input nor
+they need them. With a source and a sink, DEFLATE, zlib, gzip, bzip2 and xz hold neither the input nor
 the output whole, so both can be larger than memory. The ratio limit counts the compressed
 bytes read so far.
 
@@ -96,7 +96,9 @@ in pieces of any size and `finish` it. DEFLATE, zlib and gzip encode 1 MiB at a 
 piece primed with the 32 KiB before it, so matches still reach back across pieces and the
 output is a little larger than a whole-array encode. `flush` makes everything written so far
 decodable from what the sink has, as zlib's sync flush does. bzip2 writes each full block as
-its own stream, which every bzip2 decoder joins. The other codecs keep the input and compress
+its own stream, which every bzip2 decoder joins, and xz writes blocks of 2 MiB, as `xz -T`
+does. The xz decoder keeps a window of the block's dictionary; a block with a branch filter is
+held whole until its end. The other codecs keep the input and compress
 it at `finish`, until they stream too.
 
 ```kotlin
@@ -108,7 +110,8 @@ gzip.finish()
 `TarStreamWriter` writes a TAR entry by entry from sources, `TarStreamReader` reads one
 forward from a source, and `TarStreamSink` reads one from bytes pushed into it, such as a
 decoder's output, so a `.tar.gz` of any size goes through a fixed amount of memory in either
-direction. A test writes and reads 96 MB through a 32 MiB JVM heap.
+direction. Tests write and read a `.tar.gz`, a `.tar.bz2` and a `.tar.xz` larger than a 32 MiB JVM heap
+through that heap.
 
 ```kotlin
 ArchiveKodec.gzip.decompress(fileSource, TarStreamSink(object : TarStreamVisitor {

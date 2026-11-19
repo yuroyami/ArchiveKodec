@@ -83,8 +83,9 @@ public interface Codec {
      * number of bytes written. [limits] are checked before every write; the ratio is measured
      * against the compressed bytes read so far.
      *
-     * DEFLATE, zlib and gzip read their input as they need it and write about 1 MiB of output
-     * at a time, so neither side has to fit in memory. Other codecs read the whole input first
+     * DEFLATE, zlib, gzip, bzip2 and xz read their input as they need it and write their
+     * output as it is produced, so neither side has to fit in memory: memory stays near a
+     * window, a block or a dictionary. Other codecs read the whole input first
      * and decode it as [decompress] with a sink does, which is also this default.
      *
      * @throws ArchiveException for the failures documented by [decompress], and for failures
@@ -104,7 +105,7 @@ public interface Codec {
 
     /**
      * Open a streaming encoder that writes its compressed output to [sink]; see
-     * [EncoderSession]. DEFLATE, zlib and gzip encode in chunks of 1 MiB as the input
+     * [EncoderSession]. DEFLATE, zlib, gzip, bzip2 and xz encode in pieces as the input
      * arrives, so the input may be larger than memory. Other codecs keep the input and
      * compress it at [EncoderSession.finish], which is also this default.
      */

@@ -128,6 +128,59 @@ internal object Lzma2 {
         }
     }
 
+    /**
+     * Decode one LZMA2 stream read from [input] into [out], ending at its 0x00 control byte, and
+     * return the compressed bytes it took. Each chunk, at most 64 KiB packed, is read whole.
+     */
+    fun decode(input: io.github.yuroyami.archivekodec.codec.SourceBuffer, out: LzOutput, dictionarySize: Long): Long {
+        val start = input.streamPosition
+        var model: LzmaModel? = null
+        var needDictionaryReset = true
+        var needProperties = true
+        val chunk = ByteArray(MAX_PACKED)
+        val header = ByteArray(5)
+        fun fail(message: String, at: Long = input.streamPosition): Nothing = throw ArchiveFormatException("LZMA2: $message", at)
+        while (true) {
+            val chunkStart = input.streamPosition
+            val control = input.read()
+            if (control < 0) fail("truncated stream: no end marker")
+            if (control == 0) return input.streamPosition - start
+            if (control >= 0xE0 || control == 1) {
+                needProperties = true
+                needDictionaryReset = false
+                out.dictionaryStart = out.size
+            } else if (needDictionaryReset) {
+                fail("first chunk does not reset the dictionary", chunkStart)
+            }
+            if (control < 0x80) {
+                if (control > 2) fail("invalid control byte $control", chunkStart)
+                input.readFully(header, 0, 2, "LZMA2 chunk header")
+                val size = ((header[0].toInt() and 0xFF) shl 8 or (header[1].toInt() and 0xFF)) + 1
+                input.readFully(chunk, 0, size, "LZMA2 uncompressed chunk")
+                out.put(chunk, 0, size)
+                continue
+            }
+            val headerSize = if (control >= 0xC0) 5 else 4
+            input.readFully(header, 0, headerSize, "LZMA2 chunk header")
+            val unpacked = ((control and 0x1F) shl 16) + ((header[0].toInt() and 0xFF) shl 8 or (header[1].toInt() and 0xFF)) + 1
+            val packed = ((header[2].toInt() and 0xFF) shl 8 or (header[3].toInt() and 0xFF)) + 1
+            if (control >= 0xC0) {
+                val properties = LzmaProperties.of(header[4].toInt() and 0xFF, chunkStart + 5)
+                if (properties.lc + properties.lp > 4) fail("lc + lp exceeds 4")
+                needProperties = false
+                model = model?.also { it.reset(properties) } ?: LzmaModel(properties)
+            } else if (needProperties) {
+                fail("LZMA chunk before any properties", chunkStart)
+            } else if (control >= 0xA0) {
+                model!!.reset()
+            }
+            input.readFully(chunk, 0, packed, "LZMA chunk")
+            val rc = RangeDecoder(chunk, 0, packed)
+            decodeLzma(rc, model!!, out, unpacked.toLong(), dictionarySize, markerAllowed = false)
+            if (rc.position != packed || !rc.isFinishedOk) fail("chunk does not end at its declared size", chunkStart)
+        }
+    }
+
     fun decompress(input: ByteArray, limits: ArchiveLimits): ByteArray {
         val out = LzOutput(limits, input.size)
         val end = decode(input, 0, input.size, out, 0xFFFFFFFFL)
