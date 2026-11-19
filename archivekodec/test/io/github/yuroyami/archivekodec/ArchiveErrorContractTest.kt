@@ -33,9 +33,8 @@ class ArchiveErrorContractTest {
     @Test
     fun unsupportedFormatsHaveASeparateTypedCategory() {
         assertFailsWith<ArchiveUnsupportedException> {
-            ArchiveKodec.open(ByteArrayRandomAccessSource(byteArrayOf(
-                0x42, 0x5a, 0x68, 0x39, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90.toByte(), 0, 0, 0, 0,
-            )))
+            // A zlib stream is recognized, but open removes no zlib layer and no reader opens it.
+            ArchiveKodec.open(ByteArrayRandomAccessSource(io.github.yuroyami.archivekodec.codec.Codecs.ZLIB.compress(ByteArray(14))))
         }
     }
 

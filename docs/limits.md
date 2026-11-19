@@ -105,8 +105,8 @@ ArchiveKodec.open(source, limits).use { reader ->
 - Structural checks are always on. A ZIP member that overlaps the next one or the directory
   fails, even under `ArchiveLimits.UNBOUNDED`.
 - No API opens an archive inside another archive, so there is no nesting limit. The one
-  exception is the gzip layer that `ArchiveKodec.open` removes, and the same policy applies
-  to it.
+  exception is the one compression layer that `ArchiveKodec.open` removes, and the same
+  policy applies to it.
 - A result must fit one `ByteArray`. An entry larger than that can be listed, but a read into
   a `ByteArray` fails with an `ArchiveException`. ZIP members that are stored, DEFLATE or
   Deflate64 can be read into a sink instead, as [Reading archives](reading.md#read-into-a-sink)

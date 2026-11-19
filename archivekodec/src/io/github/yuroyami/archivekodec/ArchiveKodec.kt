@@ -21,7 +21,7 @@ import kotlin.jvm.JvmOverloads
 /**
  * Top-level entry point for the library. Use it to detect an archive format, get a
  * codec by id, name or format, decode a recognized compressed stream, or open
- * bytes/a seekable source as a container reader, including one gzip wrapper.
+ * bytes/a seekable source as a container reader, removing one compression layer first.
  *
  * Pure common code, `kotlin-stdlib` only. The separate `archivekodec-io` artifact adds
  * `FileRandomAccessSource`, which reads an archive from disk on demand, `extract`, and
@@ -187,7 +187,7 @@ public object ArchiveKodec {
     }
 
     /**
-     * Open archive [bytes], unwrapping at most one gzip layer with [ArchiveLimits.DEFAULT].
+     * Open archive [bytes], removing at most one compression layer with [ArchiveLimits.DEFAULT].
      * Plain archive bytes are borrowed without copying; keep them unchanged until
      * the returned reader closes. Gzip decoding takes an independent snapshot.
      * @throws ArchiveException for the detection, gzip, unsupported-format and limit failures documented by [open].
@@ -221,7 +221,7 @@ public object ArchiveKodec {
      * and each entry read enforce the same policy separately, without a cumulative
      * budget. Plain bytes are borrowed until close; gzip output is a snapshot.
      * @throws ArchiveFormatException if the archive is unrecognized or gzip framing/integrity is invalid.
-     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader, including another gzip layer.
+     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader, including a second compression layer.
      * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if gzip decoding exceeds [limits].
      * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
@@ -233,8 +233,9 @@ public object ArchiveKodec {
 
     /**
      * Open a container reader for a seekable [source], dispatching on the sniffed
-     * format. Gzip is decoded fully before opening its contained archive; only one
-     * gzip layer is unwrapped. Other stream wrappers are not opened automatically.
+     * format. One compression layer (gzip, bzip2, xz, zstd, an LZ4 frame or framed Snappy) is
+     * decoded fully before its contained archive is opened; a second layer, zlib, raw
+     * DEFLATE, LZMA and brotli are not removed.
      * An unknown header falls back to a bounded ZIP footer search, allowing
      * prepended launchers. Known header formats retain priority over that footer.
      * Ownership transfers to the returned reader. If detection or opening
@@ -381,21 +382,31 @@ public object ArchiveKodec {
     ): ArchiveReader {
         val source = ByteArrayRandomAccessSource(bytes)
         val spec = select(source, formats, format)
-        if (spec.builtin && spec.id == ArchiveFormat.GZIP) {
-            val content = Gzip.decompress(bytes, options.limits)
+        if (spec.builtin && spec.id in WRAPPERS) {
+            val content = unwrap(spec.id, bytes, options)
             return openSource(ByteArrayRandomAccessSource(content), formats, null, options, false)
         }
         return spec.open(source, options)
     }
+
+    /** Compression layers that [open] removes, one at most, before it opens the archive inside. */
+    private val WRAPPERS = setOf(
+        ArchiveFormat.GZIP, ArchiveFormat.BZIP2, ArchiveFormat.XZ, ArchiveFormat.ZSTD, ArchiveFormat.LZ4, ArchiveFormat.SNAPPY,
+    )
+
+    /** Decode one compression layer whole under the open options' limits. */
+    private fun unwrap(id: ArchiveFormat, bytes: ByteArray, options: ArchiveOpenOptions): ByteArray =
+        if (id == ArchiveFormat.GZIP) Gzip.decompress(bytes, options.limits)
+        else (Codecs.byFormat(id) ?: throw ArchiveUnsupportedException("no decoder for ${id.id}", offset = 0)).decompress(bytes, options.limits)
 
     private fun openSource(
         source: RandomAccessSource, formats: FormatRegistry, format: String?,
         options: ArchiveOpenOptions, unwrapGzip: Boolean,
     ): ArchiveReader {
         val spec = select(source, formats, format)
-        if (spec.builtin && spec.id == ArchiveFormat.GZIP) {
-            if (!unwrapGzip) throw ArchiveUnsupportedException("no container reader for nested GZIP", offset = 0)
-            val content = Gzip.decompress(source.readFullyChecked(0, source.size), options.limits)
+        if (spec.builtin && spec.id in WRAPPERS) {
+            if (!unwrapGzip) throw ArchiveUnsupportedException("no container reader for nested ${spec.id.id.uppercase()}", offset = 0)
+            val content = unwrap(spec.id, source.readFullyChecked(0, source.size), options)
             return openSource(GzipContainerSource(content, source), formats, null, options, false)
         }
         return spec.open(source, options)

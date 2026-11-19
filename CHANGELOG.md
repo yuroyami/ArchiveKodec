@@ -55,6 +55,9 @@
   65,538 bytes, instead of writing plain DEFLATE. 7-Zip decodes its output.
 - The pure encoders are deterministic across platforms: `GoldenEncoderTest` pins the size and
   CRC-32 of every codec's output, and of DEFLATE at every level and strategy, on every target.
+- `ArchiveKodec.open` removes one layer of bzip2, xz, zstd, LZ4 or framed Snappy as well as
+  gzip, so `.tar.xz` and `.tar.zst` open in one call. The layer is still decoded whole; bounded
+  memory comes with streaming.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

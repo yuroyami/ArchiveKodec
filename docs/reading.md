@@ -32,7 +32,8 @@ reader closes. The `RandomAccessSource` overloads read on demand. The core ships
 `ByteArrayRandomAccessSource`, and `archivekodec-io` adds a file source, as
 [Files and extraction](files.md) shows.
 
-A gzip layer is removed first, so a `.tar.gz` or a `.zip.gz` opens in one call:
+One compression layer is removed first, so a `.tar.gz`, `.tar.xz`, `.tar.zst` or `.zip.gz`
+opens in one call:
 
 ```kotlin
 ArchiveKodec.open(tarGzipBytes, limits).use { reader ->
@@ -40,9 +41,10 @@ ArchiveKodec.open(tarGzipBytes, limits).use { reader ->
 }
 ```
 
-`open` decodes one gzip layer into its own buffer and then opens the archive inside it. The
-policy applies separately to that decode, to the listing and to each read. Other wrappers,
-such as xz or zstd, need an explicit `decompress` before `open`.
+`open` decodes one layer of gzip, bzip2, xz, zstd, LZ4 frames or framed Snappy into its own
+buffer and then opens the archive inside it. The policy applies separately to that decode, to
+the listing and to each read. A second layer, zlib, raw DEFLATE, LZMA and brotli need an
+explicit `decompress` before `open`.
 
 When the first bytes match no format, `open` searches the last 65,557 bytes for a ZIP end
 record. This opens zipapps and other ZIP files with a prefix. An input that matches nothing

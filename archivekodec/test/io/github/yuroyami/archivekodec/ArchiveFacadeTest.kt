@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
@@ -96,8 +97,9 @@ class ArchiveFacadeTest {
             ArchiveFormat.ZIP to foreign.zip64, ArchiveFormat.TAR to foreign.v7,
             ArchiveFormat.AR to foreign.ar, ArchiveFormat.CPIO to foreign.newc,
         )
-        val unsupported = listOf(
-            ArchiveFormat.ZLIB to hex("789c"),
+        val unsupported = listOf(ArchiveFormat.ZLIB to hex("789c"))
+        // Compression layers that open removes: these headers alone are damaged streams.
+        val wrappers = listOf(
             ArchiveFormat.BZIP2 to hex("425a6839177245385090"), ArchiveFormat.XZ to hex("fd377a585a00"),
             ArchiveFormat.ZSTD to hex("28b52ffd"), ArchiveFormat.LZ4 to hex("04224d18"),
         )
@@ -114,7 +116,10 @@ class ArchiveFacadeTest {
             assertEquals(ArchiveFormat.SEVEN_ZIP, reader.format)
             assertFailsWith<ArchiveFormatException> { reader.entries() }
         }
-        for ((format, bytes) in supported + unsupported + (ArchiveFormat.GZIP to hex("1f8b0800"))) {
+        for ((format, bytes) in wrappers) {
+            assertFailsWith<ArchiveFormatException>("$format") { ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)) }
+        }
+        for ((format, bytes) in supported + unsupported + wrappers + (ArchiveFormat.GZIP to hex("1f8b0800"))) {
             assertEquals(format, ArchiveKodec.sniff(bytes))
             assertEquals(format, ArchiveKodec.sniff(ByteArrayRandomAccessSource(bytes)))
         }
@@ -184,4 +189,28 @@ class ArchiveFacadeTest {
         assertSame(Codecs.SNAPPY_FRAMED, ArchiveKodec.snappyFramed)
     }
 
+
+    @Test
+    fun openRemovesOneCompressionLayerOfAnyDetectedKind() {
+        val tar = io.github.yuroyami.archivekodec.archive.tar.TarWriter.write(listOf(
+            io.github.yuroyami.archivekodec.archive.tar.TarWriter.FileSpec("inside.txt", "wrapped".encodeToByteArray()),
+        ))
+        for (codec in listOf(Codecs.GZIP, Codecs.BZIP2, Codecs.XZ, Codecs.ZSTD, Codecs.LZ4, Codecs.SNAPPY_FRAMED)) {
+            val wrapped = codec.compress(tar)
+            for (open in listOf({ ArchiveKodec.open(wrapped) }, { ArchiveKodec.open(ByteArrayRandomAccessSource(wrapped)) })) {
+                open().use { reader ->
+                    assertEquals(ArchiveFormat.TAR, reader.format, "${codec.id}")
+                    val entry = reader.entries().single()
+                    assertContentEquals("wrapped".encodeToByteArray(), reader.read(entry), "${codec.id}")
+                }
+            }
+            // Only one layer is removed.
+            assertFailsWith<ArchiveUnsupportedException>("${codec.id}") { ArchiveKodec.open(Codecs.GZIP.compress(wrapped)) }
+        }
+        // The limits apply to the layer as they do to gzip.
+        val zeros = Codecs.XZ.compress(ByteArray(1_000_000))
+        assertFailsWith<io.github.yuroyami.archivekodec.security.DecompressionBombException> {
+            ArchiveKodec.open(zeros, io.github.yuroyami.archivekodec.security.ArchiveLimits { maxUncompressedBytes = 1000 })
+        }
+    }
 }

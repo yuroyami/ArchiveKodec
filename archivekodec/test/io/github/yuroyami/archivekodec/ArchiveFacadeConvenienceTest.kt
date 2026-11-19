@@ -231,7 +231,7 @@ class ArchiveFacadeConvenienceTest {
     @Test
     fun nestedGzipAndOtherWrappersDoNotOpenRecursively() {
         for ((bytes, format) in listOf(Gzip.compress(Gzip.compress(zip())) to ArchiveFormat.GZIP,
-            Codecs.ZLIB.compress(zip()) to ArchiveFormat.ZLIB, Codecs.LZ4.compress(zip()) to ArchiveFormat.LZ4)) {
+            Codecs.ZLIB.compress(zip()) to ArchiveFormat.ZLIB, Codecs.LZ4.compress(Gzip.compress(zip())) to ArchiveFormat.GZIP)) {
             for (sourceCall in listOf(false, true)) {
                 val error = assertFailsWith<ArchiveUnsupportedException> {
                     if (sourceCall) ArchiveKodec.open(TrackingSource(bytes)) else ArchiveKodec.open(bytes)
