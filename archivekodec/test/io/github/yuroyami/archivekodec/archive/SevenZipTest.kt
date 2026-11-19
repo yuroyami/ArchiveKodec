@@ -291,6 +291,8 @@ class SevenZipTest {
             assertEquals("bbb", reader.read(b).decodeToString())
             assertEquals("aaa", reader.read(a).decodeToString())
             assertEquals(1, reader.folderDecodes)
+            // The cached folder still answers to this call's ratio limit.
+            assertFailsWith<DecompressionBombException> { reader.read(b, ArchiveLimits { maxCompressionRatio = 0 }) }
         }
         assertEquals(ArchiveFormat.SEVEN_ZIP, ArchiveKodec.sniff(solid))
     }

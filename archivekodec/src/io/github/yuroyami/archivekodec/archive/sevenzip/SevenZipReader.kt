@@ -147,6 +147,8 @@ public class SevenZipReader(
             val streams = directory.streams!!
             val folder = streams.folders[location.folder]
             limits.checkOutputSize(folder.size)
+            // A cached folder skips its decode, not this call's ratio limit.
+            limits.checkRatio(folder.packedStreams.indices.sumOf { streams.packSizes[folder.firstPackStream + it] }, folder.size)
             val bytes = if (cachedFolder == location.folder) cachedBytes!! else {
                 folderDecodes++
                 decodeFolder(streams, location.folder, limits, listed.name).also { cachedFolder = location.folder; cachedBytes = it }
