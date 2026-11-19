@@ -219,7 +219,7 @@ public class SevenZipReader(
             password
         } else null
         try {
-            val out = decodeOutput(streams, folder, folder.mainOutput, limits, 0, password)
+            val out = decodeOutput(streams, folder, folder.mainOutput, limits, 0, password, packedTotal)
             folder.crc?.let { if (Crc32.of(out) != it) throw ArchiveFormatException("7z: folder CRC-32 mismatch") }
             return out
         } catch (error: ArchiveException) {
@@ -231,7 +231,9 @@ public class SevenZipReader(
         }
     }
 
-    private fun decodeOutput(streams: Streams, folder: Folder, output: Int, limits: ArchiveLimits, depth: Int, password: CharArray?): ByteArray {
+    private fun decodeOutput(
+        streams: Streams, folder: Folder, output: Int, limits: ArchiveLimits, depth: Int, password: CharArray?, packedTotal: Long,
+    ): ByteArray {
         if (depth > folder.coders.size) throw ArchiveFormatException("7z: coder bindings form a cycle")
         var outputBase = 0
         var inputBase = 0
@@ -246,19 +248,34 @@ public class SevenZipReader(
         val input = inputBase
         val bound = folder.bindPairs.firstOrNull { it[0] == input }
         val data = if (bound != null) {
-            decodeOutput(streams, folder, bound[1], limits, depth + 1, password)
+            decodeOutput(streams, folder, bound[1], limits, depth + 1, password, packedTotal)
         } else {
             val packed = folder.packedStreams.indexOf(input)
             if (packed < 0) throw ArchiveFormatException("7z: coder input is neither bound nor packed")
             val stream = folder.firstPackStream + packed
             source.readFullyChecked(streams.packOffset(stream), streams.packSizes[stream])
         }
-        return runCoder(coder, data, folder.unpackSizes[output], limits, password)
+        return runCoder(coder, data, folder.unpackSizes[output], limits, password, packedTotal)
     }
 
-    private fun runCoder(coder: Coder, input: ByteArray, size: Long, limits: ArchiveLimits, password: CharArray?): ByteArray {
+    /**
+     * Run one coder of a folder. Every coder's declared [size] is measured against the
+     * folder's [packedTotal], not against its own input, which may be another coder's large
+     * output; and a decoder that does not stop at [size] by itself is capped there, so a chain
+     * of coders cannot expand past the limits before the size check at the end.
+     */
+    private fun runCoder(coder: Coder, input: ByteArray, size: Long, limits: ArchiveLimits, password: CharArray?, packedTotal: Long): ByteArray {
         limits.checkOutputSize(size)
-        val out = when (coder.method) {
+        limits.checkRatio(packedTotal, size)
+        // A coder that runs past its declared size fails with a DecompressionBombException naming that size.
+        val capped = if (size < limits.maxUncompressedBytes) limits.copy { maxUncompressedBytes = size } else limits
+        val out = decodeCoder(coder, input, size, limits, capped, password)
+        if (out.size.toLong() != size) throw ArchiveFormatException("7z: coder produced ${out.size} bytes, expected $size")
+        return out
+    }
+
+    private fun decodeCoder(coder: Coder, input: ByteArray, size: Long, limits: ArchiveLimits, capped: ArchiveLimits, password: CharArray?): ByteArray =
+        when (coder.method) {
             COPY -> input
             AES -> {
                 val plain = SevenZipAes.decrypt(crypto, password!!, coder.properties, input, keys)
@@ -270,19 +287,19 @@ public class SevenZipReader(
                 if (coder.properties.size < 5) throw ArchiveFormatException("7z: LZMA properties are too short")
                 val properties = LzmaProperties.of(coder.properties[0].toInt() and 0xFF, 0)
                 val dictionary = maxOf(4096L, readI32Le(coder.properties, 1).toLong() and 0xFFFFFFFFL)
-                val output = LzOutput(limits, input.size)
+                val output = LzOutput(capped, input.size)
                 decodeLzma(RangeDecoder(input, 0, input.size), LzmaModel(properties), output, size, dictionary, markerAllowed = true)
                 output.take()
             }
             LZMA2 -> {
                 if (coder.properties.isEmpty() || coder.properties[0] > 40) throw ArchiveFormatException("7z: invalid LZMA2 properties")
-                val output = LzOutput(limits, input.size)
+                val output = LzOutput(capped, input.size)
                 Lzma2.decode(input, 0, input.size, output, lzma2DictionarySize(coder.properties[0].toInt()))
                 output.take()
             }
             DEFLATE -> Inflate.inflateExact(input, limits, size)
             DEFLATE64 -> Inflate.inflateExact(input, limits, size, deflate64 = true)
-            BZIP2 -> Bzip2Decoder.decompress(input, limits)
+            BZIP2 -> Bzip2Decoder.decompress(input, capped)
             PPMD -> Ppmd7z.decompress(input, coder.properties, size, limits)
             BCJ_X86 -> input.copyOf().also { Bcj.x86Decode(it) }
             DELTA -> {
@@ -293,9 +310,6 @@ public class SevenZipReader(
             }
             else -> throw unsupported(coder.method)
         }
-        if (out.size.toLong() != size) throw ArchiveFormatException("7z: coder produced ${out.size} bytes, expected $size")
-        return out
-    }
 
     private fun unsupported(method: String): ArchiveUnsupportedException {
         val name = when (method) {
