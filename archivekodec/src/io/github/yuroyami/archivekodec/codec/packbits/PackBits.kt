@@ -69,20 +69,21 @@ public object PackBits {
         if (expected > Int.MAX_VALUE - 8L) throw DecompressionBombException("packbits: expected size $expected exceeds the ByteArray maximum")
         val endsAt128 = options.variant == PackBitsVariant.PDF_RUN_LENGTH
 
-        var out = ByteArray(if (expected >= 0) expected.toInt() else minOf(maxOf(length * 2, 64), 1 shl 20))
         val cap = if (expected >= 0) expected.toInt() else Int.MAX_VALUE
+        // The expected size is only a claim: grow toward it under the limits instead of reserving it.
+        var out = ByteArray(minOf(maxOf(length * 2, 64), 1 shl 20, cap))
         var size = 0
         var i = offset
         val end = offset + length
         var error: ArchiveFormatException? = null
 
         fun ensure(extra: Int) {
-            val needed = size.toLong() + extra
-            if (needed <= out.size || cap != Int.MAX_VALUE) return
+            val needed = minOf(size.toLong() + extra, cap.toLong())
+            if (needed <= out.size) return
             limits.checkOutputSize(needed)
             limits.checkRatio(length.toLong(), needed)
             if (needed > Int.MAX_VALUE - 8L) throw DecompressionBombException("packbits: output exceeds the ByteArray maximum")
-            out = out.copyOf(minOf(maxOf(out.size.toLong() * 2, needed), Int.MAX_VALUE - 8L).toInt())
+            out = out.copyOf(minOf(maxOf(out.size.toLong() * 2, needed), Int.MAX_VALUE - 8L, cap.toLong()).toInt())
         }
 
         while (size < cap && i < end) {
