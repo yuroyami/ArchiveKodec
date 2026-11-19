@@ -712,6 +712,46 @@ public final class io/github/yuroyami/archivekodec/archive/tar/TarReader : io/gi
 public final class io/github/yuroyami/archivekodec/archive/tar/TarReader$Companion {
 }
 
+public final class io/github/yuroyami/archivekodec/archive/tar/TarStreamReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public synthetic fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun data ()Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public final fun getCurrent ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun next ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun read (Lio/github/yuroyami/archivekodec/codec/ByteSink;)J
+	public final fun read (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
+	public static synthetic fun read$default (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamReader;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)J
+}
+
+public final class io/github/yuroyami/archivekodec/archive/tar/TarStreamSink : io/github/yuroyami/archivekodec/codec/ByteSink {
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamVisitor;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamVisitor;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamVisitor;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public synthetic fun <init> (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamVisitor;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun finish ()V
+	public fun write ([BII)V
+}
+
+public abstract interface class io/github/yuroyami/archivekodec/archive/tar/TarStreamVisitor {
+	public abstract fun onData (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;[BII)V
+	public abstract fun onEntry (Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;)V
+}
+
+public final class io/github/yuroyami/archivekodec/archive/tar/TarStreamWriter {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSink;)V
+	public final fun finish ()V
+	public final fun putDirectory (Ljava/lang/String;)V
+	public final fun putDirectory (Ljava/lang/String;I)V
+	public final fun putDirectory (Ljava/lang/String;IJ)V
+	public static synthetic fun putDirectory$default (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamWriter;Ljava/lang/String;IJILjava/lang/Object;)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;I)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJ)V
+	public static synthetic fun putFile$default (Lio/github/yuroyami/archivekodec/archive/tar/TarStreamWriter;Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJILjava/lang/Object;)V
+}
+
 public final class io/github/yuroyami/archivekodec/archive/tar/TarWriter {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/tar/TarWriter;
 	public static final fun write (Ljava/util/List;)[B

@@ -75,6 +75,12 @@
   and skippable frames, instead of refusing them.
 - `Bzip2Options` sets the bzip2 block size level, 1 to 9, as `bzip2 -1` to `-9` do. bzip2 1.0.8
   reads every level, and our output is a little smaller than its own at levels 1, 5 and 9.
+- Streaming on both sides. `ByteSource` is the input side of `ByteSink`; `Codec.decompress(source,
+  sink, limits)` and `Codec.encoder(sink)` (an `EncoderSession` with `write`, `flush` and
+  `finish`) stream DEFLATE, zlib and gzip in fixed memory, and fall back to buffering for the
+  other codecs. `TarStreamWriter`, `TarStreamReader` and `TarStreamSink` write and read TAR
+  entry by entry, so a `.tar.gz` larger than memory is written and read in a 32 MiB heap, as
+  a test checks.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

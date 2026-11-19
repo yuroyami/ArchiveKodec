@@ -78,6 +78,44 @@ The limits apply before every write, so raise `maxUncompressedBytes` for an outp
 2 GiB default. `archivekodec-io` adds the same call for kotlinx-io sources and sinks, as
 [Files and extraction](files.md#kotlinx-io-adapters) shows.
 
+## Stream both sides
+
+A `ByteSource` is the input side of a `ByteSink`: decoders pull compressed bytes from it as
+they need them. With a source and a sink, DEFLATE, zlib and gzip hold neither the input nor
+the output whole, so both can be larger than memory. The ratio limit counts the compressed
+bytes read so far.
+
+```kotlin
+val input = FileInputStream(path)
+ArchiveKodec.gzip.decompress(ByteSource { b, offset, length -> input.read(b, offset, length) },
+    ByteSink { b, offset, length -> out.write(b, offset, length) }, limits)
+```
+
+To compress a stream, open an `EncoderSession` with `codec.encoder(sink)`, `write` the input
+in pieces of any size and `finish` it. DEFLATE, zlib and gzip encode 1 MiB at a time, each
+piece primed with the 32 KiB before it, so matches still reach back across pieces and the
+output is a little larger than a whole-array encode. `flush` makes everything written so far
+decodable from what the sink has, as zlib's sync flush does. The other codecs keep the input
+and compress it at `finish`, until they stream too.
+
+```kotlin
+val gzip = ArchiveKodec.gzip.encoder(ByteSink { b, offset, length -> out.write(b, offset, length) })
+for (chunk in chunks) gzip.write(chunk)
+gzip.finish()
+```
+
+`TarStreamWriter` writes a TAR entry by entry from sources, `TarStreamReader` reads one
+forward from a source, and `TarStreamSink` reads one from bytes pushed into it, such as a
+decoder's output, so a `.tar.gz` of any size goes through a fixed amount of memory in either
+direction. A test writes and reads 96 MB through a 32 MiB JVM heap.
+
+```kotlin
+ArchiveKodec.gzip.decompress(fileSource, TarStreamSink(object : TarStreamVisitor {
+    override fun onEntry(entry: ArchiveEntry) { /* open the output for entry */ }
+    override fun onData(entry: ArchiveEntry, bytes: ByteArray, offset: Int, length: Int) { /* write */ }
+}), limits)
+```
+
 ## Limits on a decode
 
 Every `decompress` takes an `ArchiveLimits`, which defaults to `ArchiveLimits.DEFAULT`. The

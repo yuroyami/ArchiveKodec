@@ -183,6 +183,11 @@ abstract fun interface io.github.yuroyami.archivekodec.crypto/ArchivePasswordPro
     }
 }
 
+abstract interface io.github.yuroyami.archivekodec.archive.tar/TarStreamVisitor { // io.github.yuroyami.archivekodec.archive.tar/TarStreamVisitor|null[0]
+    abstract fun onData(io.github.yuroyami.archivekodec.archive/ArchiveEntry, kotlin/ByteArray, kotlin/Int, kotlin/Int) // io.github.yuroyami.archivekodec.archive.tar/TarStreamVisitor.onData|onData(io.github.yuroyami.archivekodec.archive.ArchiveEntry;kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+    abstract fun onEntry(io.github.yuroyami.archivekodec.archive/ArchiveEntry) // io.github.yuroyami.archivekodec.archive.tar/TarStreamVisitor.onEntry|onEntry(io.github.yuroyami.archivekodec.archive.ArchiveEntry){}[0]
+}
+
 abstract interface io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive/ArchiveReader|null[0]
     abstract val format // io.github.yuroyami.archivekodec.archive/ArchiveReader.format|{}format[0]
         abstract fun <get-format>(): io.github.yuroyami.archivekodec.archive/ArchiveFormat // io.github.yuroyami.archivekodec.archive/ArchiveReader.format.<get-format>|<get-format>(){}[0]
@@ -1544,6 +1549,32 @@ final object io.github.yuroyami.archivekodec.archive.cpio/CpioWriter { // io.git
             final fun invoke(kotlin/String, kotlin/ByteArray, kotlin/Function1<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Builder, kotlin/Unit>): io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec.Companion.invoke|invoke(kotlin.String;kotlin.ByteArray;kotlin.Function1<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec.Builder,kotlin.Unit>){}[0]
         }
     }
+}
+
+final class io.github.yuroyami.archivekodec.archive.tar/TarStreamReader { // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSource, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder = ...) // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSource;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+
+    final var current // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader.current|{}current[0]
+        final fun <get-current>(): io.github.yuroyami.archivekodec.archive/ArchiveEntry? // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader.current.<get-current>|<get-current>(){}[0]
+
+    final fun data(): io.github.yuroyami.archivekodec.codec/ByteSource // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader.data|data(){}[0]
+    final fun next(): io.github.yuroyami.archivekodec.archive/ArchiveEntry? // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader.next|next(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/Long // io.github.yuroyami.archivekodec.archive.tar/TarStreamReader.read|read(io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.archive.tar/TarStreamSink : io.github.yuroyami.archivekodec.codec/ByteSink { // io.github.yuroyami.archivekodec.archive.tar/TarStreamSink|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.archive.tar/TarStreamVisitor, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder = ...) // io.github.yuroyami.archivekodec.archive.tar/TarStreamSink.<init>|<init>(io.github.yuroyami.archivekodec.archive.tar.TarStreamVisitor;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+
+    final fun finish() // io.github.yuroyami.archivekodec.archive.tar/TarStreamSink.finish|finish(){}[0]
+    final fun write(kotlin/ByteArray, kotlin/Int, kotlin/Int) // io.github.yuroyami.archivekodec.archive.tar/TarStreamSink.write|write(kotlin.ByteArray;kotlin.Int;kotlin.Int){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.archive.tar/TarStreamWriter { // io.github.yuroyami.archivekodec.archive.tar/TarStreamWriter|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSink) // io.github.yuroyami.archivekodec.archive.tar/TarStreamWriter.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSink){}[0]
+
+    final fun finish() // io.github.yuroyami.archivekodec.archive.tar/TarStreamWriter.finish|finish(){}[0]
+    final fun putDirectory(kotlin/String, kotlin/Int = ..., kotlin/Long = ...) // io.github.yuroyami.archivekodec.archive.tar/TarStreamWriter.putDirectory|putDirectory(kotlin.String;kotlin.Int;kotlin.Long){}[0]
+    final fun putFile(kotlin/String, kotlin/Long, io.github.yuroyami.archivekodec.codec/ByteSource, kotlin/Int = ..., kotlin/Long = ...) // io.github.yuroyami.archivekodec.archive.tar/TarStreamWriter.putFile|putFile(kotlin.String;kotlin.Long;io.github.yuroyami.archivekodec.codec.ByteSource;kotlin.Int;kotlin.Long){}[0]
 }
 
 final object io.github.yuroyami.archivekodec.archive.tar/TarWriter { // io.github.yuroyami.archivekodec.archive.tar/TarWriter|null[0]

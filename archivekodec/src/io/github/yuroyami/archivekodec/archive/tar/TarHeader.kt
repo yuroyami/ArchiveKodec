@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.archive.tar
 
+import io.github.yuroyami.archivekodec.ArchiveFormatException
+
 /** Checks for a complete TAR header record. */
 internal object TarHeader {
     const val SIZE = 512
@@ -45,4 +47,47 @@ internal object TarHeader {
         }
         return stored == unsigned || stored == signed
     }
+}
+
+/** Remove NUL framing while preserving all stored filename bytes. */
+internal fun cString(b: ByteArray, off: Int, len: Int): ByteArray {
+    var end = off
+    val max = off + len
+    while (end < max && b[end].toInt() != 0) end++
+    return b.copyOfRange(off, end)
+}
+
+/** Like [numeric], but null for a field holding only NUL and space padding. */
+internal fun optionalNumeric(b: ByteArray, off: Int, len: Int, headerOffset: Long): Long? {
+    for (i in off until off + len) if (b[i].toInt() != 0 && b[i].toInt() != ' '.code) return numeric(b, off, len, headerOffset)
+    return null
+}
+
+/**
+ * Parse a numeric header field: octal ASCII normally, GNU base-256 binary when
+ * the field's high bit is set (used when a value overflows the octal width).
+ */
+internal fun numeric(b: ByteArray, off: Int, len: Int, headerOffset: Long): Long {
+    if (len > 0 && (b[off].toInt() and 0x80) != 0) {
+        val first = b[off].toInt() and 0x7F
+        var v = if (first and 0x40 != 0) first.toLong() - 128 else first.toLong()
+        for (i in 1 until len) {
+            if (v < (Long.MIN_VALUE shr 8) || v > (Long.MAX_VALUE shr 8)) {
+                throw ArchiveFormatException("TAR: numeric field overflows Long", headerOffset + off)
+            }
+            v = (v shl 8) or (b[off + i].toLong() and 0xFF)
+        }
+        return v
+    }
+    var v = 0L
+    var i = off
+    val max = off + len
+    while (i < max) {
+        val c = b[i].toInt()
+        if (c == 0 || c == ' '.code) { i++; continue }
+        if (c < '0'.code || c > '7'.code) break
+        v = v * 8 + (c - '0'.code)
+        i++
+    }
+    return v
 }
