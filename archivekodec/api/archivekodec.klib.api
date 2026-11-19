@@ -1353,6 +1353,7 @@ open class io.github.yuroyami.archivekodec/ArchiveException : kotlin/Exception {
 
 final object io.github.yuroyami.archivekodec.archive.ar/ArWriter { // io.github.yuroyami.archivekodec.archive.ar/ArWriter|null[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec>){}[0]
+    final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec>, io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec>;io.github.yuroyami.archivekodec.archive.ar.ArWriter.NameStyle){}[0]
 
     final class FileSpec { // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec|null[0]
         constructor <init>(kotlin/String, kotlin/ByteArray) // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.<init>|<init>(kotlin.String;kotlin.ByteArray){}[0]
@@ -1403,6 +1404,17 @@ final object io.github.yuroyami.archivekodec.archive.ar/ArWriter { // io.github.
         final object Companion { // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Companion|null[0]
             final fun invoke(kotlin/String, kotlin/ByteArray, kotlin/Function1<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Builder, kotlin/Unit>): io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec // io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec.Companion.invoke|invoke(kotlin.String;kotlin.ByteArray;kotlin.Function1<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec.Builder,kotlin.Unit>){}[0]
         }
+    }
+
+    final enum class NameStyle : kotlin/Enum<io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle> { // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle|null[0]
+        enum entry BSD // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle.BSD|null[0]
+        enum entry GNU // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle.GNU|null[0]
+
+        final val entries // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle.entries|#static{}entries[0]
+            final fun <get-entries>(): kotlin.enums/EnumEntries<io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle> // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle.entries.<get-entries>|<get-entries>#static(){}[0]
+
+        final fun valueOf(kotlin/String): io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle.valueOf|valueOf#static(kotlin.String){}[0]
+        final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle> // io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle.values|values#static(){}[0]
     }
 }
 
