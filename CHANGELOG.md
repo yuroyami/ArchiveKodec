@@ -47,6 +47,8 @@
   error after a failed entry's sink is closed, so a partial file can be deleted.
 - The cpio reader reads old binary cpio (`cpio -H bin`) in both byte orders, which it used to
   refuse. An initramfs reader still refuses it, as the kernel does.
+- `ZipEncryption.insecureZipCrypto` writes PKWARE's traditional ZIP encryption for readers that
+  support nothing else. `ZipEncryption.scheme` names the scheme a `ZipEncryption` writes.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

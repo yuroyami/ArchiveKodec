@@ -429,8 +429,14 @@ final class io.github.yuroyami.archivekodec.archive.zip/ZipEncryption { // io.gi
         final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.crypto.<get-crypto>|<get-crypto>(){}[0]
     final val keyBits // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.keyBits|{}keyBits[0]
         final fun <get-keyBits>(): kotlin/Int // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.keyBits.<get-keyBits>|<get-keyBits>(){}[0]
+    final val scheme // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.scheme|{}scheme[0]
+        final fun <get-scheme>(): io.github.yuroyami.archivekodec.crypto/ArchiveEncryption // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.scheme.<get-scheme>|<get-scheme>(){}[0]
 
     final fun toString(): kotlin/String // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.toString|toString(){}[0]
+
+    final object Companion { // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.Companion|null[0]
+        final fun insecureZipCrypto(kotlin/CharArray, io.github.yuroyami.archivekodec.crypto/CryptoProvider = ...): io.github.yuroyami.archivekodec.archive.zip/ZipEncryption // io.github.yuroyami.archivekodec.archive.zip/ZipEncryption.Companion.insecureZipCrypto|insecureZipCrypto(kotlin.CharArray;io.github.yuroyami.archivekodec.crypto.CryptoProvider){}[0]
+    }
 }
 
 final class io.github.yuroyami.archivekodec.archive.zip/ZipReader : io.github.yuroyami.archivekodec.archive/ArchiveReader { // io.github.yuroyami.archivekodec.archive.zip/ZipReader|null[0]

@@ -9,6 +9,8 @@ import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.crypto.WinZipAes
+import io.github.yuroyami.archivekodec.crypto.ZipCrypto
+import io.github.yuroyami.archivekodec.crypto.utf8
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import io.github.yuroyami.archivekodec.util.DosTime
 import io.github.yuroyami.archivekodec.util.checkedArraySize
@@ -238,6 +240,7 @@ public object ZipWriter {
     private const val ENCRYPTED_FLAG = 0x0001
     private const val AES_METHOD = 99
     private const val AES_EXTRA_SIZE = 11
+    private const val ZIP_CRYPTO_HEADER = 12
 
     /** The WinZip AES extra field: AE-2, the key strength and the real compression method. */
     private fun aesExtra(strength: Int, method: Int): ByteArray = byteArrayOf(
@@ -351,7 +354,11 @@ public object ZipWriter {
         for (f in files) {
             val nameBytes = encodeName(f.name)
             plannedSize += nameBytes.size * 2L + extendedTimestamp(f.lastModifiedEpochSeconds).size * 2L + (f.commentBytes?.size ?: 0) +
-                (if (encryption != null) 2L * AES_EXTRA_SIZE + WinZipAes.overhead(encryption.strength) else 0L)
+                when {
+                    encryption == null -> 0L
+                    encryption.zipCrypto -> ZIP_CRYPTO_HEADER.toLong()
+                    else -> 2L * AES_EXTRA_SIZE + WinZipAes.overhead(encryption.strength)
+                }
             if (f.method == ZipMethod.STORED) plannedSize += f.payload.size
             checkedArraySize(plannedSize)
             prepared.add(PreparedFile(f, nameBytes))
@@ -365,8 +372,9 @@ public object ZipWriter {
             val offset = out.size.toLong()
             val nameBytes = file.nameBytes
             val encrypt = encryption != null && !f.name.endsWith('/')
-            // AE-2 stores no CRC: the authentication code covers the data instead.
-            val crc = if (encrypt) 0L else Crc32.of(data)
+            val aes = encrypt && !encryption!!.zipCrypto
+            // AE-2 stores no CRC: the authentication code covers the data instead. ZipCrypto keeps it.
+            val crc = if (aes) 0L else Crc32.of(data)
             val compressed = when (f.method) {
                 ZipMethod.STORED -> data
                 ZipMethod.DEFLATED -> Deflate.encode(data, f.deflateOptions ?: DeflateOptions.DEFAULT)
@@ -378,17 +386,26 @@ public object ZipWriter {
             val comp = if (encrypt) {
                 val password = encryption!!.password()
                 try {
-                    WinZipAes.encrypt(encryption.crypto, password, encryption.strength, compressed)
+                    if (aes) {
+                        WinZipAes.encrypt(encryption.crypto, password, encryption.strength, compressed)
+                    } else {
+                        val key = password.utf8()
+                        try {
+                            ZipCrypto(key).encrypt(compressed, encryption.crypto.randomBytes(11), (crc ushr 24).toInt())
+                        } finally {
+                            key.fill(0)
+                        }
+                    }
                 } finally {
                     password.fill('\u0000')
                 }
             } else compressed
-            val method = if (encrypt) AES_METHOD else f.method.code
+            val method = if (aes) AES_METHOD else f.method.code
             val flags = if (encrypt) UTF8_FLAG or ENCRYPTED_FLAG else UTF8_FLAG
-            val versionNeeded = if (encrypt) 51 else 20
+            val versionNeeded = if (aes) 51 else 20
             val dosDateTime = f.lastModifiedEpochSeconds?.let(DosTime::fromEpochSeconds) ?: (DEFAULT_DOS_DATE shl 16)
             val extra = extendedTimestamp(f.lastModifiedEpochSeconds) +
-                (if (encrypt) aesExtra(encryption!!.strength, f.method.code) else ByteArray(0))
+                (if (aes) aesExtra(encryption!!.strength, f.method.code) else ByteArray(0))
             out.le32(ZipFormat.LOC)
             out.le16(versionNeeded)
             out.le16(flags)                    // UTF-8 name, and encryption

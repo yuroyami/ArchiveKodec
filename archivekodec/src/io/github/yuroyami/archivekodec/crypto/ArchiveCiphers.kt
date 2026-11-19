@@ -17,8 +17,9 @@ internal fun constantTimeEquals(a: ByteArray, aOffset: Int, b: ByteArray, bOffse
 }
 
 /**
- * PKWARE's traditional ZIP encryption, decrypt only: three 32-bit keys stirred with CRC-32
- * and a linear congruence. It is broken and is never written.
+ * PKWARE's traditional ZIP encryption: three 32-bit keys stirred with CRC-32 and a linear
+ * congruence. It is broken, and written only when a caller asks for it by name, for tools
+ * that read nothing else.
  */
 internal class ZipCrypto(password: ByteArray) {
     private var k0 = 0x12345678
@@ -38,6 +39,26 @@ internal class ZipCrypto(password: ByteArray) {
         val plain = (cipher xor ((t * (t xor 1)) ushr 8)) and 0xFF
         update(plain)
         return plain
+    }
+
+    private fun encryptByte(plain: Int): Int {
+        val t = (k2 or 2) and 0xFFFF
+        val cipher = (plain xor ((t * (t xor 1)) ushr 8)) and 0xFF
+        update(plain)
+        return cipher
+    }
+
+    /**
+     * Encrypt [data] behind a 12-byte header of [random] bytes whose last byte is [check], the
+     * high byte of the plaintext's CRC-32, which readers compare to test the password.
+     */
+    fun encrypt(data: ByteArray, random: ByteArray, check: Int): ByteArray {
+        require(random.size >= 11) { "ZipCrypto needs 11 random header bytes" }
+        val out = ByteArray(12 + data.size)
+        for (i in 0 until 11) out[i] = encryptByte(random[i].toInt() and 0xFF).toByte()
+        out[11] = encryptByte(check and 0xFF).toByte()
+        for (i in data.indices) out[12 + i] = encryptByte(data[i].toInt() and 0xFF).toByte()
+        return out
     }
 
     /**
