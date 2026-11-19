@@ -11,9 +11,10 @@ import kotlin.jvm.JvmSynthetic
 import kotlin.text.CharacterCodingException
 
 /**
- * Buffered cpio writer for the `newc` and `crc` ASCII dialects used by initramfs.
- * Writes 110-byte headers, NUL-terminated UTF-8 names, four-byte alignment and a
- * final `TRAILER!!!` record. The complete archive must fit in one ByteArray.
+ * Buffered cpio writer for the `newc` and `crc` ASCII dialects used by initramfs, and for
+ * POSIX `odc`. newc and crc write 110-byte headers, NUL-terminated UTF-8 names, four-byte
+ * alignment and a final `TRAILER!!!` record; odc writes 76-byte octal headers without
+ * padding. The complete archive must fit in one ByteArray.
  * The crc dialect stores an unsigned byte sum, not a cyclic redundancy check.
  *
  * Names are preserved, not sanitized for filesystem extraction. Empty names,
@@ -22,7 +23,7 @@ import kotlin.text.CharacterCodingException
  * regular-file mode 0100644. Hard links require caller-supplied matching inode and
  * device numbers with [FileSpec.linkCount] greater than one. Payload placement and
  * member ordering are preserved; no filesystem is inspected or modified.
- * No odc, old binary or compressed output is emitted. File descriptions own their
+ * No old binary or compressed output is emitted. File descriptions own their
  * payload snapshots; this object has no mutable state.
  */
 public object CpioWriter {
@@ -32,6 +33,12 @@ public object CpioWriter {
         NEWC,
         /** Magic 070702, with the body's unsigned byte sum modulo 2^32. */
         CRC,
+        /**
+         * Magic 070707, POSIX.1 `cpio -H odc`: octal fields, one device number of
+         * `major * 256 + minor`, no padding. Sizes stop at 8 GiB, and the inode, mode, ids,
+         * link count and device numbers at 262143; larger values fail the write.
+         */
+        ODC,
     }
 
     /** Immutable member metadata and an owned payload snapshot. */
@@ -224,7 +231,8 @@ public object CpioWriter {
                     throw ArchiveFormatException("cpio: conflicting hard-link file types", entryName = spec.name)
                 }
             }
-            total += align4(111L + name.size) - 112 + align4(spec.payload.size.toLong())
+            total += if (dialect == Dialect.ODC) 77L + name.size - 112 + spec.payload.size
+            else align4(111L + name.size) - 112 + align4(spec.payload.size.toLong())
             checkedArraySize(total)
             prepared.add(Prepared(spec, name))
         }
@@ -255,6 +263,7 @@ public object CpioWriter {
     }
 
     private fun writeRecord(out: ByteArrayBuilder, dialect: Dialect, name: ByteArray, data: ByteArray, fields: LongArray) {
+        if (dialect == Dialect.ODC) return writeOdc(out, name, data, fields)
         val header = ByteArray(110)
         (if (dialect == Dialect.NEWC) "070701" else "070702").encodeToByteArray().copyInto(header)
         var at = 6
@@ -267,6 +276,37 @@ public object CpioWriter {
         repeat((4 - (out.size and 3)) and 3) { out.append(0) }
         out.append(data)
         repeat((4 - (out.size and 3)) and 3) { out.append(0) }
+    }
+
+    /** [fields] in newc order: inode, mode, uid, gid, nlink, mtime, size, dev, rdev, name size. */
+    private fun writeOdc(out: ByteArrayBuilder, name: ByteArray, data: ByteArray, fields: LongArray) {
+        val nameText = name.decodeToString()
+        fun octal(value: Long, width: Int, what: String) {
+            if (value < 0 || value >= 1L shl (3 * width)) {
+                throw ArchiveFormatException("cpio: $what $value does not fit an odc field", entryName = nameText)
+            }
+            val digits = value.toString(8)
+            repeat(width - digits.length) { out.append('0'.code.toByte()) }
+            out.append(digits.encodeToByteArray())
+        }
+        fun device(major: Long, minor: Long, what: String): Long {
+            if (major > 255 || minor > 255) throw ArchiveFormatException("cpio: $what $major:$minor does not fit an odc field", entryName = nameText)
+            return major * 256 + minor
+        }
+        out.append("070707".encodeToByteArray())
+        octal(device(fields[7], fields[8], "device"), 6, "device")
+        octal(fields[0], 6, "inode")
+        octal(fields[1], 6, "mode")
+        octal(fields[2], 6, "uid")
+        octal(fields[3], 6, "gid")
+        octal(fields[4], 6, "link count")
+        octal(device(fields[9], fields[10], "rdev"), 6, "rdev")
+        octal(fields[5], 11, "modification time")
+        octal(fields[11], 6, "name size")
+        octal(fields[6], 11, "size")
+        out.append(name)
+        out.append(0)
+        out.append(data)
     }
 
     private fun byteSum(data: ByteArray): Long {

@@ -49,6 +49,7 @@
   refuse. An initramfs reader still refuses it, as the kernel does.
 - `ZipEncryption.insecureZipCrypto` writes PKWARE's traditional ZIP encryption for readers that
   support nothing else. `ZipEncryption.scheme` names the scheme a `ZipEncryption` writes.
+- `CpioWriter.Dialect.ODC` writes POSIX odc cpio, which GNU cpio lists and extracts.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

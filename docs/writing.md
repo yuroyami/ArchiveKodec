@@ -123,8 +123,10 @@ val archive = CpioWriter.write(
 
 The default dialect is newc (`070701`). Pass `CpioWriter.Dialect.CRC` as the second argument
 for `070702`, whose checksum is the unsigned sum of the body bytes modulo 2^32 and not a
-CRC-32. Both dialects end with a `TRAILER!!!` record. odc, old binary and compressed output
-are not written.
+CRC-32. `CpioWriter.Dialect.ODC` writes POSIX odc (`070707`): octal fields without padding,
+which stop sizes at 8 GiB and the inode, mode, ids, link count and device numbers at 262143.
+A value past those limits fails the write. Every dialect ends with a `TRAILER!!!` record. Old
+binary and compressed output are not written.
 
 The settings are `mode`, `inode`, `uid`, `gid`, `linkCount`, `modificationTime`,
 `deviceMajor`, `deviceMinor`, `rdevMajor` and `rdevMinor`. Each must fit an unsigned 32-bit

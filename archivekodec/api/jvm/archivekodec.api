@@ -516,6 +516,7 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter {
 public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect : java/lang/Enum {
 	public static final field CRC Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
 	public static final field NEWC Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
+	public static final field ODC Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;
 	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;

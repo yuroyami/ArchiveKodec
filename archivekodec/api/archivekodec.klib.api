@@ -1413,6 +1413,7 @@ final object io.github.yuroyami.archivekodec.archive.cpio/CpioWriter { // io.git
     final enum class Dialect : kotlin/Enum<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect> { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect|null[0]
         enum entry CRC // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.CRC|null[0]
         enum entry NEWC // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.NEWC|null[0]
+        enum entry ODC // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.ODC|null[0]
 
         final val entries // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.entries|#static{}entries[0]
             final fun <get-entries>(): kotlin.enums/EnumEntries<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect> // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect.entries.<get-entries>|<get-entries>#static(){}[0]

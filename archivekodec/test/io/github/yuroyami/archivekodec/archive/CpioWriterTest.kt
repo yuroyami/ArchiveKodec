@@ -17,7 +17,7 @@ import io.github.yuroyami.archivekodec.security.ArchivePathException
 private val RAW_NAMES = ArchiveLimits { rejectUnsafeNames = false }
 
 class CpioWriterTest {
-    private val dialects = CpioWriter.Dialect.entries
+    private val dialects = listOf(CpioWriter.Dialect.NEWC, CpioWriter.Dialect.CRC)
 
     private fun read(bytes: ByteArray, limits: ArchiveLimits = ArchiveLimits.DEFAULT): Pair<List<ArchiveEntry>, List<ByteArray>> {
         val reader = CpioReader(ByteArrayRandomAccessSource(bytes), limits)
@@ -210,5 +210,33 @@ class CpioWriterTest {
             override fun get(index: Int): CpioWriter.FileSpec = error("must reject before reading members")
         }
         assertFailsWith<ArchiveSizeException> { CpioWriter.write(files) }
+    }
+
+    @Test
+    fun odcRoundTripsAndRefusesValuesItsFieldsCannotHold() {
+        val files = listOf(
+            CpioWriter.FileSpec("dir", ByteArray(0)) { mode = 0x41ed },
+            CpioWriter.FileSpec("dir/odd.txt", "odd".encodeToByteArray()) { modificationTime = 1714979289; mode = 0x81a0 },
+            CpioWriter.FileSpec("link", "dir/odd.txt".encodeToByteArray()) { mode = 0xa1ff },
+        )
+        val odc = CpioWriter.write(files, CpioWriter.Dialect.ODC)
+        assertEquals("070707", odc.copyOf(6).decodeToString())
+        // 76-byte headers, names with their NUL, data, no padding; then the trailer.
+        assertEquals(3 * 76L + 4 + 12 + 5 + 3 + 11 + 76 + 11, odc.size.toLong())
+        CpioReader(ByteArrayRandomAccessSource(odc)).use { reader ->
+            val entries = reader.entries()
+            assertEquals(listOf("dir", "dir/odd.txt", "link"), entries.map { it.name })
+            assertTrue(entries[0].isDirectory)
+            assertEquals(1714979289L, entries[1].lastModifiedEpochSeconds)
+            assertEquals(0x81a0, entries[1].unixMode)
+            assertContentEquals("odd".encodeToByteArray(), reader.read(entries[1]))
+            assertContentEquals("dir/odd.txt".encodeToByteArray(), reader.read(entries[2]))
+        }
+        assertFailsWith<ArchiveFormatException> {
+            CpioWriter.write(listOf(CpioWriter.FileSpec("big-inode", ByteArray(0)) { inode = 1L shl 18 }), CpioWriter.Dialect.ODC)
+        }
+        assertFailsWith<ArchiveFormatException> {
+            CpioWriter.write(listOf(CpioWriter.FileSpec("dev", ByteArray(0)) { deviceMajor = 256 }), CpioWriter.Dialect.ODC)
+        }
     }
 }
