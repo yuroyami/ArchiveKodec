@@ -39,65 +39,38 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
 public object Codecs {
 
     /** Identity transform; decompression still enforces the supplied limits. */
-    @JvmField
-    public val STORE: Codec = Store
+    @JvmStatic
+    public val STORE: Codec get() = Store
 
     /** Raw DEFLATE without a wrapper header or checksum. */
-    @JvmField
-    public val DEFLATE: Codec = object : Codec {
-        override val id = CodecId.DEFLATE
-        override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
-        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Deflate.encode(data, deflateOptions(id, options))
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Inflate.inflate(data, limits)
-        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink)
-    }
-
-    private fun deflateOptions(id: CodecId, options: CodecOptions): DeflateOptions =
-        options as? DeflateOptions ?: throw IllegalArgumentException("$id takes DeflateOptions, not ${options::class.simpleName}")
+    @JvmStatic
+    public val DEFLATE: Codec get() = DeflateCodec
 
     /**
      * Raw Deflate64 (PKWARE "enhanced deflate", ZIP method 9). Decoding handles the 64 KiB
      * window and long matches; encoding emits DEFLATE-compatible codes within 32 KiB.
      */
-    @JvmField
-    public val DEFLATE64: Codec = object : Codec {
-        override val id = CodecId.DEFLATE64
-        override fun compress(data: ByteArray): ByteArray = Deflate.encode64(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Inflate.inflate64(data, limits)
-        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink, deflate64 = true)
-    }
+    @JvmStatic
+    public val DEFLATE64: Codec get() = Deflate64Codec
 
     /**
      * bzip2 at block size level 9. Decoding accepts any level, concatenated streams
      * and randomised blocks, and verifies the block and stream CRCs.
      */
-    @JvmField
-    public val BZIP2: Codec = object : Codec {
-        override val id = CodecId.BZIP2
-        override fun compress(data: ByteArray): ByteArray = Bzip2Encoder.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Bzip2Decoder.decompress(data, limits)
-    }
+    @JvmStatic
+    public val BZIP2: Codec get() = Bzip2Codec
 
     /**
      * The `.lzma` ("LZMA alone") format: a 13-byte header, then one LZMA stream. Decoding
      * accepts a known size or an end marker; encoding writes the size and no marker.
      * ZIP readers decode method 14's own framing through this codec's registration.
      */
-    @JvmField
-    public val LZMA: Codec = object : Codec {
-        override val id = CodecId.LZMA
-        override fun compress(data: ByteArray): ByteArray = LzmaAlone.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = LzmaAlone.decompress(data, limits)
-    }
+    @JvmStatic
+    public val LZMA: Codec get() = LzmaCodec
 
     /** Raw LZMA2 chunks, as 7z stores them; decoding allows any dictionary distance. */
-    @JvmField
-    public val LZMA2: Codec = object : Codec {
-        override val id = CodecId.LZMA2
-        override fun compress(data: ByteArray): ByteArray = Lzma2.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Lzma2.decompress(data, limits)
-    }
+    @JvmStatic
+    public val LZMA2: Codec get() = Lzma2Codec
 
     /**
      * The .xz container. Decoding verifies CRC-32, CRC-64 and SHA-256 checks and the index,
@@ -105,24 +78,16 @@ public object Codecs {
      * other branch filters by name. Encoding
      * writes one LZMA2 block with a CRC-64 check.
      */
-    @JvmField
-    public val XZ: Codec = object : Codec {
-        override val id = CodecId.XZ
-        override fun compress(data: ByteArray): ByteArray = Xz.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Xz.decompress(data, limits)
-    }
+    @JvmStatic
+    public val XZ: Codec get() = XzCodec
 
     /**
      * Zstandard (RFC 8878). Decoding handles every block and table mode, repeat offsets,
      * skippable and concatenated frames, and verifies the xxHash64 content checksum;
      * dictionary frames are refused. Encoding writes one frame with predefined tables.
      */
-    @JvmField
-    public val ZSTD: Codec = object : Codec {
-        override val id = CodecId.ZSTD
-        override fun compress(data: ByteArray): ByteArray = ZstdEncoder.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = ZstdDecoder.decompress(data, limits)
-    }
+    @JvmStatic
+    public val ZSTD: Codec get() = ZstdCodec
 
     /**
      * Brotli (RFC 7932), as in `Content-Encoding: br`. Decoding handles every meta-block
@@ -130,12 +95,8 @@ public object Codecs {
      * is inflated on first use. Encoding writes valid streams without context modelling or
      * dictionary references, so it compresses less than the reference encoder.
      */
-    @JvmField
-    public val BROTLI: Codec = object : Codec {
-        override val id = CodecId.BROTLI
-        override fun compress(data: ByteArray): ByteArray = BrotliEncoder.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = BrotliDecoder.decompress(data, limits)
-    }
+    @JvmStatic
+    public val BROTLI: Codec get() = BrotliCodec
 
     /**
      * PPMd var.I revision 1 in ZIP's framing (method 98): a two-byte header with the model
@@ -143,107 +104,49 @@ public object Codecs {
      * supports the restart and cut-off restore methods; encoding uses order 6, up to 16 MiB
      * of model memory and restart. 7z's PPMd var.H is read by the 7z reader itself.
      */
-    @JvmField
-    public val PPMD: Codec = object : Codec {
-        override val id = CodecId.PPMD
-        override fun compress(data: ByteArray): ByteArray = PpmdZip.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = PpmdZip.decompress(data, limits)
-    }
+    @JvmStatic
+    public val PPMD: Codec get() = PpmdCodec
 
     /** Gzip framing; decoding concatenates members and also accepts one zlib stream. */
-    @JvmField
-    public val GZIP: Codec = object : Codec {
-        override val id = CodecId.GZIP
-        override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
-        override fun compress(data: ByteArray, options: CodecOptions): ByteArray =
-            Gzip.compress(data, GzipHeader.DEFAULT, deflateOptions(id, options))
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Gzip.decompress(data, limits)
-        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Gzip.decompressTo(data, limits, sink)
-    }
+    @JvmStatic
+    public val GZIP: Codec get() = GzipCodec
 
     /**
      * Zlib framing with Adler-32 validation. Options may set a preset dictionary; decoding one
      * needs `Zlib.decompress(stream, limits, dictionary)`, since this codec takes none.
      */
-    @JvmField
-    public val ZLIB: Codec = object : Codec {
-        override val id = CodecId.ZLIB
-        override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
-        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Zlib.compress(data, deflateOptions(id, options))
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Zlib.decompress(data, limits)
-        override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Zlib.decompressTo(data, limits, sink)
-    }
+    @JvmStatic
+    public val ZLIB: Codec get() = ZlibCodec
 
     /** LZ4 frame codec; decoding supports linked blocks and concatenated frames. */
-    @JvmField
-    public val LZ4: Codec = object : Codec {
-        override val id = CodecId.LZ4
-        override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
-        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Lz4.frameCompress(
-            data, options as? Lz4Options ?: throw IllegalArgumentException("$id takes Lz4Options, not ${options::class.simpleName}"),
-        )
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Lz4.frameDecompress(data, limits)
-    }
+    @JvmStatic
+    public val LZ4: Codec get() = Lz4Codec
 
     /** Snappy raw-block codec with greedy back-reference compression. */
-    @JvmField
-    public val SNAPPY: Codec = object : Codec {
-        override val id = CodecId.SNAPPY
-        override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Snappy.decompress(data, limits)
-    }
+    @JvmStatic
+    public val SNAPPY: Codec get() = SnappyCodec
 
     /** Standard Snappy framing with per-chunk CRC-32C validation; [SNAPPY] handles raw blocks. */
-    @JvmField
-    public val SNAPPY_FRAMED: Codec = object : Codec {
-        override val id = CodecId.SNAPPY_FRAMED
-        override fun compress(data: ByteArray): ByteArray = Snappy.frameCompress(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Snappy.frameDecompress(data, limits)
-    }
+    @JvmStatic
+    public val SNAPPY_FRAMED: Codec get() = SnappyFramedCodec
 
     /**
      * LZW in the form of PDF's `LZWDecode` with `EarlyChange` 1 and of TIFF compression 5. Encoding
      * takes [LzwOptions] for the GIF and old-style TIFF forms; [Lzw] decodes them, with an expected size.
      */
-    @JvmField
-    public val LZW: Codec = object : Codec {
-        override val id = CodecId.LZW
-        override fun compress(data: ByteArray): ByteArray = Lzw.encode(data)
-        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Lzw.encode(
-            data, options as? LzwOptions ?: throw IllegalArgumentException("$id takes LzwOptions, not ${options::class.simpleName}"),
-        )
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            Lzw.decode(data, LzwOptions { this.limits = limits }).output
-    }
+    @JvmStatic
+    public val LZW: Codec get() = LzwCodec
 
     /**
      * TIFF's PackBits. Encoding takes [PackBitsOptions] for PDF's `RunLengthDecode`; [PackBits]
      * decodes it, with an expected size.
      */
-    @JvmField
-    public val PACKBITS: Codec = object : Codec {
-        override val id = CodecId.PACKBITS
-        override fun compress(data: ByteArray): ByteArray = PackBits.encode(data)
-        override fun compress(data: ByteArray, options: CodecOptions): ByteArray = PackBits.encode(
-            data, options as? PackBitsOptions ?: throw IllegalArgumentException("$id takes PackBitsOptions, not ${options::class.simpleName}"),
-        )
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            PackBits.decode(data, PackBitsOptions { this.limits = limits }).output
-    }
+    @JvmStatic
+    public val PACKBITS: Codec get() = PackbitsCodec
 
     /** PalmDOC compression of one PalmDOC or MOBI text record. */
-    @JvmField
-    public val PALMDOC: Codec = object : Codec {
-        override val id = CodecId.PALMDOC
-        override fun compress(data: ByteArray): ByteArray = PalmDoc.encode(data)
-        override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
-            PalmDoc.decode(data, 0, data.size, limits).output
-    }
+    @JvmStatic
+    public val PALMDOC: Codec get() = PalmdocCodec
 
     /** The codec for [id], or null if not yet implemented. */
     @JvmStatic
@@ -267,4 +170,154 @@ public object Codecs {
     /** Ids of the codecs available right now. */
     @JvmStatic
     public val implemented: List<CodecId> get() = CodecRegistry.DEFAULT.implemented
+}
+
+private fun deflateOptions(id: CodecId, options: CodecOptions): DeflateOptions =
+    options as? DeflateOptions ?: throw IllegalArgumentException("$id takes DeflateOptions, not ${options::class.simpleName}")
+
+// One object per codec: referencing one does not initialize, or keep, the others.
+
+/** The implementation of [Codecs.DEFLATE]. */
+internal object DeflateCodec : Codec {
+    override val id = CodecId.DEFLATE
+    override fun compress(data: ByteArray): ByteArray = Deflate.encode(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Deflate.encode(data, deflateOptions(id, options))
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Inflate.inflate(data, limits)
+    override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink)
+}
+
+/** The implementation of [Codecs.DEFLATE64]. */
+internal object Deflate64Codec : Codec {
+    override val id = CodecId.DEFLATE64
+    override fun compress(data: ByteArray): ByteArray = Deflate.encode64(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Inflate.inflate64(data, limits)
+    override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink, deflate64 = true)
+}
+
+/** The implementation of [Codecs.BZIP2]. */
+internal object Bzip2Codec : Codec {
+    override val id = CodecId.BZIP2
+    override fun compress(data: ByteArray): ByteArray = Bzip2Encoder.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Bzip2Decoder.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.LZMA]. */
+internal object LzmaCodec : Codec {
+    override val id = CodecId.LZMA
+    override fun compress(data: ByteArray): ByteArray = LzmaAlone.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = LzmaAlone.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.LZMA2]. */
+internal object Lzma2Codec : Codec {
+    override val id = CodecId.LZMA2
+    override fun compress(data: ByteArray): ByteArray = Lzma2.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Lzma2.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.XZ]. */
+internal object XzCodec : Codec {
+    override val id = CodecId.XZ
+    override fun compress(data: ByteArray): ByteArray = Xz.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Xz.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.ZSTD]. */
+internal object ZstdCodec : Codec {
+    override val id = CodecId.ZSTD
+    override fun compress(data: ByteArray): ByteArray = ZstdEncoder.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = ZstdDecoder.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.BROTLI]. */
+internal object BrotliCodec : Codec {
+    override val id = CodecId.BROTLI
+    override fun compress(data: ByteArray): ByteArray = BrotliEncoder.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = BrotliDecoder.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.PPMD]. */
+internal object PpmdCodec : Codec {
+    override val id = CodecId.PPMD
+    override fun compress(data: ByteArray): ByteArray = PpmdZip.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = PpmdZip.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.GZIP]. */
+internal object GzipCodec : Codec {
+    override val id = CodecId.GZIP
+    override fun compress(data: ByteArray): ByteArray = Gzip.compress(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray =
+        Gzip.compress(data, GzipHeader.DEFAULT, deflateOptions(id, options))
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Gzip.decompress(data, limits)
+    override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Gzip.decompressTo(data, limits, sink)
+}
+
+/** The implementation of [Codecs.ZLIB]. */
+internal object ZlibCodec : Codec {
+    override val id = CodecId.ZLIB
+    override fun compress(data: ByteArray): ByteArray = Zlib.compress(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Zlib.compress(data, deflateOptions(id, options))
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Zlib.decompress(data, limits)
+    override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Zlib.decompressTo(data, limits, sink)
+}
+
+/** The implementation of [Codecs.LZ4]. */
+internal object Lz4Codec : Codec {
+    override val id = CodecId.LZ4
+    override fun compress(data: ByteArray): ByteArray = Lz4.frameCompress(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Lz4.frameCompress(
+        data, options as? Lz4Options ?: throw IllegalArgumentException("$id takes Lz4Options, not ${options::class.simpleName}"),
+    )
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Lz4.frameDecompress(data, limits)
+}
+
+/** The implementation of [Codecs.SNAPPY]. */
+internal object SnappyCodec : Codec {
+    override val id = CodecId.SNAPPY
+    override fun compress(data: ByteArray): ByteArray = Snappy.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Snappy.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.SNAPPY_FRAMED]. */
+internal object SnappyFramedCodec : Codec {
+    override val id = CodecId.SNAPPY_FRAMED
+    override fun compress(data: ByteArray): ByteArray = Snappy.frameCompress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Snappy.frameDecompress(data, limits)
+}
+
+/** The implementation of [Codecs.LZW]. */
+internal object LzwCodec : Codec {
+    override val id = CodecId.LZW
+    override fun compress(data: ByteArray): ByteArray = Lzw.encode(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray = Lzw.encode(
+        data, options as? LzwOptions ?: throw IllegalArgumentException("$id takes LzwOptions, not ${options::class.simpleName}"),
+    )
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        Lzw.decode(data, LzwOptions { this.limits = limits }).output
+}
+
+/** The implementation of [Codecs.PACKBITS]. */
+internal object PackbitsCodec : Codec {
+    override val id = CodecId.PACKBITS
+    override fun compress(data: ByteArray): ByteArray = PackBits.encode(data)
+    override fun compress(data: ByteArray, options: CodecOptions): ByteArray = PackBits.encode(
+        data, options as? PackBitsOptions ?: throw IllegalArgumentException("$id takes PackBitsOptions, not ${options::class.simpleName}"),
+    )
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        PackBits.decode(data, PackBitsOptions { this.limits = limits }).output
+}
+
+/** The implementation of [Codecs.PALMDOC]. */
+internal object PalmdocCodec : Codec {
+    override val id = CodecId.PALMDOC
+    override fun compress(data: ByteArray): ByteArray = PalmDoc.encode(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
+        PalmDoc.decode(data, 0, data.size, limits).output
 }

@@ -68,13 +68,13 @@ public final class JavaInteropSmoke {
             while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
             bytes(DATA, output.toByteArray());
         }
-        Codec[] codecs = {Codecs.STORE, Codecs.DEFLATE, Codecs.GZIP, Codecs.ZLIB,
-            Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED};
+        Codec[] codecs = {Codecs.getSTORE(), Codecs.getDEFLATE(), Codecs.getGZIP(), Codecs.getZLIB(),
+            Codecs.getLZ4(), Codecs.getSNAPPY(), Codecs.getSNAPPY_FRAMED()};
         for (Codec codec : codecs) {
             check(Codecs.byId(codec.getId()) == codec, "static registry lookup");
             bytes(DATA, codec.decompress(codec.compress(DATA)));
         }
-        check(ArchiveKodec.getGzip() == Codecs.GZIP, "facade codec getter");
+        check(ArchiveKodec.getGzip() == Codecs.getGZIP(), "facade codec getter");
         check(ArchiveKodec.getCodecs().equals(Codecs.getImplemented()), "facade codec list");
         final ArchiveLimits[] supplied = new ArchiveLimits[1];
         Codec custom = new Codec() {
@@ -91,7 +91,7 @@ public final class JavaInteropSmoke {
         CodecRegistry registry = CodecRegistry.DEFAULT.with(custom);
         check(registry.byName("STORE") == custom, "Java registry name lookup");
         check(registry.byZipMethod(0) == custom, "Java registry default method binding");
-        check(CodecRegistry.DEFAULT.byZipMethod(0) == Codecs.STORE, "immutable default registry");
+        check(CodecRegistry.DEFAULT.byZipMethod(0) == Codecs.getSTORE(), "immutable default registry");
         check(registry.with(custom, 65535).byZipMethod(65535) == custom, "Java explicit method registration");
         byte[] stored = ZipWriter.write(Collections.singletonList(new ZipWriter.FileSpec("a.txt", DATA, ZipMethod.STORED)));
         ZipReader customReader = new ZipReader(new ByteArrayRandomAccessSource(stored), registry);

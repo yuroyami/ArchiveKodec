@@ -23,7 +23,7 @@ import kotlinx.io.RawSource;
 /** Compiles with the IO module as its only direct dependency. */
 public final class IoConsumer {
     public byte[] decodeGzip(RawSource source) throws Exception {
-        return ArchiveKodecIo.decompress(Codecs.GZIP, source);
+        return ArchiveKodecIo.decompress(Codecs.getGZIP(), source);
     }
 
     public byte[] gzipWithHeader(byte[] bytes, String name) throws Exception {

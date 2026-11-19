@@ -1020,29 +1020,29 @@ public final class io/github/yuroyami/archivekodec/codec/CodecRegistry$Companion
 }
 
 public final class io/github/yuroyami/archivekodec/codec/Codecs {
-	public static final field BROTLI Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field BZIP2 Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field DEFLATE Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field DEFLATE64 Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field GZIP Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/Codecs;
-	public static final field LZ4 Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field LZMA Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field LZMA2 Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field LZW Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field PACKBITS Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field PALMDOC Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field PPMD Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field SNAPPY Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field SNAPPY_FRAMED Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field STORE Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field XZ Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field ZLIB Lio/github/yuroyami/archivekodec/codec/Codec;
-	public static final field ZSTD Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byFormat (Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;)Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byId (Lio/github/yuroyami/archivekodec/codec/CodecId;)Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun byName (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getBROTLI ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getBZIP2 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getDEFLATE ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getDEFLATE64 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getGZIP ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getImplemented ()Ljava/util/List;
+	public static final fun getLZ4 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getLZMA ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getLZMA2 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getLZW ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getPACKBITS ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getPALMDOC ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getPPMD ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getSNAPPY ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getSNAPPY_FRAMED ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getSTORE ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getXZ ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getZLIB ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getZSTD ()Lio/github/yuroyami/archivekodec/codec/Codec;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/DecodeResult {

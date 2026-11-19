@@ -32,6 +32,10 @@
   check the ratio and keep at most `maxDecoderMemory` of decoded phrases.
 - `maxDecoderMemory` also bounds the bzip2 block table and LZMA literal tables with lc + lp
   above 4. A 7z read served from the folder cache checks the ratio limit as well.
+- **Breaking for Java:** each built-in codec is its own object, so referencing one no longer
+  initializes the other 17, and a shrinker keeps only the codecs a program uses. `Codecs.GZIP`
+  and the others are now static getters (`Codecs.getGZIP()` from Java) instead of fields.
+  Kotlin and Swift source is unchanged.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
