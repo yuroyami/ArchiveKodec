@@ -19,7 +19,7 @@
 | zstd (RFC 8878) | All block, literal and table modes, skippable and concatenated frames, xxHash64 checks | Predefined tables, raw literals |
 | brotli (RFC 7932) | Context modeling, block switching, the static dictionary with all 121 transforms | One prefix code for each category, no dictionary references |
 | PPMd var.I rev. 1 (ZIP method 98) | Restart and cut-off restore | Order 6, up to 16 MiB of model memory |
-| LZ4 (frame and block) | Yes | 64 KiB to 4 MiB blocks, block and content checksums, content size, linked blocks |
+| LZ4 (frame and block) | Yes, also legacy frames | 64 KiB to 4 MiB blocks, block and content checksums, content size, linked blocks |
 | Snappy (raw block) | Yes | Greedy matching |
 | Snappy (framed `.sz`) | CRC-32C checks | Yes, with stored chunks when incompressible |
 | LZW (PDF, TIFF, GIF) | 9- to 12-bit codes in either bit order, early change or not, 2- to 8-bit literals | Yes, in every form it decodes |
@@ -134,8 +134,9 @@ Sniffing does not close the source. `open` adds the ZIP footer search for an unk
 
 ### LZ4 frames
 
-- The decoder reads every concatenated frame and all 16 skippable-frame types. The legacy
-  frame format is refused.
+- The decoder reads every concatenated frame and all 16 skippable-frame types, and legacy
+  frames (`lz4 -l`, as the Linux kernel uses them): independent blocks of up to 8 MiB until
+  the input ends or another frame begins.
 - It checks the descriptor checksum, each block checksum before the block is used and the
   content checksum before it returns.
 - The output cap covers all frames together, and the ratio applies to each frame.

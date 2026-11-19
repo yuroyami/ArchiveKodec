@@ -35,6 +35,9 @@ public object Lz4 {
 
     private const val MAGIC = 0x184D2204L
     private const val LEGACY_MAGIC = 0x184C2102L
+    private const val LEGACY_BLOCK = 8 shl 20
+    /** LZ4_compressBound of a legacy block: the most compressed bytes 8 MiB can take. */
+    private const val LEGACY_BOUND = LEGACY_BLOCK + LEGACY_BLOCK / 255 + 16L
     private const val SKIPPABLE_FIRST = 0x184D2A50L
     private const val SKIPPABLE_LAST = 0x184D2A5FL
     private const val MIN_MATCH = 4
@@ -308,10 +311,11 @@ public object Lz4 {
      * A match requiring unavailable dictionary history raises
      * [ArchiveUnsupportedException] with the declared ID. An untagged missing-history
      * match remains malformed, since an external dictionary cannot be inferred reliably.
-     * Legacy frames raise [ArchiveUnsupportedException]. Empty input is malformed.
+     * Legacy frames (`lz4 -l`) are decoded: independent blocks of up to 8 MiB until the input
+     * ends or another frame begins. Empty input is malformed.
      *
      * @throws ArchiveFormatException for malformed frames, invalid matches or failed size/checksum validation.
-     * @throws ArchiveUnsupportedException for legacy frames or unavailable declared dictionary history.
+     * @throws ArchiveUnsupportedException for unavailable declared dictionary history.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      */
@@ -346,7 +350,24 @@ public object Lz4 {
                     p += payloadSize.toInt()
                     continue
                 }
-                LEGACY_MAGIC -> throw ArchiveUnsupportedException("lz4: legacy frame format is not supported", frameStart.toLong())
+                LEGACY_MAGIC -> {
+                    // Legacy frames (`lz4 -l`, the kernel's initramfs): independent blocks of up to
+                    // 8 MiB of output, each after its compressed size, until the input ends or
+                    // another frame's magic number appears where a size would be.
+                    while (p < input.size) {
+                        needInput(4)
+                        val size = readU32Le(input, p)
+                        if (size == MAGIC || size == LEGACY_MAGIC || size in SKIPPABLE_FIRST..SKIPPABLE_LAST) break
+                        p += 4
+                        if (size == 0L || size > LEGACY_BOUND) throw ArchiveFormatException("lz4: invalid legacy block size $size", (p - 4).toLong())
+                        needInput(size.toInt())
+                        val blockStart = p
+                        p += size.toInt()
+                        // Independent blocks: no history; the ratio counts all output so far against the input.
+                        decodeBlock(input, blockStart, p, out, LEGACY_BLOCK, limits, input.size, frameOutputBase = out.size)
+                    }
+                    continue
+                }
                 MAGIC -> Unit
                 else -> throw ArchiveFormatException("lz4: unrecognized frame magic 0x${magic.toString(16)}", frameStart.toLong())
             }

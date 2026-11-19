@@ -71,6 +71,8 @@
 - xz and 7z decode the PowerPC, IA-64, ARM, ARM-Thumb, SPARC and ARM64 branch filters, and x86
   with a start offset. xz 5.4.5 and 7-Zip output with each filter decodes byte for byte. RISC-V
   and BCJ2 are still refused.
+- LZ4 decodes legacy frames (`lz4 -l`, the Linux kernel's format), alone or mixed with standard
+  and skippable frames, instead of refusing them.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
