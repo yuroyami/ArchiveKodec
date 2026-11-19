@@ -7,8 +7,11 @@ import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.cpio.CpioReader
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.*
 
+@OptIn(ExperimentalEncodingApi::class)
 class CpioIntegrityTest {
     private val payload = "DATA-123".encodeToByteArray()
     private data class Spec(
@@ -58,15 +61,42 @@ class CpioIntegrityTest {
         }
     }
 
-    @Test fun binaryCpioIsDetectedAndExplicitlyRefusedInBothByteOrders() {
+    // GNU cpio 2.15 `cpio -o -H bin` (little-endian words) of b.txt ("even"), dir/, dir/a.txt
+    // ("odd", mode 0640), hard.txt (a hard link to b.txt) and link -> b.txt, modified
+    // 1714979289; the big-endian copy has every header word byte-swapped.
+    private val binaryLe = Base64.decode("H4sIAAAAAAAC/zteyPAvmWVJIwMQMAGxRdrNRjYgzcKQpFdSUcKQWpaadxyoZhnTW0dkNSwgDkNKZhEDSDaJZQHYBEaoLBeQZgbJ6ieCTclPSQGrQ7eJE2xTRmJRClgZ3LYUlv8LYeb9y6p4wAqkWRlyMvOyGaDuAqqCA0YozQ0mQ4IcPX1cgxQVFRlGAUEAABD72N4AAgAA")
+    private val binaryBe = Base64.decode("H4sIAAAAAAAC/ys8/o+BJblxCQMIMDEwpFk03mRgA7JZkvRKKkoYUstS8wqBapiWOb5FUcMC4qRkFjGAZFmSGheAZRmhslxANjNQVj8RbEp+SgpEHbpNnCCbMhKLUsDK4LaxpCz8DzMv69+DCgZWIJs1JzMvm4EB4q7C4wwIwAiluUFESJCjp49rkKKiIsMoIAgAmEiUiwACAAA=")
+
+    @Test fun oldBinaryCpioReadsInBothByteOrders() {
+        for (gz in listOf(binaryLe, binaryBe)) {
+            val bytes = io.github.yuroyami.archivekodec.wrapper.Gzip.decompress(gz, ArchiveLimits.UNBOUNDED)
+            assertEquals(ArchiveFormat.CPIO, Magic.sniff(bytes))
+            ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { r ->
+                val entries = r.entries().associateBy { it.name }
+                assertEquals(listOf("b.txt", "dir", "dir/a.txt", "hard.txt", "link"), r.entries().map { it.name })
+                assertTrue(entries.getValue("dir").isDirectory)
+                val a = entries.getValue("dir/a.txt")
+                assertEquals(3L, a.size)
+                assertEquals(1714979289L, a.lastModifiedEpochSeconds)
+                assertEquals(0b1000_000_000_000_000 or 0b110_100_000, a.unixMode)
+                // An odd-length name and odd-length data are each padded to an even length.
+                assertContentEquals("odd".encodeToByteArray(), r.read(a))
+                assertContentEquals("even".encodeToByteArray(), r.read(entries.getValue("b.txt")))
+                assertContentEquals("even".encodeToByteArray(), r.read(entries.getValue("hard.txt")))
+                assertContentEquals("b.txt".encodeToByteArray(), r.read(entries.getValue("link")))
+            }
+        }
+    }
+
+    @Test fun aTruncatedBinaryHeaderIsDamage() {
         for (magic in listOf(byteArrayOf(0xc7.toByte(), 0x71), byteArrayOf(0x71, 0xc7.toByte()))) {
             for (bytes in listOf(magic, magic + ByteArray(24))) {
                 assertEquals(ArchiveFormat.CPIO, Magic.sniff(bytes))
                 ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)).use { r ->
                     repeat(2) {
-                        val error = assertFailsWith<ArchiveUnsupportedException> { r.entries() }
-                        assertEquals(0L, error.offset)
-                        assertTrue(error.message.orEmpty().contains("binary cpio"))
+                        val error = assertFailsWith<ArchiveFormatException> { r.entries() }
+                        // A cut-short header fails where it starts; a zero name size where the name is.
+                        assertEquals(if (bytes.size < 26) 0L else 26L, error.offset)
                     }
                 }
             }
@@ -103,7 +133,7 @@ class CpioIntegrityTest {
         }
     }
 
-    @Test fun refusesBinaryHeadersAfterSupportedRecords() {
+    @Test fun aDamagedBinaryHeaderAfterSupportedRecordsIsDamage() {
         for (magic in listOf("070701", "070702", "070707")) {
             val f = fixture(Spec("a", payload, magic))
             val offset = f.headers[1]
@@ -111,8 +141,8 @@ class CpioIntegrityTest {
                 val bytes = f.bytes.copyOf(offset) + binary + ByteArray(24)
                 CpioReader(ByteArrayRandomAccessSource(bytes)).use { r ->
                     repeat(2) {
-                        val error = assertFailsWith<ArchiveUnsupportedException> { r.entries() }
-                        assertEquals(offset.toLong(), error.offset)
+                        val error = assertFailsWith<ArchiveFormatException> { r.entries() }
+                        assertEquals(offset.toLong() + 26, error.offset)
                     }
                 }
             }

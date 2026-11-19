@@ -21,12 +21,13 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.jvm.JvmSynthetic
 
 /**
- * cpio reader for the two portable ASCII dialects: `newc`/`crc` (magic 070701/070702,
- * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding).
+ * cpio reader for the two portable ASCII dialects, `newc`/`crc` (magic 070701/070702,
+ * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding), and for
+ * old binary cpio (`cpio -H bin`: 16-bit words in either byte order, 2-byte padding).
  * Hard links resolve to their group's last nonempty payload. Listing reads only
  * metadata; reading verifies each crc record's unsigned byte sum, including
- * overwritten payloads. The archive ends at `TRAILER!!!`. Old binary cpio is
- * recognized in either byte order and refused with [ArchiveUnsupportedException].
+ * overwritten payloads. The archive ends at `TRAILER!!!`. An initramfs reader refuses
+ * odc and old binary cpio with [ArchiveUnsupportedException], as the kernel does.
  * Empty input, unknown magic and incomplete magic before a trailer throw
  * [ArchiveFormatException], rather than returning an empty or partial listing.
  * [limits] caps the listing count and supplies the default policy for each read.
@@ -140,7 +141,12 @@ public class CpioReader private constructor(
             val prefix = source.readFully(pos, minOf(6L, total - pos).toInt())
             if (initramfs) rejectCompression(prefix, pos)
             if (isBinaryCpioMagic(prefix)) {
-                throw ArchiveUnsupportedException("cpio: old binary cpio is not supported", pos)
+                if (initramfs) throw ArchiveUnsupportedException("initramfs: old binary cpio is not supported; expected newc/crc", pos)
+                val parsed = parseBinary(pos, littleEndian = prefix[0] == 0xc7.toByte(), records, links)
+                pos = parsed.endOffset
+                recordEnd = pos
+                if (parsed.trailer) break
+                continue
             }
             if (prefix.size < 6) throw ArchiveFormatException("cpio: truncated header magic", pos)
             val magic = prefix.decodeToString()
@@ -265,6 +271,38 @@ public class CpioReader private constructor(
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 18, dataStart,
             if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
         return ParsedRecord(dataStart + fileSize, false)
+    }
+
+    /**
+     * Old binary cpio: thirteen 16-bit words in the byte order of the magic (26 bytes), with the
+     * modification time and file size as two words each, most significant first. The name and
+     * the data are each padded to an even length.
+     */
+    private fun parseBinary(pos: Long, littleEndian: Boolean, out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>): ParsedRecord {
+        val h = source.readFully(pos, 26)
+        fun word(i: Int): Long {
+            val a = h[2 * i].toInt() and 0xFF
+            val b = h[2 * i + 1].toInt() and 0xFF
+            return (if (littleEndian) (b shl 8) or a else (a shl 8) or b).toLong()
+        }
+        val device = word(1)
+        val inode = word(2)
+        val mode = word(3)
+        val nlink = word(6)
+        val mtime = (word(8) shl 16) or word(9)
+        val nameSize = word(10)
+        val fileSize = (word(11) shl 16) or word(12)
+        val nameStart = pos + 26
+        val nameBytes = readName(nameStart, nameSize)
+        val dataStart = nameStart + nameSize + (nameSize and 1)
+        source.requireRange(dataStart, fileSize)
+        if (nameBytes.contentEquals(TRAILER_BYTES)) {
+            checkTrailer(fileSize, pos + 22, null, pos)
+            return ParsedRecord(dataStart, true)
+        }
+        addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 6, dataStart,
+            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
+        return ParsedRecord(dataStart + fileSize + (fileSize and 1), false)
     }
 
     private fun addEntry(

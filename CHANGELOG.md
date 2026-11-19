@@ -45,6 +45,8 @@
 - `extract` takes `maxTotalBytes`, a budget for all entries together, checked against the
   listed sizes first and before every write, and `onFailure`, called with an entry and its
   error after a failed entry's sink is closed, so a partial file can be deleted.
+- The cpio reader reads old binary cpio (`cpio -H bin`) in both byte orders, which it used to
+  refuse. An initramfs reader still refuses it, as the kernel does.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

@@ -35,7 +35,7 @@ supplied LZ4 dictionaries.
 | TAR (v7, ustar, GNU, pax) | Yes | ustar with GNU long names, regular files and directories |
 | 7z | Copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and BCJ x86, compressed headers, solid folders decoded once | No |
 | ar (GNU, BSD, COFF, GNU thin) | Yes, thin members through an `ExternalMemberResolver` | GNU |
-| cpio (newc, crc, odc) | Yes | newc and crc |
+| cpio (newc, crc, odc, old binary) | Yes | newc and crc |
 | ISO 9660 (Joliet, Rock Ridge) | Multi-extent files, Rock Ridge symbolic links read as their target | No |
 | CAB | Stored, MSZIP and LZX folders, each decoded once | No |
 | WIM | Uncompressed, XPRESS and LZX, deduplicated resources with SHA-1 checks, several images as `1/`, `2/` | No |
@@ -49,7 +49,6 @@ Refused on read:
 - CAB: Quantum folders and files that span cabinets. They are listed, but a read fails.
 - WIM: LZMS and solid `.esd` images.
 - RAR: RAR4 compression, encrypted members, multi-volume members and encrypted headers.
-- cpio: the old binary dialect is recognized, but a listing fails.
 
 ArchiveKodec reads RAR from RARLAB's published format description and will never create RAR
 archives. ACE, StuffIt and ALZ are proprietary with no clean reference, so they are out of
