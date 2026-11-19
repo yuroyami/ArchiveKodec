@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.rar.RarReader
@@ -437,6 +438,45 @@ class RarReaderTest {
         }
         reader(solid5, ArchiveLimits { maxDecoderMemory = 1000 }).use {
             assertFailsWith<DecompressionBombException> { it.read(it.entries().first { e -> !e.isDirectory }) }
+        }
+    }
+
+    @Test
+    fun aFailedSolidReadDoesNotSkipAMember() {
+        val expected = mapOf(
+            "s/code.bin" to 0x57905e5fL, "s/audio.raw" to 0xd912dcd9L, "s/text.txt" to 0x82c88ff2L, "s/text-copy.txt" to 0xc8c1bc42L,
+        )
+        val delegate = ByteArrayRandomAccessSource(solid5)
+        var failNext = false
+        val offsetsRead = ArrayList<Long>()
+        val flaky = object : RandomAccessSource by delegate {
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                offsetsRead += offset
+                if (failNext) {
+                    failNext = false
+                    throw ArchiveIOException("transient failure", IllegalStateException("flaky"))
+                }
+                return delegate.read(offset, into, intoOffset, length)
+            }
+        }
+        RarReader(flaky).use { reader ->
+            val files = reader.entries().filter { !it.isDirectory }
+            // Read the first member, then fail the read of the second member's data on the way to the third.
+            assertEquals(expected.getValue(files[0].name), Crc32.of(reader.read(files[0])))
+            failNext = true
+            assertFailsWith<ArchiveIOException> { reader.read(files[2]) }
+            // The retry decodes the second member into the window instead of resuming past it.
+            offsetsRead.clear()
+            assertEquals(expected.getValue(files[2].name), Crc32.of(reader.read(files[2])))
+            assertTrue(files[1].dataOffset in offsetsRead, "the retry skipped ${files[1].name}: read $offsetsRead")
+            assertEquals(expected.getValue(files[3].name), Crc32.of(reader.read(files[3])))
+        }
+        // A kept window is not reused under a decoder memory limit that forbids it.
+        reader(solid5).use { reader ->
+            val files = reader.entries().filter { !it.isDirectory }
+            reader.read(files[0])
+            assertFailsWith<DecompressionBombException> { reader.read(files[1], ArchiveLimits { maxDecoderMemory = 1000 }) }
+            assertEquals(expected.getValue(files[1].name), Crc32.of(reader.read(files[1])))
         }
     }
 

@@ -84,6 +84,7 @@ public class RarReader(
     private var unpacker: Rar5Unpacker? = null
     private var unpackerStart = -1
     private var unpackerLast = -1
+    private var unpackerWindow = 0L
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
@@ -97,13 +98,15 @@ public class RarReader(
                 val index = directory.entries.indices.firstOrNull { directory.entries[it].name == item.linkTo && directory.items[it].linkTo == null } ?: -1
                 if (index < 0) throw ArchiveFormatException("RAR: link target '${item.linkTo}' is not in the archive")
                 item = directory.items[index]
+                // A link produces its target's data, so the limits apply to the target's size.
+                limits.checkOutputSize(item.size)
             }
             when {
                 item.target != null -> item.target!!.copyOf()
                 item.refusal != null -> throw ArchiveUnsupportedException("RAR: ${item.refusal}", item.dataOffset)
                 listed.isDirectory -> ByteArray(0)
                 item.compression >= 0 -> {
-                    limits.checkRatio(item.packed, listed.size)
+                    limits.checkRatio(item.packed, item.size)
                     val data = unpack(directory.items, directory.items.indexOf(item), limits)
                     if (item.crc != null && Crc32.of(data) != item.crc) throw ArchiveFormatException("RAR: CRC-32 mismatch", item.dataOffset)
                     data
@@ -142,7 +145,11 @@ public class RarReader(
             }
         }
         val current = unpacker
-        val resume = current != null && unpackerStart == start && unpackerLast < index
+        // A kept window is reused only while this call's limits would allow it too.
+        val resume = current != null && unpackerStart == start && unpackerLast < index && unpackerWindow <= limits.maxDecoderMemory
+        val target = items[index]
+        limits.checkOutputSize(target.size)
+        if (target.size > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", target.dataOffset)
         val worker = if (resume) current!! else {
             var total = 0L
             var j = start
@@ -158,24 +165,29 @@ public class RarReader(
                 throw DecompressionBombException(
                     "RAR: a $window B window exceeds the decoder memory limit ${minOf(limits.maxDecoderMemory, MAX_WINDOW)} B")
             }
-            Rar5Unpacker(window.toInt(), dictionary)
+            Rar5Unpacker(window.toInt(), dictionary).also { unpackerWindow = window }
         }
         unpacker = worker
         unpackerStart = start
         var result: ByteArray? = null
-        for (j in (if (resume) unpackerLast + 1 else start)..index) {
-            val item = items[j]
-            if (item.compression < 0) continue
-            unpackerLast = j
-            if (j == index) limits.checkOutputSize(item.size)
-            if (item.size > Int.MAX_VALUE || item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", item.dataOffset)
-            val data = source.readFullyChecked(item.dataOffset, item.packed)
-            try {
+        val first = if (resume) unpackerLast + 1 else start
+        // The window holds the members up to unpackerLast only once each decode returned. Any
+        // failure part way leaves it out of step with the stream, so it is dropped.
+        unpackerLast = first - 1
+        try {
+            for (j in first..index) {
+                val item = items[j]
+                if (item.compression < 0) continue
+                if (item.size > Int.MAX_VALUE || item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", item.dataOffset)
+                val data = source.readFullyChecked(item.dataOffset, item.packed)
                 result = worker.unpack(data, 0, data.size, item.size.toInt(), keep = j == index)
-            } catch (error: ArchiveException) {
-                unpacker = null
-                throw error
+                unpackerLast = j
             }
+        } catch (error: Throwable) {
+            unpacker = null
+            unpackerStart = -1
+            unpackerLast = -1
+            throw error
         }
         return result ?: throw ArchiveFormatException("RAR: member has no compressed data", items[index].dataOffset)
     }
