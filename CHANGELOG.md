@@ -61,6 +61,10 @@
 - Added lzip (`.lz`): `Codecs.LZIP` decodes concatenated members and checks every trailer, and
   encodes one member; the sniffer detects it and `open` removes it like the other layers. The
   lzip tool reads our output, and we read its output, single and multi-member.
+- Added Unix compress (`.Z`): `Codecs.COMPRESS` decodes 10- to 16-bit LZW in either block
+  mode and encodes 16-bit block mode, and `open` removes it like the other layers. ncompress 5.0
+  reads our output, and we read its output at every width from 10 to 16. Streams whose widest
+  code is 9 bits are refused, since how ncompress changes width there is not pinned down.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

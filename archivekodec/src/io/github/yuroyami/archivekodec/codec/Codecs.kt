@@ -90,6 +90,15 @@ public object Codecs {
     public val LZIP: Codec get() = LzipCodec
 
     /**
+     * Unix `compress` (`.Z`): LZW with codes of 9 up to 16 bits, least significant bit first.
+     * Decoding accepts maximum widths 10 to 16 (9 is refused) and block mode on or off.
+     * Encoding uses 16 bits and block mode, clearing the table when the ratio stops improving,
+     * as ncompress does.
+     */
+    @JvmStatic
+    public val COMPRESS: Codec get() = CompressCodec
+
+    /**
      * Zstandard (RFC 8878). Decoding handles every block and table mode, repeat offsets,
      * skippable and concatenated frames, and verifies the xxHash64 content checksum;
      * dictionary frames are refused. Encoding writes one frame with predefined tables.
@@ -335,4 +344,11 @@ internal object LzipCodec : Codec {
     override val id = CodecId.LZIP
     override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.COMPRESS]. */
+internal object CompressCodec : Codec {
+    override val id = CodecId.COMPRESS
+    override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzw.UnixCompress.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzw.UnixCompress.decompress(data, limits)
 }
