@@ -185,7 +185,7 @@ public object ArWriter {
         val out = ByteArrayBuilder(checkedArraySize(total))
         out.append("!<arch>\n".encodeToByteArray())
         if (tableSize > 0) {
-            out.append(header("//".encodeToByteArray(), tableSize, 0, 0, 0, 0))
+            out.append(header("//".encodeToByteArray(), tableSize.toLong(), 0, 0, 0, 0))
             for ((_, entry) in tableNames) {
                 out.append(entry.second)
                 out.append(47)
@@ -196,7 +196,7 @@ public object ArWriter {
         for (file in prepared) {
             val spec = file.spec
             val field = file.field
-            out.append(header(field, spec.payload.size, spec.modificationTime, spec.uid, spec.gid, spec.mode))
+            out.append(header(field, spec.payload.size.toLong(), spec.modificationTime, spec.uid, spec.gid, spec.mode))
             out.append(spec.payload)
             if (spec.payload.size and 1 != 0) out.append(10)
         }
@@ -221,7 +221,7 @@ public object ArWriter {
             val inline = name.size > 16 || ' ' in spec.name || spec.name.startsWith("#1/")
             val field = if (inline) "#1/${name.size}".encodeToByteArray() else name
             val size = (if (inline) name.size else 0) + spec.payload.size
-            out.append(header(field, size, spec.modificationTime, spec.uid, spec.gid, spec.mode))
+            out.append(header(field, size.toLong(), spec.modificationTime, spec.uid, spec.gid, spec.mode))
             if (inline) out.append(name)
             out.append(spec.payload)
             if (size and 1 != 0) out.append(10)
@@ -229,7 +229,7 @@ public object ArWriter {
         return out.takeByteArray()
     }
 
-    private fun encodeName(name: String): ByteArray {
+    internal fun encodeName(name: String): ByteArray {
         if (name.isEmpty() || name == "." || name == ".." || name.any { it == '/' || it == '\\' || it == ':' || it.code < 32 || it.code == 127 }) {
             throw ArchiveFormatException("ar: expected a nonempty basename without paths or ASCII controls", entryName = name)
         }
@@ -243,7 +243,7 @@ public object ArWriter {
         }
     }
 
-    private fun header(name: ByteArray, size: Int, time: Long, uid: Int, gid: Int, mode: Int): ByteArray {
+    internal fun header(name: ByteArray, size: Long, time: Long, uid: Int, gid: Int, mode: Int): ByteArray {
         val bytes = ByteArray(60) { 32 }
         name.copyInto(bytes)
         time.toString().encodeToByteArray().copyInto(bytes, 16)

@@ -427,6 +427,30 @@ public final class io/github/yuroyami/archivekodec/archive/ar/ArReader : io/gith
 public final class io/github/yuroyami/archivekodec/archive/ar/ArReader$Companion {
 }
 
+public final class io/github/yuroyami/archivekodec/archive/ar/ArStreamReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public synthetic fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun data ()Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public final fun getCurrent ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun next ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun read (Lio/github/yuroyami/archivekodec/codec/ByteSink;)J
+	public final fun read (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
+	public static synthetic fun read$default (Lio/github/yuroyami/archivekodec/archive/ar/ArStreamReader;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)J
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ar/ArStreamWriter {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSink;)V
+	public final fun finish ()V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;I)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJ)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJI)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJII)V
+	public static synthetic fun putFile$default (Lio/github/yuroyami/archivekodec/archive/ar/ArStreamWriter;Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJIIILjava/lang/Object;)V
+}
+
 public final class io/github/yuroyami/archivekodec/archive/ar/ArWriter {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/ar/ArWriter;
 	public static final fun write (Ljava/util/List;)[B

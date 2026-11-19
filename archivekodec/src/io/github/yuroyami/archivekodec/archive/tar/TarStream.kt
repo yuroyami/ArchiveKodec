@@ -80,7 +80,8 @@ public class TarStreamWriter(private val sink: ByteSink) {
  * [ArchiveUnsupportedException]; [TarReader] reads them from a seekable source. Names are
  * checked as [ArchiveLimits.rejectUnsafeNames] says. Not thread-safe.
  *
- * For a `.tar.gz` and the like, wrap the source in a streaming decoder first.
+ * Decoders write to a [ByteSink] rather than offer a source, so for a `.tar.gz` and the like,
+ * decode into a [TarStreamSink] instead.
  */
 public class TarStreamReader @JvmOverloads public constructor(
     source: ByteSource,

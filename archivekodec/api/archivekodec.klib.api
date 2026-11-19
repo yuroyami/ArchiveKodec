@@ -1386,6 +1386,24 @@ open class io.github.yuroyami.archivekodec/ArchiveException : kotlin/Exception {
     open fun toString(): kotlin/String // io.github.yuroyami.archivekodec/ArchiveException.toString|toString(){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.ar/ArStreamReader { // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSource, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder = ...) // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSource;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+
+    final var current // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader.current|{}current[0]
+        final fun <get-current>(): io.github.yuroyami.archivekodec.archive/ArchiveEntry? // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader.current.<get-current>|<get-current>(){}[0]
+
+    final fun data(): io.github.yuroyami.archivekodec.codec/ByteSource // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader.data|data(){}[0]
+    final fun next(): io.github.yuroyami.archivekodec.archive/ArchiveEntry? // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader.next|next(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/Long // io.github.yuroyami.archivekodec.archive.ar/ArStreamReader.read|read(io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.archive.ar/ArStreamWriter { // io.github.yuroyami.archivekodec.archive.ar/ArStreamWriter|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSink) // io.github.yuroyami.archivekodec.archive.ar/ArStreamWriter.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSink){}[0]
+
+    final fun finish() // io.github.yuroyami.archivekodec.archive.ar/ArStreamWriter.finish|finish(){}[0]
+    final fun putFile(kotlin/String, kotlin/Long, io.github.yuroyami.archivekodec.codec/ByteSource, kotlin/Int = ..., kotlin/Long = ..., kotlin/Int = ..., kotlin/Int = ...) // io.github.yuroyami.archivekodec.archive.ar/ArStreamWriter.putFile|putFile(kotlin.String;kotlin.Long;io.github.yuroyami.archivekodec.codec.ByteSource;kotlin.Int;kotlin.Long;kotlin.Int;kotlin.Int){}[0]
+}
+
 final object io.github.yuroyami.archivekodec.archive.ar/ArWriter { // io.github.yuroyami.archivekodec.archive.ar/ArWriter|null[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec>){}[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.ar/ArWriter.FileSpec>, io.github.yuroyami.archivekodec.archive.ar/ArWriter.NameStyle): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.ar/ArWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.ar.ArWriter.FileSpec>;io.github.yuroyami.archivekodec.archive.ar.ArWriter.NameStyle){}[0]

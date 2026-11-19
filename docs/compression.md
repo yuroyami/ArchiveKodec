@@ -124,6 +124,11 @@ ArchiveKodec.gzip.decompress(fileSource, TarStreamSink(object : TarStreamVisitor
 }), limits)
 ```
 
+`ArStreamWriter` and `ArStreamReader` do the same for Unix `ar`. The writer stores names longer
+than 16 bytes inline, as BSD and macOS `ar` do and GNU `ar` reads, since a GNU name table would
+have to come before every member. There is no push-side `ar` reader yet, so a compressed `ar`
+is decoded to a file before `ArStreamReader` reads it.
+
 ## Limits on a decode
 
 Every `decompress` takes an `ArchiveLimits`, which defaults to `ArchiveLimits.DEFAULT`. The
