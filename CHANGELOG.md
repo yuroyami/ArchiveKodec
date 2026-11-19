@@ -87,6 +87,7 @@
   `.tar.xz` larger than a 32 MiB heap are written and read in it, as tests check. zstd
   decodes from a source too, through a window of the frame's window size, with a running
   content checksum; zstd, LZ4 and lzip encoder sessions write one frame or member per chunk.
+  LZ4 decodes from a source one block at a time, keeping 64 KiB of history for linked blocks.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

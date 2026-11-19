@@ -99,7 +99,8 @@ decodable from what the sink has, as zlib's sync flush does. bzip2 writes each f
 its own stream, which every bzip2 decoder joins, and xz writes blocks of 2 MiB, as `xz -T`
 does. zstd, LZ4 and lzip write each 1 to 4 MiB
 of input as a complete frame or member, which their decoders join. The xz and zstd decoders keep
-a window of the block's dictionary or the frame's window, which `maxDecoderMemory` bounds; an xz
+a window of the block's dictionary or the frame's window, which `maxDecoderMemory` bounds, and
+the LZ4 decoder keeps one block of at most 4 MiB and 64 KiB of history; an xz
 block with a branch filter is held whole until its end. The other codecs keep the input and compress
 it at `finish`, until they stream too.
 

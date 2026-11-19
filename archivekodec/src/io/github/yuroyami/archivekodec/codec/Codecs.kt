@@ -340,6 +340,7 @@ internal object Lz4Codec : Codec {
         compress(ByteArray(0), options)
         return ChunkedEncoderSession(4 shl 20, { compress(it, options) }, sink)
     }
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = Lz4.frameDecompress(source, sink, limits)
 }
 
 /** The implementation of [Codecs.SNAPPY]. */

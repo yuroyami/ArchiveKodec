@@ -73,3 +73,56 @@ public object XxHash32 {
         return h.toLong() and 0xFFFFFFFFL
     }
 }
+
+/** xxHash32 with seed 0 over data given in pieces: what [XxHash32.hash] gives for all of it. */
+internal class XxHash32Streaming {
+    private val P1 = -1640531535
+    private val P2 = -2048144777
+    private val P3 = -1028477379
+    private val P4 = 668265263
+    private val P5 = 374761393
+    private var v1 = P1 + P2
+    private var v2 = P2
+    private var v3 = 0
+    private var v4 = -P1
+    private val tail = ByteArray(16)
+    private var tailSize = 0
+    private var total = 0L
+
+    private fun rotl(x: Int, r: Int): Int = (x shl r) or (x ushr (32 - r))
+
+    private fun stripe(d: ByteArray, i: Int) {
+        v1 = rotl(v1 + readI32Le(d, i) * P2, 13) * P1
+        v2 = rotl(v2 + readI32Le(d, i + 4) * P2, 13) * P1
+        v3 = rotl(v3 + readI32Le(d, i + 8) * P2, 13) * P1
+        v4 = rotl(v4 + readI32Le(d, i + 12) * P2, 13) * P1
+    }
+
+    fun update(data: ByteArray, offset: Int, length: Int) {
+        var p = offset
+        val end = offset + length
+        total += length
+        if (tailSize > 0) {
+            val n = minOf(16 - tailSize, end - p)
+            data.copyInto(tail, tailSize, p, p + n)
+            tailSize += n
+            p += n
+            if (tailSize < 16) return
+            stripe(tail, 0)
+            tailSize = 0
+        }
+        while (p <= end - 16) { stripe(data, p); p += 16 }
+        data.copyInto(tail, 0, p, end)
+        tailSize = end - p
+    }
+
+    fun value(): Long {
+        var h = if (total >= 16) rotl(v1, 1) + rotl(v2, 7) + rotl(v3, 12) + rotl(v4, 18) else P5
+        h += total.toInt()
+        var i = 0
+        while (tailSize - i >= 4) { h += readI32Le(tail, i) * P3; h = rotl(h, 17) * P4; i += 4 }
+        while (i < tailSize) { h += (tail[i].toInt() and 0xFF) * P5; h = rotl(h, 11) * P1; i++ }
+        h = h xor (h ushr 15); h *= P2; h = h xor (h ushr 13); h *= P3; h = h xor (h ushr 16)
+        return h.toLong() and 0xFFFFFFFFL
+    }
+}

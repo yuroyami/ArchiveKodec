@@ -1,5 +1,9 @@
 package io.github.yuroyami.archivekodec.codec.lz4
 
+import io.github.yuroyami.archivekodec.checksum.XxHash32Streaming
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
+import io.github.yuroyami.archivekodec.codec.ByteSource
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import kotlin.jvm.JvmOverloads
 import kotlin.jvm.JvmStatic
 
@@ -486,6 +490,120 @@ public object Lz4 {
             }
         }
         return out.takeByteArray()
+    }
+
+    /**
+     * Decode every frame read from [source] to [sink] and return the byte count: standard,
+     * skippable and legacy frames, as [frameDecompress] reads them. Each block, at most 8 MiB,
+     * is read whole, and linked blocks keep the last 64 KiB of output as history, so memory
+     * stays near one block. The ratio is measured against the compressed bytes read so far.
+     */
+    internal fun frameDecompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = SourceBuffer(source)
+        val begin = input.streamPosition
+        limits.checkOutputSize(0)
+        var total = 0L
+        val word = ByteArray(8)
+        fun u32(what: String): Long { input.readFully(word, 0, 4, "lz4 $what"); return readU32Le(word, 0) }
+        fun emit(bytes: ByteArray, offset: Int, length: Int) {
+            limits.checkOutputSize(total + length)
+            limits.checkRatio(input.streamPosition - begin, total + length)
+            sink.write(bytes, offset, length)
+            total += length
+        }
+        var frames = 0
+        while (frames == 0 || !input.atEnd()) {
+            val frameStart = input.streamPosition
+            when (val magic = u32("frame")) {
+                in SKIPPABLE_FIRST..SKIPPABLE_LAST -> {
+                    var skip = u32("skippable frame")
+                    while (skip > 0) {
+                        if (!input.ensure(1)) throw ArchiveFormatException("lz4: truncated skippable payload", input.streamPosition)
+                        val n = minOf(skip, input.available.toLong()).toInt()
+                        input.position += n
+                        skip -= n
+                    }
+                }
+                LEGACY_MAGIC -> while (input.ensure(4)) {
+                    val size = readU32Le(input.buffer, input.position)
+                    if (size == MAGIC || size == LEGACY_MAGIC || size in SKIPPABLE_FIRST..SKIPPABLE_LAST) break
+                    input.position += 4
+                    if (size == 0L || size > LEGACY_BOUND) throw ArchiveFormatException("lz4: invalid legacy block size $size", input.streamPosition - 4)
+                    val block = ByteArray(size.toInt())
+                    input.readFully(block, 0, block.size, "lz4 legacy block")
+                    val out = ByteArrayBuilder(64 * 1024)
+                    decodeBlock(block, 0, block.size, out, LEGACY_BLOCK, ArchiveLimits.UNBOUNDED, block.size)
+                    val decoded = out.takeByteArray()
+                    emit(decoded, 0, decoded.size)
+                }
+                MAGIC -> {
+                    input.readFully(word, 0, 2, "lz4 frame descriptor")
+                    val flg = word[0].toInt() and 0xFF
+                    val bd = word[1].toInt() and 0xFF
+                    if (flg ushr 6 != 1) throw ArchiveFormatException("lz4: invalid frame version ${flg ushr 6}", frameStart + 4)
+                    if (flg and 0x02 != 0) throw ArchiveFormatException("lz4: reserved FLG bit is set", frameStart + 4)
+                    val blockMaximum = when ((bd ushr 4) and 7) {
+                        4 -> 64 * 1024; 5 -> 256 * 1024; 6 -> 1024 * 1024; 7 -> MAX_BLOCK
+                        else -> throw ArchiveFormatException("lz4: invalid block maximum descriptor", frameStart + 5)
+                    }
+                    if (bd and 0x8F != 0) throw ArchiveFormatException("lz4: reserved BD bits are set", frameStart + 5)
+                    val blockChecksum = flg and 0x10 != 0
+                    val linked = flg and 0x20 == 0
+                    val optional = (if (flg and 0x08 != 0) 8 else 0) + (if (flg and 0x01 != 0) 4 else 0)
+                    val descriptor = ByteArray(2 + optional + 1)
+                    descriptor[0] = flg.toByte(); descriptor[1] = bd.toByte()
+                    input.readFully(descriptor, 2, optional + 1, "lz4 frame descriptor")
+                    if ((XxHash32.hash(descriptor, 0, 2 + optional) ushr 8).toInt() and 0xFF != descriptor[2 + optional].toInt() and 0xFF) {
+                        throw ArchiveFormatException("lz4: header checksum mismatch", frameStart + 6 + optional)
+                    }
+                    val declared = if (flg and 0x08 != 0) readI64Le(descriptor, 2) else null
+                    if (declared != null) {
+                        if (declared < 0) throw ArchiveFormatException("lz4: declared content size exceeds Long", frameStart + 6)
+                        limits.checkOutputSize(total + declared)
+                    }
+                    val dictionaryId = if (flg and 0x01 != 0) readU32Le(descriptor, 2 + optional - 4) else null
+                    val content = if (flg and 0x04 != 0) XxHash32Streaming() else null
+                    var history = ByteArray(0)
+                    var frameOutput = 0L
+                    while (true) {
+                        val raw = u32("block size")
+                        if (raw == 0L) break
+                        val stored = raw and 0x80000000L != 0L
+                        val size = (raw and 0x7FFFFFFFL).toInt()
+                        if (size > blockMaximum) throw ArchiveFormatException("lz4: block size $size exceeds maximum $blockMaximum", input.streamPosition - 4)
+                        val block = ByteArray(size)
+                        input.readFully(block, 0, size, "lz4 block")
+                        if (blockChecksum && XxHash32.hash(block) != u32("block checksum")) {
+                            throw ArchiveFormatException("lz4: block checksum mismatch", input.streamPosition - 4)
+                        }
+                        val decoded = if (stored) block else {
+                            val out = ByteArrayBuilder(history.size + 64 * 1024)
+                            if (linked) out.append(history)
+                            decodeBlock(block, 0, size, out, blockMaximum, ArchiveLimits.UNBOUNDED, size,
+                                dictionaryId = dictionaryId, frameOutputBase = if (linked) history.size else 0, linkedBlocks = linked)
+                            val all = out.takeByteArray()
+                            if (linked) all.copyOfRange(history.size, all.size) else all
+                        }
+                        frameOutput += decoded.size
+                        if (declared != null && frameOutput > declared) throw contentSizeMismatch(frameOutput, declared, frameStart + 6)
+                        content?.update(decoded, 0, decoded.size)
+                        emit(decoded, 0, decoded.size)
+                        if (linked) {
+                            val joined = if (history.size + decoded.size <= HISTORY_WINDOW) history + decoded
+                                else (history + decoded).let { it.copyOfRange(it.size - HISTORY_WINDOW, it.size) }
+                            history = joined
+                        }
+                    }
+                    if (declared != null && frameOutput != declared) throw contentSizeMismatch(frameOutput, declared, frameStart + 6)
+                    if (content != null && content.value() != u32("content checksum")) {
+                        throw ArchiveFormatException("lz4: content checksum mismatch", input.streamPosition - 4)
+                    }
+                }
+                else -> throw ArchiveFormatException("lz4: unrecognized frame magic 0x${magic.toString(16)}", frameStart)
+            }
+            frames++
+        }
+        return total
     }
 
     private fun findFrameEnd(
