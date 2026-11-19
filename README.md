@@ -69,9 +69,8 @@ ArchiveKodec.open(bytes).use { reader ->
 ```
 
 `open` detects the format and removes one compression layer, so a `.tar.gz` or `.tar.xz` opens
-in one call. A
-listing refuses names such as `../../etc/passwd` by default, but always build the output path
-with `PathGuard.sanitize`. See [Reading archives](docs/reading.md) and
+in one call. A listing refuses names such as `../../etc/passwd` by default, but always build
+the output path with `PathGuard.sanitize`. See [Reading archives](docs/reading.md) and
 [Entry names and Zip-Slip](docs/entry-names.md).
 
 ### Write a ZIP
