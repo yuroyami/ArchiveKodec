@@ -10,16 +10,21 @@ import kotlin.jvm.JvmStatic
  */
 public class Crc32 : Checksum {
     private var crc = -1 // 0xFFFFFFFF
+    // The JVM's intrinsic CRC-32 where there is one; the tables elsewhere.
+    private val platform = platformCrc32()
 
     @Throws(IllegalArgumentException::class)
     override fun update(data: ByteArray, offset: Int, length: Int) {
         val end = checkedChecksumEnd(data.size, offset, length)
-        crc = TABLES.update(data, offset, end, crc)
+        if (platform != null) platform.update(data, offset, length) else crc = TABLES.update(data, offset, end, crc)
     }
 
-    override fun value(): Long = (crc.inv().toLong() and 0xFFFFFFFFL)
+    override fun value(): Long = platform?.value() ?: (crc.inv().toLong() and 0xFFFFFFFFL)
 
-    override fun reset() { crc = -1 }
+    override fun reset() {
+        platform?.reset()
+        crc = -1
+    }
 
     /** One-shot checksum calculation for a complete byte array. */
     public companion object {

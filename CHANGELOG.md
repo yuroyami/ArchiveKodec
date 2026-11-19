@@ -39,6 +39,8 @@
 - The JavaScript facade (`JsExports.kt`) moved from the core into the `archivekodec-js` module.
   A Kotlin/JS program that depends on the core no longer keeps the facade's exports. The npm
   module that `scripts/js_package.py` assembles exports the same functions as before.
+- `Crc32` and `Adler32` use `java.util.zip` on the JVM and Android, which runs as an intrinsic.
+  CRC-32 was 31 times slower than the JDK's. Other platforms keep the table code.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
