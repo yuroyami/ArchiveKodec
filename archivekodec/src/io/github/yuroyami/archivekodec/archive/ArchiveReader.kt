@@ -83,12 +83,11 @@ public interface ArchiveReader {
      * Read one entry's uncompressed bytes into [sink] in chunks rather than one array, and
      * return the number written. [limits] are checked before every write.
      *
-     * ZIP streams the output of stored, DEFLATE and Deflate64 members that are not
-     * encrypted and whose sizes are in the central directory, about 1 MiB at a time, so the
-     * output may be larger than memory (raise [ArchiveLimits.maxUncompressedBytes] above its
-     * 2 GiB default). Their input is read as the decoder needs it too, so neither side has
-     * to fit in memory. Their CRC-32 is checked
-     * at the end, after the data was written. Other members and readers read the whole entry
+     * ZIP streams stored, DEFLATE, Deflate64, bzip2, zstd and xz members that are not
+     * encrypted and whose sizes are in the central directory: the input is read as the
+     * decoder needs it and the output written as it is produced, so neither side has to fit
+     * in memory (raise [ArchiveLimits.maxUncompressedBytes] above its 2 GiB default for a
+     * larger output). Their CRC-32 is checked at the end, after the data was written. Other members and readers read the whole entry
      * first and then write it, which is also this default.
      *
      * @throws ArchiveException for the listing, decoding, integrity and limit failures documented by [read],

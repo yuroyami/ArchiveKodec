@@ -62,7 +62,7 @@ import kotlin.text.CharacterCodingException
  * (CP437 by default). Conflicting valid Unicode names are malformed.
  * Masked local headers with
  * central-directory encryption are unsupported. By default this reader decodes STORE (0),
- * DEFLATE (8), Deflate64 (9), bzip2 (12), LZMA (14), Zstandard (93) and PPMd (98).
+ * DEFLATE (8), Deflate64 (9), bzip2 (12), LZMA (14), Zstandard (93), xz (95) and PPMd (98).
  * Supply [codecs] to add methods or replace engines. Other
  * methods appear in [entries], but [read] throws when no decoder is registered.
  * [ArchiveEntry.zipMethod] preserves the numeric method; unbound methods use a
@@ -254,6 +254,9 @@ public class ZipReader(
             0 -> Codecs.STORE
             8 -> Codecs.DEFLATE
             9 -> Codecs.DEFLATE64
+            12 -> Codecs.BZIP2
+            93 -> Codecs.ZSTD
+            95 -> Codecs.XZ
             else -> null
         }
         if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn) {
@@ -331,6 +334,7 @@ public class ZipReader(
         val member = directory.memberOf(this, listed)
         val method = member.method
         // Only the built-in engines stream. A registry that replaces one decodes in memory, through it.
+        // Each reads its input from the archive as it decodes.
         val builtIn = when (method) {
             0 -> Codecs.STORE
             8 -> Codecs.DEFLATE
@@ -344,7 +348,7 @@ public class ZipReader(
             if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
             return bytes.size.toLong()
         }
-        return withEntryContext(listed.name, listed.dataOffset) { stream(member, sink, limits, check) }
+        return withEntryContext(listed.name, listed.dataOffset) { stream(member, builtIn, sink, limits, check) }
     }
 
     /**
@@ -361,8 +365,21 @@ public class ZipReader(
         if (check.mode == CrcMode.LENIENT) crcListener?.onMismatch(entry, expected, actual)
     }
 
-    /** Stream a stored, DEFLATE or Deflate64 member, checking its size and CRC-32 at the end. */
-    private fun stream(member: Member, sink: ByteSink, limits: ArchiveLimits, check: CrcCheck): Long {
+    /** A source over `source[from, to)`, which the caller has range-checked. */
+    private fun span(source: RandomAccessSource, from: Long, to: Long): ByteSource {
+        var position = from
+        return ByteSource { into, offset, length ->
+            if (position == to) -1 else {
+                val n = minOf(length.toLong(), to - position).toInt()
+                source.readFullyInto(position, into, n, offset)
+                position += n
+                n
+            }
+        }
+    }
+
+    /** Stream a stored, DEFLATE, Deflate64, bzip2, zstd or xz member, checking its size and CRC-32 at the end. */
+    private fun stream(member: Member, codec: Codec, sink: ByteSink, limits: ArchiveLimits, check: CrcCheck): Long {
         val entry = member.entry
         val source = ownedSource.source
         val dataStart = validateLocalHeader(member, source.readFully(entry.dataOffset, 30), source)
@@ -391,25 +408,35 @@ public class ZipReader(
             // Output is held to the declared size, whose ratio was checked above, so the
             // decoder's running ratio check, against the bytes read so far, would add nothing.
             source.requireRange(dataStart, entry.compressedSize)
-            var position = dataStart
-            val end = dataStart + entry.compressedSize
-            val input = SourceBuffer(ByteSource { into, offset, length ->
-                if (position == end) -1 else {
-                    val n = minOf(length.toLong(), end - position).toInt()
-                    source.readFullyInto(position, into, n, offset)
-                    position += n
-                    n
+            val span = span(source, dataStart, dataStart + entry.compressedSize)
+            val relaxed = limits.copy { maxCompressionRatio = Int.MAX_VALUE }
+            if (member.method == 8 || member.method == 9) {
+                val input = SourceBuffer(span)
+                val output = Inflate.Output(relaxed, Int.MAX_VALUE, expectedSize = entry.size, sink = checked, reserveInputSize = false)
+                try {
+                    Inflate.inflateFrom(input, output, deflate64 = member.method == 9)
+                } catch (error: ArchiveException) {
+                    throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
                 }
-            })
-            val output = Inflate.Output(limits.copy { maxCompressionRatio = Int.MAX_VALUE }, Int.MAX_VALUE,
-                expectedSize = entry.size, sink = checked, reserveInputSize = false)
-            try {
-                Inflate.inflateFrom(input, output, deflate64 = member.method == 9)
-            } catch (error: ArchiveException) {
-                throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+                if (!input.atEnd()) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + input.streamPosition, entry.name)
+                output.finish()
+            } else {
+                var count = 0L
+                val capped = ByteSink { bytes, offset, length ->
+                    if (count + length > entry.size) {
+                        // Relative to the data, like the decoder's own errors; the catch below adds dataStart.
+                        throw ArchiveFormatException("ZIP: output passes the declared size ${entry.size}", 0)
+                    }
+                    count += length
+                    checked.write(bytes, offset, length)
+                }
+                try {
+                    codec.decompress(span, capped, relaxed)
+                } catch (error: ArchiveException) {
+                    throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+                }
+                count
             }
-            if (!input.atEnd()) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + input.streamPosition, entry.name)
-            output.finish()
         }
         if (written != entry.size) throw ArchiveFormatException("ZIP: output size $written differs from declared size ${entry.size}", dataStart, entry.name)
         entry.crc32?.let { expected -> checkCrc(check, member, expected, crc.value(), dataStart) }

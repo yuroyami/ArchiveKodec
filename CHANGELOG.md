@@ -94,6 +94,7 @@
   a time.
   `ZipReader.read(entry, sink)` reads DEFLATE and Deflate64 input as it decodes, so a member
   whose compressed data is larger than the heap streams through it, as a 32 MiB test checks.
+  bzip2, zstd and xz members stream the same way, and ZIP method 95 (xz) now reads.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

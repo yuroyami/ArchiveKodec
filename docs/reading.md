@@ -73,8 +73,8 @@ val written: Long = reader.read(entry, ByteSink { chunk, offset, length ->
 })
 ```
 
-Unencrypted ZIP members that are stored, DEFLATE or Deflate64 stream about 1 MiB at a time, and
-their compressed data is read as the decoder needs it, so neither side is bound by memory or a
+Unencrypted ZIP members that are stored, DEFLATE, Deflate64, bzip2, zstd or xz stream: their
+output is written as it is produced and their compressed data is read as the decoder needs it, so neither side is bound by memory or a
 `ByteArray`. Every other entry is read whole and then written.
 
 ## Read the first bytes

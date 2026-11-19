@@ -34,7 +34,7 @@ supplied LZ4 dictionaries.
 
 | Format | Read | Write |
 | --- | --- | --- |
-| ZIP and ZIP64 | STORE, DEFLATE, Deflate64, bzip2, LZMA, zstd and PPMd | STORE and DEFLATE |
+| ZIP and ZIP64 | STORE, DEFLATE, Deflate64, bzip2, LZMA, zstd, xz and PPMd | STORE and DEFLATE |
 | TAR (v7, ustar, GNU, pax) | Yes | ustar with GNU long names, regular files and directories |
 | 7z | Copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and the branch filters but BCJ2 and RISC-V, compressed headers, solid folders decoded once | No |
 | ar (GNU, BSD, COFF, GNU thin) | Yes, thin members through an `ExternalMemberResolver` | GNU |
