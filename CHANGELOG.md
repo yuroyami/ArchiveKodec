@@ -22,6 +22,18 @@
   counted -1 sizes.
 - The npm package that `scripts/js_package.py` writes is named `archivekodec`, since npm refuses
   capitals in new package names.
+- Fixed: a solid RAR5 read that failed part way (an IO error, a size limit) no longer makes
+  the next read resume past the member it never decoded. A kept RAR5 window is reused only under
+  limits that allow it, and a RAR link is checked against its target's size.
+- Fixed, small inputs that reserved large outputs before a limit could reject them: CAB folders
+  whose files claim more than their data blocks, RAR5 compressed members without data, SquashFS
+  block lists that point outside the image, chained 7z coders measured against another coder's
+  output, LZW and PackBits with a large `expectedSize`, and HUFF/CDIC phrases, which now also
+  check the ratio and keep at most `maxDecoderMemory` of decoded phrases.
+- `maxDecoderMemory` also bounds the bzip2 block table and LZMA literal tables with lc + lp
+  above 4. A 7z read served from the folder cache checks the ratio limit as well.
+- Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
+  exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
 - **Breaking:** the library is renamed from KiteArchive to ArchiveKodec. The artifacts are
   `io.github.yuroyami:archivekodec` and `io.github.yuroyami:archivekodec-io`. The packages
