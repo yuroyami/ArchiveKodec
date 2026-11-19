@@ -129,6 +129,11 @@ than 16 bytes inline, as BSD and macOS `ar` do and GNU `ar` reads, since a GNU n
 have to come before every member. There is no push-side `ar` reader yet, so a compressed `ar`
 is decoded to a file before `ArStreamReader` reads it.
 
+`CpioStreamWriter` and `CpioStreamReader` do the same for cpio. The writer writes newc or odc;
+the crc dialect puts each body's sum in the header before the body, which a stream cannot know
+yet, so `CpioWriter` writes it. The reader reports each record with the body it stores, so the
+earlier links of a newc hard-link group, whose data comes with the last link, read as empty.
+
 ## Limits on a decode
 
 Every `decompress` takes an `ArchiveLimits`, which defaults to `ArchiveLimits.DEFAULT`. The

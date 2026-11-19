@@ -246,12 +246,11 @@ public object CpioWriter {
                 if (dialect == Dialect.CRC) byteSum(spec.payload) else 0,
             ))
         }
-        writeRecord(out, dialect, "TRAILER!!!".encodeToByteArray(), byteArrayOf(),
-            longArrayOf(0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 11, 0))
+        out.append(trailer(dialect))
         return out.takeByteArray()
     }
 
-    private fun encodeName(name: String): ByteArray {
+    internal fun encodeName(name: String): ByteArray {
         if (name.isEmpty() || '\u0000' in name || name == "TRAILER!!!") {
             throw ArchiveFormatException("cpio: invalid or reserved member name", entryName = name)
         }
@@ -263,7 +262,29 @@ public object CpioWriter {
     }
 
     private fun writeRecord(out: ByteArrayBuilder, dialect: Dialect, name: ByteArray, data: ByteArray, fields: LongArray) {
-        if (dialect == Dialect.ODC) return writeOdc(out, name, data, fields)
+        out.append(recordHead(dialect, name, fields))
+        out.append(data)
+        if (dialect != Dialect.ODC) repeat(dataPadding(dialect, data.size.toLong())) { out.append(0) }
+    }
+
+    /** The trailer record, which ends every archive. */
+    internal fun trailer(dialect: Dialect): ByteArray =
+        recordHead(dialect, "TRAILER!!!".encodeToByteArray(), longArrayOf(0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 11, 0))
+
+    /** Zero bytes after a body of [size] bytes, so the next record starts four-byte aligned in newc and crc. */
+    internal fun dataPadding(dialect: Dialect, size: Long): Int = if (dialect == Dialect.ODC) 0 else ((4 - (size and 3)) and 3).toInt()
+
+    /**
+     * A record's header and NUL-terminated name, with newc's padding after it, for a record that
+     * starts four-byte aligned. [fields] are in newc order: inode, mode, uid, gid, nlink, mtime,
+     * size, dev major and minor, rdev major and minor, name size and check.
+     */
+    internal fun recordHead(dialect: Dialect, name: ByteArray, fields: LongArray): ByteArray {
+        val out = ByteArrayBuilder(128 + name.size)
+        if (dialect == Dialect.ODC) {
+            writeOdc(out, name, fields)
+            return out.takeByteArray()
+        }
         val header = ByteArray(110)
         (if (dialect == Dialect.NEWC) "070701" else "070702").encodeToByteArray().copyInto(header)
         var at = 6
@@ -274,12 +295,11 @@ public object CpioWriter {
         out.append(name)
         out.append(0)
         repeat((4 - (out.size and 3)) and 3) { out.append(0) }
-        out.append(data)
-        repeat((4 - (out.size and 3)) and 3) { out.append(0) }
+        return out.takeByteArray()
     }
 
     /** [fields] in newc order: inode, mode, uid, gid, nlink, mtime, size, dev, rdev, name size. */
-    private fun writeOdc(out: ByteArrayBuilder, name: ByteArray, data: ByteArray, fields: LongArray) {
+    private fun writeOdc(out: ByteArrayBuilder, name: ByteArray, fields: LongArray) {
         val nameText = name.decodeToString()
         fun octal(value: Long, width: Int, what: String) {
             if (value < 0 || value >= 1L shl (3 * width)) {
@@ -306,7 +326,6 @@ public object CpioWriter {
         octal(fields[6], 11, "size")
         out.append(name)
         out.append(0)
-        out.append(data)
     }
 
     private fun byteSum(data: ByteArray): Long {

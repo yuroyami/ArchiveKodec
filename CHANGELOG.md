@@ -97,6 +97,8 @@
   bzip2, zstd and xz members stream the same way, and ZIP method 95 (xz) now reads.
   `ArStreamWriter` and `ArStreamReader` write and read Unix `ar` member by member, the reader
   listing what `ArReader` lists and refusing thin archives.
+  `CpioStreamWriter` (newc and odc) and `CpioStreamReader` (newc, crc, odc and old binary) do the
+  same for cpio, checking crc sums as bodies pass, read or skipped.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

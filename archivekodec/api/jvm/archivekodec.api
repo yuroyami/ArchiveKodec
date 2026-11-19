@@ -543,6 +543,43 @@ public final class io/github/yuroyami/archivekodec/archive/cpio/CpioReader : io/
 public final class io/github/yuroyami/archivekodec/archive/cpio/CpioReader$Companion {
 }
 
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioStreamReader {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
+	public synthetic fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun data ()Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public final fun getCurrent ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun next ()Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
+	public final fun read (Lio/github/yuroyami/archivekodec/codec/ByteSink;)J
+	public final fun read (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
+	public static synthetic fun read$default (Lio/github/yuroyami/archivekodec/archive/cpio/CpioStreamReader;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)J
+}
+
+public final class io/github/yuroyami/archivekodec/archive/cpio/CpioStreamWriter {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSink;)V
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;)V
+	public synthetic fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter$Dialect;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun finish ()V
+	public final fun putDirectory (Ljava/lang/String;)V
+	public final fun putDirectory (Ljava/lang/String;I)V
+	public final fun putDirectory (Ljava/lang/String;IJ)V
+	public final fun putDirectory (Ljava/lang/String;IJJ)V
+	public final fun putDirectory (Ljava/lang/String;IJJJ)V
+	public static synthetic fun putDirectory$default (Lio/github/yuroyami/archivekodec/archive/cpio/CpioStreamWriter;Ljava/lang/String;IJJJILjava/lang/Object;)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;I)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJ)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJJ)V
+	public final fun putFile (Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJJJ)V
+	public static synthetic fun putFile$default (Lio/github/yuroyami/archivekodec/archive/cpio/CpioStreamWriter;Ljava/lang/String;JLio/github/yuroyami/archivekodec/codec/ByteSource;IJJJILjava/lang/Object;)V
+	public final fun putSymbolicLink (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun putSymbolicLink (Ljava/lang/String;Ljava/lang/String;J)V
+	public final fun putSymbolicLink (Ljava/lang/String;Ljava/lang/String;JJ)V
+	public final fun putSymbolicLink (Ljava/lang/String;Ljava/lang/String;JJJ)V
+	public static synthetic fun putSymbolicLink$default (Lio/github/yuroyami/archivekodec/archive/cpio/CpioStreamWriter;Ljava/lang/String;Ljava/lang/String;JJJILjava/lang/Object;)V
+}
+
 public final class io/github/yuroyami/archivekodec/archive/cpio/CpioWriter {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/cpio/CpioWriter;
 	public static final fun write (Ljava/util/List;)[B

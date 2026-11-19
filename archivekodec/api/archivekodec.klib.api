@@ -1471,6 +1471,26 @@ final object io.github.yuroyami.archivekodec.archive.ar/ArWriter { // io.github.
     }
 }
 
+final class io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader { // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSource, io.github.yuroyami.archivekodec.security/ArchiveLimits = ..., io.github.yuroyami.archivekodec.archive/ArchiveNameDecoder = ...) // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSource;io.github.yuroyami.archivekodec.security.ArchiveLimits;io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder){}[0]
+
+    final var current // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader.current|{}current[0]
+        final fun <get-current>(): io.github.yuroyami.archivekodec.archive/ArchiveEntry? // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader.current.<get-current>|<get-current>(){}[0]
+
+    final fun data(): io.github.yuroyami.archivekodec.codec/ByteSource // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader.data|data(){}[0]
+    final fun next(): io.github.yuroyami.archivekodec.archive/ArchiveEntry? // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader.next|next(){}[0]
+    final fun read(io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/Long // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamReader.read|read(io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
+}
+
+final class io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter { // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSink, io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect = ...) // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSink;io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.Dialect){}[0]
+
+    final fun finish() // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter.finish|finish(){}[0]
+    final fun putDirectory(kotlin/String, kotlin/Int = ..., kotlin/Long = ..., kotlin/Long = ..., kotlin/Long = ...) // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter.putDirectory|putDirectory(kotlin.String;kotlin.Int;kotlin.Long;kotlin.Long;kotlin.Long){}[0]
+    final fun putFile(kotlin/String, kotlin/Long, io.github.yuroyami.archivekodec.codec/ByteSource, kotlin/Int = ..., kotlin/Long = ..., kotlin/Long = ..., kotlin/Long = ...) // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter.putFile|putFile(kotlin.String;kotlin.Long;io.github.yuroyami.archivekodec.codec.ByteSource;kotlin.Int;kotlin.Long;kotlin.Long;kotlin.Long){}[0]
+    final fun putSymbolicLink(kotlin/String, kotlin/String, kotlin/Long = ..., kotlin/Long = ..., kotlin/Long = ...) // io.github.yuroyami.archivekodec.archive.cpio/CpioStreamWriter.putSymbolicLink|putSymbolicLink(kotlin.String;kotlin.String;kotlin.Long;kotlin.Long;kotlin.Long){}[0]
+}
+
 final object io.github.yuroyami.archivekodec.archive.cpio/CpioWriter { // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter|null[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec>): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec>){}[0]
     final fun write(kotlin.collections/List<io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.FileSpec>, io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.Dialect): kotlin/ByteArray // io.github.yuroyami.archivekodec.archive.cpio/CpioWriter.write|write(kotlin.collections.List<io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.FileSpec>;io.github.yuroyami.archivekodec.archive.cpio.CpioWriter.Dialect){}[0]
