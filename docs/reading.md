@@ -41,7 +41,7 @@ ArchiveKodec.open(tarGzipBytes, limits).use { reader ->
 }
 ```
 
-`open` decodes one layer of gzip, bzip2, xz, lzip, Unix compress, zstd, LZ4 frames or framed Snappy into its own
+`open` decodes one layer of gzip, bzip2, xz, lzip, Unix compress, lzop, zstd, LZ4 frames or framed Snappy into its own
 buffer and then opens the archive inside it. The policy applies separately to that decode, to
 the listing and to each read. A second layer, zlib, raw DEFLATE, LZMA and brotli need an
 explicit `decompress` before `open`.

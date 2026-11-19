@@ -65,6 +65,9 @@
   mode and encodes 16-bit block mode, and `open` removes it like the other layers. ncompress 5.0
   reads our output, and we read its output at every width from 10 to 16. Streams whose widest
   code is 9 bits are refused, since how ncompress changes width there is not pinned down.
+- Added lzop (`.lzo`) and an LZO1X encoder: `Codecs.LZOP` reads LZO1X blocks with every
+  checksum option and writes greedy LZO1X blocks, and `open` removes it like the other layers.
+  lzop 1.04 reads our output, and we read its output at levels 1 and 9 and with CRC-32 checks.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

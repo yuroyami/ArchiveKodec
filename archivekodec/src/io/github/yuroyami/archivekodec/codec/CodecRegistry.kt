@@ -51,6 +51,7 @@ public class CodecRegistry private constructor(
         ArchiveFormat.XZ -> byId(CodecId.XZ)
         ArchiveFormat.LZIP -> byId(CodecId.LZIP)
         ArchiveFormat.COMPRESS -> byId(CodecId.COMPRESS)
+        ArchiveFormat.LZOP -> byId(CodecId.LZOP)
         ArchiveFormat.LZMA -> byId(CodecId.LZMA)
         ArchiveFormat.ZSTD -> byId(CodecId.ZSTD)
         ArchiveFormat.BROTLI -> byId(CodecId.BROTLI)
@@ -87,7 +88,7 @@ public class CodecRegistry private constructor(
         @JvmField
         public val DEFAULT: CodecRegistry = CodecRegistry(
             listOf(Codecs.STORE, Codecs.DEFLATE, Codecs.DEFLATE64, Codecs.BZIP2, Codecs.LZMA, Codecs.LZMA2, Codecs.XZ, Codecs.LZIP, Codecs.ZSTD, Codecs.BROTLI, Codecs.PPMD, Codecs.GZIP, Codecs.ZLIB,
-                Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED, Codecs.LZW, Codecs.PACKBITS, Codecs.PALMDOC, Codecs.COMPRESS).associateBy { it.id.name },
+                Codecs.LZ4, Codecs.SNAPPY, Codecs.SNAPPY_FRAMED, Codecs.LZW, Codecs.PACKBITS, Codecs.PALMDOC, Codecs.COMPRESS, Codecs.LZOP).associateBy { it.id.name },
             mapOf(0 to CodecId.STORE, 8 to CodecId.DEFLATE, 9 to CodecId.DEFLATE64, 12 to CodecId.BZIP2,
                 14 to CodecId.LZMA, 93 to CodecId.ZSTD, 98 to CodecId.PPMD),
         )

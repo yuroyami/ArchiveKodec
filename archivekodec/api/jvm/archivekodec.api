@@ -196,6 +196,7 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveFormat {
 	public static final field LZ4 Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field LZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field LZMA Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
+	public static final field LZOP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field RAR Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field SEVEN_ZIP Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
 	public static final field SNAPPY Lio/github/yuroyami/archivekodec/archive/ArchiveFormat;
@@ -1003,6 +1004,7 @@ public final class io/github/yuroyami/archivekodec/codec/CodecId {
 	public static final field LZIP Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field LZMA Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field LZMA2 Lio/github/yuroyami/archivekodec/codec/CodecId;
+	public static final field LZOP Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field LZW Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field PACKBITS Lio/github/yuroyami/archivekodec/codec/CodecId;
 	public static final field PALMDOC Lio/github/yuroyami/archivekodec/codec/CodecId;
@@ -1059,6 +1061,7 @@ public final class io/github/yuroyami/archivekodec/codec/Codecs {
 	public static final fun getLZIP ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLZMA ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLZMA2 ()Lio/github/yuroyami/archivekodec/codec/Codec;
+	public static final fun getLZOP ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getLZW ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getPACKBITS ()Lio/github/yuroyami/archivekodec/codec/Codec;
 	public static final fun getPALMDOC ()Lio/github/yuroyami/archivekodec/codec/Codec;

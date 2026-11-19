@@ -54,6 +54,8 @@ public class ArchiveFormat @Throws(IllegalArgumentException::class) public const
         @JvmField public val XZ: ArchiveFormat = ArchiveFormat("xz")
         /** Unix `compress` (`.Z`). */
         @JvmField public val COMPRESS: ArchiveFormat = ArchiveFormat("compress")
+        /** lzop (`.lzo`). */
+        @JvmField public val LZOP: ArchiveFormat = ArchiveFormat("lzop")
         /** lzip (`.lz`): LZMA members with a CRC-32 and size trailer. */
         @JvmField public val LZIP: ArchiveFormat = ArchiveFormat("lzip")
         /** LZMA stream identifier; the sniffer does not return this value. */

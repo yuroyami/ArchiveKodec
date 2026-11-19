@@ -82,7 +82,7 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
                 CpioReader(source, options.nameDecoder ?: ArchiveNameDecoder.UTF8, options.limits)
             },
             FormatSpec.builtin(ArchiveFormat.GZIP), FormatSpec.builtin(ArchiveFormat.ZLIB),
-            FormatSpec.builtin(ArchiveFormat.BZIP2), FormatSpec.builtin(ArchiveFormat.XZ), FormatSpec.builtin(ArchiveFormat.LZIP), FormatSpec.builtin(ArchiveFormat.COMPRESS),
+            FormatSpec.builtin(ArchiveFormat.BZIP2), FormatSpec.builtin(ArchiveFormat.XZ), FormatSpec.builtin(ArchiveFormat.LZIP), FormatSpec.builtin(ArchiveFormat.COMPRESS), FormatSpec.builtin(ArchiveFormat.LZOP),
             FormatSpec.builtin(ArchiveFormat.LZMA), FormatSpec.builtin(ArchiveFormat.ZSTD),
             FormatSpec.builtin(ArchiveFormat.LZ4),
             FormatSpec.builtin(ArchiveFormat.SEVEN_ZIP) { source, options -> SevenZipReader(source, options) },

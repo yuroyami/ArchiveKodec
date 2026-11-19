@@ -99,6 +99,14 @@ public object Codecs {
     public val COMPRESS: Codec get() = CompressCodec
 
     /**
+     * lzop (`.lzo`): LZO1X blocks of up to 64 MiB with Adler-32 or CRC-32 checks of either side.
+     * Decoding checks the header and every block checksum and refuses filters and multi-part
+     * files. Encoding writes 256 KiB blocks with greedy LZO1X matches and Adler-32 checks.
+     */
+    @JvmStatic
+    public val LZOP: Codec get() = LzopCodec
+
+    /**
      * Zstandard (RFC 8878). Decoding handles every block and table mode, repeat offsets,
      * skippable and concatenated frames, and verifies the xxHash64 content checksum;
      * dictionary frames are refused. Encoding writes one frame with predefined tables.
@@ -351,4 +359,11 @@ internal object CompressCodec : Codec {
     override val id = CodecId.COMPRESS
     override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzw.UnixCompress.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzw.UnixCompress.decompress(data, limits)
+}
+
+/** The implementation of [Codecs.LZOP]. */
+internal object LzopCodec : Codec {
+    override val id = CodecId.LZOP
+    override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzo.Lzop.compress(data)
+    override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzo.Lzop.decompress(data, limits)
 }

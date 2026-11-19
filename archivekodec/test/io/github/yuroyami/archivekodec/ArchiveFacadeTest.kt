@@ -156,7 +156,7 @@ class ArchiveFacadeTest {
             CodecId.LZMA to Codecs.LZMA, CodecId.LZMA2 to Codecs.LZMA2, CodecId.XZ to Codecs.XZ, CodecId.LZIP to Codecs.LZIP, CodecId.ZSTD to Codecs.ZSTD, CodecId.BROTLI to Codecs.BROTLI, CodecId.PPMD to Codecs.PPMD, CodecId.GZIP to Codecs.GZIP, CodecId.ZLIB to Codecs.ZLIB,
             CodecId.LZ4 to Codecs.LZ4, CodecId.SNAPPY to Codecs.SNAPPY,
             CodecId.SNAPPY_FRAMED to Codecs.SNAPPY_FRAMED, CodecId.LZW to Codecs.LZW, CodecId.PACKBITS to Codecs.PACKBITS,
-            CodecId.PALMDOC to Codecs.PALMDOC, CodecId.COMPRESS to Codecs.COMPRESS,
+            CodecId.PALMDOC to Codecs.PALMDOC, CodecId.COMPRESS to Codecs.COMPRESS, CodecId.LZOP to Codecs.LZOP,
         )
         assertEquals(expected.size, ArchiveKodec.codecs.size)
         assertEquals(expected.keys, ArchiveKodec.codecs.toSet())
