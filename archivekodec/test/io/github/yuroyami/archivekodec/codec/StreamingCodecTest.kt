@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 
 /** Streaming DEFLATE, zlib and gzip (#154, Stage 2): sessions out, sources in, any chunking. */
 class StreamingCodecTest {
-    private val codecs = listOf(Codecs.DEFLATE, Codecs.ZLIB, Codecs.GZIP, Codecs.BZIP2, Codecs.XZ)
+    private val codecs = listOf(Codecs.DEFLATE, Codecs.ZLIB, Codecs.GZIP, Codecs.BZIP2, Codecs.XZ, Codecs.ZSTD, Codecs.LZ4, Codecs.LZIP)
 
     private class Collector : ByteSink {
         val out = ByteArrayBuilder(1024)
@@ -135,12 +135,26 @@ class StreamingCodecTest {
     @Test
     fun otherCodecsUseTheBufferingDefaults() {
         val input = data(50_000, 6)
-        for (codec in listOf(Codecs.ZSTD, Codecs.LZ4, Codecs.LZIP)) {
+        for (codec in listOf(Codecs.BROTLI, Codecs.COMPRESS, Codecs.LZOP)) {
             val stream = encode(codec, input, 7000)
             assertContentEquals(input, codec.decompress(stream))
             assertContentEquals(input, decode(codec, stream, 999))
         }
         assertFailsWith<IllegalArgumentException> { Codecs.XZ.encoder(Collector(), DeflateOptions.DEFAULT) }
         assertFailsWith<IllegalArgumentException> { Codecs.BZIP2.encoder(Collector(), DeflateOptions.DEFAULT) }
+    }
+
+    @Test
+    fun theStreamingXxHash64MatchesTheOneShotHashAtEverySplit() {
+        val data = data(300, 8)
+        for (length in listOf(0, 1, 7, 31, 32, 33, 64, 100, 300)) {
+            val expected = io.github.yuroyami.archivekodec.checksum.XxHash64.hash(data, 0, length)
+            for (split in 0..length) {
+                val h = io.github.yuroyami.archivekodec.checksum.XxHash64.Streaming()
+                h.update(data, 0, split)
+                h.update(data, split, length - split)
+                assertEquals(expected, h.value(), "length $length split $split")
+            }
+        }
     }
 }

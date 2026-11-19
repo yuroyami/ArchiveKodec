@@ -84,7 +84,9 @@
   session writes each full block as its own stream, which every bzip2 decoder joins. xz
   streams: the decoder slides a window of the block's dictionary over its output and streams
   the delta filter, and the encoder session writes 2 MiB blocks. `.tar.gz`, `.tar.bz2` and
-  `.tar.xz` larger than a 32 MiB heap are written and read in it, as tests check.
+  `.tar.xz` larger than a 32 MiB heap are written and read in it, as tests check. zstd
+  decodes from a source too, through a window of the frame's window size, with a running
+  content checksum; zstd, LZ4 and lzip encoder sessions write one frame or member per chunk.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

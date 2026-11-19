@@ -277,6 +277,8 @@ internal object ZstdCodec : Codec {
     override val id = CodecId.ZSTD
     override fun compress(data: ByteArray): ByteArray = ZstdEncoder.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = ZstdDecoder.decompress(data, limits)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = ZstdDecoder.decompress(source, sink, limits)
+    override fun encoder(sink: ByteSink): EncoderSession = ChunkedEncoderSession(1 shl 20, { compress(it) }, sink)
 }
 
 /** The implementation of [Codecs.BROTLI]. */
@@ -333,6 +335,11 @@ internal object Lz4Codec : Codec {
     )
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
         Lz4.frameDecompress(data, limits)
+    override fun encoder(sink: ByteSink): EncoderSession = ChunkedEncoderSession(4 shl 20, { compress(it) }, sink)
+    override fun encoder(sink: ByteSink, options: CodecOptions): EncoderSession {
+        compress(ByteArray(0), options)
+        return ChunkedEncoderSession(4 shl 20, { compress(it, options) }, sink)
+    }
 }
 
 /** The implementation of [Codecs.SNAPPY]. */
@@ -386,6 +393,7 @@ internal object LzipCodec : Codec {
     override val id = CodecId.LZIP
     override fun compress(data: ByteArray): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.compress(data)
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = io.github.yuroyami.archivekodec.codec.lzma.Lzip.decompress(data, limits)
+    override fun encoder(sink: ByteSink): EncoderSession = ChunkedEncoderSession(2 shl 20, { compress(it) }, sink)
 }
 
 /** The implementation of [Codecs.COMPRESS]. */

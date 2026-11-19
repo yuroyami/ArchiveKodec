@@ -81,7 +81,7 @@ The limits apply before every write, so raise `maxUncompressedBytes` for an outp
 ## Stream both sides
 
 A `ByteSource` is the input side of a `ByteSink`: decoders pull compressed bytes from it as
-they need them. With a source and a sink, DEFLATE, zlib, gzip, bzip2 and xz hold neither the input nor
+they need them. With a source and a sink, DEFLATE, zlib, gzip, bzip2, xz and zstd hold neither the input nor
 the output whole, so both can be larger than memory. The ratio limit counts the compressed
 bytes read so far.
 
@@ -97,8 +97,10 @@ piece primed with the 32 KiB before it, so matches still reach back across piece
 output is a little larger than a whole-array encode. `flush` makes everything written so far
 decodable from what the sink has, as zlib's sync flush does. bzip2 writes each full block as
 its own stream, which every bzip2 decoder joins, and xz writes blocks of 2 MiB, as `xz -T`
-does. The xz decoder keeps a window of the block's dictionary; a block with a branch filter is
-held whole until its end. The other codecs keep the input and compress
+does. zstd, LZ4 and lzip write each 1 to 4 MiB
+of input as a complete frame or member, which their decoders join. The xz and zstd decoders keep
+a window of the block's dictionary or the frame's window, which `maxDecoderMemory` bounds; an xz
+block with a branch filter is held whole until its end. The other codecs keep the input and compress
 it at `finish`, until they stream too.
 
 ```kotlin
