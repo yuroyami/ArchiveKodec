@@ -80,7 +80,8 @@
   `finish`) stream DEFLATE, zlib and gzip in fixed memory, and fall back to buffering for the
   other codecs. `TarStreamWriter`, `TarStreamReader` and `TarStreamSink` write and read TAR
   entry by entry, so a `.tar.gz` larger than memory is written and read in a 32 MiB heap, as
-  a test checks.
+  a test checks. bzip2 streams too: the decoder reads its input as it decodes, and an encoder
+  session writes each full block as its own stream, which every bzip2 decoder joins.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

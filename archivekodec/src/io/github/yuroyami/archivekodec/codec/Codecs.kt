@@ -241,6 +241,12 @@ internal object Bzip2Codec : Codec {
             ?: throw IllegalArgumentException("$id takes Bzip2Options, not ${options::class.simpleName}")).level,
     )
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray = Bzip2Decoder.decompress(data, limits)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = Bzip2Decoder.decompress(source, sink, limits)
+    override fun encoder(sink: ByteSink): EncoderSession = io.github.yuroyami.archivekodec.codec.bzip2.Bzip2EncoderSession(9, sink)
+    override fun encoder(sink: ByteSink, options: CodecOptions): EncoderSession = io.github.yuroyami.archivekodec.codec.bzip2.Bzip2EncoderSession(
+        (options as? io.github.yuroyami.archivekodec.codec.bzip2.Bzip2Options
+            ?: throw IllegalArgumentException("$id takes Bzip2Options, not ${options::class.simpleName}")).level, sink,
+    )
 }
 
 /** The implementation of [Codecs.LZMA]. */

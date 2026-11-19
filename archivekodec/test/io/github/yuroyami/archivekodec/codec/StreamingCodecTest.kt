@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 
 /** Streaming DEFLATE, zlib and gzip (#154, Stage 2): sessions out, sources in, any chunking. */
 class StreamingCodecTest {
-    private val codecs = listOf(Codecs.DEFLATE, Codecs.ZLIB, Codecs.GZIP)
+    private val codecs = listOf(Codecs.DEFLATE, Codecs.ZLIB, Codecs.GZIP, Codecs.BZIP2)
 
     private class Collector : ByteSink {
         val out = ByteArrayBuilder(1024)
@@ -135,11 +135,12 @@ class StreamingCodecTest {
     @Test
     fun otherCodecsUseTheBufferingDefaults() {
         val input = data(50_000, 6)
-        for (codec in listOf(Codecs.BZIP2, Codecs.XZ, Codecs.ZSTD, Codecs.LZ4)) {
+        for (codec in listOf(Codecs.XZ, Codecs.ZSTD, Codecs.LZ4)) {
             val stream = encode(codec, input, 7000)
             assertContentEquals(input, codec.decompress(stream))
             assertContentEquals(input, decode(codec, stream, 999))
         }
+        assertFailsWith<IllegalArgumentException> { Codecs.XZ.encoder(Collector(), DeflateOptions.DEFAULT) }
         assertFailsWith<IllegalArgumentException> { Codecs.BZIP2.encoder(Collector(), DeflateOptions.DEFAULT) }
     }
 }

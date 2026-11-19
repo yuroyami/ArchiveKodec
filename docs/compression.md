@@ -81,7 +81,7 @@ The limits apply before every write, so raise `maxUncompressedBytes` for an outp
 ## Stream both sides
 
 A `ByteSource` is the input side of a `ByteSink`: decoders pull compressed bytes from it as
-they need them. With a source and a sink, DEFLATE, zlib and gzip hold neither the input nor
+they need them. With a source and a sink, DEFLATE, zlib, gzip and bzip2 hold neither the input nor
 the output whole, so both can be larger than memory. The ratio limit counts the compressed
 bytes read so far.
 
@@ -95,8 +95,9 @@ To compress a stream, open an `EncoderSession` with `codec.encoder(sink)`, `writ
 in pieces of any size and `finish` it. DEFLATE, zlib and gzip encode 1 MiB at a time, each
 piece primed with the 32 KiB before it, so matches still reach back across pieces and the
 output is a little larger than a whole-array encode. `flush` makes everything written so far
-decodable from what the sink has, as zlib's sync flush does. The other codecs keep the input
-and compress it at `finish`, until they stream too.
+decodable from what the sink has, as zlib's sync flush does. bzip2 writes each full block as
+its own stream, which every bzip2 decoder joins. The other codecs keep the input and compress
+it at `finish`, until they stream too.
 
 ```kotlin
 val gzip = ArchiveKodec.gzip.encoder(ByteSink { b, offset, length -> out.write(b, offset, length) })
