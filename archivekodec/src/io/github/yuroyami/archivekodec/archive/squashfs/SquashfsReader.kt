@@ -340,8 +340,16 @@ public class SquashfsReader(
         val hasFragment = item.fragment != NO_FRAGMENT
         val blocks = if (hasFragment) size / blockSize else (size + blockSize - 1) / blockSize
         val sizes = MetadataStream(item.blockList, item.blockListOffset).bytes((blocks * 4).toInt())
+        // Every block must lie inside the image before the output is allocated: the lengths are
+        // only claims, and a few bytes of block list can otherwise reserve 2 GiB.
         var stored = 0L
-        for (i in 0 until blocks.toInt()) stored += readU32Le(sizes, 4 * i) and BLOCK_SIZE_MASK
+        var extent = item.blocksStart
+        for (i in 0 until blocks.toInt()) {
+            val length = readU32Le(sizes, 4 * i) and BLOCK_SIZE_MASK
+            if (length != 0L && (extent < 0 || extent + length > bytesUsed)) fail("data block lies outside the image", extent)
+            extent += length
+            stored += length
+        }
         limits.checkRatio(stored, size)
         val out = ByteArray(size.toInt())
         var position = item.blocksStart
