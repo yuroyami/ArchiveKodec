@@ -480,6 +480,38 @@ class RarReaderTest {
         }
     }
 
+    /** A RAR5 archive of one compressed file header with no data area, claiming [size] bytes. */
+    private fun rar5WithoutData(size: Long): ByteArray {
+        fun vint(value: Long): ByteArray {
+            val out = ArrayList<Byte>()
+            var v = value
+            while (true) {
+                val b = (v and 0x7F).toInt()
+                v = v ushr 7
+                if (v == 0L) { out.add(b.toByte()); return out.toByteArray() }
+                out.add((b or 0x80).toByte())
+            }
+        }
+        fun block(body: ByteArray): ByteArray {
+            val sized = vint(body.size.toLong()) + body
+            val crc = Crc32.of(sized)
+            return ByteArray(4) { (crc ushr (8 * it)).toByte() } + sized
+        }
+        // Type 2 (file), no flags; file flags 0, the size, attributes 0, method 3, host 1, name "x".
+        val file = vint(2) + vint(0) + vint(0) + vint(size) + vint(0) + vint(3L shl 7) + vint(1) + vint(1) + "x".encodeToByteArray()
+        val end = vint(5) + vint(0) + vint(0)
+        return byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00) + block(file) + block(end)
+    }
+
+    @Test
+    fun aCompressedMemberWithoutDataIsCheckedBeforeItsOutputIsAllocated() {
+        reader(rar5WithoutData(100_000_000)).use { reader ->
+            val entry = reader.entries().single()
+            assertEquals(100_000_000L, entry.size)
+            assertFailsWith<DecompressionBombException> { reader.read(entry) }
+        }
+    }
+
     @Test
     fun damageAndLimits() {
         // A changed header byte fails the header CRC; a changed stored byte fails the data CRC.

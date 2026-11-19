@@ -106,7 +106,8 @@ public class RarReader(
                 item.refusal != null -> throw ArchiveUnsupportedException("RAR: ${item.refusal}", item.dataOffset)
                 listed.isDirectory -> ByteArray(0)
                 item.compression >= 0 -> {
-                    limits.checkRatio(item.packed, item.size)
+                    // A member without data has no bytes to measure against: count one.
+                    limits.checkRatio(maxOf(item.packed, 1L), item.size)
                     val data = unpack(directory.items, directory.items.indexOf(item), limits)
                     if (item.crc != null && Crc32.of(data) != item.crc) throw ArchiveFormatException("RAR: CRC-32 mismatch", item.dataOffset)
                     data
