@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -238,6 +239,52 @@ class ExtractionTest {
             // Not the sum of the two -1 sizes.
             assertEquals(setOf(-1L), totals)
             assertEquals(listOf(text.size.toLong(), text.size.toLong()), written.map { it.buffer.size })
+        }
+    }
+
+    @Test
+    fun aTotalBudgetBoundsAllEntriesTogether() = runTest {
+        ArchiveKodec.open(zip).use { reader ->
+            val files = reader.entries().filter { !it.isDirectory }
+            // The listed sizes already pass the budget: nothing is written.
+            var opened = 0
+            assertFailsWith<DecompressionBombException> {
+                reader.extract(files, maxTotalBytes = big.size.toLong()) { opened++; Sink() }
+            }
+            assertEquals(0, opened)
+            // Sizes that lie are caught while writing: two descriptor-sized members of 560 bytes each.
+            val text = "streamed data ".repeat(40).encodeToByteArray()
+            ArchiveKodec.open(descriptorZip("d.txt" to text, "e.txt" to text)).use { lying ->
+                val written = ArrayList<Sink>()
+                val failed = ArrayList<String>()
+                assertFailsWith<DecompressionBombException> {
+                    lying.extract(lying.entries(), maxTotalBytes = 700, onFailure = { entry, error ->
+                        assertTrue(error is DecompressionBombException)
+                        failed += entry.name
+                    }) { Sink().also { written += it } }
+                }
+                assertEquals(listOf("e.txt"), failed)
+                assertEquals(text.size.toLong(), written[0].buffer.size)
+                assertTrue(written.all { it.closed })
+                assertTrue(written[1].buffer.size <= 700L - text.size)
+            }
+        }
+    }
+
+    @Test
+    fun aFailedEntryReachesOnFailureAfterItsSinkIsClosed() = runTest {
+        ArchiveKodec.open(zip).use { reader ->
+            val bigEntry = reader.entries().single { it.name == "big.bin" }
+            val sink = Sink()
+            var seen: Pair<String, Boolean>? = null
+            assertFailsWith<DecompressionBombException> {
+                reader.extract(listOf(bigEntry), limits = ArchiveLimits { maxUncompressedBytes = 1_000_000 },
+                    onFailure = { entry, _ -> seen = entry.name to sink.closed }) { sink }
+            }
+            assertEquals("big.bin" to true, seen)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            ArchiveKodec.open(zip).use { it.extract(it.entries(), maxTotalBytes = -1) { Sink() } }
         }
     }
 
