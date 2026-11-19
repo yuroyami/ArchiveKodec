@@ -975,21 +975,42 @@ public abstract interface class io/github/yuroyami/archivekodec/codec/ByteSink {
 	public abstract fun write ([BII)V
 }
 
+public abstract interface class io/github/yuroyami/archivekodec/codec/ByteSource {
+	public static final field Companion Lio/github/yuroyami/archivekodec/codec/ByteSource$Companion;
+	public static fun of ([B)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public static fun of ([BI)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public static fun of ([BII)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public abstract fun read ([BII)I
+}
+
+public final class io/github/yuroyami/archivekodec/codec/ByteSource$Companion {
+	public final fun of ([B)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public final fun of ([BI)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public final fun of ([BII)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+	public static synthetic fun of$default (Lio/github/yuroyami/archivekodec/codec/ByteSource$Companion;[BIIILjava/lang/Object;)Lio/github/yuroyami/archivekodec/codec/ByteSource;
+}
+
 public abstract interface class io/github/yuroyami/archivekodec/codec/Codec {
 	public abstract fun compress ([B)[B
 	public fun compress ([BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
+	public fun decompress (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public fun decompress ([B)[B
 	public fun decompress ([BLio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public abstract fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
+	public fun encoder (Lio/github/yuroyami/archivekodec/codec/ByteSink;)Lio/github/yuroyami/archivekodec/codec/EncoderSession;
+	public fun encoder (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/codec/CodecOptions;)Lio/github/yuroyami/archivekodec/codec/EncoderSession;
 	public abstract fun getId ()Lio/github/yuroyami/archivekodec/codec/CodecId;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/Codec$DefaultImpls {
 	public static fun compress (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
+	public static fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public static fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;[B)[B
 	public static fun decompress (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public static synthetic fun decompress$default (Lio/github/yuroyami/archivekodec/codec/Codec;[BLio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)[B
+	public static fun encoder (Lio/github/yuroyami/archivekodec/codec/Codec;Lio/github/yuroyami/archivekodec/codec/ByteSink;)Lio/github/yuroyami/archivekodec/codec/EncoderSession;
+	public static fun encoder (Lio/github/yuroyami/archivekodec/codec/Codec;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/codec/CodecOptions;)Lio/github/yuroyami/archivekodec/codec/EncoderSession;
 }
 
 public final class io/github/yuroyami/archivekodec/codec/CodecId {
@@ -1082,13 +1103,27 @@ public final class io/github/yuroyami/archivekodec/codec/DecodeResult {
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class io/github/yuroyami/archivekodec/codec/EncoderSession {
+	public abstract fun finish ()V
+	public abstract fun flush ()V
+	public fun write ([B)V
+	public abstract fun write ([BII)V
+}
+
+public final class io/github/yuroyami/archivekodec/codec/EncoderSession$DefaultImpls {
+	public static fun write (Lio/github/yuroyami/archivekodec/codec/EncoderSession;[B)V
+}
+
 public final class io/github/yuroyami/archivekodec/codec/Store : io/github/yuroyami/archivekodec/codec/Codec {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/codec/Store;
 	public fun compress ([B)[B
 	public fun compress ([BLio/github/yuroyami/archivekodec/codec/CodecOptions;)[B
+	public fun decompress (Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public fun decompress ([B)[B
 	public fun decompress ([BLio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)J
 	public fun decompress ([BLio/github/yuroyami/archivekodec/security/ArchiveLimits;)[B
+	public fun encoder (Lio/github/yuroyami/archivekodec/codec/ByteSink;)Lio/github/yuroyami/archivekodec/codec/EncoderSession;
+	public fun encoder (Lio/github/yuroyami/archivekodec/codec/ByteSink;Lio/github/yuroyami/archivekodec/codec/CodecOptions;)Lio/github/yuroyami/archivekodec/codec/EncoderSession;
 	public fun getId ()Lio/github/yuroyami/archivekodec/codec/CodecId;
 }
 

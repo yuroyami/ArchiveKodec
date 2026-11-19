@@ -97,7 +97,18 @@ public object Deflate {
     internal fun encode64(data: ByteArray): ByteArray = Deflater(data, deflate64 = true).encode()
 }
 
-private class Deflater(input: ByteArray, private val options: DeflateOptions = DeflateOptions.DEFAULT, private val deflate64: Boolean = false) {
+/**
+ * Encode one input. With [final] false the output ends with a sync flush, an empty stored block,
+ * instead of a final block, so the next chunk's output continues the same stream at a byte
+ * boundary; prime that chunk with this one's last 32 KiB as its dictionary.
+ */
+internal fun deflateChunk(input: ByteArray, options: DeflateOptions, final: Boolean): ByteArray =
+    Deflater(input, options, final = final).encode()
+
+private class Deflater(
+    input: ByteArray, private val options: DeflateOptions = DeflateOptions.DEFAULT, private val deflate64: Boolean = false,
+    private val final: Boolean = true,
+) {
 
     private val windowSize = if (deflate64) 1 shl 16 else 1 shl options.windowBits
     private val maxMatch = if (deflate64) MAX_MATCH_64 else MAX_MATCH
@@ -151,7 +162,8 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
     fun encode(): ByteArray {
         when {
             options.level == 0 -> {
-                writeStored(start, data.size, final = true)
+                if (data.size > start || final) writeStored(start, data.size, final = final)
+                if (!final) writeStored(data.size, data.size, final = false)
                 flushToByte()
                 return out.toByteArray()
             }
@@ -163,7 +175,14 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
             options.level <= 3 -> greedy()
             else -> lazy()
         }
-        flushBlock(final = true)
+        if (final) {
+            flushBlock(final = true)
+        } else {
+            // The chunk's last block, then an empty stored block that byte-aligns the stream.
+            if (tokenCount > 0 || emitted > blockStart) flushBlock(final = false)
+            writeStoredRun(emitted, final = false)
+            writeStored(data.size, data.size, final = false)
+        }
         flushToByte()
         return out.toByteArray()
     }

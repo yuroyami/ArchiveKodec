@@ -79,6 +79,49 @@ public interface Codec {
     }
 
     /**
+     * Decompress the stream read from [source], writing the output to [sink], and return the
+     * number of bytes written. [limits] are checked before every write; the ratio is measured
+     * against the compressed bytes read so far.
+     *
+     * DEFLATE, zlib and gzip read their input as they need it and write about 1 MiB of output
+     * at a time, so neither side has to fit in memory. Other codecs read the whole input first
+     * and decode it as [decompress] with a sink does, which is also this default.
+     *
+     * @throws ArchiveException for the failures documented by [decompress], and for failures
+     *   the source or the sink reports. Output written before a failure stays written.
+     */
+    @Throws(ArchiveException::class)
+    public fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = io.github.yuroyami.archivekodec.util.ByteArrayBuilder(64 * 1024)
+        val chunk = ByteArray(64 * 1024)
+        while (true) {
+            val n = source.read(chunk, 0, chunk.size)
+            if (n < 0) break
+            input.append(chunk, 0, n)
+        }
+        return decompress(input.takeByteArray(), sink, limits)
+    }
+
+    /**
+     * Open a streaming encoder that writes its compressed output to [sink]; see
+     * [EncoderSession]. DEFLATE, zlib and gzip encode in chunks of 1 MiB as the input
+     * arrives, so the input may be larger than memory. Other codecs keep the input and
+     * compress it at [EncoderSession.finish], which is also this default.
+     */
+    public fun encoder(sink: ByteSink): EncoderSession = BufferingEncoderSession({ compress(it) }, sink)
+
+    /**
+     * Open a streaming encoder with encoder [options], as [compress] with options takes them.
+     * @throws IllegalArgumentException if this codec does not accept [options].
+     */
+    @Throws(IllegalArgumentException::class)
+    public fun encoder(sink: ByteSink, options: CodecOptions): EncoderSession {
+        // Fail on unsuitable options now, not at finish.
+        compress(ByteArray(0), options)
+        return BufferingEncoderSession({ compress(it, options) }, sink)
+    }
+
+    /**
      * Decode with [ArchiveLimits.DEFAULT], including from Java and Swift.
      * @throws ArchiveException for the framing, decoding, integrity and limit failures documented by [decompress].
      */

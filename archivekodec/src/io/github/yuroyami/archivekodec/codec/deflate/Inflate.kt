@@ -343,6 +343,46 @@ public object Inflate {
     }
 
     /**
+     * Inflate one raw DEFLATE stream read from [source] into [output], which should stream to a
+     * sink. The input is read as the decoder needs it; the bytes after the stream stay in
+     * [source]. The ratio limit counts the compressed bytes consumed since [origin], a stream
+     * offset of [source]. Returns the stream offset after the DEFLATE stream.
+     */
+    internal fun inflateFrom(
+        source: io.github.yuroyami.archivekodec.codec.SourceBuffer, output: Output, deflate64: Boolean = false,
+        origin: Long = source.streamPosition,
+    ): Long {
+        source.ensure(1)
+        val s = State(source.buffer, source.position, source.end, output, deflate64, keepHistory = false, source = source)
+        output.compressedProgress = { s.streamOffset - origin }
+        var last = 0
+        try {
+            do {
+                try {
+                    last = s.bits(1)
+                    val type = s.bits(2)
+                    val err = when (type) {
+                        0 -> stored(s)
+                        1 -> fixed(s)
+                        2 -> dynamic(s)
+                        else -> InflateError.INVALID_BLOCK_TYPE.code
+                    }
+                    if (err != 0) throw InflateException(InflateError.fromPuff(err), s.streamOffset, null, null)
+                } catch (_: OutOfInput) {
+                    throw InflateException(InflateError.DATA_DID_NOT_TERMINATE, s.streamOffset, null, null)
+                } catch (error: InflateException) {
+                    if (error.offset != null) throw error
+                    throw InflateException(error.error, s.streamOffset, null, error)
+                }
+            } while (last == 0)
+        } finally {
+            output.compressedProgress = null
+        }
+        s.release()
+        return s.streamOffset
+    }
+
+    /**
      * Shared output across gzip members; each State still has a fresh dictionary. With a
      * [sink], output streams: all but the last [WINDOW] bytes are written to the sink as the
      * buffer fills, and [finish] writes the rest. The limits are checked before every write
@@ -360,6 +400,14 @@ public object Inflate {
     ) {
         private val maximum: Int
         private val hint: Int
+
+        /**
+         * For streamed input, the compressed bytes consumed so far, which the ratio limit is
+         * measured against instead of [compressedBytes], since the total is not known yet.
+         */
+        var compressedProgress: (() -> Long)? = null
+
+        private fun compressed(): Long = compressedProgress?.invoke() ?: compressedBytes.toLong()
         private var bytes: ByteArray
         var size: Int = 0
             private set
@@ -432,7 +480,7 @@ public object Inflate {
             // more than the limits allow, however large stopAt is.
             val kept = if (stopAt >= 0) minOf(required, stopAt) else required
             limits.checkOutputSize(kept)
-            limits.checkRatio(compressedBytes.toLong(), kept)
+            limits.checkRatio(compressed(), kept)
             if (stopAt >= 0 && required > stopAt) {
                 // Let the write that crosses the stop finish, then stop at the next one.
                 val full = passedStop || size - base >= stopAt
@@ -456,7 +504,7 @@ public object Inflate {
             val count = upTo - pending
             val total = flushed + count
             limits.checkOutputSize(total)
-            limits.checkRatio(compressedBytes.toLong(), total)
+            limits.checkRatio(compressed(), total)
             if (expectedSize != null && total > expectedSize) {
                 throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
             }
@@ -570,11 +618,40 @@ public object Inflate {
 
     /** Per-stream input and bit cursor, with a dictionary starting at [outputStart]. */
     private class State(
-        private val inBuf: ByteArray, offset: Int, private val end: Int,
+        private var inBuf: ByteArray, offset: Int, private var end: Int,
         private val output: Output, val deflate64: Boolean, keepHistory: Boolean,
+        /** With a source, the input window is refilled from it as it runs out. */
+        private val source: io.github.yuroyami.archivekodec.codec.SourceBuffer? = null,
     ) {
         var position = offset
             private set
+
+        /**
+         * Refill the window so [need] bytes follow [position], if the input holds them. The whole
+         * bytes already in [bitbuf] stay in the window too, since [alignToByte] steps back over
+         * them. Returns false without a source, or when fewer than [need] bytes remain.
+         */
+        fun has(need: Int): Boolean {
+            if (end - position >= need) return true
+            val buffered = source ?: return false
+            val held = bitcnt ushr 3
+            buffered.position = position - held
+            buffered.ensure(held + need)
+            inBuf = buffered.buffer
+            position = buffered.position + held
+            end = buffered.end
+            return end - position >= need
+        }
+
+        val streaming: Boolean get() = source != null
+
+        /** Hand the bytes not consumed back to the source, for whatever follows the stream. */
+        fun release() {
+            source?.position = consumedPosition
+        }
+
+        /** Stream offset of the next byte not consumed, for errors and results. */
+        val streamOffset: Long get() = (source?.base ?: 0L) + consumedPosition
         var bitbuf = 0
         var bitcnt = 0
         val consumedPosition: Int get() = position - (bitcnt ushr 3)
@@ -586,12 +663,12 @@ public object Inflate {
         val inAvailable: Int get() = end - position
 
         fun nextByte(): Int {
-            if (position == end) throw OutOfInput()
+            if (position == end && !has(1)) throw OutOfInput()
             return inBuf[position++].toInt() and 0xff
         }
 
         fun rawU16(): Int {
-            if (inAvailable < 2) throw OutOfInput()
+            if (inAvailable < 2 && !has(2)) throw OutOfInput()
             val value = readU16Le(inBuf, position)
             position += 2
             return value
@@ -599,7 +676,7 @@ public object Inflate {
 
         /** Fill without crossing the slice; a short final code may need fewer bits. */
         fun fill(need: Int) {
-            while (bitcnt < need && position < end) {
+            while (bitcnt < need && (position < end || has(1))) {
                 if (bitcnt <= 8 && inAvailable >= 4) {
                     val word = readI32Le(inBuf, position)
                     if (bitcnt == 0) {
@@ -640,9 +717,17 @@ public object Inflate {
 
         fun writeByte(value: Int) = output.writeByte(value)
         fun copyBack(distance: Int, length: Int) = output.copyBack(distance, length)
-        fun copyStored(length: Int) {
-            output.copyStored(inBuf, position, length)
-            position += length
+        /** Copy [length] stored bytes, refilling the window as often as it takes; false if the input ends first. */
+        fun copyStored(length: Int): Boolean {
+            var remaining = length
+            while (remaining > 0) {
+                if (position == end && !has(1)) return false
+                val n = minOf(remaining, end - position)
+                output.copyStored(inBuf, position, n)
+                position += n
+                remaining -= n
+            }
+            return true
         }
     }
 
@@ -656,15 +741,16 @@ public object Inflate {
     private fun stored(s: State): Int {
         s.alignToByte()
 
-        if (s.inAvailable < 4) return InflateError.DATA_DID_NOT_TERMINATE.code
+        if (!s.has(4)) return InflateError.DATA_DID_NOT_TERMINATE.code
         val len = s.rawU16()
         val nlen = s.rawU16()
         if (nlen != (len xor 0xffff)) {
             return InflateError.INVALID_STORED_BLOCK_LENGTH.code
         }
 
-        if (s.inAvailable < len) return InflateError.DATA_DID_NOT_TERMINATE.code
-        s.copyStored(len)
+        // From an array the whole block must be there; from a source it arrives as it is copied.
+        if (!s.has(minOf(len, 1)) || (!s.streaming && s.inAvailable < len)) return InflateError.DATA_DID_NOT_TERMINATE.code
+        if (!s.copyStored(len)) return InflateError.DATA_DID_NOT_TERMINATE.code
         return 0
     }
 

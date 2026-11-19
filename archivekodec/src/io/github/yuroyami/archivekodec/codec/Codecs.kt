@@ -211,6 +211,17 @@ internal object DeflateCodec : Codec {
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
         Inflate.inflate(data, limits)
     override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Inflate.inflateTo(data, limits, sink)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = SourceBuffer(source)
+        val output = io.github.yuroyami.archivekodec.codec.deflate.Inflate.Output(limits, Int.MAX_VALUE, sink = sink, reserveInputSize = false)
+        io.github.yuroyami.archivekodec.codec.deflate.Inflate.inflateFrom(input, output)
+        if (!input.atEnd()) throw io.github.yuroyami.archivekodec.ArchiveFormatException("deflate: trailing bytes after stream", input.streamPosition)
+        return output.finish()
+    }
+    override fun encoder(sink: ByteSink): EncoderSession =
+        io.github.yuroyami.archivekodec.codec.deflate.DeflateEncoderSession(DeflateOptions.DEFAULT, sink)
+    override fun encoder(sink: ByteSink, options: CodecOptions): EncoderSession =
+        io.github.yuroyami.archivekodec.codec.deflate.DeflateEncoderSession(deflateOptions(id, options), sink)
 }
 
 /** The implementation of [Codecs.DEFLATE64]. */
@@ -283,6 +294,11 @@ internal object GzipCodec : Codec {
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
         Gzip.decompress(data, limits)
     override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Gzip.decompressTo(data, limits, sink)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = Gzip.decompress(source, sink, limits)
+    override fun encoder(sink: ByteSink): EncoderSession =
+        io.github.yuroyami.archivekodec.codec.deflate.GzipEncoderSession(DeflateOptions.DEFAULT, GzipHeader.DEFAULT, sink)
+    override fun encoder(sink: ByteSink, options: CodecOptions): EncoderSession =
+        io.github.yuroyami.archivekodec.codec.deflate.GzipEncoderSession(deflateOptions(id, options), GzipHeader.DEFAULT, sink)
 }
 
 /** The implementation of [Codecs.ZLIB]. */
@@ -293,6 +309,11 @@ internal object ZlibCodec : Codec {
     override fun decompress(data: ByteArray, limits: ArchiveLimits): ByteArray =
         Zlib.decompress(data, limits)
     override fun decompress(data: ByteArray, sink: ByteSink, limits: ArchiveLimits): Long = Zlib.decompressTo(data, limits, sink)
+    override fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long = Zlib.decompress(source, sink, limits)
+    override fun encoder(sink: ByteSink): EncoderSession =
+        io.github.yuroyami.archivekodec.codec.deflate.ZlibEncoderSession(DeflateOptions.DEFAULT, sink)
+    override fun encoder(sink: ByteSink, options: CodecOptions): EncoderSession =
+        io.github.yuroyami.archivekodec.codec.deflate.ZlibEncoderSession(deflateOptions(id, options), sink)
 }
 
 /** The implementation of [Codecs.LZ4]. */
