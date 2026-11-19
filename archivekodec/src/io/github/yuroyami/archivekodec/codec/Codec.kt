@@ -34,7 +34,9 @@ public interface Codec {
     /**
      * Compress [data] with encoder [options]. Built-in DEFLATE, zlib and gzip take
      * [io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions] and LZ4 takes
-     * [io.github.yuroyami.archivekodec.codec.lz4.Lz4Options]. The default rejects all options.
+     * [io.github.yuroyami.archivekodec.codec.lz4.Lz4Options], LZW takes
+     * [io.github.yuroyami.archivekodec.codec.lzw.LzwOptions] and PackBits takes
+     * [io.github.yuroyami.archivekodec.codec.packbits.PackBitsOptions]. The default rejects all options.
      *
      * @throws IllegalArgumentException if this codec does not take [options]' class or a setting.
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
@@ -61,7 +63,7 @@ public interface Codec {
      * the sink never receives more than they allow; raise
      * [ArchiveLimits.maxUncompressedBytes] for outputs above its 2 GiB default.
      *
-     * DEFLATE, zlib and gzip stream, holding at most about 1 MiB of output at a time, so
+     * DEFLATE, Deflate64, zlib and gzip stream, holding at most about 1 MiB of output at a time, so
      * the output may be larger than memory. Other codecs decode fully in memory first and
      * then write the result, which is also this default.
      *

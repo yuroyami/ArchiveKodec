@@ -49,8 +49,8 @@ public object ZipWriter {
     /**
      * Immutable file description with an owned payload snapshot. The public [data]
      * getter returns a copy; input arrays and retained builders cannot change it.
-     * Equality and hashing compare [name], [method], payload content and the optional
-     * time, mode and comment.
+     * Equality and hashing compare [name], [method], payload content, the optional
+     * time, mode and comment, and the DEFLATE options.
      *
      * Direct constructors have fixed two/three-argument signatures. Builder actions
      * and [copy] accept future metadata without expanding those signatures. Native
@@ -152,7 +152,7 @@ public object ZipWriter {
         @JvmOverloads
         public fun copy(configure: Builder.() -> Unit = {}): FileSpec = Builder(this).apply(configure).build()
 
-        /** Compare the filename, compression method and payload content. */
+        /** Compare the name, method, payload content, time, mode, comment and DEFLATE options. */
         override fun equals(other: Any?): Boolean = this === other || other is FileSpec &&
             name == other.name && method == other.method && content.contentEquals(other.content) &&
             lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && unixMode == other.unixMode && comment == other.comment &&

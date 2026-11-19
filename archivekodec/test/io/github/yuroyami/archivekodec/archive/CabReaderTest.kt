@@ -325,6 +325,47 @@ class CabReaderTest {
         }
     }
 
+    /** A one-folder cabinet: [blocks] are (stored bytes, expanded size) and [files] are (name, offset, size). */
+    private fun handmade(type: Int, blocks: List<Pair<ByteArray, Int>>, files: List<Triple<String, Long, Long>>): ByteArray {
+        val out = ArrayList<Byte>()
+        fun u8(v: Int) { out.add(v.toByte()) }
+        fun u16(v: Int) { u8(v); u8(v ushr 8) }
+        fun u32(v: Long) { u16((v and 0xFFFF).toInt()); u16(((v ushr 16) and 0xFFFF).toInt()) }
+        val filesStart = 36 + 8
+        val filesSize = files.sumOf { 16 + it.first.length + 1 }
+        val dataStart = filesStart + filesSize
+        val total = dataStart + blocks.sumOf { 8 + it.first.size }
+        "MSCF".forEach { u8(it.code) }
+        u32(0); u32(total.toLong()); u32(0); u32(filesStart.toLong()); u32(0)
+        u8(3); u8(1); u16(1); u16(files.size); u16(0); u16(0); u16(0)
+        u32(dataStart.toLong()); u16(blocks.size); u16(type)
+        for ((name, offset, size) in files) {
+            u32(size); u32(offset); u16(0); u16(0x5821); u16(0); u16(0x20)
+            name.forEach { u8(it.code) }; u8(0)
+        }
+        for ((data, expanded) in blocks) {
+            u32(0); u16(data.size); u16(expanded)
+            data.forEach { out.add(it) }
+        }
+        return out.toByteArray()
+    }
+
+    @Test
+    fun folderSizesAreCheckedBeforeTheOutputIsAllocated() {
+        // A stored folder of one byte whose second file claims to reach 2 GiB.
+        val stored = handmade(0, listOf(byteArrayOf(0x78) to 1), listOf(Triple("a", 0L, 1L), Triple("b", 1L, Int.MAX_VALUE.toLong())))
+        reader(stored, ArchiveLimits.UNBOUNDED).use { reader ->
+            val a = reader.entries().first { it.name == "a" }
+            assertFailsWith<ArchiveFormatException> { reader.read(a) }
+        }
+        // An LZX folder of empty blocks that claim to expand: no compressed bytes for 3 MB of output.
+        val lzx = handmade(0x0F03, List(100) { ByteArray(0) to 32768 }, listOf(Triple("a", 0L, 1L), Triple("b", 0L, 100L * 32768)))
+        reader(lzx).use { reader ->
+            val a = reader.entries().first { it.name == "a" }
+            assertFailsWith<DecompressionBombException> { reader.read(a) }
+        }
+    }
+
     @Test
     fun cabinetSetMembers() {
         reader(cab(spanGz)).use {

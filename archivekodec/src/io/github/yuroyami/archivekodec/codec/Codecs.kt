@@ -101,7 +101,8 @@ public object Codecs {
 
     /**
      * The .xz container. Decoding verifies CRC-32, CRC-64 and SHA-256 checks and the index,
-     * accepts concatenated streams and the delta filter, and refuses BCJ filters. Encoding
+     * accepts concatenated streams, the delta filter and the x86 BCJ filter, and refuses the
+     * other branch filters by name. Encoding
      * writes one LZMA2 block with a CRC-64 check.
      */
     @JvmField

@@ -59,8 +59,9 @@ import kotlin.text.CharacterCodingException
  * otherwise valid Unicode Path metadata takes precedence over [nameDecoder]
  * (CP437 by default). Conflicting valid Unicode names are malformed.
  * Masked local headers with
- * central-directory encryption are unsupported. This reader decodes STORE and
- * DEFLATE by default. Supply [codecs] to add methods or replace engines. Other
+ * central-directory encryption are unsupported. By default this reader decodes STORE (0),
+ * DEFLATE (8), Deflate64 (9), bzip2 (12), LZMA (14), Zstandard (93) and PPMd (98).
+ * Supply [codecs] to add methods or replace engines. Other
  * methods appear in [entries], but [read] throws when no decoder is registered.
  * [ArchiveEntry.zipMethod] preserves the numeric method; unbound methods use a
  * `zip-method-N` codec identifier instead of STORE. Encryption flags or method 99
@@ -218,8 +219,10 @@ public class ZipReader(
 
     /**
      * True when [entry] decodes whole and matches its CRC-32, or has none, and false when its
-     * CRC-32 does not match. The bytes are not kept: stored, DEFLATE and Deflate64 entries that
-     * are not encrypted stream through the check, so memory does not grow with the entry.
+     * CRC-32 does not match. The bytes are not kept: the output of stored, DEFLATE and Deflate64
+     * entries that are not encrypted and whose sizes are in the central directory streams
+     * through the check, so memory does not grow with the output. DEFLATE and Deflate64 input
+     * is still read whole.
      *
      * @throws ArchiveException for the other failures documented by [read].
      */

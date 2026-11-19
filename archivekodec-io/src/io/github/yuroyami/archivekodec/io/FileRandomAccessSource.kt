@@ -19,8 +19,9 @@ import io.github.yuroyami.archivekodec.archive.RandomAccessSource
  *
  * The file is opened read-only with the platform's own API: `java.io.RandomAccessFile` on
  * the JVM and Android, POSIX `pread` on Apple, Linux and Android native, `ReadFile` on
- * Windows, and Node's `fs` module on Kotlin/JS and Kotlin/Wasm (JS). Browsers and WASI have
- * no file system to open, so there the constructor throws [ArchiveUnsupportedException].
+ * Windows, and Node's `fs` module on Kotlin/JS and Kotlin/Wasm (JS), which needs Node 20.16
+ * or later. Browsers, older Node on Wasm and WASI have no file system to open, so there the
+ * constructor throws [ArchiveUnsupportedException].
  * The file's size is taken once, at opening; do not change the file while it is open.
  *
  * Not thread-safe: serialize calls, as [RandomAccessSource] asks.

@@ -25,7 +25,7 @@ import kotlin.jvm.JvmOverloads
  *
  * Every function here reads its source fully into memory; for a seekable file, use
  * [FileRandomAccessSource]. Decompressing into a `RawSink` streams the output, for codecs
- * that stream (DEFLATE, zlib, gzip), so it may be larger than memory.
+ * that stream (DEFLATE, Deflate64, zlib, gzip), so it may be larger than memory.
  *
  * Filesystem access (Android SAF, the iOS sandbox) stays the consumer's concern.
  * These helpers operate on whatever source the app already holds.
@@ -106,7 +106,7 @@ public fun Codec.decompress(
 
 /**
  * Decompress all bytes drained from [source]'s current position into [sink], enforcing
- * [limits] before every write; return the number of bytes written. DEFLATE, zlib and gzip
+ * [limits] before every write; return the number of bytes written. DEFLATE, Deflate64, zlib and gzip
  * stream their output, holding about 1 MiB at a time; other codecs decode in memory first
  * (see [Codec.decompress] with a `ByteSink`). The caller owns both and must close them;
  * the sink is flushed but not closed. Output written before a failure stays written.

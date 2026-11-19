@@ -60,8 +60,11 @@ public interface ArchiveReader {
      *
      * @throws io.github.yuroyami.archivekodec.ArchiveClosedException if the reader is closed.
      * @throws io.github.yuroyami.archivekodec.ArchiveFormatException for invalid entry metadata, truncated data or a failed integrity check.
-     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for encryption, an unavailable codec or an unsupported format feature.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed or truncated DEFLATE data.
+     * @throws io.github.yuroyami.archivekodec.ArchiveUnsupportedException for an unsupported encryption scheme, an unavailable codec or an unsupported format feature.
+     * @throws io.github.yuroyami.archivekodec.ArchivePasswordException if a member is encrypted and no password, or a wrong one, was supplied.
+     * @throws io.github.yuroyami.archivekodec.ArchiveAuthenticationException if encrypted data fails its authentication code.
+     *   Built-in readers report malformed or truncated compressed data as an [io.github.yuroyami.archivekodec.ArchiveFormatException]
+     *   whose cause is the codec's own exception, such as [io.github.yuroyami.archivekodec.codec.deflate.InflateException].
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if an output or compression-ratio limit is exceeded.
      * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the result cannot fit in one ByteArray.
      * @throws ArchiveException if listing or reading the underlying source reports another archive failure.
@@ -80,9 +83,11 @@ public interface ArchiveReader {
      * Read one entry's uncompressed bytes into [sink] in chunks rather than one array, and
      * return the number written. [limits] are checked before every write.
      *
-     * ZIP streams stored, DEFLATE and Deflate64 members that are not encrypted, holding
-     * about 1 MiB at a time, so they may be larger than memory (raise
-     * [ArchiveLimits.maxUncompressedBytes] above its 2 GiB default); their CRC-32 is checked
+     * ZIP streams the output of stored, DEFLATE and Deflate64 members that are not
+     * encrypted and whose sizes are in the central directory, about 1 MiB at a time, so the
+     * output may be larger than memory (raise [ArchiveLimits.maxUncompressedBytes] above its
+     * 2 GiB default). Stored data is also read in chunks, but DEFLATE and Deflate64 input is
+     * read whole, so a member's compressed size must fit in memory. Their CRC-32 is checked
      * at the end, after the data was written. Other members and readers read the whole entry
      * first and then write it, which is also this default.
      *

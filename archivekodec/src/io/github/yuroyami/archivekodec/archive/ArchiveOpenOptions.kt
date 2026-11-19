@@ -17,7 +17,11 @@ import kotlin.jvm.JvmStatic
 public class ArchiveOpenOptions private constructor(builder: Builder) {
     /** Policy for wrapper decoding, listing and each read, applied separately. */
     public val limits: ArchiveLimits = builder.limits
-    /** Explicit filename decoder, or null to retain each format's default. */
+    /**
+     * Explicit filename decoder for formats that store names in a byte encoding (ZIP, TAR,
+     * ar, cpio, RAR4, CAB, ISO 9660, SquashFS), or null to retain each format's default. 7z
+     * and WIM store UTF-16 names and ignore it.
+     */
     public val nameDecoder: ArchiveNameDecoder? = builder.nameDecoder
     /** Codec bindings used by built-in ZIP readers. */
     public val codecs: CodecRegistry = builder.codecs
@@ -38,7 +42,7 @@ public class ArchiveOpenOptions private constructor(builder: Builder) {
     public class Builder public constructor() {
         /** Policy passed to each reader and gzip decoding stage. */
         public var limits: ArchiveLimits = ArchiveLimits.DEFAULT
-        /** Null preserves ZIP's CP437 and the other readers' UTF-8 defaults. */
+        /** Null preserves ZIP's CP437 and the other readers' UTF-8 defaults. 7z and WIM ignore it. */
         public var nameDecoder: ArchiveNameDecoder? = null
         /** Registered implementations for ZIP payload decoding. */
         public var codecs: CodecRegistry = CodecRegistry.DEFAULT

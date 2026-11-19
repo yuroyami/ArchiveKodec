@@ -51,7 +51,8 @@ public object ArchiveKodec {
         FormatRegistry.DEFAULT.sniff(ByteArrayRandomAccessSource(header))?.id ?: ArchiveFormat.UNKNOWN
 
     /**
-     * Detect the format of a seekable source (reads up to the first 512 bytes).
+     * Detect the format of a seekable source. Reads up to the first 512 bytes, plus the
+     * 5-byte ISO 9660 signature at byte 32769 when that header looks like a system area.
      *
      * @throws ArchiveFormatException if the source reports an invalid size, premature EOF or invalid read count.
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.

@@ -35,6 +35,8 @@ public fun interface ProgressSink {
  * without a password, so its read fails with
  * [io.github.yuroyami.archivekodec.ArchivePasswordException]. The prompt is asked once per
  * encrypted entry; remember an answer inside it to reuse one password for a whole archive.
+ * The encrypted header of a 7z archive is asked for while listing, before [extract] runs, so
+ * it is not prompted for: supply that password with [ArchivePasswordProvider.of].
  */
 public class PromptedPasswords(private val prompt: suspend (entryName: String) -> CharArray?) : ArchivePasswordProvider {
     private var name: String? = null

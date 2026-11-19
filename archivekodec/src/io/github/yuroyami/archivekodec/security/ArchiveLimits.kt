@@ -195,8 +195,9 @@ public class ArchiveLimits private constructor(builder: Builder) {
         /**
          * Policy applied when a caller does not supply one. Bounds each call's output
          * and each reader's entry count, plus initramfs segments, and rejects unsafe
-         * entry names; its ratio ceiling cannot reject valid streams
-         * from the current codecs. See [maxCompressionRatio] before relying on it.
+         * entry names. Its ratio ceiling cannot reject valid DEFLATE, gzip, zlib, LZ4, Snappy
+         * or stored data, but it can reject valid streams of other codecs; see
+         * [maxCompressionRatio] before relying on it.
          */
         @JvmField
         public val DEFAULT: ArchiveLimits = ArchiveLimits()

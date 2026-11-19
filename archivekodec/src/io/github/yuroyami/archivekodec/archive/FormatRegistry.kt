@@ -61,9 +61,10 @@ public class FormatRegistry private constructor(private val specs: List<FormatSp
     /** Default detection rules and registered reader factories. */
     public companion object {
         /**
-         * Built-in magic rules, TAR/ZIP/ar/cpio/7z readers and the facade's single gzip
-         * wrapper. Other recognized streams remain detectable but need an explicit
-         * decoder or replacement descriptor to open. LZMA and BROTLI never sniff
+         * Built-in magic rules; TAR, ZIP, ar, cpio, 7z, RAR, ISO 9660, CAB, WIM and SquashFS
+         * readers; and the facade's single gzip wrapper. Compressed streams (zlib, bzip2, xz,
+         * zstd, LZ4, Snappy) remain detectable but need an explicit decoder or replacement
+         * descriptor to open. LZMA and BROTLI never sniff
          * automatically, but can be replaced and selected explicitly by id.
          */
         @JvmField
