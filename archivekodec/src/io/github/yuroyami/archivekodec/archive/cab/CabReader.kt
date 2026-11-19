@@ -106,10 +106,13 @@ public class CabReader(
                 ?: throw ArchiveUnsupportedException("CAB: file continues in another cabinet; cabinet sets are not supported")
             if (folder.spans) throw ArchiveUnsupportedException("CAB: folder ${location.folder} continues in another cabinet; cabinet sets are not supported")
             if (location.offset + listed.size > folder.unpacked) fail("file extends past the end of its folder's data")
-            val bytes = if (cachedFolder == location.folder) cachedBytes!! else {
+            val bytes = cachedBytes.takeIf { cachedFolder == location.folder } ?: run {
                 folderDecodes++
+                // Drop the old folder first, and record the new one only once its decode succeeded,
+                // so a failed decode leaves no folder number pointing at missing bytes.
+                cachedFolder = -1
                 cachedBytes = null
-                decode(folder, limits).also { cachedFolder = location.folder; cachedBytes = it }
+                decode(folder, limits).also { cachedBytes = it; cachedFolder = location.folder }
             }
             bytes.copyOfRange(location.offset.toInt(), (location.offset + listed.size).toInt())
         }

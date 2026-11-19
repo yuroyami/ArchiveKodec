@@ -212,7 +212,14 @@ public object Inflate {
         if (offset < 0 || length < 0 || offset > input.size || length > input.size - offset) return null
         val limits = options.limits
         val sizeHint = options.sizeHint.coerceAtMost(1L shl 30).toInt()
-        val result = platformInflate(input, offset, length, zlib, sizeHint, limits.maxUncompressedBytes) ?: return null
+        // The platform inflater materializes its output, so cap it by the ratio as well as the
+        // size: the stream is at most [length] bytes, so more output than this always fails.
+        val ratioCap = if (length > 0 && limits.maxCompressionRatio.toLong() <= Long.MAX_VALUE / length) {
+            length.toLong() * limits.maxCompressionRatio
+        } else {
+            Long.MAX_VALUE
+        }
+        val result = platformInflate(input, offset, length, zlib, sizeHint, minOf(limits.maxUncompressedBytes, ratioCap)) ?: return null
         if (result.consumed != length && !options.allowTrailingData) return null
         // The ratio over the stream alone is the strictest reading; the pure decoder decides any doubt.
         try {
@@ -421,6 +428,11 @@ public object Inflate {
             if (extra <= bytes.size - size) return
             if (sink != null) return makeRoom(extra)
             val required = size.toLong() - base + extra
+            // The hard limits come first: a preview returns at most stopAt bytes, but never
+            // more than the limits allow, however large stopAt is.
+            val kept = if (stopAt >= 0) minOf(required, stopAt) else required
+            limits.checkOutputSize(kept)
+            limits.checkRatio(compressedBytes.toLong(), kept)
             if (stopAt >= 0 && required > stopAt) {
                 // Let the write that crosses the stop finish, then stop at the next one.
                 val full = passedStop || size - base >= stopAt
@@ -429,8 +441,6 @@ public object Inflate {
                 bytes = bytes.copyOf(size + extra)
                 return
             }
-            limits.checkOutputSize(required)
-            limits.checkRatio(compressedBytes.toLong(), required)
             if (expectedSize != null && required > expectedSize) {
                 throw ArchiveFormatException("deflate: output size would exceed expected size $expectedSize")
             }

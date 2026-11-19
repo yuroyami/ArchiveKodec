@@ -7,7 +7,7 @@ project.
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:archivekodec-io:0.2.0")
+    implementation("io.github.yuroyami:archivekodec-io:0.2.0-SNAPSHOT")
 }
 ```
 
@@ -17,13 +17,17 @@ dependencies {
 listed and read without loading it:
 
 ```kotlin
-ArchiveKodec.open(FileRandomAccessSource("/data/backup.zip")).use { reader ->
+val source = FileRandomAccessSource("/data/backup.zip")
+val reader = try { ArchiveKodec.open(source) } catch (e: Throwable) { source.close(); throw e }
+reader.use {
     val entries = reader.entries()          // reads only the central directory
     val one = reader.read(entries.first())  // reads only that member
 }
 ```
 
-The reader owns the source and closes it. Small reads go through a cache of four 64 KiB
+The reader owns the source and closes it. When `open` throws there is no reader, so the
+source is still yours to close, as above; otherwise a file that is not an archive leaves its
+handle open. Small reads go through a cache of four 64 KiB
 pages, and larger reads go straight to the file. The size is read once at opening, so do not
 change the file while it is open.
 
@@ -47,7 +51,9 @@ coroutine is cancelled:
 ```kotlin
 val passwords = PromptedPasswords { name -> askUser("Password for $name") } // a suspending prompt
 val options = ArchiveOpenOptions { password = passwords }
-ArchiveKodec.open(FileRandomAccessSource(path), format = null, options = options).use { reader ->
+val source = FileRandomAccessSource(path)
+val reader = try { ArchiveKodec.open(source, format = null, options = options) } catch (e: Throwable) { source.close(); throw e }
+reader.use {
     val wanted = reader.entries().filter { it.name.startsWith("docs/") }
     reader.extract(wanted, progress = { done, total -> bar.update(done, total) }, passwords = passwords) { entry ->
         SystemFileSystem.sink(Path(outDir, PathGuard.sanitize(entry.name)))

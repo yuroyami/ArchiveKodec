@@ -19,17 +19,21 @@ binary, and the core artifact depends on `kotlin-stdlib` and nothing else.
 
 ## Install
 
+0.2.0 is not released yet: these coordinates are not on Maven Central. Until the release,
+build the snapshot into Maven Local with `./kotlin publish mavenLocal` (see
+[Contributing](CONTRIBUTING.md#build)) and add `mavenLocal()` to your repositories.
+
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec:0.2.0")
+            implementation("io.github.yuroyami:archivekodec:0.2.0-SNAPSHOT")
             // Optional: a file source, extract and kotlinx-io adapters.
-            implementation("io.github.yuroyami:archivekodec-io:0.2.0")
+            implementation("io.github.yuroyami:archivekodec-io:0.2.0-SNAPSHOT")
         }
         // Optional: the platform's AES, faster for large encrypted archives. Not on JS or Wasm.
         jvmMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
+            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0-SNAPSHOT")
         }
     }
 }
@@ -85,7 +89,10 @@ TAR, GNU ar and cpio have writers too. See [Writing archives](docs/writing.md).
 ### Extract a file from disk
 
 ```kotlin
-ArchiveKodec.open(FileRandomAccessSource(path)).use { reader ->
+val source = FileRandomAccessSource(path)
+// The reader closes the source, but only once it exists: close it yourself if open throws.
+val reader = try { ArchiveKodec.open(source) } catch (e: Throwable) { source.close(); throw e }
+reader.use {
     reader.extract(reader.entries()) { entry ->
         SystemFileSystem.sink(Path(outDir, PathGuard.sanitize(entry.name)))
     }

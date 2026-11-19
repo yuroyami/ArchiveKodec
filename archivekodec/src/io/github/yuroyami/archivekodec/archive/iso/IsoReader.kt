@@ -109,6 +109,10 @@ public class IsoReader(
     private fun fail(message: String, offset: Long? = null): Nothing = throw ArchiveFormatException("ISO 9660: $message", offset)
 
     private fun parse(): Directory {
+        // A failed parse may be retried: start from nothing every time.
+        entries.clear()
+        items.clear()
+        visited.clear()
         val size = source.size
         if (size < SYSTEM_AREA + SECTOR) fail("image is smaller than its system area and first descriptor", 0)
         var primary: ByteArray? = null
@@ -138,7 +142,11 @@ public class IsoReader(
         }
         val (extent, length) = if (names == Names.JOLIET) rootOf(joliet!!) else rootExtent to rootLength
         walk(extent, length, "", 0)
-        return Directory(entries.issuedBy(this, limits), items)
+        val directory = Directory(entries.issuedBy(this, limits), items.toList())
+        entries.clear()
+        items.clear()
+        visited.clear()
+        return directory
     }
 
     private fun rootOf(descriptor: ByteArray): Pair<Long, Long> =

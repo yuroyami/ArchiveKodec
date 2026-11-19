@@ -1,8 +1,8 @@
 # Encrypted archives
 
-The core reads and writes encrypted ZIP and 7z archives on every platform, with no extra
-artifact. Give the reader a password. AES comes from `CryptoProvider.DEFAULT`, the built-in
-provider.
+The core reads encrypted ZIP and 7z archives and writes encrypted ZIP archives on every
+platform, with no extra artifact. It has no 7z writer, so it cannot write encrypted 7z. Give
+the reader a password. AES comes from `CryptoProvider.DEFAULT`, the built-in provider.
 
 ## Read
 
@@ -101,7 +101,7 @@ so an archive that one writes, the other reads.
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
+    implementation("io.github.yuroyami:archivekodec-crypto:0.2.0-SNAPSHOT")
 }
 ```
 

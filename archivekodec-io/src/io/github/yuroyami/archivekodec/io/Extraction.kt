@@ -21,7 +21,8 @@ import kotlin.jvm.JvmName
 public fun interface ProgressSink {
     /**
      * Called after each chunk is written. [bytesDone] only rises; [bytesTotal] is the sum of
-     * the requested entries' listed sizes.
+     * the requested entries' listed sizes, or -1 when any of them is unknown (a ZIP entry
+     * sized only by its data descriptor lists a size of -1).
      */
     public fun progress(bytesDone: Long, bytesTotal: Long)
 }
@@ -59,8 +60,10 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
 
 /**
  * Extract [entries] to the sinks [into] returns, one per entry, and close each sink after
- * its entry. Entries must come from this reader's [ArchiveReader.entries]; they are
- * extracted in listing order, whatever order they are given in, so a solid block (a 7z
+ * its entry. Entries must come from this reader's [ArchiveReader.entries], and each one
+ * selects its own listing slot: of two members with identical metadata, passing one extracts
+ * only that one. An unchanged copy of a listed entry selects the first slot with equal
+ * metadata that no other given entry has taken. Entries are extracted in listing order, whatever order they are given in, so a solid block (a 7z
  * folder, a cabinet folder, a solid RAR5 stream) is decoded once for all the entries it
  * holds. Directories are skipped: [into] is called for files and other members with data.
  * [limits] apply to each entry.
@@ -94,12 +97,19 @@ public suspend fun ArchiveReader.extract(
     into: (ArchiveEntry) -> RawSink,
 ) {
     val listing = entries()
-    val wanted = entries.toHashSet()
-    val selected = listing.filter { it in wanted && !it.isDirectory }
+    val chosen = BooleanArray(listing.size)
+    var missing = 0
+    for (entry in entries) {
+        // The listed object itself selects its slot; equality alone cannot tell apart two
+        // members with identical metadata, such as two TAR members of one name and size.
+        var slot = listing.indexOfFirst { it === entry }
+        if (slot < 0) slot = listing.indices.firstOrNull { !chosen[it] && listing[it] == entry } ?: listing.indexOf(entry)
+        if (slot < 0) missing++ else chosen[slot] = true
+    }
+    require(missing == 0) { "$missing of the entries were not listed by this reader" }
+    val selected = listing.filterIndexed { index, entry -> chosen[index] && !entry.isDirectory }
     val ordered = selected.filter { !it.isSymbolicLink }
-    val found = listing.filter { it in wanted }.toHashSet()
-    require(found.size == wanted.size) { "${wanted.size - found.size} of the entries were not listed by this reader" }
-    val total = ordered.sumOf { it.size }
+    val total = if (ordered.any { it.size < 0 }) -1L else ordered.sumOf { it.size }
     var done = 0L
     val context = currentCoroutineContext()
     for (entry in selected) {

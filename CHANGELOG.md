@@ -1,8 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - unreleased
 
-## 0.2.0 - 2026-11-15
+0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
+[#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
+
+- Fixed: `extract` selects each entry by its own listing slot. Of two members with identical
+  metadata (two TAR members `notes` with different data), passing one extracted both.
+- Fixed: the platform inflater stops at the smaller of the size limit and the input size times
+  the ratio limit. A 64 KB stream of zeros under a 10:1 ratio limit allocated 320 MiB before
+  it was rejected.
+- Fixed: a preview read (`InflateOptions.stopAfterBytes`) checks the size and ratio limits
+  first, so it never returns more than they allow.
+- Fixed: a CAB read that fails while decoding a folder no longer breaks the next read of the
+  folder cached before it with a `NullPointerException`.
+- Fixed: an ISO 9660 listing that failed, for example on an IO error, can be retried. The retry
+  failed with "directory is reached twice".
+- Fixed: the JavaScript `compress` applies the level to `deflate`, `zlib` and `gzip` whatever
+  the case of the codec name.
+- Fixed: `extract` reports a total of -1 when an entry's size is unknown, instead of a sum that
+  counted -1 sizes.
+- The npm package that `scripts/js_package.py` writes is named `archivekodec`, since npm refuses
+  capitals in new package names.
 
 - **Breaking:** the library is renamed from KiteArchive to ArchiveKodec. The artifacts are
   `io.github.yuroyami:archivekodec` and `io.github.yuroyami:archivekodec-io`. The packages

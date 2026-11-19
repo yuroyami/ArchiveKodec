@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LINKED = ROOT / "build/artifacts/CompiledWebArtifact/archivekodec-jsjsrelease/kotlin-output"
 OUTPUT = ROOT / "archivekodec/build/dist/js/productionLibrary"
 NAME = "ArchiveKodec-KMP-archivekodec"
+# The npm package name. npm refuses capitals in the names of new packages.
+PACKAGE = "archivekodec"
 # The linked library module, and the files of the app itself, which only hold its empty main function.
 LIBRARY = "kotlin_io_github_yuroyami_archivekodec"
 APP_FILES = ("archivekodec-js.mjs", "kotlin_archivekodec_js")
@@ -49,7 +51,9 @@ def main():
     (OUTPUT / f"{NAME}.mjs").write_text(f"export * from './{LIBRARY}.mjs';\n")
     (OUTPUT / f"{NAME}.d.mts").write_text("".join(
         f"export * from './{d.relative_to(OUTPUT).as_posix().removesuffix('.d.mts')}.mjs';\n" for d in declarations))
-    package = {"name": NAME, "version": version(), "main": f"{NAME}.mjs", "types": f"{NAME}.d.mts"}
+    if not re.fullmatch(r"(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*", PACKAGE) or len(PACKAGE) > 214:
+        raise RuntimeError(f"{PACKAGE} is not a valid npm package name")
+    package = {"name": PACKAGE, "version": version(), "main": f"{NAME}.mjs", "types": f"{NAME}.d.mts"}
     (OUTPUT / "package.json").write_text(json.dumps(package, indent=2) + "\n")
     print(f"Wrote {OUTPUT.relative_to(ROOT)}", flush=True)
 

@@ -1,12 +1,14 @@
 package io.github.yuroyami.archivekodec.codec.deflate
 
 import io.github.yuroyami.archivekodec.ArchiveException
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.wrapper.Zlib
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 
 /**
@@ -70,6 +72,23 @@ class PlatformFlateTest {
             val pure = outcome { if (zlib) Zlib.decompress(stream, options) else Inflate.inflate(stream, options) }
             val platform = outcome { if (zlib) Zlib.decompress(stream, fast) else Inflate.inflate(stream, fast) }
             assertEquals(pure, platform, "$name with $options")
+        }
+    }
+
+    @Test
+    fun aPreviewNeverReturnsMoreThanTheHardLimits() {
+        val stream = Deflate.encode(text)
+        val small = ArchiveLimits { maxUncompressedBytes = 100 }
+        // A stop past the size limit does not lift the limit.
+        assertFailsWith<DecompressionBombException> {
+            Inflate.inflate(stream, InflateOptions { limits = small; stopAfterBytes = 200 })
+        }
+        // A stop within the limit returns its prefix.
+        val preview = Inflate.inflate(stream, InflateOptions { limits = small; stopAfterBytes = 50 })
+        assertContentEquals(text.copyOf(50), preview.output)
+        // The ratio limit holds for previews too: 2:1 over this stream is far less than 100 KB.
+        assertFailsWith<DecompressionBombException> {
+            Inflate.inflate(stream, InflateOptions { limits = ArchiveLimits { maxCompressionRatio = 2 }; stopAfterBytes = 100_000 })
         }
     }
 

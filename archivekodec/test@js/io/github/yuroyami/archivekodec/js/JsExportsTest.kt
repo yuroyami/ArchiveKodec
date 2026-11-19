@@ -22,6 +22,18 @@ class JsExportsTest {
     }
 
     @Test
+    fun theLevelAppliesWhateverTheCaseOfTheName() {
+        val data = "level test ".repeat(500).encodeToByteArray()
+        for (name in listOf("gzip", "zlib", "deflate")) {
+            for (spelling in listOf(name, name.uppercase(), name.replaceFirstChar { it.uppercase() })) {
+                assertContentEquals(compress(name, data, 0), compress(spelling, data, 0), spelling)
+                assertContentEquals(compress(name, data, 9), compress(spelling, data, 9), spelling)
+            }
+            assertTrue(compress(name, data, 0).size > compress(name, data, 9).size, name)
+        }
+    }
+
+    @Test
     fun maxBytesCapsOutput() {
         val packed = gzip(ByteArray(5000))
         assertFailsWith<DecompressionBombException> { gunzip(packed, 4999.0) }

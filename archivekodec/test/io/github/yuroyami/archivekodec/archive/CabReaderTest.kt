@@ -309,6 +309,23 @@ class CabReaderTest {
     }
 
     @Test
+    fun aFailedFolderDecodeLeavesTheReaderUsable() {
+        reader(cab(multiGz)).use { reader ->
+            val entries = reader.entries().associateBy { it.name }
+            val stored = entries.getValue("caf\u00e9/na\u00efve.txt")
+            val expected = "stored folder bytes\n".repeat(10).encodeToByteArray()
+            assertContentEquals(expected, reader.read(stored))
+            // The MSZIP folder fails its ratio limit while decoding, after the size check passed.
+            assertFailsWith<DecompressionBombException> {
+                reader.read(entries.getValue("data/big.bin"), ArchiveLimits { maxCompressionRatio = 1 })
+            }
+            // The stored folder is decoded again, not read from a cache emptied by the failure.
+            assertContentEquals(expected, reader.read(stored))
+            assertEquals(0xe4212cedL, Crc32.of(reader.read(entries.getValue("data/big.bin"))))
+        }
+    }
+
+    @Test
     fun cabinetSetMembers() {
         reader(cab(spanGz)).use {
             val entries = it.entries()

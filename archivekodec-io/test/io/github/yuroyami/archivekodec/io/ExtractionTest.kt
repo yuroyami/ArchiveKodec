@@ -6,7 +6,10 @@ import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
+import io.github.yuroyami.archivekodec.archive.tar.TarWriter
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlinx.coroutines.launch
@@ -198,6 +201,70 @@ class ExtractionTest {
         ArchiveKodec.open(zipCrypto, format = null, options = ArchiveOpenOptions { password = refusing }).use { reader ->
             assertFailsWith<ArchivePasswordException> { reader.extract(reader.entries(), passwords = refusing) { Sink() } }
         }
+    }
+
+    @Test
+    fun oneOfTwoIdenticalEntriesExtractsOnlyItself() = runTest {
+        // Two members with equal metadata; only their data differs.
+        val tar = TarWriter.write(listOf(
+            TarWriter.FileSpec("notes", "one".encodeToByteArray()),
+            TarWriter.FileSpec("notes", "two".encodeToByteArray()),
+        ))
+        ArchiveKodec.open(tar).use { reader ->
+            val (first, second) = reader.entries()
+            assertEquals(first, second)
+            for ((entry, expected) in listOf(first to "one", second to "two")) {
+                val written = ArrayList<Sink>()
+                reader.extract(listOf(entry)) { Sink().also { written += it } }
+                assertEquals(listOf(expected), written.map { it.buffer.readByteArray().decodeToString() })
+            }
+            // Unchanged copies take distinct slots too.
+            val copies = ArrayList<Sink>()
+            reader.extract(listOf(first.copy(), second.copy())) { Sink().also { copies += it } }
+            assertEquals(listOf("one", "two"), copies.map { it.buffer.readByteArray().decodeToString() })
+        }
+    }
+
+    @Test
+    fun anUnknownSizeMakesTheTotalUnknown() = runTest {
+        val text = "streamed data ".repeat(40).encodeToByteArray()
+        val zip = descriptorZip("d.txt" to text, "e.txt" to text)
+        ArchiveKodec.open(zip).use { reader ->
+            val entries = reader.entries()
+            assertEquals(listOf(-1L, -1L), entries.map { it.size })
+            val totals = HashSet<Long>()
+            val written = ArrayList<Sink>()
+            reader.extract(entries, progress = { _, total -> totals += total }) { Sink().also { written += it } }
+            // Not the sum of the two -1 sizes.
+            assertEquals(setOf(-1L), totals)
+            assertEquals(listOf(text.size.toLong(), text.size.toLong()), written.map { it.buffer.size })
+        }
+    }
+
+    /** A ZIP of DEFLATE members with flag bit 3, zero sizes and CRC-32 in both headers, and signed descriptors. */
+    private fun descriptorZip(vararg members: Pair<String, ByteArray>): ByteArray {
+        val out = Buffer()
+        fun u16(v: Int) { out.writeByte(v.toByte()); out.writeByte((v ushr 8).toByte()) }
+        fun u32(v: Long) { u16((v and 0xFFFF).toInt()); u16(((v ushr 16) and 0xFFFF).toInt()) }
+        val offsets = ArrayList<Long>()
+        for ((name, data) in members) {
+            val nameBytes = name.encodeToByteArray()
+            val packed = Deflate.encode(data)
+            offsets += out.size
+            u32(0x04034b50); u16(20); u16(8); u16(8); u16(0); u16(0); u32(0); u32(0); u32(0); u16(nameBytes.size); u16(0)
+            out.write(nameBytes); out.write(packed)
+            u32(0x08074b50); u32(Crc32.of(data)); u32(packed.size.toLong()); u32(data.size.toLong())
+        }
+        val cdOffset = out.size
+        members.forEachIndexed { index, (name, _) ->
+            val nameBytes = name.encodeToByteArray()
+            u32(0x02014b50); u16(20); u16(20); u16(8); u16(8); u16(0); u16(0); u32(0); u32(0); u32(0)
+            u16(nameBytes.size); u16(0); u16(0); u16(0); u16(0); u32(0); u32(offsets[index])
+            out.write(nameBytes)
+        }
+        val cdSize = out.size - cdOffset
+        u32(0x06054b50); u16(0); u16(0); u16(members.size); u16(members.size); u32(cdSize); u32(cdOffset); u16(0)
+        return out.readByteArray()
     }
 
     private fun ArchiveEntryOf(name: String) = io.github.yuroyami.archivekodec.archive.ArchiveEntry(name, 1, false)

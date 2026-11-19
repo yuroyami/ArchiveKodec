@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.iso.IsoReader
 import io.github.yuroyami.archivekodec.checksum.Crc32
@@ -501,6 +502,30 @@ class IsoReaderTest {
             assertEquals(0xb515ec2fL, Crc32.of(read(gz, "big.bin")))
             // The relocated directory appears where it belongs, not twice.
             assertFalse(entries.keys.any { it.startsWith("rr_moved/h") }, "${entries.keys}")
+        }
+    }
+
+    @Test
+    fun aFailedListingCanBeRetried() {
+        val iso = image(rockGz)
+        // Count the reads of a whole listing, then fail the last of them, once.
+        val delegate = ByteArrayRandomAccessSource(iso)
+        var calls = 0
+        var failAt = -1
+        val flaky = object : RandomAccessSource by delegate {
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                if (++calls == failAt) throw ArchiveIOException("transient failure", IllegalStateException("flaky"))
+                return delegate.read(offset, into, intoOffset, length)
+            }
+        }
+        IsoReader(flaky).use { it.entries() }
+        failAt = calls
+        calls = 0
+        IsoReader(flaky).use { reader ->
+            assertFailsWith<ArchiveIOException> { reader.entries() }
+            val entries = reader.entries().associateBy { it.name }
+            assertContentEquals("hello".encodeToByteArray(), reader.read(entries.getValue("sub/file.txt")))
+            assertEquals(entries.size, reader.entries().size)
         }
     }
 
