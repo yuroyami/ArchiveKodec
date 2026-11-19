@@ -12,7 +12,7 @@
 | bzip2 | Any level, concatenated streams, randomized blocks, CRC checks | Level 9 |
 | LZMA (`.lzma`) | Known size or end marker | Greedy and lazy parser, no end marker |
 | LZMA2 (raw chunks) | Yes | LZMA chunks, stored when incompressible |
-| xz | CRC-32, CRC-64 and SHA-256 checks, delta and x86 BCJ filters, the index, concatenated streams | One LZMA2 block with CRC-64 |
+| xz | CRC-32, CRC-64 and SHA-256 checks, delta and branch filters (x86, PowerPC, IA-64, ARM, ARM-Thumb, SPARC, ARM64; RISC-V refused), the index, concatenated streams | One LZMA2 block with CRC-64 |
 | Unix compress (`.Z`) | LZW with 10- to 16-bit codes; 9-bit streams are refused | 16-bit codes, block mode |
 | lzop (`.lzo`) | LZO1X blocks, Adler-32 and CRC-32 checks; filters and multi-part files are refused | Greedy LZO1X, 256 KiB blocks, Adler-32 |
 | lzip (`.lz`, version 1) | Concatenated members, CRC-32 and size trailers | One member with an end marker |
@@ -27,7 +27,7 @@
 | PalmDOC (PalmDOC and MOBI text) | Yes | Hash-chain matching over the 2047-byte window |
 | HUFF/CDIC (MOBI text) | Yes, with phrases decoded once and kept | No |
 
-Refused on decode: zstd dictionaries, xz BCJ filters other than x86, PPMd's freeze restore and
+Refused on decode: zstd dictionaries, the RISC-V branch filter, PPMd's freeze restore and
 supplied LZ4 dictionaries.
 
 ## Archives
@@ -36,13 +36,13 @@ supplied LZ4 dictionaries.
 | --- | --- | --- |
 | ZIP and ZIP64 | STORE, DEFLATE, Deflate64, bzip2, LZMA, zstd and PPMd | STORE and DEFLATE |
 | TAR (v7, ustar, GNU, pax) | Yes | ustar with GNU long names, regular files and directories |
-| 7z | Copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and BCJ x86, compressed headers, solid folders decoded once | No |
+| 7z | Copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and the branch filters but BCJ2 and RISC-V, compressed headers, solid folders decoded once | No |
 | ar (GNU, BSD, COFF, GNU thin) | Yes, thin members through an `ExternalMemberResolver` | GNU |
 | cpio (newc, crc, odc, old binary) | Yes | newc, crc and odc |
 | ISO 9660 (Joliet, Rock Ridge) | Multi-extent files, Rock Ridge symbolic links read as their target | No |
 | CAB | Stored, MSZIP and LZX folders, each decoded once | No |
 | WIM | Uncompressed, XPRESS and LZX, deduplicated resources with SHA-1 checks, several images as `1/`, `2/` | No |
-| SquashFS 4.0 | gzip, LZMA, LZO, xz with the x86 BCJ filter, LZ4 and zstd, fragments, sparse blocks, symbolic links read as their target, devices and FIFOs listed | No |
+| SquashFS 4.0 | gzip, LZMA, LZO, xz with any branch filter but RISC-V, LZ4 and zstd, fragments, sparse blocks, symbolic links read as their target, devices and FIFOs listed | No |
 | RAR4 and RAR5 | Stored members of both, and RAR5 compressed members (all methods, solid archives, delta, x86 and ARM filters), with CRC checks | No |
 
 Refused on read:

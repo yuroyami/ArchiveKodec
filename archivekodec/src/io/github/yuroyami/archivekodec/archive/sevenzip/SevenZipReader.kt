@@ -46,8 +46,9 @@ import kotlin.jvm.JvmSynthetic
  * folder is cached, so reading the files of one folder in turn decodes it once. The read
  * limits apply to the folder's decoded size, since a file cannot be reached without it.
  *
- * Supported coders: copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, the x86 BCJ
- * filter and AES-256, chained through bind pairs. BCJ2 and other branch filters are refused
+ * Supported coders: copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, the x86,
+ * PowerPC, IA-64, ARM, ARM-Thumb, SPARC and ARM64 branch filters and AES-256, chained through
+ * bind pairs. BCJ2 and the RISC-V filter are refused
  * with [ArchiveUnsupportedException] naming the method. AES needs a password from
  * [ArchiveOpenOptions.password] (asked with a null name for encrypted headers) and uses
  * [ArchiveOpenOptions.crypto]. The reader derives the key once for each password and salt.
@@ -303,7 +304,18 @@ public class SevenZipReader(
             DEFLATE64 -> Inflate.inflateExact(input, limits, size, deflate64 = true)
             BZIP2 -> Bzip2Decoder.decompress(input, capped)
             PPMD -> Ppmd7z.decompress(input, coder.properties, size, limits)
-            BCJ_X86 -> input.copyOf().also { Bcj.x86Decode(it) }
+            BCJ_X86 -> input.copyOf().also { Bcj.x86Decode(it, branchStart(coder)) }
+            in BRANCH_FILTERS -> input.copyOf().also { block ->
+                val start = branchStart(coder)
+                when (BRANCH_FILTERS.getValue(coder.method)) {
+                    "ppc" -> Bcj.powerPcDecode(block, start)
+                    "ia64" -> Bcj.ia64Decode(block, start)
+                    "arm" -> Bcj.armDecode(block, start)
+                    "armt" -> Bcj.armThumbDecode(block, start)
+                    "sparc" -> Bcj.sparcDecode(block, start)
+                    else -> Bcj.arm64Decode(block, start)
+                }
+            }
             DELTA -> {
                 val distance = (coder.properties.firstOrNull()?.toInt()?.and(0xFF) ?: 0) + 1
                 val out = input.copyOf()
@@ -313,10 +325,19 @@ public class SevenZipReader(
             else -> throw unsupported(coder.method)
         }
 
+    /** A branch filter's optional start offset: four little-endian bytes of properties. */
+    private fun branchStart(coder: Coder): Int = when (coder.properties.size) {
+        0 -> 0
+        4 -> readI32Le(coder.properties, 0).also {
+            if (it < 0) throw ArchiveUnsupportedException("7z: a branch filter start offset above 2 GiB is not supported")
+        }
+        else -> throw ArchiveFormatException("7z: branch filter properties must be empty or four bytes")
+    }
+
     private fun unsupported(method: String): ArchiveUnsupportedException {
         val name = when (method) {
             "0303011b" -> "BCJ2 filter"
-            "03030205", "03030401", "03030501", "03030701", "03030805", "05", "06", "07", "08", "09", "0a", "0b" -> "branch filter $method"
+            "0b" -> "RISC-V branch filter"
             else -> "method $method"
         }
         return ArchiveUnsupportedException("7z: $name is not supported")
@@ -635,7 +656,7 @@ public class SevenZipReader(
             DEFLATE64 in methods -> CodecId.DEFLATE64
             DEFLATE in methods -> CodecId.DEFLATE
             PPMD in methods -> CodecId.PPMD
-            methods.all { it == COPY || it == AES || it == DELTA || it == BCJ_X86 } -> CodecId.STORE
+            methods.all { it == COPY || it == AES || it == DELTA || it == BCJ_X86 || it in BRANCH_FILTERS } -> CodecId.STORE
             else -> CodecId("7z-${methods.first()}")
         }
     }
@@ -668,6 +689,12 @@ public class SevenZipReader(
         private const val ENCODED_HEADER = 0x17
 
         private const val COPY = "00"
+        /** Branch filters by 7z method id, in the old 03 03 xx xx form and the new one-byte form. */
+        private val BRANCH_FILTERS = mapOf(
+            "03030205" to "ppc", "05" to "ppc", "03030401" to "ia64", "06" to "ia64",
+            "03030501" to "arm", "07" to "arm", "03030701" to "armt", "08" to "armt",
+            "03030805" to "sparc", "09" to "sparc", "0a" to "arm64",
+        )
         private const val DELTA = "03"
         private const val LZMA = "030101"
         private const val LZMA2 = "21"

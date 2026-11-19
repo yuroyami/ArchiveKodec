@@ -525,9 +525,19 @@ class LzmaXzTest {
     }
 
     @Test
-    fun unsupportedBcjFiltersAreRefusedByName() {
-        val error = assertFailsWith<ArchiveUnsupportedException> { Codecs.XZ.decompress(helloArm) }
-        assertTrue(error.message!!.contains("ARM"), error.message)
+    fun theArmFilterDecodesAndRiscVIsRefusedByName() {
+        // "hello world" holds no ARM branch to rewrite, but its filter chain now decodes.
+        assertEquals("hello world", Codecs.XZ.decompress(helloArm).decodeToString())
+        // The same stream with its filter id changed to RISC-V (0x0B), with the header CRC-32 fixed.
+        val riscV = helloArm.copyOf()
+        val header = 12
+        val headerSize = ((riscV[header].toInt() and 0xFF) + 1) * 4
+        val filter = (header until header + headerSize).first { riscV[it].toInt() == 0x07 }
+        riscV[filter] = 0x0B
+        val crc = io.github.yuroyami.archivekodec.checksum.Crc32().apply { update(riscV, header, headerSize - 4) }.value()
+        for (k in 0 until 4) riscV[header + headerSize - 4 + k] = (crc ushr (8 * k)).toByte()
+        val error = assertFailsWith<ArchiveUnsupportedException> { Codecs.XZ.decompress(riscV) }
+        assertTrue(error.message!!.contains("RISC-V"), error.message)
     }
 
     @Test

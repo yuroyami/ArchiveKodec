@@ -27,8 +27,8 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
 
 /**
  * SquashFS 4.0 reader, the read-only filesystem of Linux live media, snaps and Android and
- * OpenWrt images. Blocks may be compressed with gzip, LZMA, LZO, xz (with the x86 BCJ
- * filter at most), LZ4 or zstd, as the superblock says.
+ * OpenWrt images. Blocks may be compressed with gzip, LZMA, LZO, xz (with any branch
+ * filter but RISC-V), LZ4 or zstd, as the superblock says.
  *
  * Directories are listed with a trailing slash. A symbolic link is listed with its link
  * mode and reads as its target text; devices, FIFOs and sockets are listed with their modes

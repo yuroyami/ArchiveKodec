@@ -68,6 +68,9 @@
 - Added lzop (`.lzo`) and an LZO1X encoder: `Codecs.LZOP` reads LZO1X blocks with every
   checksum option and writes greedy LZO1X blocks, and `open` removes it like the other layers.
   lzop 1.04 reads our output, and we read its output at levels 1 and 9 and with CRC-32 checks.
+- xz and 7z decode the PowerPC, IA-64, ARM, ARM-Thumb, SPARC and ARM64 branch filters, and x86
+  with a start offset. xz 5.4.5 and 7-Zip output with each filter decodes byte for byte. RISC-V
+  and BCJ2 are still refused.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

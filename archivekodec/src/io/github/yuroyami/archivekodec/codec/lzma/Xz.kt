@@ -13,8 +13,9 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * The .xz container (Tukaani "The .xz File Format" 1.1.0): stream header, blocks whose
  * filter chain ends in LZMA2 (optionally after a delta filter), an index and a footer.
  * Every block check (CRC-32, CRC-64 or SHA-256) and the index are verified. Concatenated
- * streams and stream padding are decoded, as are the delta and x86 BCJ filters. Other branch
- * filters are refused by name.
+ * streams and stream padding are decoded, as are the delta filter and the x86, PowerPC,
+ * IA-64, ARM, ARM-Thumb, SPARC and ARM64 branch filters, with or without a start offset.
+ * RISC-V is refused by name.
  */
 internal object Xz {
     private val MAGIC = byteArrayOf(0xFD.toByte(), '7'.code.toByte(), 'z'.code.toByte(), 'X'.code.toByte(), 'Z'.code.toByte(), 0)
@@ -24,6 +25,18 @@ internal object Xz {
     private const val CHECK_SHA256 = 10
     private const val FILTER_DELTA = 0x03L
     private const val FILTER_X86 = 0x04L
+    private const val FILTER_ARM64 = 0x0AL
+
+    /** Undo branch filter [id] (0x04 to 0x0A) on [block], which starts at stream position [start]. */
+    private fun branchDecode(id: Long, block: ByteArray, start: Int) = when (id) {
+        0x04L -> Bcj.x86Decode(block, start)
+        0x05L -> Bcj.powerPcDecode(block, start)
+        0x06L -> Bcj.ia64Decode(block, start)
+        0x07L -> Bcj.armDecode(block, start)
+        0x08L -> Bcj.armThumbDecode(block, start)
+        0x09L -> Bcj.sparcDecode(block, start)
+        else -> Bcj.arm64Decode(block, start)
+    }
     private const val FILTER_LZMA2 = 0x21L
 
     private fun checkSize(id: Int): Int = when (id) {
@@ -171,15 +184,14 @@ internal object Xz {
                     if (propertiesSize != 1L) c.fail("delta properties must be one byte")
                     filters.add(FILTER_DELTA to (input[propertiesStart].toInt() and 0xFF) + 1)
                 }
-                id == FILTER_X86 && !last -> {
-                    if (propertiesSize == 4L && readU32Le(input, propertiesStart) != 0L) {
-                        throw ArchiveUnsupportedException("xz: x86 filter start offsets are not supported", propertiesStart.toLong())
-                    }
-                    if (propertiesSize != 0L && propertiesSize != 4L) c.fail("x86 filter properties must be empty or four bytes")
-                    filters.add(FILTER_X86 to 0)
+                id in FILTER_X86..FILTER_ARM64 && !last -> {
+                    if (propertiesSize != 0L && propertiesSize != 4L) c.fail("${BCJ_NAMES[(id - 4).toInt()]} filter properties must be empty or four bytes")
+                    val start = if (propertiesSize == 4L) readU32Le(input, propertiesStart) else 0L
+                    if (start > Int.MAX_VALUE) throw ArchiveUnsupportedException("xz: a filter start offset of $start is not supported", propertiesStart.toLong())
+                    filters.add(id to start.toInt())
                 }
-                id == FILTER_LZMA2 || id == FILTER_DELTA || id == FILTER_X86 -> c.fail("unsupported filter order")
-                id in 0x05L..0x0BL -> throw ArchiveUnsupportedException(
+                id == FILTER_LZMA2 || id == FILTER_DELTA || id in FILTER_X86..FILTER_ARM64 -> c.fail("unsupported filter order")
+                id == 0x0BL -> throw ArchiveUnsupportedException(
                     "xz: BCJ filter ${BCJ_NAMES[(id - 4).toInt()]} is not supported", propertiesStart.toLong())
                 else -> throw ArchiveUnsupportedException("xz: filter 0x${id.toString(16)} is not supported", propertiesStart.toLong())
             }
@@ -205,7 +217,7 @@ internal object Xz {
                 for (i in outputStart + distance until out.size) bytes[i] = (bytes[i] + bytes[i - distance]).toByte()
             } else {
                 val block = bytes.copyOfRange(outputStart, out.size)
-                Bcj.x86Decode(block)
+                branchDecode(id, block, distance)
                 block.copyInto(bytes, outputStart)
             }
         }
