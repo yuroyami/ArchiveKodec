@@ -37,10 +37,48 @@ domain. That tree is not kept under `reference/`.
 ## RAR, ACE, StuffIt and ALZ
 
 The UnRAR license forbids using its source to build a RAR-compatible archiver, so no RAR or
-UnRAR source is fetched here. ArchiveKodec reads RAR from RARLAB's published format
-description, and it will never create RAR archives. Never add RAR, ACE, StuffIt or ALZ source
-to this folder. ACE, StuffIt and ALZ are proprietary with no clean reference, so they are out
-of scope.
+UnRAR source is fetched here. ArchiveKodec reads the RAR container from RARLAB's published
+format description, and it will never create RAR archives. Never add RAR, ACE, StuffIt or ALZ
+source to this folder. ACE, StuffIt and ALZ are proprietary with no clean reference, so they
+are out of scope.
+
+Never read UnRAR source, or code that carries the unRAR restriction, such as the RAR decoders
+in 7-Zip and p7zip.
+
+### The one exception: libarchive's RAR4 reader, at v3.5.2
+
+The owner approved one RAR4 decompression reference in
+[#154](https://github.com/yuroyami/ArchiveKodec/issues/154):
+`libarchive/archive_read_support_format_rar.c` (BSD-2, Copyright 2011 Andres Mejia), **at
+libarchive v3.5.2**, the last release before commit `d7fec62` (January 2022). Read that
+revision only.
+
+Why it qualifies, from libarchive's
+[issue 151](https://github.com/libarchive/libarchive/issues/151), where the project discussed
+RAR support:
+- **No UnRAR readers.** In 2009 its maintainer barred anyone who had read UnRAR source from
+  working on its RAR support, and kept the code BSD-licensed.
+- **Its source was The Unarchiver.** The 2011 patch drew on The Unarchiver, which, the patch's
+  author wrote, its author implemented from scratch and gave permission to relicense as BSD.
+- **What it covers:** LZSS and PPMd (variant H, through libarchive's copy of the public-domain
+  LZMA SDK).
+
+Why later revisions are excluded:
+- **Unclear provenance.** `d7fec62` ([pull request
+  1503](https://github.com/libarchive/libarchive/pull/1503)) added RAR filter support. Its
+  author described the code as moved from unarr, which is LGPL and derived from The
+  Unarchiver. The VM part was removed before the merge, but nothing records where the
+  remaining filter code came from.
+- **What that leaves out:** RAR4 filters (x86, delta, audio, RGB and Itanium) have no approved
+  reference yet. Until they do, RAR4 members that use a filter are refused.
+
+### RAR5 decompression
+
+`codec/rar/Rar5Unpacker.kt` (commit `23a034d`) was written in an earlier AI-assisted session,
+and no reference was recorded for it. RARLAB's description covers the container, not the
+compression algorithm. A candidate reference is libarchive's
+`archive_read_support_format_rar5.c` (BSD-2, Copyright 2018 Grzegorz Antoniak); its history
+has not been checked yet. Until it is, the decoder's provenance is undocumented.
 
 ## Refresh
 
