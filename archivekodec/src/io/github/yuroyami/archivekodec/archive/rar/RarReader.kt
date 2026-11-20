@@ -164,7 +164,7 @@ public class RarReader(
         if (resume && current is Rar29Unpacker) current.maxPpmdMemory = limits.maxDecoderMemory
         val target = items[index]
         limits.checkOutputSize(target.size)
-        requireByteArraySize(target.size)
+        requireByteArraySize(target.size, target.dataOffset)
         val worker = if (resume) current!! else if (items[start].rar29) {
             // RAR 2.9 always uses a 4 MiB window; its PPMd model is checked when a block starts one.
             if (RAR29_WINDOW > limits.maxDecoderMemory) {
@@ -200,7 +200,7 @@ public class RarReader(
             for (j in first..index) {
                 val item = items[j]
                 if (item.compression < 0) continue
-                requireByteArraySize(item.size)
+                requireByteArraySize(item.size, item.dataOffset)
                 if (item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: packed data of ${item.packed} bytes is too large for a ByteArray", item.dataOffset)
                 // An empty RAR 2.9 member has no data and leaves the stream untouched, as RAR writes it.
                 if (item.rar29 && item.size == 0L) {

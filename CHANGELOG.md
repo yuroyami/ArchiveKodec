@@ -17,70 +17,41 @@
 - Fixed: `extract` in `archivekodec-io` reports a sink that cannot be opened, such as one in a
   missing directory, as an `ArchiveIOException` and passes it to `onFailure`; the IO exception
   escaped raw before. The README and Files examples now create parent directories.
-- Behaviour change: the forward-only stream readers are fail-stop. Once `next()`, `read()` or
-  a `data()` source of `TarStreamReader`, `ArStreamReader` or `CpioStreamReader` throws, or a
-  `TarStreamSink` `write` or `finish` throws, every later call rethrows that same exception.
-  Before, a refused member (an unsafe or duplicate name, a sparse TAR member, the entry
-  limit) left its data unskipped, so the next `next()` read attacker-chosen data as a header
-  and listed it as an entry; an IO error part-way through a skip made the next call skip too
-  far; and an `ArStreamReader` that refused its magic or a thin archive went on to parse the
-  bytes after it. To list past unsafe names, turn `rejectUnsafeNames` off and check names
-  yourself.
-- Behaviour change: the stream writers are fail-stop. Once a `TarStreamWriter`,
-  `ArStreamWriter` or `CpioStreamWriter` call has written part of an entry and then fails (the
-  data source throws or ends short, the sink throws), every later put and `finish()` rethrows
-  that failure without writing, instead of writing on into a misaligned archive that looks
-  complete. A refused argument or name, before anything is written, still leaves the writer
-  usable. A failed `finish()` rethrows when called again.
 - Behaviour change: a sparse member's holes now count against the ratio limit. A sparse TAR
   member or SquashFS file with holes is measured against the larger of its stored bytes and the
   whole archive (the SquashFS image's used bytes). A 10 KB SquashFS image of one fully sparse
   file allocated up to 2 GiB under any ratio limit, and a 1.5 KB TAR of a GNU sparse member
   that stores nothing 16 MiB; both are now refused under the default 10,000:1. Sparse files in
   ordinary archives still read.
+- Behaviour change: an entry too large for one `ByteArray` (exactly 2^31 bytes passes the
+  default 2 GiB output limit) failed with `ArchiveFormatException` in TAR, ar, cpio, RAR, ZIP
+  stored entries, ISO 9660 and SquashFS. It now fails with `ArchiveSizeException`, as
+  `ArchiveReader.read` documents, naming the entry and its offset. A declared structure, such
+  as a header or a table, that large stays a format error. `ArchiveSizeException` takes
+  `offset`, `entryName` and `cause`, as the other archive exceptions do.
 - Fixed: a 7z header could demand gigabytes before any limit: each folder's substream count was
   bounded by the header's size, but not their sum, so a 64 KB header could ask for 480 million
-  sizes (3.8 GB), and a larger one overflowed the count to a `NegativeArraySizeException`. The
-  total is now checked against what the rest of the header can describe and `maxEntries` first.
-- Fixed: `ArStreamReader` allocated a GNU `//` name table at its declared size before reading
-  it: a 68-byte stream declaring a 2,000,000,000-byte table allocated 2 GB. The table is now
-  read as it arrives and refused above 16 MiB with `ArchiveFormatException`.
+  sizes (3.8 GB), and a larger one overflowed the count to a `NegativeArraySizeException`. Every
+  substream is a file, so the total now answers to `maxEntries` before anything is allocated,
+  and a total past `Int.MAX_VALUE` is refused.
 - Fixed: `IsoReader` allocated a file's declared size before checking that its extents lie in
   the image: a 40 KB image could allocate 2.1 GB. Every extent is checked first.
 - Fixed: `SquashfsReader` built the whole fragment table from the superblock's u32 count, 16
   bytes per fragment, up to 1024 times the image size, and from 2^30 fragments the count
   overflowed an `Int`. It now reads only the metadata block that holds the fragment it needs.
-- Fixed: a second `RarReader` read with a smaller `maxDecoderMemory` resumed a RAR 2.9 solid
-  stream under the first read's PPMd limit, so a later PPMd block could allocate a model past
-  the second read's limit. A resumed stream now answers to the current read's limit, and one
-  whose model is already larger restarts and is refused.
-- Fixed: the last part of a streamed DEFLATE, zlib or gzip decode (`decompress(source, sink,
-  limits)`), up to 1 MiB, skipped the ratio check: 500 KB of zeros read under a 100:1 ratio
-  limit. It is now measured against the compressed bytes read, from the start of the stream for
-  gzip members.
-- Fixed: a SquashFS listing that failed on an IO error reading the id table remembered an empty
-  table, so a retried listing reported no owners; an IO error there, or reading a device number,
-  now fails the listing instead of reading as absent, and a retry reads the table again.
-- Fixed: a stream writer looped forever on a data source that returned 0 bytes, and accepted a
-  read of more bytes than it asked for. Both are refused with `ArchiveFormatException` naming the
-  entry.
-- Fixed: an entry too large for one `ByteArray` (exactly 2^31 bytes passes the default 2 GiB
-  output limit) failed with `ArchiveFormatException` in TAR, ar, cpio, RAR, ZIP stored entries,
-  ISO 9660 and SquashFS. It now fails with `ArchiveSizeException`, as `ArchiveReader.read`
-  documents. A declared structure, such as a header or a table, that large stays a format error.
 - Fixed: `TarReader` read a GNU long name or long link record whole, at any size up to 2 GiB.
   Above 1 MiB, the stream readers' cap, it is now refused with `ArchiveFormatException`.
 - Fixed: a wrong password on an encrypted 7z folder without a folder CRC, a stored one for
   example, failed the file's CRC-32 with `ArchiveFormatException`. It is now an
   `ArchivePasswordException`, as for other wrong passwords.
-- Fixed: `TarStreamSink` and the `data()` sources of `TarStreamReader`, `ArStreamReader` and
-  `CpioStreamReader` did not check an entry against `maxUncompressedBytes`, as `read` does.
-  They now refuse a larger entry with `DecompressionBombException`.
 - RAR 2.9 decompression: the compressed members RAR 3.x and 4.x write now read, with LZ77 and
   PPMd blocks, solid archives, and filters, both RAR's standard ones and bytecode for its
   virtual machine, which runs under an instruction budget. Ported from XADMaster with the
   permission of its copyright holders (reference/REFERENCES.md). Checked against libarchive's
-  RAR test archives by CRC-32, including with the x86 filter run as bytecode.
+  RAR test archives by CRC-32, including with the x86 filter run as bytecode. Solid RAR4
+  archives are not yet tested against archives that RAR wrote. A read that resumes a solid
+  stream answers to its own `maxDecoderMemory` for any PPMd model a later block starts, and
+  restarts the stream when the model already held is larger than that.
 - Entry metadata (#154, owner decision 3). `ArchiveEntry` adds `lastModified`, `lastAccessed`,
   `created` and `statusChanged` as `ArchiveTime` (seconds and nanoseconds), `uid`, `gid`,
   `ownerName`, `groupName`, `deviceMajor`, `deviceMinor`, `windowsAttributes`, `xattrs` and
@@ -88,6 +59,8 @@
   store; [Reading](docs/reading.md#entry-metadata) has the table. `lastModifiedEpochSeconds`
   stays, as a whole-second view. `TarReader` now lists devices and FIFOs, which it skipped, and
   `extract` skips devices, FIFOs and sockets instead of writing them as empty files.
+  SquashFS owners and device numbers read as absent from a damaged table, but a failure of the
+  source while reading them fails the listing, and a retried listing reads them again.
 - Fixed: `extract` selects each entry by its own listing slot. Of two members with identical
   metadata (two TAR members `notes` with different data), passing one extracted both.
 - Fixed: the platform inflater stops at the smaller of the size limit and the input size times
@@ -182,6 +155,16 @@
   listing what `ArReader` lists and refusing thin archives.
   `CpioStreamWriter` (newc and odc) and `CpioStreamReader` (newc, crc, odc and old binary) do the
   same for cpio, checking crc sums as bodies pass, read or skipped.
+  The stream readers and `TarStreamSink` are fail-stop: once a call throws, every later one
+  rethrows that failure, since a forward-only reader cannot tell where the next header starts
+  after a refused or damaged member. To list past unsafe names, turn `rejectUnsafeNames` off
+  and check names yourself. The one exception is an entry larger than `maxUncompressedBytes`,
+  which `read` and `data()` refuse before consuming anything, so `next()` skips it. The stream
+  writers are fail-stop too once a call has written part of an entry, while a refused argument
+  or name leaves them usable; they refuse a data source that returns 0 bytes, or more than
+  asked. `ArStreamReader` reads a GNU `//` name table as it arrives, up to 16 MiB. The last
+  part of a streamed DEFLATE, zlib or gzip decode, up to 1 MiB, answers to the ratio limit like
+  the rest, measured from the start of the stream across gzip members.
 - Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
   exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 

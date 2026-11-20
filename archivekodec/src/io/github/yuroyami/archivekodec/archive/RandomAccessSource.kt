@@ -93,13 +93,16 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
  */
 internal fun RandomAccessSource.readEntryChecked(offset: Long, length: Long): ByteArray {
     requireRange(offset, length)
-    if (length > Int.MAX_VALUE) throw ArchiveSizeException("entry data at $offset of $length bytes cannot fit in one ByteArray (maximum ${Int.MAX_VALUE})")
+    requireByteArraySize(length, offset)
     return readFullyChecked(offset, length)
 }
 
-/** @throws ArchiveSizeException when a read's result of [length] bytes cannot fit in one ByteArray. */
-internal fun requireByteArraySize(length: Long) {
-    if (length > Int.MAX_VALUE) throw ArchiveSizeException("result of $length bytes cannot fit in one ByteArray (maximum ${Int.MAX_VALUE})")
+/**
+ * @throws ArchiveSizeException when a read's result of [length] bytes, the entry data at
+ *   [offset] when known, cannot fit in one ByteArray.
+ */
+internal fun requireByteArraySize(length: Long, offset: Long? = null) {
+    if (length > Int.MAX_VALUE) throw ArchiveSizeException("result of $length bytes cannot fit in one ByteArray (maximum ${Int.MAX_VALUE})", offset)
 }
 
 /** Fill `into[0, count)` from [offset], which the caller has range-checked. */

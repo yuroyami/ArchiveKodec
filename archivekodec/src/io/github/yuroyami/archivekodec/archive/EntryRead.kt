@@ -23,11 +23,6 @@ internal inline fun <T> withEntryContext(name: String, offset: Long, operation: 
 
 internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Long, relativeOffset: Boolean = false): ArchiveException {
     if (entryName != null && offset != null || this is ArchivePathException) return this
-    // ArchiveSizeException carries no entry or offset fields: keep its type, with the context
-    // in its message, once.
-    if (this is ArchiveSizeException) {
-        return if (message.orEmpty().contains(" (entry '")) this else ArchiveSizeException("$message (entry '${entryName ?: name}', source offset ${offset ?: fallbackOffset})")
-    }
     val position = if (relativeOffset && offset != null) fallbackOffset + offset else offset ?: fallbackOffset
     val label = entryName ?: name
     val text = "${message} (entry '$label', source offset $position)"
@@ -38,6 +33,7 @@ internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Lon
         is ArchiveIOException -> ArchiveIOException(text, this, position, label)
         is ArchivePasswordException -> ArchivePasswordException(text, position, label, this)
         is ArchiveAuthenticationException -> ArchiveAuthenticationException(text, position, label, this)
+        is ArchiveSizeException -> ArchiveSizeException(text, position, label, this)
         is ArchiveFormatException, is InflateException -> ArchiveFormatException(text, position, label, this)
         else -> ArchiveException(text, this, position, label)
     }

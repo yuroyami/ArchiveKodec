@@ -1554,7 +1554,7 @@ final class io.github.yuroyami.archivekodec/ArchivePasswordException : io.github
 }
 
 final class io.github.yuroyami.archivekodec/ArchiveSizeException : io.github.yuroyami.archivekodec/ArchiveException { // io.github.yuroyami.archivekodec/ArchiveSizeException|null[0]
-    constructor <init>(kotlin/String) // io.github.yuroyami.archivekodec/ArchiveSizeException.<init>|<init>(kotlin.String){}[0]
+    constructor <init>(kotlin/String, kotlin/Long? = ..., kotlin/String? = ..., kotlin/Throwable? = ...) // io.github.yuroyami.archivekodec/ArchiveSizeException.<init>|<init>(kotlin.String;kotlin.Long?;kotlin.String?;kotlin.Throwable?){}[0]
 }
 
 final class io.github.yuroyami.archivekodec/ArchiveUnsupportedException : io.github.yuroyami.archivekodec/ArchiveException { // io.github.yuroyami.archivekodec/ArchiveUnsupportedException|null[0]

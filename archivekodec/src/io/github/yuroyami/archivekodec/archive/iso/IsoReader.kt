@@ -87,7 +87,7 @@ public class IsoReader(
                 item.target != null -> item.target.copyOf()
                 item.interleaved -> throw ArchiveUnsupportedException("ISO 9660: interleaved files are not supported", listed.dataOffset, listed.name)
                 else -> {
-                    requireByteArraySize(listed.size)
+                    requireByteArraySize(listed.size, listed.dataOffset)
                     // Every extent must lie inside the image before the output is allocated.
                     for (i in item.extents.indices step 2) source.requireRange(item.extents[i], item.extents[i + 1])
                     val out = ByteArray(listed.size.toInt())

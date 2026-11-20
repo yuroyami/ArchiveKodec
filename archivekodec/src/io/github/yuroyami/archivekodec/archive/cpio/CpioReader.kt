@@ -101,7 +101,7 @@ public class CpioReader private constructor(
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
-        requireByteArraySize(entry.size)
+        requireByteArraySize(entry.size, entry.dataOffset)
         val payload = group.payload
         val bytes = if (entry.isDirectory || entry.size == 0L) ByteArray(0)
             else source.readEntryChecked(payload.entry.dataOffset, payload.storedSize)

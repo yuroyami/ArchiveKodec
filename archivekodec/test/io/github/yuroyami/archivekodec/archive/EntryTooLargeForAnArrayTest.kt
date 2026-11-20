@@ -43,6 +43,8 @@ class EntryTooLargeForAnArrayTest {
         assertEquals(big, entry.size)
         val error = assertFailsWith<ArchiveSizeException> { it.read(entry) }
         assertTrue("$big" in error.message!!, error.message)
+        assertEquals(entry.name, error.entryName)
+        kotlin.test.assertNotNull(error.offset)
     }
 
     @Test

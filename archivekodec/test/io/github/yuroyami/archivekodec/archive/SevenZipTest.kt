@@ -383,10 +383,16 @@ class SevenZipTest {
     @Test
     fun substreamCountsAreBoundedBeforeAllocating() {
         // 8,000 folders of 60,000 substreams each, in a 64 KB header: 480 million sizes, 3.8 GB.
-        val bomb = substreamBomb(8000, 60_000)
+        // Every substream is a file, so the total answers to maxEntries before the allocation.
+        val bomb = substreamBomb(8000, 60_000, tail = 1)
         assertTrue(bomb.size in 60_000..70_000, "${bomb.size}")
-        assertFailsWith<ArchiveFormatException> { open(bomb).use { it.entries() } }
-        // A count the header could describe still answers to maxEntries.
+        assertFailsWith<DecompressionBombException> { open(bomb).use { it.entries() } }
+        // Past Int.MAX_VALUE the total overflowed an Int; summed as a Long it is past every limit.
+        val overflow = substreamBomb(17_000, 135_000, tail = 1)
+        assertFailsWith<DecompressionBombException> {
+            SevenZipReader(ByteArrayRandomAccessSource(overflow), ArchiveLimits.UNBOUNDED).use { it.entries() }
+        }
+        // A small total still answers to a tight maxEntries.
         val many = substreamBomb(1, 10, tail = 20)
         assertFailsWith<DecompressionBombException> {
             SevenZipReader(ByteArrayRandomAccessSource(many), ArchiveLimits { maxEntries = 5 }).use { it.entries() }

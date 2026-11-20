@@ -210,6 +210,70 @@ class StreamFailStopTest {
         TarStreamReader(ByteSource.of(tar), roomy).also { it.next() }.let { r -> assertEquals(10, r.data().read(ByteArray(10), 0, 10)) }
     }
 
+    /** Read the current entry whole through [read], or through a [data] source. */
+    private fun drain(read: (ByteSink) -> Long): ByteArray {
+        val out = ByteArrayBuilder(64)
+        read { b, o, n -> out.append(b, o, n) }
+        return out.takeByteArray()
+    }
+
+    private fun drainSource(source: ByteSource): ByteArray {
+        val out = ByteArrayBuilder(64)
+        val buffer = ByteArray(7)
+        while (true) {
+            val n = source.read(buffer, 0, buffer.size)
+            if (n < 0) return out.takeByteArray()
+            out.append(buffer, 0, n)
+        }
+    }
+
+    @Test
+    fun aSizeRefusalBeforeAnyByteLeavesThePullReadersUsable() {
+        val tight = io.github.yuroyami.archivekodec.security.ArchiveLimits { maxUncompressedBytes = 1000 }
+        val bomb = io.github.yuroyami.archivekodec.security.DecompressionBombException::class
+        val one = "first".encodeToByteArray()
+        val three = "third".encodeToByteArray()
+        val big = ByteArray(2000) { 7 }
+        val tar = tarFile("one", one) + tarFile("big", big) + tarFile("three", three) + ByteArray(1024)
+        val ar = arMagic + arMember("one/", one) + arMember("big/", big) + arMember("three/", three)
+        val cpio = newc("one", one) + newc("big", big) + newc("three", three) + trailer
+        for (viaSource in listOf(false, true)) {
+            val tarReader = TarStreamReader(ByteSource.of(tar), tight)
+            val arReader = ArStreamReader(ByteSource.of(ar), tight)
+            val cpioReader = CpioStreamReader(ByteSource.of(cpio), tight)
+            val readers: List<Triple<String, () -> ArchiveEntry?, Pair<(ByteSink) -> Long, () -> ByteSource>>> = listOf(
+                Triple("TAR", tarReader::next, Pair({ s: ByteSink -> tarReader.read(s) }, tarReader::data)),
+                Triple("ar", arReader::next, Pair({ s: ByteSink -> arReader.read(s) }, arReader::data)),
+                Triple("cpio", cpioReader::next, Pair({ s: ByteSink -> cpioReader.read(s) }, cpioReader::data)),
+            )
+            for ((format, next, reads) in readers) {
+                val (read, data) = reads
+                fun content(): ByteArray = if (viaSource) drainSource(data()) else drain(read)
+                val what = "$format, ${if (viaSource) "data()" else "read()"}"
+                assertEquals("one", next()!!.name, what)
+                kotlin.test.assertContentEquals(one, content(), what)
+                assertEquals("big", next()!!.name, what)
+                assertFailsWith(bomb, what) { content() }
+                // Nothing of the refused member was consumed, so the reader skips it.
+                assertEquals("three", next()!!.name, what)
+                kotlin.test.assertContentEquals(three, content(), what)
+                assertNull(next(), what)
+            }
+        }
+    }
+
+    @Test
+    fun aSizeRefusalStillStopsThePushSink() {
+        val tight = io.github.yuroyami.archivekodec.security.ArchiveLimits { maxUncompressedBytes = 1000 }
+        val tar = tarFile("big", ByteArray(2000)) + tarFile("three", "third".encodeToByteArray()) + ByteArray(1024)
+        val sink = TarStreamSink(object : TarStreamVisitor {
+            override fun onEntry(entry: ArchiveEntry) {}
+            override fun onData(entry: ArchiveEntry, bytes: ByteArray, offset: Int, length: Int) {}
+        }, tight)
+        val first = assertFailsWith<io.github.yuroyami.archivekodec.security.DecompressionBombException> { sink.write(tar, 0, 512) }
+        assertSame(first, assertFailsWith<io.github.yuroyami.archivekodec.security.DecompressionBombException> { sink.write(tar, 512, tar.size - 512) })
+    }
+
     // ---- Writers ----
 
     private class Collector : ByteSink {

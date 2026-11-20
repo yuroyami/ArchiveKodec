@@ -113,7 +113,7 @@ public class TarReader(
         else limits.checkRatio(maxOf(entry.compressedSize, source.size, 1L), entry.size)
         if (entry.isDirectory || entry.size == 0L) return@withEntryContext ByteArray(0)
         if (sparse == null) return@withEntryContext source.readEntryChecked(entry.dataOffset, entry.size)
-        requireByteArraySize(entry.size)
+        requireByteArraySize(entry.size, entry.dataOffset)
         val out = ByteArray(entry.size.toInt())
         var stored = entry.dataOffset
         for (i in sparse.offsets.indices) {

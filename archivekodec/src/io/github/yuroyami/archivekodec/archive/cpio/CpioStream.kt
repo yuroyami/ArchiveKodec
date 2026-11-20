@@ -131,6 +131,9 @@ public class CpioStreamWriter @JvmOverloads public constructor(
  * starts. A refused name or a crc sum mismatch is such a failure too; to list past unsafe
  * names, turn [ArchiveLimits.rejectUnsafeNames] off and check each [ArchiveEntry.name]
  * yourself, with [PathGuard] for example.
+ * A size refusal is the one exception: when [read] or a [data] source refuses a record because
+ * what is left of it exceeds [ArchiveLimits.maxUncompressedBytes], nothing was consumed, so the
+ * reader stays usable and [next] skips it.
  *
  * Decoders write to a [ByteSink] rather than offer a source, so a compressed archive must be
  * decoded first, to a file for example.
@@ -272,28 +275,33 @@ public class CpioStreamReader @JvmOverloads public constructor(
 
     /**
      * Stream the current record's data, or the part not read yet, to [sink]; return the bytes
-     * written. [limits] bound the record's size. After any exception the reader is failed and
-     * later calls rethrow it.
+     * written. [limits] bound the record's size: a record larger than they allow is refused
+     * before anything is consumed, and [next] can skip it. After any other exception the reader
+     * is failed and later calls rethrow it.
      * @throws ArchiveException for a truncated archive, a crc sum mismatch or a sink failure.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long = failure.guarded {
+    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long {
+        failure.check()
         val entry = current ?: throw IllegalStateException("no current entry; call next() first")
-        if (entry.isDirectory) 0L else {
-            limits.checkOutputSize(remaining)
-            consume(remaining, sink)
-        }
+        if (entry.isDirectory) return 0
+        // A refused size consumes nothing: the reader stays usable and next() skips the record.
+        limits.checkOutputSize(remaining)
+        return failure.guarded { consume(remaining, sink) }
     }
 
     /**
      * The current record's data as a source, for a decoder or another writer. A failure of the
      * source fails the reader, as one of [read] does. Like [read], it refuses an entry larger
-     * than the reader's [ArchiveLimits.maxUncompressedBytes].
+     * than the reader's [ArchiveLimits.maxUncompressedBytes], leaving the reader usable.
      */
     public fun data(): ByteSource = ByteSource { into, offset, length ->
-        // The same size rule as read: what is left of the entry must fit this reader's limits.
-        failure.guarded { limits.checkOutputSize(remaining); dataRead(into, offset, length) }
+        failure.check()
+        if (current == null) throw IllegalStateException("no current entry; call next() first")
+        // The same size rule as read, and like it, a refusal consumes nothing.
+        limits.checkOutputSize(remaining)
+        failure.guarded { dataRead(into, offset, length) }
     }
 
     private fun dataRead(into: ByteArray, offset: Int, length: Int): Int {

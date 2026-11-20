@@ -467,11 +467,12 @@ public class SevenZipReader(
                     for (i in folders.indices) unpackStreams[i] = count()
                     id = byte()
                 }
-                // Each count alone is bounded by the header, but their sum is not: bound it
-                // before allocating. Every substream is a file the header must still name.
+                // Each count alone is bounded by the header, but their sum is not: every
+                // substream is a file, so the sum answers to maxEntries before anything is
+                // allocated for it. It is summed as a Long, since it can pass Int.MAX_VALUE, which
+                // no maxEntries allows.
                 val declared = unpackStreams.fold(0L) { total, n -> total + n }
-                if (declared > bytes.size - pos) fail("$declared substreams exceed what the header can describe")
-                limits.checkEntryCount(declared.toInt())
+                if (declared > limits.maxEntries) throw DecompressionBombException("entry count $declared exceeds limit ${limits.maxEntries}")
                 val totalStreams = declared.toInt()
                 substreamSizes = LongArray(totalStreams)
                 var k = 0

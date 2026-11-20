@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive.zip
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.archive.FailStop
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.ByteSource
@@ -66,20 +67,12 @@ public class ZipStreamWriter(private val sink: ByteSink) {
     private val buffer = ByteArray(64 * 1024)
     private var position = 0L
     private var finished = false
-    /** The failure that stopped the writer after output was written; later calls rethrow it. */
-    private var failure: Throwable? = null
+    /** Keeps the failure that stopped the writer after output was written; later calls rethrow it. */
+    private val failure = FailStop()
 
     private fun checkUsable() {
-        failure?.let { throw it }
+        failure.check()
         check(!finished) { "the ZIP stream is finished" }
-    }
-
-    /** Run [block], which writes output; a failure in it stops the writer. */
-    private inline fun <T> writing(block: () -> T): T = try {
-        block()
-    } catch (error: Throwable) {
-        failure = error
-        throw error
     }
 
     /**
@@ -120,7 +113,7 @@ public class ZipStreamWriter(private val sink: ByteSink) {
         val prepared = prepare(name, lastModifiedEpochSeconds, unixMode, comment)
         val offset = position
         val first = readSome(data, name)
-        writing { writeFile(prepared, data, first, method, options, offset) }
+        failure.guarded { writeFile(prepared, data, first, method, options, offset) }
     }
 
     private fun writeFile(prepared: Prepared, data: ByteSource, first: Int, method: ZipMethod, options: DeflateOptions, offset: Long) {
@@ -187,7 +180,7 @@ public class ZipStreamWriter(private val sink: ByteSink) {
         checkUsable()
         val prepared = prepare(if (name.endsWith('/')) name else "$name/", lastModifiedEpochSeconds, unixMode, comment)
         val offset = position
-        writing { localHeader(prepared, UTF8_FLAG, ZipMethod.STORED.code, 0) }
+        failure.guarded { localHeader(prepared, UTF8_FLAG, ZipMethod.STORED.code, 0) }
         records += prepared.record(UTF8_FLAG, ZipMethod.STORED.code, 0, 0, 0, offset)
     }
 
@@ -198,9 +191,9 @@ public class ZipStreamWriter(private val sink: ByteSink) {
      */
     @Throws(ArchiveException::class)
     public fun finish() {
-        failure?.let { throw it }
+        failure.check()
         if (finished) return
-        writing { end(ByteArray(0)) }
+        failure.guarded { end(ByteArray(0)) }
     }
 
     /**
@@ -212,10 +205,10 @@ public class ZipStreamWriter(private val sink: ByteSink) {
      */
     @Throws(ArchiveException::class, IllegalArgumentException::class)
     public fun finish(comment: String) {
-        failure?.let { throw it }
+        failure.check()
         if (finished) return
         val bytes = ZipWriter.encodeComment(comment, "archive comment")
-        writing { end(bytes) }
+        failure.guarded { end(bytes) }
     }
 
     private fun end(archiveComment: ByteArray) {
@@ -321,8 +314,9 @@ public class ZipStreamWriter(private val sink: ByteSink) {
     /** Read the next piece of [data] into [buffer]: its length, or -1 at the end. */
     private fun readSome(data: ByteSource, name: String): Int {
         val n = data.read(buffer, 0, buffer.size)
-        if (n == 0 || n > buffer.size) throw ArchiveFormatException("ZIP: the source of '$name' returned $n bytes for ${buffer.size} asked", entryName = name)
-        return if (n < 0) -1 else n
+        if (n < 0) return -1
+        FailStop.checkRead(n, buffer.size, "ZIP", name)
+        return n
     }
 
     private fun flush(out: ByteArrayBuilder) {
