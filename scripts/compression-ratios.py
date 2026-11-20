@@ -310,6 +310,18 @@ def main():
     for (codec, label, name), path in references.items():
         kind = ["unzip", str(path)] if CODECS[codec].get("zip") else ["decode", codec, str(path)]
         jobs.append([f"decode/{codec}/{label}/{name}", *kind, str(path) + ".decoded"])
+    # The whole corpus as one input, larger than any window, for the codecs that declare one.
+    concatenated = work / "silesia.cat"
+    big = [codec for codec in BOUNDED_DECODERS if codec in args.codecs] if args.files == sorted(SILESIA) else []
+    if big:
+        if not concatenated.is_file() or concatenated.stat().st_size != sum(size for size, _ in SILESIA.values()):
+            with open(concatenated, "wb") as stream:
+                for name in sorted(SILESIA):
+                    stream.write((corpus_dir / name).read_bytes())
+        originals["concatenated"] = sha256(concatenated)
+        for codec in big:
+            jobs.append([f"encode/{codec}/default/concatenated", "encode", codec, "default", str(concatenated),
+                         str(out / f"{codec}.ak.concatenated")])
     print(f"Running {len(jobs)} ArchiveKodec jobs", flush=True)
     results, meta = kotlin_jobs(jobs, work, args.threads, args.heap)
 
@@ -347,6 +359,22 @@ def main():
             interop.append({"direction": "the tool decodes ArchiveKodec", "codec": codec, "setting": variant, "file": name,
                             "ok": ok, "error": error or (None if ok else "output differs")})
 
+    # The concatenated corpus: the tools decode it with their memory bounded near the cap.
+    large = []
+    for codec in big:
+        result = results[f"encode/{codec}/default/concatenated"]
+        path = out / f"{codec}.ak.concatenated"
+        if result["ok"]:
+            digest, error = decoded_digest(BOUNDED_DECODERS[codec], path)
+            ok = digest == originals["concatenated"]
+        else:
+            ok, error = False, result["error"]
+        interop.append({"direction": "the tool decodes ArchiveKodec, memory bounded", "codec": codec, "setting": "default",
+                        "file": "concatenated", "ok": ok, "error": error or (None if ok else "output differs")})
+        large.append({"codec": codec, "archivekodec_bytes": result.get("size"),
+                      "declared_window": declared_window(codec, path) if result["ok"] else None,
+                      "decoder": " ".join(BOUNDED_DECODERS[codec])})
+
     # 4. Report.
     total_input = sum(SILESIA[name][0] for name in args.files)
     rows = []
@@ -375,6 +403,8 @@ def main():
         "corpus": {"name": "Silesia", "files": {name: {"bytes": SILESIA[name][0], "sha256": SILESIA[name][1]} for name in args.files},
                    "bytes": total_input},
         "rows": rows,
+        "concatenated": {"bytes": sum(size for size, _ in SILESIA.values()), "sha256": originals.get("concatenated"),
+                         "rows": large},
         "interop": sorted(interop, key=lambda row: (row["ok"], row["codec"], row["direction"], row["setting"], row["file"])),
     }
     (work / "ratios.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -387,6 +417,41 @@ def main():
     if failed or any(row["encode_failures"] for row in rows):
         print(f"{len(failed)} interoperability failures; see {work / 'ratios.json'}", file=sys.stderr)
         sys.exit(1)
+
+
+# The codecs whose streams declare a window or dictionary, and a reference decoder that holds
+# no more than the 8 MiB cap (and some working memory): it fails if the declared window grew
+# with the input or a match reached past it.
+BOUNDED_DECODERS = {
+    "zstd": ["zstd", "-q", "-dc", "--memory=8MiB"],
+    "xz": ["xz", "-dc", "--memlimit=10MiB"],
+    "lzma": ["xz", "--format=lzma", "-dc", "--memlimit=10MiB"],
+    "lzma2": ["xz", "--format=raw", "--lzma2=dict=8MiB", "-dc", "--memlimit=10MiB"],
+    "lzip": ["lzip", "-dc"],
+}
+
+
+def declared_window(codec, path):
+    """The window or dictionary a stream's header declares, in bytes, or None for raw LZMA2."""
+    with open(path, "rb") as stream:
+        header = stream.read(32)
+    if codec == "zstd":
+        descriptor = header[4]
+        if descriptor & 0x20:  # single segment: the window is the content size
+            size_bytes = {0: 1, 1: 2, 2: 4, 3: 8}[descriptor >> 6]
+            value = int.from_bytes(header[5:5 + size_bytes], "little")
+            return value + 256 if size_bytes == 2 else value
+        base = 1 << (10 + (header[5] >> 3))
+        return base + base // 8 * (header[5] & 7)
+    if codec == "lzma":
+        return int.from_bytes(header[1:5], "little")
+    if codec == "xz":
+        bits = header[16]
+        return (2 | (bits & 1)) << (bits // 2 + 11)
+    if codec == "lzip":
+        size = 1 << (header[5] & 0x1F)
+        return size - size // 16 * (header[5] >> 5)
+    return None
 
 
 # Codecs whose decoders read a ByteSource and whose encoders are sessions of their own,
@@ -487,6 +552,15 @@ def render(report):
         relative = f"{ak / ref:.3f}" if ak and ref else ""
         lines.append(f"| {row['codec']} | {row['variant']} | {size(ak)} | {ratio(ak)} | {row['reference'] or 'none'} | "
                      f"{'' if ref is None else size(ref)} | {ratio(ref)} | {relative} |")
+    large = report["concatenated"]
+    if large["rows"]:
+        lines += ["", f"The 12 files concatenated in name order, {large['bytes']:,} bytes, SHA-256 {large['sha256']}:", "",
+                  "| Codec | ArchiveKodec bytes | Ratio | Declared window | Decoded by |", "| --- | ---: | ---: | ---: | --- |"]
+        for row in large["rows"]:
+            packed, window = row["archivekodec_bytes"], row["declared_window"]
+            rate = "" if packed is None else f"{large['bytes'] / packed:.3f}"
+            declared = "not in the stream" if window is None else f"{window:,}"
+            lines.append(f"| {row['codec']} | {size(packed)} | {rate} | {declared} | `{row['decoder']}` |")
     checks = report["interop"]
     failed = [row for row in checks if not row["ok"]]
     lines += ["", f"Interoperability: {len(checks) - len(failed)} of {len(checks)} decodes byte-exact."]

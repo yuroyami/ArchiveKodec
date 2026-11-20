@@ -63,13 +63,14 @@ public object Codecs {
 
     /**
      * The `.lzma` ("LZMA alone") format: a 13-byte header, then one LZMA stream. Decoding
-     * accepts a known size or an end marker; encoding writes the size and no marker.
+     * accepts a known size or an end marker; encoding writes the size and no marker, with a
+     * dictionary of the input size rounded up, at most 8 MiB.
      * ZIP readers decode method 14's own framing through this codec's registration.
      */
     @JvmStatic
     public val LZMA: Codec get() = LzmaCodec
 
-    /** Raw LZMA2 chunks, as 7z stores them; decoding allows any dictionary distance. */
+    /** Raw LZMA2 chunks, as 7z stores them; decoding allows any dictionary distance, encoding uses at most 8 MiB. */
     @JvmStatic
     public val LZMA2: Codec get() = Lzma2Codec
 
@@ -77,7 +78,7 @@ public object Codecs {
      * The .xz container. Decoding verifies CRC-32, CRC-64 and SHA-256 checks and the index,
      * accepts concatenated streams, the delta filter and the x86, PowerPC, IA-64, ARM,
      * ARM-Thumb, SPARC and ARM64 branch filters, and refuses RISC-V by name. Encoding
-     * writes one LZMA2 block with a CRC-64 check.
+     * writes one LZMA2 block with a CRC-64 check and a dictionary of at most 8 MiB.
      */
     @JvmStatic
     public val XZ: Codec get() = XzCodec
@@ -85,7 +86,7 @@ public object Codecs {
     /**
      * lzip (`.lz`, version 1): LZMA members ending with an end marker, each with a CRC-32, data
      * size and member size trailer. Decoding joins concatenated members and checks every
-     * trailer; encoding writes one member.
+     * trailer; encoding writes one member with a dictionary of at most 8 MiB.
      */
     @JvmStatic
     public val LZIP: Codec get() = LzipCodec
@@ -110,7 +111,8 @@ public object Codecs {
     /**
      * Zstandard (RFC 8878). Decoding handles every block and table mode, repeat offsets,
      * skippable and concatenated frames, and verifies the xxHash64 content checksum;
-     * dictionary frames are refused. Encoding writes one frame with predefined tables.
+     * dictionary frames are refused. Encoding writes one frame with predefined tables and a
+     * window of at most 8 MiB, the most RFC 8878 asks a decoder to support.
      */
     @JvmStatic
     public val ZSTD: Codec get() = ZstdCodec

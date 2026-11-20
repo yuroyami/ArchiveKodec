@@ -113,9 +113,9 @@ internal object Lzip {
     }
 
     fun compress(data: ByteArray): ByteArray {
-        // A power of two that covers the data, from 4 KiB up to 64 MiB like the other LZMA writers.
+        // A power of two that covers the data, from 4 KiB up to WRITER_MAX_DICTIONARY like the other LZMA writers.
         var bits = 12
-        while (bits < 26 && (1 shl bits) < data.size) bits++
+        while ((1 shl bits) < WRITER_MAX_DICTIONARY && (1 shl bits) < data.size) bits++
         val dictionary = 1 shl bits
         val out = ByteArrayBuilder(maxOf(64, data.size / 3))
         "LZIP".encodeToByteArray().forEach { out.append(it) }

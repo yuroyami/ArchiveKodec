@@ -156,7 +156,8 @@ source cannot open a file, so read the file into a `ByteArray` there.
   entries of the other archive readers (read whole even into a sink), and the compression
   layer `open` removes.
 - The encoders are not tuned to match the reference tools: [Compression ratios](docs/compression.md#compression-ratios)
-  gives the measured sizes, and [Memory](docs/compression.md#memory) what each codec holds.
+  gives the measured sizes, and [Memory](docs/compression.md#memory) what each codec holds. No
+  stream they write declares a window or dictionary above 8 MiB.
 - The default compression ratio limit of 10,000:1 rejects valid bzip2, zstd and brotli files
   with long runs of one byte. [Limits](docs/limits.md) shows how to raise it.
 - The Swift frameworks and the JavaScript module are built from this repository. They are not

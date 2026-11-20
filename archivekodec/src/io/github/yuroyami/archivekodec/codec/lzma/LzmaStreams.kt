@@ -8,9 +8,16 @@ import io.github.yuroyami.archivekodec.util.readI32Le
 /** Default properties for writing: lc=3, lp=0, pb=2, as xz and 7-Zip use. */
 internal val DEFAULT_PROPERTIES = LzmaProperties(3, 0, 2)
 
-/** Dictionary for writing: the input size rounded up to an LZMA2-encodable size, within 4 KiB..64 MiB. */
+/**
+ * The largest dictionary the .lzma, LZMA2, xz and lzip writers declare: 8 MiB, the dictionary of
+ * `xz -6` and `lzip -6`, so a decoder needs no more memory for this library's output than for the
+ * tools' default output, whatever the input size.
+ */
+internal const val WRITER_MAX_DICTIONARY = 8 shl 20
+
+/** Dictionary for writing: the input size rounded up to an LZMA2-encodable size, within 4 KiB..[WRITER_MAX_DICTIONARY]. */
 internal fun writerDictionarySize(dataSize: Int): Int {
-    val wanted = dataSize.coerceIn(4096, 64 shl 20)
+    val wanted = dataSize.coerceIn(4096, WRITER_MAX_DICTIONARY)
     var bits = 0
     while (lzma2DictionarySize(bits) < wanted) bits++
     return lzma2DictionarySize(bits).toInt()

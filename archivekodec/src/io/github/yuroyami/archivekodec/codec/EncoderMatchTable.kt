@@ -52,3 +52,14 @@ internal class EncoderMatchTable(hashBits: Int, inputLength: Int, private val in
         return index
     }
 }
+
+/**
+ * Size of a match-chain ring that holds [reach] positions: the smallest power of two at least
+ * [reach], and at least 1. An encoder whose matches reach back at most [reach] bytes indexes it
+ * by `position and (size - 1)`; a slot is overwritten only after its position is out of reach.
+ */
+internal fun ringSize(reach: Int): Int {
+    var size = 1
+    while (size < reach) size = size shl 1
+    return size
+}

@@ -5,6 +5,14 @@
 0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
 [#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
 
+- Fixed: the zstd, xz, `.lzma`, LZMA2 and lzip encoders no longer declare a window or dictionary
+  that grows with the input. zstd frames need a window of at most 8 MiB, the most RFC 8878 asks a
+  decoder to support; `compress` wrote one frame whose window was the whole input, which
+  `zstd -d` refused past 128 MiB and browser and embedded decoders may refuse past 8 MiB. The
+  LZMA writers declare at most 8 MiB, the dictionary of `xz -6`, instead of up to 64 MiB. Their
+  output is read by any conforming decoder without flags, a streamed decode of it needs at most
+  an 8 MiB window, and the encoders' match chains stop at 32 MiB. Input up to 8 MiB gives the
+  same bytes as before.
 - Docs: [Compression ratios](docs/compression.md#compression-ratios) gives every encoder's size on
   the Silesia Corpus next to the reference tools, and [Memory](docs/compression.md#memory) what
   each codec holds; `scripts/compression-ratios.py` reproduces both, and
