@@ -5,6 +5,10 @@
 0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
 [#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
 
+- Docs: [Compression ratios](docs/compression.md#compression-ratios) gives every encoder's size on
+  the Silesia Corpus next to the reference tools, and [Memory](docs/compression.md#memory) what
+  each codec holds; `scripts/compression-ratios.py` reproduces both, and
+  `scripts/fetch-silesia.sh` now checks each file's SHA-256.
 - `ZipStreamWriter` writes a ZIP to a `ByteSink` entry by entry, reading each file from a
   `ByteSource`, so the archive no longer has to fit in memory and can pass 4 GiB. Files get a
   data descriptor, and ZIP64 fields where a size, an offset or the entry count needs them.

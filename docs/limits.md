@@ -96,7 +96,8 @@ checked before that memory is allocated:
 HuffCdic is the exception to "up front": it counts the phrases it decodes and keeps, across
 all of a decoder's calls, and throws once they pass the limit.
 
-A violation throws `DecompressionBombException`.
+A violation throws `DecompressionBombException`. [Memory](compression.md#memory) gives each
+codec's figures.
 
 ## Entry counts
 

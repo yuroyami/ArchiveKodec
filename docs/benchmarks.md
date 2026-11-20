@@ -68,6 +68,14 @@ samples or five full samples. A JVM volatile sink and a Node global sink retain
 results to prevent dead-code elimination. Sink and call overhead is included,
 which matters most for tiny inputs and hardware-accelerated JDK checksums.
 
+## Compression ratios
+
+Compressed sizes do not depend on speed, so they have their own harness:
+`scripts/compression-ratios.py` measures every encoder on the Silesia Corpus next to the
+reference tools, and `--memory` finds the heap each codec needs.
+[Compression ratios](compression.md#compression-ratios) and [Memory](compression.md#memory)
+show the results and how to reproduce them.
+
 ## Encryption
 
 ```sh
