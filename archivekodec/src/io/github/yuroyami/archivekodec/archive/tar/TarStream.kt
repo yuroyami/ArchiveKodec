@@ -260,7 +260,6 @@ internal class TarHeaderState(private val limits: ArchiveLimits, private val nam
         if (nameBytes.isEmpty()) return Step.Skip(size + pad)
         val utf8 = pax.text("hdrcharset", at) != "BINARY"
         val name = (if (paxName != null && utf8) ArchiveNameDecoder.UTF8 else nameDecoder).decodeStoredName(nameBytes, at)
-        val mtime = pax.text("mtime", at)?.let { paxSeconds(it, at) } ?: optionalNumeric(header, 136, 12, at)
         val permissions = optionalNumeric(header, 100, 8, at)?.let { (it and 0xFFF).toInt() }
         val linkTarget = if (type == '1' || type == '2') {
             (if (pax.values["linkpath"] != null && utf8) ArchiveNameDecoder.UTF8 else nameDecoder).decodeStoredName(linkBytes, at + 157)
@@ -269,21 +268,23 @@ internal class TarHeaderState(private val limits: ArchiveLimits, private val nam
         val hasData = (type == '0' || type == '\u0000' || type == '7') && !isDirectory
         val entry = when (type) {
             '2' -> ArchiveEntry(name, linkBytes.size.toLong(), false) {
-                lastModifiedEpochSeconds = mtime
+                tarMetadata(header, pax, type, at)
                 unixMode = (permissions ?: 0x1FF) or 0xA000
                 isSymbolicLink = true
                 this.linkTarget = linkTarget
             }
             '1' -> ArchiveEntry(name, 0, false) {
-                lastModifiedEpochSeconds = mtime
+                tarMetadata(header, pax, type, at)
                 unixMode = permissions?.let { it or 0x8000 }
                 compressedSize = 0
                 isHardLink = true
                 this.linkTarget = linkTarget
             }
             else -> ArchiveEntry(name, if (hasData) size else 0, isDirectory) {
-                lastModifiedEpochSeconds = mtime
-                unixMode = permissions?.let { it or if (isDirectory) 0x4000 else 0x8000 }
+                tarMetadata(header, pax, type, at)
+                // Devices and FIFOs keep their type even when the mode field is empty.
+                val fileType = tarSpecialType(type) ?: if (isDirectory) 0x4000 else 0x8000
+                unixMode = permissions?.let { it or fileType } ?: tarSpecialType(type)?.let { it or 0x1A4 }
                 compressedSize = if (hasData) size else 0
             }
         }

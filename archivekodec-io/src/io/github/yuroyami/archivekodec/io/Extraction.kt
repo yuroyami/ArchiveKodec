@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.EntryType
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -123,7 +124,9 @@ public suspend fun ArchiveReader.extract(
         if (slot < 0) missing++ else chosen[slot] = true
     }
     require(missing == 0) { "$missing of the entries were not listed by this reader" }
-    val selected = listing.filterIndexed { index, entry -> chosen[index] && !entry.isDirectory }
+    // Devices, FIFOs and sockets are never created: writing one as a file would be wrong, and
+    // creating a device node from an archive is a privilege the caller should not hand out.
+    val selected = listing.filterIndexed { index, entry -> chosen[index] && !entry.isDirectory && entry.type.isExtractable() }
     val ordered = selected.filter { !it.isSymbolicLink }
     val total = if (ordered.any { it.size < 0 }) -1L else ordered.sumOf { it.size }
     if (total > maxTotalBytes) throw DecompressionBombException("extract: the entries list $total bytes, more than the total budget of $maxTotalBytes")
@@ -184,3 +187,6 @@ public suspend fun ArchiveReader.extract(
         }
     }
 }
+
+private fun EntryType.isExtractable(): Boolean =
+    this == EntryType.FILE || this == EntryType.HARD_LINK || this == EntryType.SYMBOLIC_LINK

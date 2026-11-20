@@ -169,6 +169,7 @@ class ZipHeaderConsistencyTest {
             codec = entry.codec
             isEncrypted = entry.isEncrypted
             crc32 = entry.crc32
+            windowsAttributes = entry.windowsAttributes
         }
         source.armed = true
         val accesses = source.accesses

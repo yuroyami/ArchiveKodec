@@ -236,6 +236,7 @@ public class CpioReader private constructor(
         val minor = field(8)
         val nameSize = field(11)
         val checksum = if (crc) field(12) else null
+        val owner = CpioOwner(field(2), field(3), field(9), field(10))
         val nameStart = pos + 110
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = align4(nameStart + nameSize)
@@ -245,7 +246,7 @@ public class CpioReader private constructor(
             return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 14, dataStart,
-            if (nlink > 1) LinkKey(false, major, minor, inode) else null, checksum, pos + 102)
+            if (nlink > 1) LinkKey(false, major, minor, inode) else null, checksum, pos + 102, owner)
         return ParsedRecord(align4(dataStart + fileSize), false)
     }
 
@@ -260,6 +261,8 @@ public class CpioReader private constructor(
         val mtime = field(48, 11)
         val nameSize = field(59)
         val fileSize = field(65, 11)
+        val rdev = field(42)
+        val owner = CpioOwner(field(24), field(30), rdev / 256, rdev % 256)
         val nameStart = pos + 76
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = nameStart + nameSize
@@ -269,7 +272,7 @@ public class CpioReader private constructor(
             return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 18, dataStart,
-            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
+            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos, owner)
         return ParsedRecord(dataStart + fileSize, false)
     }
 
@@ -292,6 +295,7 @@ public class CpioReader private constructor(
         val mtime = (word(8) shl 16) or word(9)
         val nameSize = word(10)
         val fileSize = (word(11) shl 16) or word(12)
+        val owner = CpioOwner(word(4), word(5), word(7) / 256, word(7) % 256)
         val nameStart = pos + 26
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = nameStart + nameSize + (nameSize and 1)
@@ -301,14 +305,14 @@ public class CpioReader private constructor(
             return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 6, dataStart,
-            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
+            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos, owner)
         return ParsedRecord(dataStart + fileSize + (fileSize and 1), false)
     }
 
     private fun addEntry(
         out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>, nameBytes: ByteArray,
         nameStart: Long, size: Long, mode: Long, mtime: Long, modeOffset: Long, dataStart: Long,
-        key: LinkKey?, checksum: Long?, checksumOffset: Long,
+        key: LinkKey?, checksum: Long?, checksumOffset: Long, owner: CpioOwner,
     ) {
         try {
             limits.checkEntryCount(out.size + 1)
@@ -320,6 +324,7 @@ public class CpioReader private constructor(
         val entry = ArchiveEntry(name, if (isDir) 0L else size, isDir) {
             lastModifiedEpochSeconds = mtime
             unixMode = mode.toInt()
+            owner.applyTo(this, mode)
         }.withNameBytes(nameBytes).locatedAt(dataStart)
         if (size == 0L && checksum != null) checkSum(name, checksumOffset, checksum, 0)
         val record = Record(entry, size, mode and 0xF000L, modeOffset, checksum, checksumOffset)
@@ -408,5 +413,18 @@ public class CpioReader private constructor(
         @JvmSynthetic
         internal fun initramfs(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): CpioReader =
             CpioReader(source, nameDecoder, limits, true)
+    }
+}
+
+/** The owner ids and device number of a cpio record; the device applies to device nodes only. */
+internal class CpioOwner(val uid: Long, val gid: Long, val rdevMajor: Long, val rdevMinor: Long) {
+    fun applyTo(builder: ArchiveEntry.Builder, mode: Long) {
+        builder.uid = uid
+        builder.gid = gid
+        val type = mode and 0xF000L
+        if (type == 0x2000L || type == 0x6000L) {
+            builder.deviceMajor = rdevMajor
+            builder.deviceMinor = rdevMinor
+        }
     }
 }

@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.archive.zip
 
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchivePasswordException
@@ -827,10 +828,13 @@ public class ZipReader(
                 unicodeName(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen, nameBytes, cdOffset, name)
             } else null
 
-            val extendedTime = extendedTimestamp(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen)
-            val modified = extendedTime ?: DosTime.toEpochSeconds(readU16Le(cd, p + 14), readU16Le(cd, p + 12))
+            val extras = ZipExtraMetadata.parse(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen)
+            val modified = extras.modified ?: DosTime.toEpochSeconds(readU16Le(cd, p + 14), readU16Le(cd, p + 12))?.let { ArchiveTime(it) }
             // Version-made-by host 3 is Unix; its st_mode sits in the high external-attribute bits.
-            val unixMode = if (readU16Le(cd, p + 4) shr 8 == 3) (readU32Le(cd, p + 38) ushr 16).toInt().takeIf { it != 0 } else null
+            val host = readU16Le(cd, p + 4) shr 8
+            val unixMode = if (host == 3) (readU32Le(cd, p + 38) ushr 16).toInt().takeIf { it != 0 } else null
+            // MS-DOS, NTFS and VFAT hosts keep Windows attributes in the low external-attribute bits.
+            val windowsAttributes = if (host == 0 || host == 10 || host == 14) readU32Le(cd, p + 38).toInt() and 0xFFFF else null
             val comment = if (commentLen == 0) null else {
                 val commentStart = p + 46 + nameLen + extraLen
                 val bytes = cd.copyOfRange(commentStart, commentStart + commentLen)
@@ -917,7 +921,12 @@ public class ZipReader(
                     else -> null
                 }
                 crc32 = if (sizedByDescriptor) null else crc
-                lastModifiedEpochSeconds = modified
+                lastModified = modified
+                lastAccessed = extras.accessed
+                created = extras.created
+                uid = extras.uid
+                gid = extras.gid
+                this.windowsAttributes = windowsAttributes
                 this.unixMode = unixMode
                 this.comment = comment
             }.withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
@@ -986,26 +995,6 @@ public class ZipReader(
         return null
     }
 
-    /**
-     * Modification time from an Info-ZIP extended-timestamp field (0x5455) in [bytes]
-     * between [start] and [end], or null. This optional field never fails a listing:
-     * malformed framing or a field without a modification time falls back to DOS time.
-     */
-    private fun extendedTimestamp(bytes: ByteArray, start: Int, end: Int): Long? {
-        var pos = start
-        while (end - pos >= 4) {
-            val id = readU16Le(bytes, pos)
-            val length = readU16Le(bytes, pos + 2)
-            val data = pos + 4
-            if (length > end - data) return null
-            if (id == 0x5455 && length >= 5 && bytes[data].toInt() and 1 != 0) {
-                return readU32Le(bytes, data + 1).toInt().toLong() // signed 32-bit Unix time
-            }
-            pos = data + length
-        }
-        return null
-    }
-
     /** Optional Unicode payload failures fall back; broken framing and ambiguity do not. */
     private fun unicodeName(
         bytes: ByteArray, start: Int, end: Int, storedName: ByteArray, sourceOffset: Long, diagnosticName: String,
@@ -1036,5 +1025,88 @@ public class ZipReader(
             pos = data + length
         }
         return result
+    }
+}
+
+/**
+ * Times and owners from a central record's extra fields: NTFS (0x000a) times at 100 ns, the
+ * Info-ZIP extended timestamp (0x5455), whose central copy holds only the modification
+ * time, and Info-ZIP Unix ids (0x7875). These optional fields never fail a listing:
+ * malformed framing ends the scan, and a malformed field is ignored.
+ */
+internal class ZipExtraMetadata private constructor() {
+    var modified: ArchiveTime? = null
+        private set
+    var accessed: ArchiveTime? = null
+        private set
+    var created: ArchiveTime? = null
+        private set
+    var uid: Long? = null
+        private set
+    var gid: Long? = null
+        private set
+
+    companion object {
+        fun parse(bytes: ByteArray, start: Int, end: Int): ZipExtraMetadata {
+            val out = ZipExtraMetadata()
+            var ntfs: Triple<ArchiveTime, ArchiveTime, ArchiveTime>? = null
+            var extended: ArchiveTime? = null
+            var pos = start
+            while (end - pos >= 4) {
+                val id = readU16Le(bytes, pos)
+                val length = readU16Le(bytes, pos + 2)
+                val data = pos + 4
+                if (length > end - data) break
+                when (id) {
+                    0x5455 -> if (length >= 5 && bytes[data].toInt() and 1 != 0) {
+                        extended = ArchiveTime(readU32Le(bytes, data + 1).toInt().toLong()) // signed 32-bit Unix time
+                    }
+                    // Reserved (4), then attributes; attribute 1 holds modified, accessed and created.
+                    0x000A -> {
+                        var at = data + 4
+                        while (data + length - at >= 4) {
+                            val tag = readU16Le(bytes, at)
+                            val size = readU16Le(bytes, at + 2)
+                            if (size > data + length - (at + 4)) break
+                            if (tag == 1 && size >= 24) {
+                                ntfs = Triple(
+                                    ArchiveTime.fromFileTime(readI64Le(bytes, at + 4)),
+                                    ArchiveTime.fromFileTime(readI64Le(bytes, at + 12)),
+                                    ArchiveTime.fromFileTime(readI64Le(bytes, at + 20)),
+                                )
+                            }
+                            at += 4 + size
+                        }
+                    }
+                    // Version 1, then a size-prefixed little-endian uid and gid.
+                    0x7875 -> if (length >= 3 && bytes[data].toInt() == 1) {
+                        val uidSize = bytes[data + 1].toInt() and 0xFF
+                        val gidAt = data + 2 + uidSize
+                        if (uidSize in 1..8 && gidAt < data + length) {
+                            val gidSize = bytes[gidAt].toInt() and 0xFF
+                            if (gidSize in 1..8 && gidAt + 1 + gidSize <= data + length) {
+                                out.uid = littleEndian(bytes, data + 2, uidSize)
+                                out.gid = littleEndian(bytes, gidAt + 1, gidSize)
+                            }
+                        }
+                    }
+                }
+                pos = data + length
+            }
+            val times = ntfs
+            out.modified = times?.first ?: extended
+            if (times != null) {
+                out.accessed = times.second
+                out.created = times.third
+            }
+            return out
+        }
+
+        private fun littleEndian(bytes: ByteArray, at: Int, size: Int): Long? {
+            var value = 0L
+            for (i in size - 1 downTo 0) value = (value shl 8) or (bytes[at + i].toLong() and 0xFF)
+            // An 8-byte id past Long.MAX_VALUE is not a real id; report none.
+            return value.takeIf { it >= 0 }
+        }
     }
 }

@@ -221,11 +221,10 @@ public class TarReader(
                         val name = decoder.decodeStoredName(nameBytes, nameOffset)
                         val linkDecoder = if (pax.values["linkpath"] != null && pax.text("hdrcharset", pos) != "BINARY") ArchiveNameDecoder.UTF8 else nameDecoder
                         val target = linkDecoder.decodeStoredName(linkBytes, pos + 157)
-                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: optionalNumeric(hdr, 136, 12, pos)
                         val permissions = optionalNumeric(hdr, 100, 8, pos)?.let { (it and 0xFFF).toInt() }
                         if (typeFlag == '2') {
                             out.add(ArchiveEntry(name, linkBytes.size.toLong(), false) {
-                                lastModifiedEpochSeconds = mtime
+                                tarMetadata(hdr, pax, typeFlag, pos)
                                 unixMode = (permissions ?: 0x1FF) or 0xA000
                                 isSymbolicLink = true
                                 linkTarget = target
@@ -235,7 +234,7 @@ public class TarReader(
                             // A hard link shares an earlier member's data; it lists that member's size.
                             val index = out.indexOfLast { it.name == target && !it.isDirectory }
                             out.add(ArchiveEntry(name, if (index < 0) 0 else out[index].size, false) {
-                                lastModifiedEpochSeconds = mtime
+                                tarMetadata(hdr, pax, typeFlag, pos)
                                 unixMode = permissions?.let { it or 0x8000 }
                                 compressedSize = 0
                                 isHardLink = true
@@ -256,7 +255,6 @@ public class TarReader(
                         val isDir = typeFlag == '5' || name.endsWith("/")
                         val sparse = if (isDir) null else oldSparse ?: paxSparse(pax, dataStart, size, pos)
                         val storedStart = dataStart + (sparse?.let { size - it.storedSize } ?: 0L)
-                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: optionalNumeric(hdr, 136, 12, pos)
                         // The ustar mode field holds permission bits; the type flag supplies the file type.
                         val mode = optionalNumeric(hdr, 100, 8, pos)?.let {
                             (it and 0xFFF).toInt() or if (isDir) 0x4000 else 0x8000
@@ -264,12 +262,30 @@ public class TarReader(
                         val logicalSize = if (isDir) 0L else sparse?.realSize ?: size
                         out.add(
                             ArchiveEntry(name, logicalSize, isDir) {
-                                lastModifiedEpochSeconds = mtime
+                                tarMetadata(hdr, pax, typeFlag, pos)
                                 unixMode = mode
                                 compressedSize = if (isDir) 0L else sparse?.storedSize ?: size
                             }.withNameBytes(nameBytes).locatedAt(storedStart),
                         )
                         maps.add(sparse)
+                        links.add(null)
+                    }
+
+                    // Devices and FIFOs list with their type and device numbers and read as empty.
+                    val special = tarSpecialType(typeFlag)
+                    if (special != null && nameBytes.isNotEmpty()) {
+                        limits.checkEntryCount(out.size + 1)
+                        val decoder = if (paxName != null && pax.text("hdrcharset", pos) != "BINARY") ArchiveNameDecoder.UTF8 else nameDecoder
+                        val name = decoder.decodeStoredName(nameBytes, nameOffset)
+                        val permissions = optionalNumeric(hdr, 100, 8, pos)?.let { (it and 0xFFF).toInt() } ?: 0x1A4
+                        out.add(
+                            ArchiveEntry(name, 0, false) {
+                                tarMetadata(hdr, pax, typeFlag, pos)
+                                unixMode = permissions or special
+                                compressedSize = 0
+                            }.withNameBytes(nameBytes).locatedAt(dataStart),
+                        )
+                        maps.add(null)
                         links.add(null)
                     }
                 }

@@ -180,9 +180,10 @@ public class CpioStreamReader @JvmOverloads public constructor(
         val size = field(6)
         val nameSize = field(11)
         val checksum = if (crc) field(12) else null
+        val owner = CpioOwner(field(2), field(3), field(9), field(10))
         val name = name(pos + 110, nameSize)
         skip(align4(pos + 110 + nameSize) - (pos + 110 + nameSize))
-        return start(name, pos + 110, size, mode, mtime, checksum, pos + 102, align4(size) - size)
+        return start(name, pos + 110, size, mode, mtime, checksum, pos + 102, align4(size) - size, owner)
     }
 
     /** odc: 76-byte octal header, no padding. */
@@ -193,8 +194,9 @@ public class CpioStreamReader @JvmOverloads public constructor(
         val mtime = field(48, 11)
         val nameSize = field(59)
         val size = field(65, 11)
+        val rdev = field(42)
         val name = name(pos + 76, nameSize)
-        return start(name, pos + 76, size, mode, mtime, null, pos, 0)
+        return start(name, pos + 76, size, mode, mtime, null, pos, 0, CpioOwner(field(24), field(30), rdev / 256, rdev % 256))
     }
 
     /** Old binary cpio: thirteen 16-bit words, name and body each padded to two bytes. */
@@ -211,10 +213,13 @@ public class CpioStreamReader @JvmOverloads public constructor(
         val size = (word(11) shl 16) or word(12)
         val name = name(pos + 26, nameSize)
         skip(nameSize and 1)
-        return start(name, pos + 26, size, mode, mtime, null, pos, size and 1)
+        return start(name, pos + 26, size, mode, mtime, null, pos, size and 1, CpioOwner(word(4), word(5), word(7) / 256, word(7) % 256))
     }
 
-    private fun start(nameBytes: ByteArray, nameStart: Long, size: Long, mode: Long, mtime: Long, checksum: Long?, checksumOffset: Long, pad: Long): ArchiveEntry? {
+    private fun start(
+        nameBytes: ByteArray, nameStart: Long, size: Long, mode: Long, mtime: Long, checksum: Long?, checksumOffset: Long, pad: Long,
+        owner: CpioOwner,
+    ): ArchiveEntry? {
         if (nameBytes.contentEquals(TRAILER)) {
             if (size != 0L) throw ArchiveFormatException("cpio: trailer has a data body", nameStart, "TRAILER!!!")
             if (checksum != null && checksum != 0L) throw ArchiveFormatException("cpio: byte-sum checksum mismatch (expected $checksum, got 0)", checksumOffset, "TRAILER!!!")
@@ -226,6 +231,7 @@ public class CpioStreamReader @JvmOverloads public constructor(
         val entry = ArchiveEntry(name, if (isDirectory) 0L else size, isDirectory) {
             lastModifiedEpochSeconds = mtime
             unixMode = mode.toInt()
+            owner.applyTo(this, mode)
         }.withNameBytes(nameBytes)
         if (limits.rejectUnsafeNames && !PathGuard.isRootDirectory(entry)) PathGuard.sanitize(entry.name)
         duplicates?.add(entry)

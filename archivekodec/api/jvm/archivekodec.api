@@ -129,13 +129,26 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry {
 	public final fun getComment ()Ljava/lang/String;
 	public final fun getCompressedSize ()J
 	public final fun getCrc32 ()Ljava/lang/Long;
+	public final fun getCreated ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getDeviceMajor ()Ljava/lang/Long;
+	public final fun getDeviceMinor ()Ljava/lang/Long;
 	public final fun getEncryption ()Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public final fun getGid ()Ljava/lang/Long;
+	public final fun getGroupName ()Ljava/lang/String;
+	public final fun getLastAccessed ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getLastModified ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
 	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
 	public final fun getLinkTarget ()Ljava/lang/String;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getNameBytes ()[B
+	public final fun getOwnerName ()Ljava/lang/String;
 	public final fun getSize ()J
+	public final fun getStatusChanged ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getType ()Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public final fun getUid ()Ljava/lang/Long;
 	public final fun getUnixMode ()Ljava/lang/Integer;
+	public final fun getWindowsAttributes ()Ljava/lang/Integer;
+	public final fun getXattrs ()Ljava/util/Map;
 	public final fun getZipMethod ()Ljava/lang/Integer;
 	public fun hashCode ()I
 	public static final fun invoke (Ljava/lang/String;JZLkotlin/jvm/functions/Function1;)Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;
@@ -153,12 +166,24 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Builder 
 	public final fun getComment ()Ljava/lang/String;
 	public final fun getCompressedSize ()J
 	public final fun getCrc32 ()Ljava/lang/Long;
+	public final fun getCreated ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getDeviceMajor ()Ljava/lang/Long;
+	public final fun getDeviceMinor ()Ljava/lang/Long;
 	public final fun getEncryption ()Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;
+	public final fun getGid ()Ljava/lang/Long;
+	public final fun getGroupName ()Ljava/lang/String;
+	public final fun getLastAccessed ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getLastModified ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
 	public final fun getLastModifiedEpochSeconds ()Ljava/lang/Long;
 	public final fun getLinkTarget ()Ljava/lang/String;
 	public final fun getName ()Ljava/lang/String;
+	public final fun getOwnerName ()Ljava/lang/String;
 	public final fun getSize ()J
+	public final fun getStatusChanged ()Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getUid ()Ljava/lang/Long;
 	public final fun getUnixMode ()Ljava/lang/Integer;
+	public final fun getWindowsAttributes ()Ljava/lang/Integer;
+	public final fun getXattrs ()Ljava/util/Map;
 	public final fun isDirectory ()Z
 	public final fun isEncrypted ()Z
 	public final fun isHardLink ()Z
@@ -167,16 +192,28 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Builder 
 	public final fun setComment (Ljava/lang/String;)V
 	public final fun setCompressedSize (J)V
 	public final fun setCrc32 (Ljava/lang/Long;)V
+	public final fun setCreated (Lio/github/yuroyami/archivekodec/archive/ArchiveTime;)V
+	public final fun setDeviceMajor (Ljava/lang/Long;)V
+	public final fun setDeviceMinor (Ljava/lang/Long;)V
 	public final fun setDirectory (Z)V
 	public final fun setEncrypted (Z)V
 	public final fun setEncryption (Lio/github/yuroyami/archivekodec/crypto/ArchiveEncryption;)V
+	public final fun setGid (Ljava/lang/Long;)V
+	public final fun setGroupName (Ljava/lang/String;)V
 	public final fun setHardLink (Z)V
+	public final fun setLastAccessed (Lio/github/yuroyami/archivekodec/archive/ArchiveTime;)V
+	public final fun setLastModified (Lio/github/yuroyami/archivekodec/archive/ArchiveTime;)V
 	public final fun setLastModifiedEpochSeconds (Ljava/lang/Long;)V
 	public final fun setLinkTarget (Ljava/lang/String;)V
 	public final fun setName (Ljava/lang/String;)V
+	public final fun setOwnerName (Ljava/lang/String;)V
 	public final fun setSize (J)V
+	public final fun setStatusChanged (Lio/github/yuroyami/archivekodec/archive/ArchiveTime;)V
 	public final fun setSymbolicLink (Z)V
+	public final fun setUid (Ljava/lang/Long;)V
 	public final fun setUnixMode (Ljava/lang/Integer;)V
+	public final fun setWindowsAttributes (Ljava/lang/Integer;)V
+	public final fun setXattrs (Ljava/util/Map;)V
 }
 
 public final class io/github/yuroyami/archivekodec/archive/ArchiveEntry$Companion {
@@ -311,6 +348,24 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveReaders {
 	public static final fun use (Lio/github/yuroyami/archivekodec/archive/ArchiveReader;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 }
 
+public final class io/github/yuroyami/archivekodec/archive/ArchiveTime : java/lang/Comparable {
+	public static final field Companion Lio/github/yuroyami/archivekodec/archive/ArchiveTime$Companion;
+	public fun <init> (JI)V
+	public synthetic fun <init> (JIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun compareTo (Lio/github/yuroyami/archivekodec/archive/ArchiveTime;)I
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public static final fun fromFileTime (J)Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+	public final fun getEpochSeconds ()J
+	public final fun getNanoseconds ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/ArchiveTime$Companion {
+	public final fun fromFileTime (J)Lio/github/yuroyami/archivekodec/archive/ArchiveTime;
+}
+
 public final class io/github/yuroyami/archivekodec/archive/ByteArrayRandomAccessSource : io/github/yuroyami/archivekodec/archive/RandomAccessSource {
 	public fun <init> ([B)V
 	public fun close ()V
@@ -330,6 +385,20 @@ public final class io/github/yuroyami/archivekodec/archive/CrcPolicy : java/lang
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/CrcPolicy;
 	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/CrcPolicy;
+}
+
+public final class io/github/yuroyami/archivekodec/archive/EntryType : java/lang/Enum {
+	public static final field BLOCK_DEVICE Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field CHARACTER_DEVICE Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field DIRECTORY Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field FIFO Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field FILE Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field HARD_LINK Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field SOCKET Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static final field SYMBOLIC_LINK Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/EntryType;
+	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/EntryType;
 }
 
 public abstract interface class io/github/yuroyami/archivekodec/archive/ExternalMemberResolver {
