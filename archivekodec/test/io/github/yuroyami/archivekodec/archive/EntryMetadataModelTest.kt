@@ -117,4 +117,42 @@ class EntryMetadataModelTest {
         assertEquals(ArchiveTime(1_700_000_000, 250_000_000), ntfs.lastModified)
         assertTrue(ntfs.lastAccessed != null && ntfs.created != null)
     }
+
+    // squashfs-tools 4.6.1, gzipped: f.txt with `-force-uid 1234 -force-gid 567`, plus pseudo
+    // devices null (character 1:3) and loop0 (block 7:0).
+    private val squashfs = Codecs.GZIP.decompress(Base64.decode(
+        "H4sIAAAAAAACA8soLixmYYABJgZGIMnIIMhwAMgGiQdAZWQYIbQIlP4PBelQ+aVQ+inMJKi64sLSxOIMLhuGilvJSRGHThxgcJFv" +
+        "Dm5U4UpgTxJr4y2oVGMz4NY5eGoDr945HtF0tu49rd2bHc4yvjROZXiZmMDAEOvBxaUD1t3A4KZx9siBQxOWhQcFLmIQSWI8NOfP" +
+        "HyZm7gUW2szGznGZfnwMCdJsfAINCVBHsDOA/cNwGcoXBpmT0MDAqpHLuJR5gQkDpwLDyrdQSY6GS0APmzMxMHAxMoyCUTAKRsEo" +
+        "GAWjYBSMglEwCkbBKBgFwwoAANlzSvoAEAAA"))
+
+    // 7-Zip 23.01 `-mtc=on -mta=on`: f.txt with creation, access and modification times.
+    private val sevenZip = Base64.decode(
+        "N3q8ryccAATW3oBrCwAAAAAAAACCAAAAAAAAALxj47kBAAZzcXVhc2gKAAEEBgABCQsABwsBAAEhIQEADAcACAoBzep8KQAABQEZ" +
+        "DAAAAAAAAAAAAAAAABEXAHQAcgBlAGUALwBmAC4AdAB4AHQAAAAZBAAAAAASCgEA57JZMON43QEZAgAAEwoBANvqWjDjeN0BGQIA" +
+        "ABQKAQAAAG3GRxfaARUGAQAggKSBAAA=")
+
+    @Test
+    fun squashfsReadsIdsAndDeviceNumbers() {
+        val entries = io.github.yuroyami.archivekodec.archive.squashfs.SquashfsReader(ByteArrayRandomAccessSource(squashfs)).use { it.entries() }
+        val byName = entries.associateBy { it.name }
+        val file = byName.getValue("f.txt")
+        assertEquals(1234L to 567L, file.uid to file.gid)
+        val nul = byName.getValue("null")
+        assertEquals(EntryType.CHARACTER_DEVICE, nul.type)
+        assertEquals(1L to 3L, nul.deviceMajor to nul.deviceMinor)
+        val loop = byName.getValue("loop0")
+        assertEquals(EntryType.BLOCK_DEVICE, loop.type)
+        assertEquals(7L to 0L, loop.deviceMajor to loop.deviceMinor)
+    }
+
+    @Test
+    fun sevenZipReadsAllThreeTimesAndAttributes() {
+        val f = io.github.yuroyami.archivekodec.archive.sevenzip.SevenZipReader(ByteArrayRandomAccessSource(sevenZip)).use { it.entries().single() }
+        assertEquals(ArchiveTime(1_700_000_000), f.lastModified)
+        assertTrue(f.created != null && f.lastAccessed != null)
+        // 7-Zip on Linux sets FILE_ATTRIBUTE_ARCHIVE and keeps the Unix mode above its 0x8000 flag.
+        assertEquals(0x20, f.windowsAttributes)
+        assertEquals(0x81A4, f.unixMode)
+    }
 }

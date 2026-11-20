@@ -81,6 +81,9 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
  * the partial file; the extraction stops there. Writing to a temporary name and renaming it
  * after [extract] returns is the other safe pattern.
  *
+ * Devices, FIFOs and sockets ([ArchiveEntry.type]) are skipped: [into] is never called for
+ * them, and no special file is created.
+ *
  * Symbolic links are never written through [into]. By default they are skipped, the safe
  * choice for untrusted archives: a link to `../..` followed by a file "inside" it is the
  * classic way out of an extraction folder. With [onLink], each symbolic link is passed to it

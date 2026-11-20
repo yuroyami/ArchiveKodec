@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
@@ -547,7 +548,9 @@ public class SevenZipReader(
             var emptyFile = BooleanArray(0)
             var anti = BooleanArray(0)
             var names: List<Pair<String, ByteArray>>? = null
-            var modified: Array<Long?> = arrayOfNulls(count)
+            var modified: Array<ArchiveTime?> = arrayOfNulls(count)
+            var created: Array<ArchiveTime?> = arrayOfNulls(count)
+            var accessed: Array<ArchiveTime?> = arrayOfNulls(count)
             var attributes: Array<Long?> = arrayOfNulls(count)
             while (true) {
                 val type = byte()
@@ -574,10 +577,15 @@ public class SevenZipReader(
                                 .concatToString() to raw
                         }
                     }
-                    MODIFIED_TIME -> {
+                    CREATED_TIME, ACCESSED_TIME, MODIFIED_TIME -> {
                         val defined = definedBits(count)
                         if (byte() != 0) throw ArchiveUnsupportedException("7z: external times are not supported")
-                        modified = Array(count) { if (defined[it]) fileTimeToEpochSeconds(u64()) else null }
+                        val times = Array(count) { if (defined[it]) ArchiveTime.fromFileTime(u64()) else null }
+                        when (type) {
+                            CREATED_TIME -> created = times
+                            ACCESSED_TIME -> accessed = times
+                            else -> modified = times
+                        }
                     }
                     ATTRIBUTES -> {
                         val defined = definedBits(count)
@@ -632,7 +640,11 @@ public class SevenZipReader(
                 if (offset > Int.MAX_VALUE) fail("folder exceeds the ByteArray range")
                 val mode = attribute?.takeIf { it and 0x8000L != 0L }?.let { (it ushr 16).toInt() }
                 entries.add(ArchiveEntry(name, size, isDirectory) {
-                    lastModifiedEpochSeconds = modified[i]
+                    lastModified = modified[i]
+                    lastAccessed = accessed[i]
+                    this.created = created[i]
+                    // The low half holds Windows attributes; 7-Zip's 0x8000 flag marks a Unix mode above them.
+                    windowsAttributes = attribute?.let { if (it and 0x8000L != 0L) (it and 0x7FFFL).toInt() else it.toInt() }
                     compressedSize = packedShare
                     this.codec = codec
                     isEncrypted = encrypted
@@ -684,6 +696,8 @@ public class SevenZipReader(
         private const val EMPTY_FILE = 0x0F
         private const val ANTI = 0x10
         private const val NAME = 0x11
+        private const val CREATED_TIME = 0x12
+        private const val ACCESSED_TIME = 0x13
         private const val MODIFIED_TIME = 0x14
         private const val ATTRIBUTES = 0x15
         private const val ENCODED_HEADER = 0x17
@@ -704,16 +718,6 @@ public class SevenZipReader(
         private const val PPMD = "030401"
         private const val AES = "06f10701"
         private const val BCJ_X86 = "03030103"
-
-        /** Windows FILETIME (100 ns ticks since 1601) to Unix seconds, rounded down. */
-        private fun fileTimeToEpochSeconds(fileTime: Long): Long =
-            Math.floorDiv(fileTime, 10_000_000L) - 11_644_473_600L
     }
 }
 
-private object Math {
-    fun floorDiv(a: Long, b: Long): Long {
-        val q = a / b
-        return if ((a % b != 0L) && ((a xor b) < 0)) q - 1 else q
-    }
-}

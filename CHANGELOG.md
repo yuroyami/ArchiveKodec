@@ -5,6 +5,13 @@
 0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
 [#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
 
+- Entry metadata (#154, owner decision 3). `ArchiveEntry` adds `lastModified`, `lastAccessed`,
+  `created` and `statusChanged` as `ArchiveTime` (seconds and nanoseconds), `uid`, `gid`,
+  `ownerName`, `groupName`, `deviceMajor`, `deviceMinor`, `windowsAttributes`, `xattrs` and
+  `type` (`EntryType`). TAR, cpio, ZIP, 7z, RAR, WIM, CAB, SquashFS and ISO 9660 fill what they
+  store; [Reading](docs/reading.md#entry-metadata) has the table. `lastModifiedEpochSeconds`
+  stays, as a whole-second view. `TarReader` now lists devices and FIFOs, which it skipped, and
+  `extract` skips devices, FIFOs and sockets instead of writing them as empty files.
 - Fixed: `extract` selects each entry by its own listing slot. Of two members with identical
   metadata (two TAR members `notes` with different data), passing one extracted both.
 - Fixed: the platform inflater stops at the smaller of the size limit and the input size times

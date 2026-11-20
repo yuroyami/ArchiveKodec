@@ -191,6 +191,8 @@ public class CabReader(
             if (owner != null) owner.reach = maxOf(owner.reach, offset + fileSize)
             entries.add(ArchiveEntry(name, fileSize, false) {
                 lastModifiedEpochSeconds = DosTime.toEpochSeconds(date, time)
+                // Read-only, hidden, system and archive; 0x40 (run after extracting) and 0x80 (UTF-8 name) are CAB's own.
+                windowsAttributes = attributes and 0x27
                 compressedSize = when {
                     owner == null -> 0
                     owner.method == METHOD_NONE -> fileSize

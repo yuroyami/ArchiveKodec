@@ -103,6 +103,9 @@ public class SquashfsReader(
     private var directoryTable = 0L
     private var fragmentTable = 0L
     private var fragmentCount = 0L
+    private var idCount = 0
+    private var idTable = 0L
+    private var ids: LongArray? = null
     private lateinit var blockLimits: ArchiveLimits
     private lateinit var metadataLimits: ArchiveLimits
 
@@ -127,6 +130,8 @@ public class SquashfsReader(
         inodeTable = readI64(sb, 64)
         directoryTable = readI64(sb, 72)
         fragmentTable = readI64(sb, 80)
+        idCount = readU16Le(sb, 26)
+        idTable = readI64(sb, 48)
         if (inodeTable !in SUPERBLOCK until bytesUsed || directoryTable !in inodeTable until bytesUsed) fail("metadata tables lie outside the image", 64)
         val outer = limits
         blockLimits = ArchiveLimits {
@@ -229,10 +234,10 @@ public class SquashfsReader(
     // ---- Inodes ----
 
     private class Inode(
-        val type: Int, val mode: Int, val modified: Long,
+        val type: Int, val mode: Int, val modified: Long, val uidIndex: Int, val gidIndex: Int,
         val size: Long = 0, val blocksStart: Long = 0, val fragment: Long = NO_FRAGMENT, val fragmentOffset: Long = 0,
         val blockList: Long = 0, val blockListOffset: Int = 0,
-        val listing: Long = 0, val listingOffset: Int = 0, val target: ByteArray? = null,
+        val listing: Long = 0, val listingOffset: Int = 0, val target: ByteArray? = null, val rdev: Long? = null,
     )
 
     /** The inode at [block] (relative to the inode table) and [offset] within it. */
@@ -241,16 +246,18 @@ public class SquashfsReader(
         val header = stream.bytes(16)
         val type = readU16Le(header, 0)
         val permissions = readU16Le(header, 2) and 0xFFF
+        val uidIndex = readU16Le(header, 4)
+        val gidIndex = readU16Le(header, 6)
         val modified = readU32Le(header, 8)
         return when (type) {
             BASIC_DIRECTORY -> {
                 val b = stream.bytes(16)
-                Inode(DIRECTORY, S_IFDIR or permissions, modified,
+                Inode(DIRECTORY, S_IFDIR or permissions, modified, uidIndex, gidIndex,
                     size = readU16Le(b, 8).toLong(), listing = readU32Le(b, 0), listingOffset = readU16Le(b, 10))
             }
             EXTENDED_DIRECTORY -> {
                 val b = stream.bytes(24)
-                Inode(DIRECTORY, S_IFDIR or permissions, modified,
+                Inode(DIRECTORY, S_IFDIR or permissions, modified, uidIndex, gidIndex,
                     size = readU32Le(b, 4), listing = readU32Le(b, 8), listingOffset = readU16Le(b, 18))
             }
             BASIC_FILE, EXTENDED_FILE -> {
@@ -262,20 +269,47 @@ public class SquashfsReader(
                 val fragmentOffset = if (extended) readU32Le(b, 32) else readU32Le(b, 8)
                 if (size < 0 || start < 0) fail("file inode has a negative size or start", inodeTable + block)
                 val (listBlock, listOffset) = stream.here
-                Inode(FILE, S_IFREG or permissions, modified, size, start, fragment, fragmentOffset, listBlock, listOffset)
+                Inode(FILE, S_IFREG or permissions, modified, uidIndex, gidIndex, size, start, fragment, fragmentOffset, listBlock, listOffset)
             }
             BASIC_SYMLINK, EXTENDED_SYMLINK -> {
                 val b = stream.bytes(8)
                 val length = readU32Le(b, 4)
                 if (length > MAX_TARGET) fail("symbolic link target of $length bytes", inodeTable + block)
-                Inode(SYMLINK, S_IFLNK or permissions, modified, target = stream.bytes(length.toInt()))
+                Inode(SYMLINK, S_IFLNK or permissions, modified, uidIndex, gidIndex, target = stream.bytes(length.toInt()))
             }
-            BASIC_BLOCK_DEVICE, EXTENDED_BLOCK_DEVICE -> Inode(OTHER, S_IFBLK or permissions, modified)
-            BASIC_CHAR_DEVICE, EXTENDED_CHAR_DEVICE -> Inode(OTHER, S_IFCHR or permissions, modified)
-            BASIC_FIFO, EXTENDED_FIFO -> Inode(OTHER, S_IFIFO or permissions, modified)
-            BASIC_SOCKET, EXTENDED_SOCKET -> Inode(OTHER, S_IFSOCK or permissions, modified)
+            // A link count, then the device number, encoded as Linux's new_encode_dev does.
+            BASIC_BLOCK_DEVICE, EXTENDED_BLOCK_DEVICE ->
+                Inode(OTHER, S_IFBLK or permissions, modified, uidIndex, gidIndex, rdev = readU32Le(stream.bytes(8), 4))
+            BASIC_CHAR_DEVICE, EXTENDED_CHAR_DEVICE ->
+                Inode(OTHER, S_IFCHR or permissions, modified, uidIndex, gidIndex, rdev = readU32Le(stream.bytes(8), 4))
+            BASIC_FIFO, EXTENDED_FIFO -> Inode(OTHER, S_IFIFO or permissions, modified, uidIndex, gidIndex)
+            BASIC_SOCKET, EXTENDED_SOCKET -> Inode(OTHER, S_IFSOCK or permissions, modified, uidIndex, gidIndex)
             else -> fail("unknown inode type $type", inodeTable + block)
         }
+    }
+
+    /**
+     * The user or group id at [index] of the id table, or null when the table cannot give it.
+     * The table holds at most 65,536 ids (256 KiB), read once. Ids are informational, so a
+     * damaged table reads as absent ids rather than failing the listing.
+     */
+    private fun id(index: Int): Long? {
+        val table = ids ?: try {
+            val blocks = (idCount * 4 + METADATA_BLOCK - 1) / METADATA_BLOCK
+            if (idTable < SUPERBLOCK || idTable > bytesUsed - 8L * blocks) LongArray(0) else {
+                val pointers = source.readFully(idTable, 8 * blocks)
+                val out = LongArray(idCount)
+                for (b in 0 until blocks) {
+                    val count = minOf(METADATA_BLOCK / 4, idCount - b * (METADATA_BLOCK / 4))
+                    val values = MetadataStream(readI64(pointers, 8 * b), 0).bytes(4 * count)
+                    for (i in 0 until count) out[b * (METADATA_BLOCK / 4) + i] = readU32Le(values, 4 * i)
+                }
+                out
+            }
+        } catch (_: ArchiveException) {
+            LongArray(0)
+        }.also { ids = it }
+        return table.getOrNull(index)
     }
 
     // ---- Directories ----
@@ -324,6 +358,12 @@ public class SquashfsReader(
             entries.add(ArchiveEntry(if (isDirectory) "$path/" else path, size, isDirectory) {
                 lastModifiedEpochSeconds = inode.modified
                 unixMode = inode.mode
+                uid = id(inode.uidIndex)
+                gid = id(inode.gidIndex)
+                inode.rdev?.let {
+                    deviceMajor = (it ushr 8) and 0xFFF
+                    deviceMinor = (it and 0xFF) or ((it ushr 12) and 0xFFF00)
+                }
                 compressedSize = size
                 codec = if (inode.type == FILE) CODECS[compression] else CodecId.STORE
                 linkTarget = inode.target?.decodeToString()

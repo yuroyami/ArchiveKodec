@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -289,6 +290,8 @@ public class RarReader(
                 codec = if (method == METHOD_STORE || isDirectory) CodecId.STORE else CodecId("rar")
                 isEncrypted = flags and ENCRYPTED != 0
                 unixMode = if (unix) attributes and 0xFFFF else null
+                // MS-DOS, OS/2 and Win32 hosts store Windows attributes.
+                windowsAttributes = if (host == HOST_MSDOS || host == HOST_OS2 || host == HOST_WIN32) attributes else null
             }.withNameBytes(raw).locatedAt(dataOffset)
             add(entries, items, entry, Item(dataOffset, packed, crc, refusal))
             return packed
@@ -363,7 +366,9 @@ public class RarReader(
             val fileFlags = vint().toInt()
             var unpacked = vint()
             val attributes = vint()
-            var modified = if (fileFlags and FILE_HAS_TIME != 0) u32() else null
+            var modified = if (fileFlags and FILE_HAS_TIME != 0) ArchiveTime(u32()) else null
+            var created: ArchiveTime? = null
+            var accessed: ArchiveTime? = null
             val crc = if (fileFlags and FILE_HAS_CRC != 0) u32() else null
             val compression = vint()
             val host = vint().toInt()
@@ -388,12 +393,23 @@ public class RarReader(
                     when (vint().toInt()) {
                         EXTRA_ENCRYPTION -> encrypted = true
                         EXTRA_TIME -> {
+                            // Modified, created and accessed, each when flagged, as Unix seconds or FILETIME;
+                            // Unix times may be followed by their nanoseconds, in the same order.
                             val timeFlags = vint().toInt()
-                            if (timeFlags and TIME_MODIFIED != 0) {
-                                modified = if (timeFlags and TIME_UNIX != 0) u32() else {
-                                    val ticks = u32() or (u32() shl 32)
-                                    (ticks - FILETIME_EPOCH).floorDiv(10_000_000L)
+                            val unixTime = timeFlags and TIME_UNIX != 0
+                            val present = listOf(TIME_MODIFIED, TIME_CREATED, TIME_ACCESSED).filter { timeFlags and it != 0 }
+                            if (recordEnd - p < present.size * (if (unixTime) 4 else 8)) fail("time record runs past its record", headerStart)
+                            val times = present.map { if (unixTime) ArchiveTime(u32()) else ArchiveTime.fromFileTime(u32() or (u32() shl 32)) }.toMutableList()
+                            if (unixTime && timeFlags and TIME_UNIX_NANOS != 0 && recordEnd - p >= present.size * 4) {
+                                for (i in times.indices) {
+                                    val nanos = u32()
+                                    if (nanos < 1_000_000_000L) times[i] = ArchiveTime(times[i].epochSeconds, nanos.toInt())
                                 }
+                            }
+                            for ((i, flag) in present.withIndex()) when (flag) {
+                                TIME_MODIFIED -> modified = times[i]
+                                TIME_CREATED -> created = times[i]
+                                else -> accessed = times[i]
                             }
                         }
                         EXTRA_REDIRECTION -> {
@@ -425,7 +441,10 @@ public class RarReader(
                 else -> null
             }
             val entry = ArchiveEntry(if (isDirectory) "$name/" else name, if (isDirectory) 0 else unpacked, isDirectory) {
-                lastModifiedEpochSeconds = modified
+                lastModified = modified
+                this.created = created
+                lastAccessed = accessed
+                windowsAttributes = if (host == HOST5_WINDOWS) attributes.toInt() else null
                 compressedSize = if (isDirectory) 0 else dataSize
                 codec = if (method == 0 || isDirectory) CodecId.STORE else CodecId("rar5")
                 isEncrypted = encrypted
@@ -461,6 +480,9 @@ public class RarReader(
         const val EXT_TIME = 0x1000
         const val METHOD_STORE = 0x30
         val METHOD_NAMES = listOf("store", "fastest", "fast", "normal", "good", "best")
+        const val HOST_MSDOS = 0
+        const val HOST_OS2 = 1
+        const val HOST_WIN32 = 2
         const val HOST_UNIX = 3
         const val HOST_BEOS = 5
 
@@ -477,18 +499,21 @@ public class RarReader(
         const val FILE_HAS_TIME = 0x0002
         const val FILE_HAS_CRC = 0x0004
         const val FILE_UNKNOWN_SIZE = 0x0008
+        const val HOST5_WINDOWS = 0
         const val HOST5_UNIX = 1
         const val EXTRA_ENCRYPTION = 1
         const val EXTRA_TIME = 3
         const val EXTRA_REDIRECTION = 5
         const val TIME_UNIX = 0x0001
         const val TIME_MODIFIED = 0x0002
+        const val TIME_CREATED = 0x0004
+        const val TIME_ACCESSED = 0x0008
+        const val TIME_UNIX_NANOS = 0x0010
         const val REDIRECT_UNIX_SYMLINK = 1
         const val REDIRECT_WINDOWS_SYMLINK = 2
         const val REDIRECT_JUNCTION = 3
         const val REDIRECT_HARD_LINK = 4
         const val REDIRECT_FILE_COPY = 5
-        const val FILETIME_EPOCH = 116_444_736_000_000_000L
         const val SOLID_FLAG = 0x40L
         const val DICTIONARY_UNIT = 128L * 1024
         const val MAX_WINDOW = 1L shl 30

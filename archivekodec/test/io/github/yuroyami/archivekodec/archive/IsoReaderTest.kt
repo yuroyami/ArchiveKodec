@@ -491,6 +491,9 @@ class IsoReaderTest {
             assertEquals(5L, file.size)
             assertEquals(1714979289L, file.lastModifiedEpochSeconds)
             assertEquals(0b1000_000_000_000_000 or 0b100_100_100, file.unixMode, "regular file, r--r--r-- or wider")
+            // -r makes every owner 0:0; both tools also store access and attribute-change times in TF.
+            assertEquals(0L to 0L, file.uid to file.gid)
+            assertTrue(file.lastAccessed != null && file.statusChanged != null, "TF times of $file")
             assertTrue(entries.getValue("sub/").isDirectory)
             val link = entries.getValue("link")
             assertEquals(0b1010_000_000_000_000, link.unixMode!! and 0b1111_000_000_000_000)

@@ -152,18 +152,43 @@ does not make its reader thread-safe.
 | --- | --- |
 | `name`, `nameBytes` | The decoded name and the stored bytes. See [Entry names](entry-names.md) |
 | `size`, `compressedSize` | The sizes in bytes |
+| `type` | `FILE`, `DIRECTORY`, `SYMBOLIC_LINK`, `HARD_LINK`, `CHARACTER_DEVICE`, `BLOCK_DEVICE`, `FIFO` or `SOCKET` |
 | `isDirectory` | Whether the entry is a directory. Do not rely on a trailing slash |
-| `lastModifiedEpochSeconds` | UTC seconds, or `null` when the archive stores no time |
+| `lastModified` | An `ArchiveTime`: seconds and nanoseconds since the epoch, UTC, at the stored precision, or `null` |
+| `lastModifiedEpochSeconds` | `lastModified` in whole seconds |
+| `lastAccessed`, `created`, `statusChanged` | The other times, where the format stores them |
+| `uid`, `gid`, `ownerName`, `groupName` | The owner, where the format stores it |
+| `deviceMajor`, `deviceMinor` | The device number of a character or block device |
 | `unixMode` | The Unix `st_mode` with the file-type bits, such as `0o100755`, or `null` |
+| `windowsAttributes` | Windows `FILE_ATTRIBUTE_*` bits, for archives made on Windows |
+| `xattrs` | Extended attributes by name, with POSIX ACLs as their `system.posix_acl_*` attributes |
 | `isSymbolicLink`, `isHardLink`, `linkTarget` | Links in TAR, ZIP, cpio, 7z, RAR, ISO 9660 and SquashFS |
 | `isEncrypted`, `encryption` | Whether the entry is encrypted, and the scheme |
 | `crc32` | The stored CRC-32, when the format has one |
 | `comment` | The ZIP entry comment |
 | `zipMethod` | The ZIP method number from the central directory, or `null` for other formats |
 
-ZIP prefers the extended-timestamp field and otherwise reads the DOS time as UTC. An invalid
-DOS date gives `null`. ZIP reports `unixMode` only for an entry made on Unix. TAR and ar add
-the file-type bits that their mode fields leave out.
+What each format stores:
+
+| Format | Times | Owner | Other |
+| --- | --- | --- | --- |
+| TAR | Modified, to the nanosecond in pax; accessed and changed from pax or old GNU headers | uid, gid, user and group names | Device numbers, `SCHILY.xattr.*` |
+| cpio | Modified | uid, gid | Device numbers |
+| ZIP | Modified, accessed and created from the NTFS field at 100 ns; otherwise the extended timestamp or the DOS time | uid and gid from Info-ZIP's Unix field | Windows attributes from MS-DOS, NTFS and VFAT hosts |
+| 7z | Modified, accessed and created at 100 ns | | Windows attributes |
+| RAR | RAR5: modified, created and accessed, Unix or FILETIME. RAR4: modified | | Windows attributes from Windows hosts |
+| WIM | Modified, accessed and created at 100 ns | | Windows attributes |
+| CAB | Modified | | Read-only, hidden, system and archive |
+| SquashFS | Modified | uid and gid | Device numbers |
+| ISO 9660 | Rock Ridge: created, modified, accessed and changed | Rock Ridge uid and gid | Rock Ridge device numbers |
+
+Fields a format stores beyond the name, size, mode and modification time are informational: a
+malformed one reads as `null` instead of failing the listing. `extract` applies none of them,
+and skips devices, FIFOs and sockets. SquashFS extended attributes are not read yet.
+
+ZIP reads the DOS time as UTC when nothing better is stored, and an invalid DOS date gives
+`null`. ZIP reports `unixMode` only for an entry made on Unix. TAR and ar add the file-type bits
+that their mode fields leave out.
 
 ## Initramfs
 
