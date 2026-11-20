@@ -5,6 +5,11 @@
 0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
 [#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
 
+- RAR 2.9 decompression: the compressed members RAR 3.x and 4.x write now read, with LZ77 and
+  PPMd blocks, solid archives, and filters, both RAR's standard ones and bytecode for its
+  virtual machine, which runs under an instruction budget. Ported from XADMaster with the
+  permission of its copyright holders (reference/REFERENCES.md). Checked against libarchive's
+  RAR test archives by CRC-32, including with the x86 filter run as bytecode.
 - Entry metadata (#154, owner decision 3). `ArchiveEntry` adds `lastModified`, `lastAccessed`,
   `created` and `statusChanged` as `ArchiveTime` (seconds and nanoseconds), `uid`, `gid`,
   `ownerName`, `groupName`, `deviceMajor`, `deviceMinor`, `windowsAttributes`, `xattrs` and

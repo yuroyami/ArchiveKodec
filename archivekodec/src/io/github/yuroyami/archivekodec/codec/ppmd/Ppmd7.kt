@@ -502,7 +502,7 @@ internal class Ppmd7(size: Int, private val maxOrder: Int) : PpmdHeap(size, UNIT
     private val found = IntArray(256)
 
     /** Decode one symbol; -1 is the end marker and -2 a data error. */
-    fun decodeSymbol(rc: RangeDecoder7): Int {
+    fun decodeSymbol(rc: Ppmd7Coder): Int {
         if (numStats(minContext) != 1) {
             var s = stats(minContext)
             val count = rc.threshold(summFreq(minContext))
@@ -610,8 +610,18 @@ internal class Ppmd7(size: Int, private val maxOrder: Int) : PpmdHeap(size, UNIT
     }
 }
 
+/** The range decoding var.H needs; 7z and RAR use different coders behind it. */
+internal interface Ppmd7Coder {
+    /** Scale the range by [total] and return the count the code falls on. */
+    fun threshold(total: Int): Int
+    /** Remove the sub-range `[start, start + size)` found by [threshold]. */
+    fun decode(start: Int, size: Int)
+    /** Decode a bit whose zero has probability `size0 / 2^14`. */
+    fun decodeBit(size0: Int): Int
+}
+
 /** The 7z range decoder that PPMd var.H uses: 32-bit range and code. */
-internal class RangeDecoder7(private val input: PpmdInput) {
+internal class RangeDecoder7(private val input: PpmdInput) : Ppmd7Coder {
     private var range = 0xFFFFFFFFL
     private var code = 0L
 
@@ -624,7 +634,7 @@ internal class RangeDecoder7(private val input: PpmdInput) {
 
     val finishedOk: Boolean get() = code == 0L
 
-    fun threshold(total: Int): Int {
+    override fun threshold(total: Int): Int {
         range /= total
         return (code / range).toInt().let { if (code / range > Int.MAX_VALUE) Int.MAX_VALUE else it }
     }
@@ -640,13 +650,13 @@ internal class RangeDecoder7(private val input: PpmdInput) {
         }
     }
 
-    fun decode(start: Int, size: Int) {
+    override fun decode(start: Int, size: Int) {
         code = (code - start.toLong() * range) and 0xFFFFFFFFL
         range = (range * size) and 0xFFFFFFFFL
         normalize()
     }
 
-    fun decodeBit(size0: Int): Int {
+    override fun decodeBit(size0: Int): Int {
         val bound = (range ushr 14) * size0
         val bit: Int
         if (code < bound) {
@@ -663,5 +673,67 @@ internal class RangeDecoder7(private val input: PpmdInput) {
 
     private companion object {
         const val TOP = 1L shl 24
+    }
+}
+
+/**
+ * The range decoder RAR 2.9 uses for PPMd var.H: Subbotin's carry-less coder, which tracks
+ * `low` and renormalizes on a 0x8000 bottom, and splits a binary context by scaling the range
+ * for both outcomes. Ported from XADMaster's PPMd range coder, with its owners' permission.
+ */
+internal class RangeDecoderRar(private val next: () -> Int) : Ppmd7Coder {
+    private var low = 0L
+    private var code = 0L
+    private var range = 0xFFFFFFFFL
+
+    init {
+        repeat(4) { code = ((code shl 8) or next().toLong()) and MASK }
+    }
+
+    override fun threshold(total: Int): Int {
+        range /= total
+        if (range == 0L) range = 1 // corrupt input; keeps the division defined
+        val count = ((code - low) and MASK) / range
+        return if (count > Int.MAX_VALUE) Int.MAX_VALUE else count.toInt()
+    }
+
+    override fun decode(start: Int, size: Int) {
+        low = (low + range * start) and MASK
+        range = (range * size) and MASK
+        normalize()
+    }
+
+    override fun decodeBit(size0: Int): Int {
+        range = range ushr 14
+        if (range == 0L) range = 1
+        val count = ((code - low) and MASK) / range
+        val bit: Int
+        if (count < size0) {
+            range = (range * size0) and MASK
+            bit = 0
+        } else {
+            low = (low + range * size0) and MASK
+            range = (range * (16384 - size0)) and MASK
+            bit = 1
+        }
+        normalize()
+        return bit
+    }
+
+    private fun normalize() {
+        while (true) {
+            if ((low xor ((low + range) and MASK)) >= 0x1000000L) {
+                if (range >= BOTTOM) break
+                range = (-low) and (BOTTOM - 1)
+            }
+            code = ((code shl 8) or next().toLong()) and MASK
+            range = (range shl 8) and MASK
+            low = (low shl 8) and MASK
+        }
+    }
+
+    private companion object {
+        const val MASK = 0xFFFFFFFFL
+        const val BOTTOM = 0x8000L
     }
 }

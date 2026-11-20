@@ -18,7 +18,9 @@ import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.rar.Rar29Unpacker
 import io.github.yuroyami.archivekodec.codec.rar.Rar5Unpacker
+import io.github.yuroyami.archivekodec.codec.rar.RarDecoder
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.DosTime
@@ -30,10 +32,12 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * `Rar!\x1A\x07\x00`) and RAR 5.0 and later ("RAR5", `Rar!\x1A\x07\x01\x00`).
  *
  * It lists every file and directory, with sizes, modification times, Unix modes for
- * archives made on Unix, and encryption. Stored members and RAR5 compressed members
- * (including solid archives and the delta, x86 and ARM filters) are read and checked against
- * their CRC-32; a solid member decodes the members before it, and reading in listing order
- * decodes each once. RAR4 compressed members, RAR 7 compression with dictionaries over 4 GB,
+ * archives made on Unix, and encryption. Stored members, RAR 2.9 compressed members (what RAR
+ * 3.x and 4.x write: LZ77 and PPMd blocks, and filters, run natively or in RAR's virtual
+ * machine) and RAR5 compressed members (including the delta, x86 and ARM filters) are read and
+ * checked against their CRC-32, solid archives too; a solid member decodes the members before
+ * it, and reading in listing order decodes each once. RAR 1.5 and 2.0 compression, RAR 7
+ * compression with dictionaries over 4 GB,
  * encrypted members and members split across volumes are listed but refused on read with an
  * [ArchiveUnsupportedException] that names the reason, as are archives whose headers are
  * encrypted. The RAR5 window is refused above [ArchiveLimits.maxDecoderMemory]. RAR5 symbolic links read as their target text, and
@@ -56,8 +60,10 @@ public class RarReader(
     private class Item(
         val dataOffset: Long, val packed: Long, val crc: Long?,
         val refusal: String? = null, val target: ByteArray? = null, val linkTo: String? = null,
-        /** RAR5 compression information when the member is compressed, else -1. */
+        /** RAR5 compression information when the member is compressed, else -1; for RAR4, only the solid flag. */
         val compression: Long = -1, val size: Long = 0,
+        /** Whether the member is RAR 2.9 compressed, which RAR 3.x and 4.x write. */
+        val rar29: Boolean = false,
     )
 
     private class Directory(val entries: List<ArchiveEntry>, val items: List<Item>)
@@ -82,7 +88,7 @@ public class RarReader(
     }
 
     /** The solid stream decoded so far: its first member and the last member fed to it. */
-    private var unpacker: Rar5Unpacker? = null
+    private var unpacker: RarDecoder? = null
     private var unpackerStart = -1
     private var unpackerLast = -1
     private var unpackerWindow = 0L
@@ -152,7 +158,14 @@ public class RarReader(
         val target = items[index]
         limits.checkOutputSize(target.size)
         if (target.size > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", target.dataOffset)
-        val worker = if (resume) current!! else {
+        val worker = if (resume) current!! else if (items[start].rar29) {
+            // RAR 2.9 always uses a 4 MiB window; its PPMd model is checked when a block starts one.
+            if (RAR29_WINDOW > limits.maxDecoderMemory) {
+                throw DecompressionBombException("RAR: a $RAR29_WINDOW B window exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+            }
+            unpackerWindow = RAR29_WINDOW
+            Rar29Unpacker(limits.maxDecoderMemory)
+        } else {
             var total = 0L
             var j = start
             while (j < items.size && (j == start || items[j].compression < 0 || solid(j))) {
@@ -181,6 +194,12 @@ public class RarReader(
                 val item = items[j]
                 if (item.compression < 0) continue
                 if (item.size > Int.MAX_VALUE || item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", item.dataOffset)
+                // An empty RAR 2.9 member has no data and leaves the stream untouched, as RAR writes it.
+                if (item.rar29 && item.size == 0L) {
+                    if (j == index) result = ByteArray(0)
+                    unpackerLast = j
+                    continue
+                }
                 val data = source.readFullyChecked(item.dataOffset, item.packed)
                 result = worker.unpack(data, 0, data.size, item.size.toInt(), keep = j == index)
                 unpackerLast = j
@@ -278,10 +297,11 @@ public class RarReader(
             val refusal = when {
                 flags and (SPLIT_BEFORE or SPLIT_AFTER) != 0 -> "the member continues in another volume; multi-volume archives are not supported"
                 flags and ENCRYPTED != 0 -> "the member is encrypted; RAR encryption is not supported"
-                !isDirectory && method != METHOD_STORE ->
+                !isDirectory && method != METHOD_STORE && h[24].toInt() != UNPACK_29 && h[24].toInt() != UNPACK_36 ->
                     "compression method ${method - METHOD_STORE} (${METHOD_NAMES.getOrElse(method - METHOD_STORE) { "unknown" }}) " +
-                        "of RAR ${h[24] / 10}.${h[24] % 10} is not supported; only stored members are read"
-                !isDirectory && packed != unpacked -> "a stored member holds $packed bytes for $unpacked"
+                        "of RAR ${h[24] / 10}.${h[24] % 10} is not supported; RAR 2.9 compression and stored members are read"
+                !isDirectory && method != METHOD_STORE && method > METHOD_STORE + 5 -> "unknown compression method $method"
+                !isDirectory && method == METHOD_STORE && packed != unpacked -> "a stored member holds $packed bytes for $unpacked"
                 else -> null
             }
             val entry = ArchiveEntry(if (isDirectory) "$name/" else name, if (isDirectory) 0 else unpacked, isDirectory) {
@@ -293,7 +313,12 @@ public class RarReader(
                 // MS-DOS, OS/2 and Win32 hosts store Windows attributes.
                 windowsAttributes = if (host == HOST_MSDOS || host == HOST_OS2 || host == HOST_WIN32) attributes else null
             }.withNameBytes(raw).locatedAt(dataOffset)
-            add(entries, items, entry, Item(dataOffset, packed, crc, refusal))
+            val compressed = !isDirectory && method != METHOD_STORE && refusal == null
+            add(entries, items, entry, Item(
+                dataOffset, packed, crc, refusal,
+                compression = if (compressed) (if (flags and SOLID4 != 0) SOLID_FLAG else 0L) else -1,
+                size = unpacked, rar29 = compressed,
+            ))
             return packed
         }
 
@@ -479,6 +504,10 @@ public class RarReader(
         const val SALT = 0x0400
         const val EXT_TIME = 0x1000
         const val METHOD_STORE = 0x30
+        const val SOLID4 = 0x0010
+        const val RAR29_WINDOW = 0x400000L
+        const val UNPACK_29 = 29
+        const val UNPACK_36 = 36
         val METHOD_NAMES = listOf("store", "fastest", "fast", "normal", "good", "best")
         const val HOST_MSDOS = 0
         const val HOST_OS2 = 1

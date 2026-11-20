@@ -43,7 +43,7 @@ supplied LZ4 dictionaries.
 | CAB | Stored, MSZIP and LZX folders, each decoded once | No |
 | WIM | Uncompressed, XPRESS and LZX, deduplicated resources with SHA-1 checks, several images as `1/`, `2/` | No |
 | SquashFS 4.0 | gzip, LZMA, LZO, xz with any branch filter but RISC-V, LZ4 and zstd, fragments, sparse blocks, symbolic links read as their target, devices and FIFOs listed | No |
-| RAR4 and RAR5 | Stored members of both, and RAR5 compressed members (all methods, solid archives, delta, x86 and ARM filters), with CRC checks | No |
+| RAR4 and RAR5 | Stored members of both; RAR 2.9 compressed members (RAR 3.x and 4.x: LZ77, PPMd and filters, including RAR's virtual machine); RAR5 compressed members (all methods, delta, x86 and ARM filters); solid archives; CRC checks | No |
 
 Refused on read:
 
@@ -51,7 +51,7 @@ Refused on read:
   local headers (bit 13).
 - CAB: Quantum folders and files that span cabinets. They are listed, but a read fails.
 - WIM: LZMS and solid `.esd` images.
-- RAR: RAR4 compression, encrypted members, multi-volume members and encrypted headers.
+- RAR: RAR 1.5 and 2.0 compression, encrypted members, multi-volume members and encrypted headers.
 
 ArchiveKodec reads RAR from RARLAB's published format description and will never create RAR
 archives. ACE, StuffIt and ALZ are proprietary with no clean reference, so they are out of

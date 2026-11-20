@@ -353,22 +353,22 @@ class RarReaderTest {
     }
 
     @Test
-    fun rar4UnicodeNamesAndRefusals() {
+    fun rar4UnicodeNamesCompressedMembersAndRefusals() {
         reader(unicode4).use {
             val byName = it.entries().associateBy { e -> e.name }
             val kanji = "\u8868\u3060\u3088/\u6f22\u5b57\u9577\u3044\u30d5\u30a1\u30a4\u30eb\u540dlong-filename-in-\u6f22\u5b57.txt"
             assertContentEquals("kanji".encodeToByteArray(), it.read(byName.getValue(kanji)))
             assertTrue("\u8868\u3060\u3088/\u30d5\u30a1\u30a4\u30eb" in byName, "${byName.keys}")
+            // RAR 2.9 compressed; the read checks the CRC-32.
             val compressed = byName.getValue("abcdefghijklmnopqrs\u30c6\u30b9\u30c8.txt")
-            val error = assertFailsWith<ArchiveUnsupportedException> { it.read(compressed) }
-            assertTrue("compression method 3" in error.message!! && "2.9" in error.message!!, error.message)
+            assertEquals(16, it.read(compressed).size)
         }
         reader(partly4).use {
             val byName = it.entries().associateBy { e -> e.name }
             assertTrue(byName.getValue("foo.txt").isEncrypted)
             assertFalse(byName.getValue("bar.txt").isEncrypted)
             assertTrue("encrypted" in assertFailsWith<ArchiveUnsupportedException> { it.read(byName.getValue("foo.txt")) }.message!!)
-            assertFailsWith<ArchiveUnsupportedException> { it.read(byName.getValue("bar.txt")) }
+            assertEquals(16, it.read(byName.getValue("bar.txt")).size)
         }
     }
 
