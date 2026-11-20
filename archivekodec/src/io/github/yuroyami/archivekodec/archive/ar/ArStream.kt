@@ -5,6 +5,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.DuplicateNames
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.ByteSource
@@ -96,6 +97,7 @@ public class ArStreamReader @JvmOverloads public constructor(
     private var count = 0
     private var nameTable: ByteArray? = null
     private var nulDelimitedNames = false
+    private val duplicates = if (limits.rejectDuplicateNames) DuplicateNames() else null
 
     /** The entry [next] returned last, or null before the first and after the end. */
     public var current: ArchiveEntry? = null
@@ -152,6 +154,7 @@ public class ArStreamReader @JvmOverloads public constructor(
             fun entry(name: String, nameBytes: ByteArray, dataSize: Long): ArchiveEntry {
                 val entry = ArchiveEntry(name, dataSize, false) { lastModifiedEpochSeconds = mtime; unixMode = mode }.withNameBytes(nameBytes)
                 if (limits.rejectUnsafeNames && !PathGuard.isRootDirectory(entry)) PathGuard.sanitize(entry.name)
+                duplicates?.add(entry)
                 return entry
             }
             when {

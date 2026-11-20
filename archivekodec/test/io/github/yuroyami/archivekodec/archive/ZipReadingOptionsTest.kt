@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.codec.deflate.Inflate
 import io.github.yuroyami.archivekodec.codec.deflate.InflateOptions
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.ArchivePathException
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -126,8 +127,8 @@ class ZipReadingOptionsTest {
         assertEquals("second", reader.read(reader.entry("a.txt")!!).decodeToString())
         assertNull(reader.entry("A.TXT"))
         assertNull(reader.entry("missing"))
-        val rejecting = ZipReader(ByteArrayRandomAccessSource(zip), ArchiveOpenOptions { duplicateNames = DuplicateNamePolicy.REJECT })
-        assertFailsWith<ArchiveFormatException> { rejecting.entries() }
+        val rejecting = ZipReader(ByteArrayRandomAccessSource(zip), ArchiveLimits { rejectDuplicateNames = true })
+        assertFailsWith<ArchivePathException> { rejecting.entries() }
 
         val tar = TarWriter.write(listOf(TarWriter.FileSpec("x", hello), TarWriter.FileSpec("x", text)))
         val tarReader = TarReader(ByteArrayRandomAccessSource(tar))

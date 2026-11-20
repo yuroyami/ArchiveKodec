@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
+import io.github.yuroyami.archivekodec.archive.DuplicateNames
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.ByteSource
@@ -127,6 +128,7 @@ public class CpioStreamReader @JvmOverloads public constructor(
     private var expectedSum: Long? = null
     private var sum = 0L
     private var sumOffset = 0L
+    private val duplicates = if (limits.rejectDuplicateNames) DuplicateNames() else null
 
     /** The entry [next] returned last, or null before the first and after the end. */
     public var current: ArchiveEntry? = null
@@ -226,6 +228,7 @@ public class CpioStreamReader @JvmOverloads public constructor(
             unixMode = mode.toInt()
         }.withNameBytes(nameBytes)
         if (limits.rejectUnsafeNames && !PathGuard.isRootDirectory(entry)) PathGuard.sanitize(entry.name)
+        duplicates?.add(entry)
         // A directory's stored body is skipped and reports no data, as CpioReader reports it.
         remaining = size
         padding = pad

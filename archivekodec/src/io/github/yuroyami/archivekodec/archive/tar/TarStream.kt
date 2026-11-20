@@ -197,6 +197,8 @@ public class TarStreamReader @JvmOverloads public constructor(
  * part of reading a TAR that does not depend on whether the bytes are pulled or pushed.
  */
 internal class TarHeaderState(private val limits: ArchiveLimits, private val nameDecoder: ArchiveNameDecoder) {
+    private val duplicates = if (limits.rejectDuplicateNames) io.github.yuroyami.archivekodec.archive.DuplicateNames() else null
+
     sealed class Step {
         /** Two zero records, or one: the archive ends. */
         object End : Step()
@@ -288,6 +290,7 @@ internal class TarHeaderState(private val limits: ArchiveLimits, private val nam
         if (limits.rejectUnsafeNames && !io.github.yuroyami.archivekodec.security.PathGuard.isRootDirectory(entry)) {
             io.github.yuroyami.archivekodec.security.PathGuard.sanitize(name)
         }
+        duplicates?.add(entry)
         limits.checkEntryCount(++count)
         // Devices, FIFOs, directories and links have no data to report; whatever they store is skipped.
         return if (hasData) Step.Entry(entry, size, pad, 0) else Step.Entry(entry, 0, 0, size + pad)

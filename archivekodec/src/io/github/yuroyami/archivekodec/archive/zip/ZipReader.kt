@@ -11,7 +11,6 @@ import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.CrcMismatchListener
 import io.github.yuroyami.archivekodec.archive.CrcPolicy
-import io.github.yuroyami.archivekodec.archive.DuplicateNamePolicy
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
@@ -122,14 +121,12 @@ public class ZipReader(
         crypto = options.crypto
         crcPolicy = options.crcPolicy
         crcListener = options.crcMismatchListener
-        duplicateNames = options.duplicateNames
     }
 
     private var passwords: ArchivePasswordProvider? = null
     private var crypto: CryptoProvider = CryptoProvider.DEFAULT
     private var crcPolicy: CrcPolicy = CrcPolicy.STRICT
     private var crcListener: CrcMismatchListener? = null
-    private var duplicateNames: DuplicateNamePolicy = DuplicateNamePolicy.LAST_WINS
 
     /** How one read treats a CRC-32 mismatch; [mismatch] records one that did not throw. */
     private class CrcCheck(val mode: CrcMode) {
@@ -945,9 +942,6 @@ public class ZipReader(
                 entry, nameBytes, method, flags, localExtraLength, aes?.get(0) ?: 0, aes?.get(1) ?: 0, aes?.get(2) ?: 0,
                 localNameBytes = localNameBytes, sizedByDescriptor = sizedByDescriptor,
             )
-            if (duplicateNames == DuplicateNamePolicy.REJECT && name in byName) {
-                throw ArchiveFormatException("ZIP: two entries are named '$name'", nameOffset, name)
-            }
             if (sharing == null) byOffset[localOffset] = member
             byName[name] = entry
             members.add(member)

@@ -96,11 +96,16 @@ no CRC-32, since it does not see the whole entry.
 `entry(name)` returns the entry with that exact name, or null. Names compare as decoded, with
 no case folding and no path normalization. When two entries share a name, the last one wins,
 as Info-ZIP's `unzip` extracts it, and `entries()` still lists both. ZIP looks names up in a
-map built once. To refuse a ZIP with two entries of one name:
+map built once. Tools disagree on which copy of a repeated name they read or verify, so where
+that matters, refuse such archives:
 
 ```kotlin
-val strict = ArchiveOpenOptions { duplicateNames = DuplicateNamePolicy.REJECT }
+val strict = ArchiveLimits { rejectDuplicateNames = true }
 ```
+
+Every reader then refuses a listing in which a name repeats, unless every entry with that name
+is a directory, with `ArchivePathException`. The stream readers refuse when they reach the
+repeat.
 
 ## A wrong CRC-32
 

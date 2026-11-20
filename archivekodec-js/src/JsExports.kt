@@ -144,13 +144,14 @@ public class Archive internal constructor(private val reader: ArchiveReader) {
     public val entries: Array<Entry> get() = Array(listed.size) { Entry(listed[it], it) }
 
     /**
-     * The contents of the first member called [name]. A symbolic link reads as its target's
-     * path in the formats that store the target as data.
+     * The contents of the last member called [name], as in every facade: extracting the
+     * archive leaves that one in place. [readAt] reads an earlier one. A symbolic link reads
+     * as its target's path in the formats that store the target as data.
      *
      * @throws Error if no member has that name, or the member cannot be read.
      */
     public fun read(name: String): ByteArray {
-        val entry = listed.firstOrNull { it.name == name } ?: throw IllegalArgumentException("no member named '$name'")
+        val entry = listed.lastOrNull { it.name == name } ?: throw IllegalArgumentException("no member named '$name'")
         return reader.read(entry)
     }
 

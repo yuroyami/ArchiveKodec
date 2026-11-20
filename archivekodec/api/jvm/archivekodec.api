@@ -240,7 +240,6 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions {
 	public final fun getCrcMismatchListener ()Lio/github/yuroyami/archivekodec/archive/CrcMismatchListener;
 	public final fun getCrcPolicy ()Lio/github/yuroyami/archivekodec/archive/CrcPolicy;
 	public final fun getCrypto ()Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
-	public final fun getDuplicateNames ()Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;
 	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
@@ -256,7 +255,6 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Bu
 	public final fun getCrcMismatchListener ()Lio/github/yuroyami/archivekodec/archive/CrcMismatchListener;
 	public final fun getCrcPolicy ()Lio/github/yuroyami/archivekodec/archive/CrcPolicy;
 	public final fun getCrypto ()Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;
-	public final fun getDuplicateNames ()Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;
 	public final fun getExternalMembers ()Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;
 	public final fun getLimits ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
 	public final fun getNameDecoder ()Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;
@@ -265,7 +263,6 @@ public final class io/github/yuroyami/archivekodec/archive/ArchiveOpenOptions$Bu
 	public final fun setCrcMismatchListener (Lio/github/yuroyami/archivekodec/archive/CrcMismatchListener;)V
 	public final fun setCrcPolicy (Lio/github/yuroyami/archivekodec/archive/CrcPolicy;)V
 	public final fun setCrypto (Lio/github/yuroyami/archivekodec/crypto/CryptoProvider;)V
-	public final fun setDuplicateNames (Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;)V
 	public final fun setExternalMembers (Lio/github/yuroyami/archivekodec/archive/ExternalMemberResolver;)V
 	public final fun setLimits (Lio/github/yuroyami/archivekodec/security/ArchiveLimits;)V
 	public final fun setNameDecoder (Lio/github/yuroyami/archivekodec/archive/ArchiveNameDecoder;)V
@@ -333,14 +330,6 @@ public final class io/github/yuroyami/archivekodec/archive/CrcPolicy : java/lang
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/CrcPolicy;
 	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/CrcPolicy;
-}
-
-public final class io/github/yuroyami/archivekodec/archive/DuplicateNamePolicy : java/lang/Enum {
-	public static final field LAST_WINS Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;
-	public static final field REJECT Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;
-	public static fun values ()[Lio/github/yuroyami/archivekodec/archive/DuplicateNamePolicy;
 }
 
 public abstract interface class io/github/yuroyami/archivekodec/archive/ExternalMemberResolver {
@@ -1691,6 +1680,7 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits {
 	public final fun getMaxEntries ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
+	public final fun getRejectDuplicateNames ()Z
 	public final fun getRejectUnsafeNames ()Z
 	public fun hashCode ()I
 	public static final fun invoke ()Lio/github/yuroyami/archivekodec/security/ArchiveLimits;
@@ -1706,12 +1696,14 @@ public final class io/github/yuroyami/archivekodec/security/ArchiveLimits$Builde
 	public final fun getMaxEntries ()I
 	public final fun getMaxSegments ()I
 	public final fun getMaxUncompressedBytes ()J
+	public final fun getRejectDuplicateNames ()Z
 	public final fun getRejectUnsafeNames ()Z
 	public final fun setMaxCompressionRatio (I)V
 	public final fun setMaxDecoderMemory (J)V
 	public final fun setMaxEntries (I)V
 	public final fun setMaxSegments (I)V
 	public final fun setMaxUncompressedBytes (J)V
+	public final fun setRejectDuplicateNames (Z)V
 	public final fun setRejectUnsafeNames (Z)V
 }
 

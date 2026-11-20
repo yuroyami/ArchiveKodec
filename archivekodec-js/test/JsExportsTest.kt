@@ -50,8 +50,9 @@ class JsExportsTest {
         assertEquals(listOf("a.txt", "a.txt"), entries.map { it.name })
         assertEquals(5.0, entries[0].size)
         assertEquals(1, entries[1].index)
-        assertContentEquals(hello, archive.read("a.txt"))
-        assertContentEquals(ByteArray(3), archive.readAt(1))
+        // The last of two members with one name wins, as in ArchiveReader.entry(name).
+        assertContentEquals(ByteArray(3), archive.read("a.txt"))
+        assertContentEquals(hello, archive.readAt(0))
         assertFailsWith<IllegalArgumentException> { archive.read("b.txt") }
         assertFailsWith<IllegalArgumentException> { archive.readAt(2) }
         archive.close()

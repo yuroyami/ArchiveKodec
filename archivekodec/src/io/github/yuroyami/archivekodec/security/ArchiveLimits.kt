@@ -18,7 +18,8 @@ import io.github.yuroyami.archivekodec.ArchiveException
  * and use their policy as the default for each read. Initramfs listings also apply [maxSegments]. No API opens archives
  * found inside other archives, so there is no nesting-depth setting.
  *
- * [rejectUnsafeNames] makes built-in readers run [PathGuard] on every listed name.
+ * [rejectUnsafeNames] makes built-in readers run [PathGuard] on every listed name, and
+ * [rejectDuplicateNames] makes them refuse a listing that repeats a name.
  *
  * Every numeric setting is nonnegative. Zero permits only zero output, a zero ratio,
  * zero entries, zero segments or no up-front decoder memory respectively. [DEFAULT] preserves the default
@@ -69,6 +70,16 @@ public class ArchiveLimits private constructor(builder: Builder) {
      */
     public val rejectUnsafeNames: Boolean = builder.rejectUnsafeNames
 
+    /**
+     * Whether built-in readers reject a listing in which a name repeats, unless every entry
+     * with that name is a directory. Names compare exactly as decoded. When a name repeats,
+     * name lookups such as [io.github.yuroyami.archivekodec.archive.ArchiveReader.entry] give
+     * the last entry, which is what extracting leaves in place, but tools differ on which copy
+     * they read or verify, so reject repeats where that matters, as when a signature check
+     * reads the same archive. Default false.
+     */
+    public val rejectDuplicateNames: Boolean = builder.rejectDuplicateNames
+
     init {
         require(maxUncompressedBytes >= 0) { "archive limits: maxUncompressedBytes must be nonnegative" }
         require(maxCompressionRatio >= 0) { "archive limits: maxCompressionRatio must be nonnegative" }
@@ -103,6 +114,9 @@ public class ArchiveLimits private constructor(builder: Builder) {
         /** See [ArchiveLimits.rejectUnsafeNames]. */
         public var rejectUnsafeNames: Boolean = true
 
+        /** See [ArchiveLimits.rejectDuplicateNames]. */
+        public var rejectDuplicateNames: Boolean = false
+
         internal constructor(source: ArchiveLimits) : this() {
             maxUncompressedBytes = source.maxUncompressedBytes
             maxCompressionRatio = source.maxCompressionRatio
@@ -110,6 +124,7 @@ public class ArchiveLimits private constructor(builder: Builder) {
             maxSegments = source.maxSegments
             maxDecoderMemory = source.maxDecoderMemory
             rejectUnsafeNames = source.rejectUnsafeNames
+            rejectDuplicateNames = source.rejectDuplicateNames
         }
 
         /**
@@ -134,7 +149,8 @@ public class ArchiveLimits private constructor(builder: Builder) {
     override fun equals(other: Any?): Boolean = other is ArchiveLimits &&
         maxUncompressedBytes == other.maxUncompressedBytes && maxCompressionRatio == other.maxCompressionRatio &&
         maxEntries == other.maxEntries && maxSegments == other.maxSegments &&
-        maxDecoderMemory == other.maxDecoderMemory && rejectUnsafeNames == other.rejectUnsafeNames
+        maxDecoderMemory == other.maxDecoderMemory && rejectUnsafeNames == other.rejectUnsafeNames &&
+        rejectDuplicateNames == other.rejectDuplicateNames
 
     /** Hash the policy ceilings used by [equals]. */
     override fun hashCode(): Int {
@@ -143,13 +159,15 @@ public class ArchiveLimits private constructor(builder: Builder) {
         result = 31 * result + maxEntries
         result = 31 * result + maxSegments
         result = 31 * result + maxDecoderMemory.hashCode()
-        return 31 * result + rejectUnsafeNames.hashCode()
+        result = 31 * result + rejectUnsafeNames.hashCode()
+        return 31 * result + rejectDuplicateNames.hashCode()
     }
 
     /** Describe each configured policy ceiling. */
     override fun toString(): String = "ArchiveLimits(maxUncompressedBytes=$maxUncompressedBytes, " +
         "maxCompressionRatio=$maxCompressionRatio, maxEntries=$maxEntries, maxSegments=$maxSegments, " +
-        "maxDecoderMemory=$maxDecoderMemory, rejectUnsafeNames=$rejectUnsafeNames)"
+        "maxDecoderMemory=$maxDecoderMemory, rejectUnsafeNames=$rejectUnsafeNames, " +
+        "rejectDuplicateNames=$rejectDuplicateNames)"
 
     /** @throws DecompressionBombException if [bytes] exceeds [maxUncompressedBytes]. */
     @Throws(ArchiveException::class)

@@ -133,8 +133,9 @@
   CRC-32 does not match and tells `crcMismatchListener`; ZipCrypto entries stay strict.
   `ZipReader.verify(entry)` checks an entry's CRC-32 without keeping its bytes.
   `ArchiveReader.entry(name)` finds an entry by its exact name; when two share it, the last
-  wins, and `ArchiveOpenOptions.duplicateNames = DuplicateNamePolicy.REJECT` refuses such a
-  ZIP. An entry whose sizes and CRC-32 appear only in the data descriptor after its data now
+  wins, in every facade (the JS `read(name)` returned the first), and
+  `ArchiveLimits.rejectDuplicateNames` makes every reader refuse a listing that repeats a name
+  other than a directory's. An entry whose sizes and CRC-32 appear only in the data descriptor after its data now
   reads: it lists with a size and compressed size of -1 and no CRC-32, and a read finds its
   end in the data, without reading past the next local header.
   `ArchiveNameDecoder.UTF8_OR_CP437` reads valid UTF-8 names as UTF-8 and other names as CP437.

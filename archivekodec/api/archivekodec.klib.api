@@ -35,17 +35,6 @@ final enum class io.github.yuroyami.archivekodec.archive/CrcPolicy : kotlin/Enum
     final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.archive/CrcPolicy> // io.github.yuroyami.archivekodec.archive/CrcPolicy.values|values#static(){}[0]
 }
 
-final enum class io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy : kotlin/Enum<io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy> { // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy|null[0]
-    enum entry LAST_WINS // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy.LAST_WINS|null[0]
-    enum entry REJECT // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy.REJECT|null[0]
-
-    final val entries // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy.entries|#static{}entries[0]
-        final fun <get-entries>(): kotlin.enums/EnumEntries<io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy> // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy.entries.<get-entries>|<get-entries>#static(){}[0]
-
-    final fun valueOf(kotlin/String): io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy.valueOf|valueOf#static(kotlin.String){}[0]
-    final fun values(): kotlin/Array<io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy> // io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy.values|values#static(){}[0]
-}
-
 final enum class io.github.yuroyami.archivekodec.codec.deflate/DeflateStrategy : kotlin/Enum<io.github.yuroyami.archivekodec.codec.deflate/DeflateStrategy> { // io.github.yuroyami.archivekodec.codec.deflate/DeflateStrategy|null[0]
     enum entry DEFAULT // io.github.yuroyami.archivekodec.codec.deflate/DeflateStrategy.DEFAULT|null[0]
     enum entry FILTERED // io.github.yuroyami.archivekodec.codec.deflate/DeflateStrategy.FILTERED|null[0]
@@ -657,8 +646,6 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.g
         final fun <get-crcPolicy>(): io.github.yuroyami.archivekodec.archive/CrcPolicy // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.crcPolicy.<get-crcPolicy>|<get-crcPolicy>(){}[0]
     final val crypto // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.crypto|{}crypto[0]
         final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.crypto.<get-crypto>|<get-crypto>(){}[0]
-    final val duplicateNames // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.duplicateNames|{}duplicateNames[0]
-        final fun <get-duplicateNames>(): io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.duplicateNames.<get-duplicateNames>|<get-duplicateNames>(){}[0]
     final val externalMembers // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.externalMembers|{}externalMembers[0]
         final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
     final val limits // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.limits|{}limits[0]
@@ -685,9 +672,6 @@ final class io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions { // io.g
         final var crypto // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto|{}crypto[0]
             final fun <get-crypto>(): io.github.yuroyami.archivekodec.crypto/CryptoProvider // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto.<get-crypto>|<get-crypto>(){}[0]
             final fun <set-crypto>(io.github.yuroyami.archivekodec.crypto/CryptoProvider) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.crypto.<set-crypto>|<set-crypto>(io.github.yuroyami.archivekodec.crypto.CryptoProvider){}[0]
-        final var duplicateNames // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.duplicateNames|{}duplicateNames[0]
-            final fun <get-duplicateNames>(): io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.duplicateNames.<get-duplicateNames>|<get-duplicateNames>(){}[0]
-            final fun <set-duplicateNames>(io.github.yuroyami.archivekodec.archive/DuplicateNamePolicy) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.duplicateNames.<set-duplicateNames>|<set-duplicateNames>(io.github.yuroyami.archivekodec.archive.DuplicateNamePolicy){}[0]
         final var externalMembers // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers|{}externalMembers[0]
             final fun <get-externalMembers>(): io.github.yuroyami.archivekodec.archive/ExternalMemberResolver? // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers.<get-externalMembers>|<get-externalMembers>(){}[0]
             final fun <set-externalMembers>(io.github.yuroyami.archivekodec.archive/ExternalMemberResolver?) // io.github.yuroyami.archivekodec.archive/ArchiveOpenOptions.Builder.externalMembers.<set-externalMembers>|<set-externalMembers>(io.github.yuroyami.archivekodec.archive.ExternalMemberResolver?){}[0]
@@ -1214,6 +1198,8 @@ final class io.github.yuroyami.archivekodec.security/ArchiveLimits { // io.githu
         final fun <get-maxSegments>(): kotlin/Int // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxSegments.<get-maxSegments>|<get-maxSegments>(){}[0]
     final val maxUncompressedBytes // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxUncompressedBytes|{}maxUncompressedBytes[0]
         final fun <get-maxUncompressedBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ArchiveLimits.maxUncompressedBytes.<get-maxUncompressedBytes>|<get-maxUncompressedBytes>(){}[0]
+    final val rejectDuplicateNames // io.github.yuroyami.archivekodec.security/ArchiveLimits.rejectDuplicateNames|{}rejectDuplicateNames[0]
+        final fun <get-rejectDuplicateNames>(): kotlin/Boolean // io.github.yuroyami.archivekodec.security/ArchiveLimits.rejectDuplicateNames.<get-rejectDuplicateNames>|<get-rejectDuplicateNames>(){}[0]
     final val rejectUnsafeNames // io.github.yuroyami.archivekodec.security/ArchiveLimits.rejectUnsafeNames|{}rejectUnsafeNames[0]
         final fun <get-rejectUnsafeNames>(): kotlin/Boolean // io.github.yuroyami.archivekodec.security/ArchiveLimits.rejectUnsafeNames.<get-rejectUnsafeNames>|<get-rejectUnsafeNames>(){}[0]
 
@@ -1243,6 +1229,9 @@ final class io.github.yuroyami.archivekodec.security/ArchiveLimits { // io.githu
         final var maxUncompressedBytes // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes|{}maxUncompressedBytes[0]
             final fun <get-maxUncompressedBytes>(): kotlin/Long // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes.<get-maxUncompressedBytes>|<get-maxUncompressedBytes>(){}[0]
             final fun <set-maxUncompressedBytes>(kotlin/Long) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.maxUncompressedBytes.<set-maxUncompressedBytes>|<set-maxUncompressedBytes>(kotlin.Long){}[0]
+        final var rejectDuplicateNames // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.rejectDuplicateNames|{}rejectDuplicateNames[0]
+            final fun <get-rejectDuplicateNames>(): kotlin/Boolean // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.rejectDuplicateNames.<get-rejectDuplicateNames>|<get-rejectDuplicateNames>(){}[0]
+            final fun <set-rejectDuplicateNames>(kotlin/Boolean) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.rejectDuplicateNames.<set-rejectDuplicateNames>|<set-rejectDuplicateNames>(kotlin.Boolean){}[0]
         final var rejectUnsafeNames // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.rejectUnsafeNames|{}rejectUnsafeNames[0]
             final fun <get-rejectUnsafeNames>(): kotlin/Boolean // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.rejectUnsafeNames.<get-rejectUnsafeNames>|<get-rejectUnsafeNames>(){}[0]
             final fun <set-rejectUnsafeNames>(kotlin/Boolean) // io.github.yuroyami.archivekodec.security/ArchiveLimits.Builder.rejectUnsafeNames.<set-rejectUnsafeNames>|<set-rejectUnsafeNames>(kotlin.Boolean){}[0]
