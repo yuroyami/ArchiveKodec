@@ -10,8 +10,9 @@ val raw = ArchiveKodec.deflate.compress(bytes)   // bare RFC 1951
 val back = ArchiveKodec.gzip.decompress(gz)
 ```
 
-All 15 accessors are non-null: `store`, `deflate`, `deflate64`, `bzip2`, `lzma`, `lzma2`,
-`xz`, `zstd`, `brotli`, `ppmd`, `gzip`, `zlib`, `lz4`, `snappy` and `snappyFramed`.
+All 18 accessors are non-null: `store`, `deflate`, `deflate64`, `bzip2`, `lzma`, `lzma2`,
+`xz`, `zstd`, `brotli`, `ppmd`, `gzip`, `zlib`, `lz4`, `snappy`, `snappyFramed`, `lzw`,
+`packBits` and `palmDoc`.
 [Format support](formats.md#codecs) lists what each one decodes and encodes.
 
 ## Find a codec by name
@@ -100,7 +101,8 @@ its own stream, which every bzip2 decoder joins, and xz writes blocks of 2 MiB, 
 does. zstd, LZ4 and lzip write each 1 to 4 MiB
 of input as a complete frame or member, which their decoders join. The xz, zstd, lzip and `.lzma`
 decoders keep a window of the dictionary or the frame's window, which `maxDecoderMemory` bounds, and
-the LZ4 decoder keeps one block of at most 4 MiB and 64 KiB of history; Unix compress needs only
+the LZ4 decoder keeps one block, at most 4 MiB in a standard frame and 8 MiB in a legacy
+frame, and 64 KiB of history; Unix compress needs only
 its code table and lzop one block; an xz
 block with a branch filter is held whole until its end. The other codecs keep the input and compress
 it at `finish`, until they stream too.

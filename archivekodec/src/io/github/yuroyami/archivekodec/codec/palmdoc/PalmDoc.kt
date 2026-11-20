@@ -76,9 +76,11 @@ public object PalmDoc {
         var i = offset
         var error: ArchiveFormatException? = null
 
-        fun grow(extra: Int) {
+        // Before the output grows: its size, and its ratio to the [consumed] input bytes that produce it.
+        fun grow(extra: Int, consumed: Int) {
             val needed = out.size.toLong() + extra
             if (needed > max) limits.checkOutputSize(needed)
+            limits.checkRatio(consumed.toLong(), needed)
             if (needed > Int.MAX_VALUE - 8L) throw DecompressionBombException("palmdoc: output exceeds the ByteArray maximum")
         }
 
@@ -88,7 +90,7 @@ public object PalmDoc {
             when {
                 c in 1..8 -> {
                     val n = minOf(c, end - i)
-                    grow(n)
+                    grow(n, i + n - offset)
                     out.append(input, i, n)
                     i += n
                     if (n < c) {
@@ -96,9 +98,9 @@ public object PalmDoc {
                         break
                     }
                 }
-                c < 0x80 -> { grow(1); out.append(c.toByte()) }
+                c < 0x80 -> { grow(1, i - offset); out.append(c.toByte()) }
                 c >= 0xC0 -> {
-                    grow(2)
+                    grow(2, i - offset)
                     out.append(' '.code.toByte())
                     out.append((c xor 0x80).toByte())
                 }
@@ -114,7 +116,7 @@ public object PalmDoc {
                         error = ArchiveFormatException("palmdoc: a copy from $distance bytes back reaches before the output", at.toLong())
                         break
                     }
-                    grow(count)
+                    grow(count, i - offset)
                     out.copyBack(distance, count)
                 }
             }

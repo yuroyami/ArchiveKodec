@@ -79,7 +79,9 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
  * its sink keeps what was written before the failure and is closed. [onFailure] is then
  * called with the entry and the error, before the error propagates, so the caller can delete
  * the partial file; the extraction stops there. Writing to a temporary name and renaming it
- * after [extract] returns is the other safe pattern.
+ * after [extract] returns is the other safe pattern. When [into] itself fails, there is no
+ * sink to close: [onFailure] hears the failure, an [IOException] as an [ArchiveIOException],
+ * and no later entry is extracted.
  *
  * Devices, FIFOs and sockets ([ArchiveEntry.type]) are skipped: [into] is never called for
  * them, and no special file is created.
@@ -100,7 +102,8 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
  *
  * @throws IllegalArgumentException if an entry was not listed by this reader, or [maxTotalBytes] is negative.
  * @throws DecompressionBombException if the entries together pass [maxTotalBytes].
- * @throws ArchiveIOException if a sink reports an IO failure.
+ * @throws ArchiveIOException if [into] or a sink reports an IO failure, such as a sink that
+ *   cannot be opened.
  * @throws ArchiveException for the reading, decoding, integrity and limit failures of [ArchiveReader.read].
  * @throws kotlinx.coroutines.CancellationException when the calling coroutine is cancelled.
  */
@@ -146,7 +149,15 @@ public suspend fun ArchiveReader.extract(
         }
         context.ensureActive()
         if (entry.isEncrypted && passwords != null) passwords.ask(entry.name)
-        val sink = into(entry)
+        val sink = try {
+            into(entry)
+        } catch (error: Throwable) {
+            // Opening the sink failed, for example for a missing directory: nothing was written.
+            passwords?.forget()
+            val reported = if (error is IOException) ArchiveIOException("opening the sink for '${entry.name}' failed: ${error.message}", error) else error
+            onFailure?.invoke(entry, reported)
+            throw reported
+        }
         val buffer = Buffer()
         var completed = false
         var failure: Throwable? = null

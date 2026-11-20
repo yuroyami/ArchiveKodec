@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.io
 
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchivePasswordException
 import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
@@ -12,11 +13,17 @@ import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.security.PathGuard
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.Buffer
+import kotlinx.io.IOException
 import kotlinx.io.RawSink
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
 import kotlinx.io.readByteArray
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -285,6 +292,73 @@ class ExtractionTest {
         }
         assertFailsWith<IllegalArgumentException> {
             ArchiveKodec.open(zip).use { it.extract(it.entries(), maxTotalBytes = -1) { Sink() } }
+        }
+    }
+
+    @Test
+    fun aSinkThatCannotBeOpenedFailsAsAnArchiveIOExceptionAndReachesOnFailure() = runTest {
+        ArchiveKodec.open(zip).use { reader ->
+            val opened = ArrayList<String>()
+            var seen: Pair<String, Throwable>? = null
+            val cause = IOException("no such directory")
+            val error = assertFailsWith<ArchiveIOException> {
+                reader.extract(reader.entries(), onFailure = { entry, failure -> seen = entry.name to failure }) { entry ->
+                    if (entry.name == "big.bin") throw cause
+                    opened += entry.name
+                    Sink()
+                }
+            }
+            assertTrue(error.cause === cause, "the IOException is the cause")
+            assertEquals("big.bin", seen?.first)
+            assertTrue(seen?.second === error)
+            assertEquals(listOf("dir/a.txt"), opened, "nothing after the failed entry is opened")
+        }
+    }
+
+    /** The README's and docs/files.md's extraction example, as written, on a real file system. */
+    @Test
+    fun theDocumentedExtractionCreatesParentDirectories() = runTest {
+        val base: Path
+        try {
+            base = Path(SystemTemporaryDirectory, "archivekodec-extract-${Random.nextLong().toULong()}")
+            SystemFileSystem.createDirectories(base)
+        } catch (_: Throwable) {
+            return@runTest // no writable file system on this platform
+        }
+        try {
+            val path = Path(base, "archive.zip").toString()
+            SystemFileSystem.sink(Path(path)).buffered().use { it.write(zip) }
+            val outDir = Path(base, "out").toString()
+            SystemFileSystem.createDirectories(Path(outDir))
+
+            val source = FileRandomAccessSource(path)
+            // The reader closes the source, but only once it exists: close it yourself if open throws.
+            val reader = try { ArchiveKodec.open(source) } catch (e: Throwable) { source.close(); throw e }
+            reader.use {
+                reader.extract(reader.entries()) { entry ->
+                    val target = Path(outDir, PathGuard.sanitize(entry.name))
+                    target.parent?.let { SystemFileSystem.createDirectories(it) }
+                    SystemFileSystem.sink(target)
+                }
+            }
+
+            fun read(vararg parts: String) = SystemFileSystem.source(Path(outDir, *parts)).buffered().use { it.readByteArray() }
+            assertContentEquals("alpha".encodeToByteArray(), read("dir", "a.txt"))
+            assertContentEquals(big, read("big.bin"))
+            // Without the createDirectories line, the first entry in a folder fails, as an ArchiveIOException.
+            val bare = Path(base, "bare").toString()
+            SystemFileSystem.createDirectories(Path(bare))
+            ArchiveKodec.open(zip).use { r ->
+                assertFailsWith<ArchiveIOException> {
+                    r.extract(r.entries()) { entry -> SystemFileSystem.sink(Path(bare, PathGuard.sanitize(entry.name))) }
+                }
+            }
+        } finally {
+            fun delete(path: Path) {
+                if (SystemFileSystem.metadataOrNull(path)?.isDirectory == true) SystemFileSystem.list(path).forEach { delete(it) }
+                SystemFileSystem.delete(path, mustExist = false)
+            }
+            delete(base)
         }
     }
 

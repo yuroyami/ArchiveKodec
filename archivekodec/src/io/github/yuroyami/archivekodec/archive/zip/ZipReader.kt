@@ -219,10 +219,10 @@ public class ZipReader(
 
     /**
      * True when [entry] decodes whole and matches its CRC-32, or has none, and false when its
-     * CRC-32 does not match. The bytes are not kept: the output of stored, DEFLATE and Deflate64
-     * entries that are not encrypted and whose sizes are in the central directory streams
-     * through the check, so memory does not grow with the output. DEFLATE and Deflate64 input
-     * is still read whole.
+     * CRC-32 does not match. The bytes are not kept: stored, DEFLATE, Deflate64, bzip2, zstd and
+     * xz entries that are not encrypted and whose sizes are in the central directory stream
+     * through the check, their input read as the decoder needs it, so memory grows with neither
+     * side. Other entries are decoded whole first.
      *
      * @throws ArchiveException for the other failures documented by [read].
      */
@@ -248,13 +248,12 @@ public class ZipReader(
         val listed = directory.entries.resolveIssued(this, entry, "ZIP")
         val member = directory.memberOf(this, listed)
         val method = member.method
+        // The prefix reader below knows stored data and DEFLATE streams; other methods take the
+        // general route, which decodes the entry and keeps the start.
         val builtIn = when (method) {
             0 -> Codecs.STORE
             8 -> Codecs.DEFLATE
             9 -> Codecs.DEFLATE64
-            12 -> Codecs.BZIP2
-            93 -> Codecs.ZSTD
-            95 -> Codecs.XZ
             else -> null
         }
         if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn) {
@@ -337,6 +336,9 @@ public class ZipReader(
             0 -> Codecs.STORE
             8 -> Codecs.DEFLATE
             9 -> Codecs.DEFLATE64
+            12 -> Codecs.BZIP2
+            93 -> Codecs.ZSTD
+            95 -> Codecs.XZ
             else -> null
         }
         if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn ||

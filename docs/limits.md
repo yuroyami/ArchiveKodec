@@ -108,6 +108,6 @@ ArchiveKodec.open(source, limits).use { reader ->
   exception is the one compression layer that `ArchiveKodec.open` removes, and the same
   policy applies to it.
 - A result must fit one `ByteArray`. An entry larger than that can be listed, but a read into
-  a `ByteArray` fails with an `ArchiveException`. ZIP members that are stored, DEFLATE or
-  Deflate64 can be read into a sink instead, as [Reading archives](reading.md#read-into-a-sink)
+  a `ByteArray` fails with an `ArchiveException`. Unencrypted ZIP members that are stored,
+  DEFLATE, Deflate64, bzip2, zstd or xz can be read into a sink instead, as [Reading archives](reading.md#read-into-a-sink)
   shows.

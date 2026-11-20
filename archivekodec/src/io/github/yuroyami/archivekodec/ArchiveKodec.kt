@@ -190,17 +190,17 @@ public object ArchiveKodec {
     /**
      * Open archive [bytes], removing at most one compression layer with [ArchiveLimits.DEFAULT].
      * Plain archive bytes are borrowed without copying; keep them unchanged until
-     * the returned reader closes. Gzip decoding takes an independent snapshot.
-     * @throws ArchiveException for the detection, gzip, unsupported-format and limit failures documented by [open].
+     * the returned reader closes. Decoding a compression layer takes an independent snapshot.
+     * @throws ArchiveException for the detection, compression-layer, unsupported-format and limit failures documented by [open].
      */
     @Throws(ArchiveException::class)
     @JvmStatic
     public fun open(bytes: ByteArray): ArchiveReader = open(bytes, ArchiveLimits.DEFAULT)
 
     /**
-     * Open archive [bytes] with [limits] for gzip decoding, listing and each read.
-     * Plain bytes are borrowed unchanged until close; gzip output is a snapshot.
-     * @throws ArchiveException for the detection, gzip, unsupported-format and limit failures documented by [open].
+     * Open archive [bytes] with [limits] for decoding a compression layer, listing and each read.
+     * Plain bytes are borrowed unchanged until close; a decoded compression layer is a snapshot.
+     * @throws ArchiveException for the detection, compression-layer, unsupported-format and limit failures documented by [open].
      */
     @Throws(ArchiveException::class)
     @JvmStatic
@@ -209,8 +209,8 @@ public object ArchiveKodec {
 
     /**
      * Open archive [bytes] with explicit filename decoding and default limits.
-     * Plain bytes are borrowed unchanged until close; gzip output is a snapshot.
-     * @throws ArchiveException for the detection, gzip, unsupported-format and limit failures documented by [open].
+     * Plain bytes are borrowed unchanged until close; a decoded compression layer is a snapshot.
+     * @throws ArchiveException for the detection, compression-layer, unsupported-format and limit failures documented by [open].
      */
     @Throws(ArchiveException::class)
     @JvmStatic
@@ -218,14 +218,14 @@ public object ArchiveKodec {
         open(bytes, nameDecoder, ArchiveLimits.DEFAULT)
 
     /**
-     * Open archive [bytes] with explicit names and [limits]. Gzip decoding, listing
+     * Open archive [bytes] with explicit names and [limits]. Decoding a compression layer, listing
      * and each entry read enforce the same policy separately, without a cumulative
-     * budget. Plain bytes are borrowed until close; gzip output is a snapshot.
-     * @throws ArchiveFormatException if the archive is unrecognized or gzip framing/integrity is invalid.
-     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader, including a second compression layer.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
-     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if gzip decoding exceeds [limits].
-     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
+     * budget. Plain bytes are borrowed until close; a decoded compression layer is a snapshot.
+     * @throws ArchiveFormatException if the archive is unrecognized or a compression layer's framing or integrity is invalid.
+     * @throws ArchiveUnsupportedException if a compression layer uses an unsupported feature or the recognized format has no container reader, including a second compression layer.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data in a gzip layer.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if decoding the compression layer exceeds [limits].
+     * @throws ArchiveSizeException if the decoded compression layer cannot fit in a ByteArray.
      */
     @Throws(ArchiveException::class)
     @JvmStatic
@@ -241,14 +241,14 @@ public object ArchiveKodec {
      * prepended launchers. Known header formats retain priority over that footer.
      * Ownership transfers to the returned reader. If detection or opening
      * throws, the caller still owns [source] and must close it.
-     * Gzip decode errors refer to compressed-input offsets; reader offsets refer
+     * Errors from decoding a compression layer refer to compressed-input offsets; reader offsets refer
      * to the unwrapped archive. Plain source opening preserves source offsets.
      *
-     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or gzip framing/integrity is invalid.
-     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
-     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if gzip decoding exceeds the default policy.
-     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
+     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or a compression layer's framing or integrity is invalid.
+     * @throws ArchiveUnsupportedException if a compression layer uses an unsupported feature or the recognized format has no container reader.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data in a gzip layer.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if decoding the compression layer exceeds the default policy.
+     * @throws ArchiveSizeException if the decoded compression layer cannot fit in a ByteArray.
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
@@ -256,14 +256,14 @@ public object ArchiveKodec {
     public fun open(source: RandomAccessSource): ArchiveReader = open(source, ArchiveLimits.DEFAULT)
 
     /**
-     * Open with a policy enforced separately for gzip decoding, entry listing and
+     * Open with a policy enforced separately for decoding a compression layer, entry listing and
      * each read. Ownership transfers only on success, as in [open].
      *
-     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or gzip framing/integrity is invalid.
-     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
-     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if gzip decoding exceeds [limits].
-     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
+     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or a compression layer's framing or integrity is invalid.
+     * @throws ArchiveUnsupportedException if a compression layer uses an unsupported feature or the recognized format has no container reader.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data in a gzip layer.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if decoding the compression layer exceeds [limits].
+     * @throws ArchiveSizeException if the decoded compression layer cannot fit in a ByteArray.
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
@@ -274,11 +274,11 @@ public object ArchiveKodec {
     /**
      * Open with explicit filename decoding; ZIP Unicode metadata still takes precedence.
      *
-     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or gzip framing/integrity is invalid.
-     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
-     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if gzip decoding exceeds the default policy.
-     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
+     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or a compression layer's framing or integrity is invalid.
+     * @throws ArchiveUnsupportedException if a compression layer uses an unsupported feature or the recognized format has no container reader.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data in a gzip layer.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if decoding the compression layer exceeds the default policy.
+     * @throws ArchiveSizeException if the decoded compression layer cannot fit in a ByteArray.
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
@@ -287,15 +287,15 @@ public object ArchiveKodec {
         open(source, nameDecoder, ArchiveLimits.DEFAULT)
 
     /**
-     * Open with explicit filename decoding and a policy for gzip decoding, listing
+     * Open with explicit filename decoding and a policy for decoding a compression layer, listing
      * and entry reads. These operations enforce the policy separately. Ownership
      * transfers only on success; close the returned reader to close [source].
      *
-     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or gzip framing/integrity is invalid.
-     * @throws ArchiveUnsupportedException if gzip uses an unsupported feature or the recognized format has no container reader.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
-     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if gzip decoding exceeds [limits].
-     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
+     * @throws ArchiveFormatException if the format is unrecognized, source ranges are invalid, or a compression layer's framing or integrity is invalid.
+     * @throws ArchiveUnsupportedException if a compression layer uses an unsupported feature or the recognized format has no container reader.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data in a gzip layer.
+     * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if decoding the compression layer exceeds [limits].
+     * @throws ArchiveSizeException if the decoded compression layer cannot fit in a ByteArray.
      * @throws ArchiveException if the supplied source reports an IO or lifecycle failure.
      */
     @Throws(ArchiveException::class)
@@ -308,15 +308,15 @@ public object ArchiveKodec {
      * directly and skips all probes and ZIP footer fallback. Otherwise the first
      * matching descriptor wins; no match falls back to the registered ZIP reader
      * when a valid ZIP footer is present. Failed opens retain caller ownership.
-     * Built-in gzip unwraps at most once using the same registry and options inside.
+     * A built-in compression layer is unwrapped at most once, using the same registry and options inside.
      * Custom factories must enforce the supplied policy and own the source on success.
      *
      * @throws ArchiveFormatException if automatic detection finds no archive or built-in metadata is malformed.
      * @throws ArchiveUnsupportedException if the selected id is unregistered, has no reader, or needs an unsupported feature.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException if wrapper decoding exceeds the policy.
-     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed gzip DEFLATE data.
-     * @throws ArchiveSizeException if decoded gzip output cannot fit in a ByteArray.
-     * @throws ArchiveException for other detection, opening, gzip or source failures, including custom callback failures.
+     * @throws io.github.yuroyami.archivekodec.codec.deflate.InflateException for malformed DEFLATE data in a gzip layer.
+     * @throws ArchiveSizeException if the decoded compression layer cannot fit in a ByteArray.
+     * @throws ArchiveException for other detection, opening, compression-layer or source failures, including custom callback failures.
      */
     @Throws(ArchiveException::class)
     @JvmStatic
@@ -328,9 +328,9 @@ public object ArchiveKodec {
 
     /**
      * Open bytes through a registry, or select [format] explicitly without probing.
-     * Plain arrays are borrowed until close; built-in gzip output is an independent
+     * Plain arrays are borrowed until close; a decoded built-in compression layer is an independent
      * snapshot. Policies, single-wrapper behavior and failures follow the source overload.
-     * @throws ArchiveException for detection, opening, gzip, policy or custom callback failures.
+     * @throws ArchiveException for detection, opening, compression-layer, policy or custom callback failures.
      */
     @Throws(ArchiveException::class)
     @JvmStatic
@@ -344,7 +344,7 @@ public object ArchiveKodec {
      * Select a default-registered format directly, without sniffing or footer fallback;
      * null uses automatic detection.
      * Ownership transfers only when opening succeeds.
-     * @throws ArchiveException for an unknown id or an opening, gzip, source or policy failure.
+     * @throws ArchiveException for an unknown id or an opening, compression-layer, source or policy failure.
      */
     @Throws(ArchiveException::class)
     @JvmStatic
@@ -355,8 +355,8 @@ public object ArchiveKodec {
 
     /**
      * Open borrowed archive bytes as a default-registered format, or detect when null.
-     * Built-in gzip takes an independent snapshot under [options].
-     * @throws ArchiveException for an unknown id or an opening, gzip or policy failure.
+     * A built-in compression layer is decoded to an independent snapshot under [options].
+     * @throws ArchiveException for an unknown id or an opening, compression-layer or policy failure.
      */
     @Throws(ArchiveException::class)
     @JvmStatic

@@ -12,6 +12,11 @@
   metadata; after a failure part-way through an entry or `finish`, every later call throws
   that failure again. `ZipWriter`'s output is unchanged. A test writes and reads back a ZIP larger than
   a 32 MiB JVM heap through that heap, and another an entry past 4 GiB.
+- Fixed: the PalmDOC decoder checks the compression ratio before its output grows, against
+  the input read so far, instead of once at the end.
+- Fixed: `extract` in `archivekodec-io` reports a sink that cannot be opened, such as one in a
+  missing directory, as an `ArchiveIOException` and passes it to `onFailure`; the IO exception
+  escaped raw before. The README and Files examples now create parent directories.
 - RAR 2.9 decompression: the compressed members RAR 3.x and 4.x write now read, with LZ77 and
   PPMd blocks, solid archives, and filters, both RAR's standard ones and bytecode for its
   virtual machine, which runs under an instruction budget. Ported from XADMaster with the
@@ -244,8 +249,9 @@
   inflate is now within 1.7 times of `java.util.zip` on every benchmark corpus.
 
 - `FileRandomAccessSource` in `archivekodec-io` opens an archive from a file path and reads
-  it on demand through a small page cache, so archives larger than memory can be listed
-  and read: `RandomAccessFile` on the JVM and Android, POSIX `pread` on Apple, Linux and
+  it on demand through a small page cache, so seekable archives larger than memory (ZIP,
+  TAR, 7z and the like, but not a compressed layer such as `.tar.gz`, which `open` decodes
+  whole) can be listed and read: `RandomAccessFile` on the JVM and Android, POSIX `pread` on Apple, Linux and
   Android native, `ReadFile` on Windows, Node's `fs` on Kotlin/JS and Kotlin/Wasm (JS).
   Browsers and WASI refuse it with `ArchiveUnsupportedException`.
 

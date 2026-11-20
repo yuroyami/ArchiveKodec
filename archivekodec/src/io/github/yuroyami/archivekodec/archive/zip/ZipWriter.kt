@@ -23,8 +23,8 @@ import kotlin.text.CharacterCodingException
 
 /**
  * ZIP writer for STORE and DEFLATE entries, with ZIP64 where it is needed. The whole
- * archive is built in memory and returned as a `ByteArray`; there is no streaming
- * form. ZIP64 end records are emitted when the entry count passes 65535. Sizes and
+ * archive is built in memory and returned as a `ByteArray`; [ZipStreamWriter] writes one
+ * entry by entry to a sink instead, for archives too large for memory. ZIP64 end records are emitted when the entry count passes 65535. Sizes and
  * offsets cannot reach the ZIP64 boundary in this whole-array API; the complete
  * output must fit in one `ByteArray`. Smaller entry counts use classic ZIP records.
  * Member sizes and offsets always use classic 32-bit fields, even when the entry

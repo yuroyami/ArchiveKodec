@@ -13,8 +13,10 @@ dependencies {
 
 ## Open a file
 
-`FileRandomAccessSource` opens a file read-only and reads it on demand, so a large archive is
-listed and read without loading it:
+`FileRandomAccessSource` opens a file read-only and reads it on demand, so a large ZIP, TAR, 7z
+or other seekable archive is listed and read without loading it. `open` reads a compressed
+layer such as `.tar.gz` or `.tar.xz` whole and decodes it in memory; to stream one, decode it
+into a `TarStreamSink`, as [Compression](compression.md#stream-both-sides) shows:
 
 ```kotlin
 val source = FileRandomAccessSource("/data/backup.zip")
@@ -56,7 +58,9 @@ val reader = try { ArchiveKodec.open(source, format = null, options = options) }
 reader.use {
     val wanted = reader.entries().filter { it.name.startsWith("docs/") }
     reader.extract(wanted, progress = { done, total -> bar.update(done, total) }, passwords = passwords) { entry ->
-        SystemFileSystem.sink(Path(outDir, PathGuard.sanitize(entry.name)))
+        val target = Path(outDir, PathGuard.sanitize(entry.name))
+        target.parent?.let { SystemFileSystem.createDirectories(it) }
+        SystemFileSystem.sink(target)
     }
 }
 ```
