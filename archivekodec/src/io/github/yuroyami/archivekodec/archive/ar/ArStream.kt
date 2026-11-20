@@ -6,33 +6,47 @@ import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.DuplicateNames
+import io.github.yuroyami.archivekodec.archive.FailStop
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.ByteSource
 import io.github.yuroyami.archivekodec.codec.SourceBuffer
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.security.PathGuard
+import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 import kotlin.jvm.JvmOverloads
+
+/** The largest GNU `//` name table [ArStreamReader] reads, in bytes. GNU `ar` writes a few kilobytes. */
+private const val MAX_NAME_TABLE: Long = 16L * 1024 * 1024
 
 /**
  * Writes a Unix `ar` archive to a [ByteSink] one member at a time, so the archive and its
  * members never sit in memory whole. Names longer than 16 bytes, or with a space, are stored
  * inline after the header as BSD and macOS `ar` write them, which GNU `ar` also reads; a GNU
  * `//` name table would have to come before every member. Not thread-safe.
+ *
+ * The writer is fail-stop: once a call has handed any byte to the sink and then fails, for a
+ * failure of the data source, the sink, or data of the wrong size, the archive in the sink is
+ * incomplete, and every later [putFile] or [finish] rethrows that same exception without
+ * writing. A failure before anything is written, such as a refused argument or name, leaves the
+ * writer usable. A source read that returns 0, or more than was asked, is refused with
+ * [ArchiveFormatException].
  */
 public class ArStreamWriter(private val sink: ByteSink) {
     private var started = false
+    private val failure = FailStop()
+    private val out = failure.tracking(sink)
 
     /**
      * Write a member of [size] bytes read from [data], which must hold exactly that many.
      *
      * @throws ArchiveFormatException for a name with a path, ASCII controls or a reserved name,
      *   or when [data] holds a different number of bytes than [size].
-     * @throws ArchiveException for a failure of [data] or the sink.
+     * @throws ArchiveException for a failure of [data] or the sink, or the failure that stopped the writer.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun putFile(name: String, size: Long, data: ByteSource, mode: Int = 0x81A4, modificationTime: Long = 0, uid: Int = 0, gid: Int = 0) {
+    public fun putFile(name: String, size: Long, data: ByteSource, mode: Int = 0x81A4, modificationTime: Long = 0, uid: Int = 0, gid: Int = 0): Unit = failure.guardedWrite {
         require(size >= 0) { "ar: size must be nonnegative" }
         // The same field limits as ArWriter.FileSpec.
         require(modificationTime in 0..999_999_999_999L) { "ar: modificationTime must fit 12 decimal digits" }
@@ -45,31 +59,35 @@ public class ArStreamWriter(private val sink: ByteSink) {
         if (!started) {
             started = true
             val magic = "!<arch>\n".encodeToByteArray()
-            sink.write(magic, 0, magic.size)
+            out.write(magic, 0, magic.size)
         }
         val header = ArWriter.header(if (inline) "#1/${encoded.size}".encodeToByteArray() else encoded, stored, modificationTime, uid, gid, mode)
-        sink.write(header, 0, header.size)
-        if (inline) sink.write(encoded, 0, encoded.size)
+        out.write(header, 0, header.size)
+        if (inline) out.write(encoded, 0, encoded.size)
         val buffer = ByteArray(minOf(size, 64L * 1024).toInt().coerceAtLeast(1))
         var copied = 0L
         while (true) {
             val n = data.read(buffer, 0, buffer.size)
             if (n < 0) break
+            FailStop.checkRead(n, buffer.size, "ar", name)
             if (copied + n > size) throw ArchiveFormatException("ar: '$name' holds more than its declared $size bytes", entryName = name)
-            sink.write(buffer, 0, n)
+            out.write(buffer, 0, n)
             copied += n
         }
         if (copied != size) throw ArchiveFormatException("ar: '$name' holds $copied bytes, not its declared $size", entryName = name)
-        if (stored and 1 != 0L) sink.write(byteArrayOf(10), 0, 1)
+        if (stored and 1 != 0L) out.write(byteArrayOf(10), 0, 1)
     }
 
-    /** Write the archive magic if no member was written, so an empty archive is still valid. Later calls do nothing. */
+    /**
+     * Write the archive magic if no member was written, so an empty archive is still valid.
+     * Later calls do nothing, unless writing, or an earlier call, failed: then they rethrow it.
+     */
     @Throws(ArchiveException::class)
-    public fun finish() {
-        if (started) return
+    public fun finish(): Unit = failure.guardedWrite {
+        if (started) return@guardedWrite
         started = true
         val magic = "!<arch>\n".encodeToByteArray()
-        sink.write(magic, 0, magic.size)
+        out.write(magic, 0, magic.size)
     }
 }
 
@@ -79,7 +97,16 @@ public class ArStreamWriter(private val sink: ByteSink) {
  * read, and [read] streams the current member's data. It lists what [ArReader] lists: short,
  * GNU `//` table and BSD `#1/` names, skipping symbol indexes. GNU thin archives, whose data
  * lives outside the archive, are refused with [ArchiveUnsupportedException]. Names are checked
- * as [ArchiveLimits.rejectUnsafeNames] says. Not thread-safe.
+ * as [ArchiveLimits.rejectUnsafeNames] says. A GNU `//` name table is held in memory and is
+ * refused with [ArchiveFormatException] past 16 MiB; GNU `ar` writes tables of a few kilobytes.
+ * Not thread-safe.
+ *
+ * The reader is fail-stop: once [next], [read] or a [data] source throws, the reader is
+ * failed and every later call to them rethrows that same exception. It reads forward and
+ * cannot rewind, so after a refused or damaged member it cannot tell where the next header
+ * starts. A refused name is such a failure too; to list past unsafe names, turn
+ * [ArchiveLimits.rejectUnsafeNames] off and check each [ArchiveEntry.name] yourself, with
+ * [PathGuard] for example.
  *
  * Decoders write to a [ByteSink] rather than offer a source, so a compressed archive must be
  * decoded first, to a file for example.
@@ -98,13 +125,15 @@ public class ArStreamReader @JvmOverloads public constructor(
     private var nameTable: ByteArray? = null
     private var nulDelimitedNames = false
     private val duplicates = if (limits.rejectDuplicateNames) DuplicateNames() else null
+    private val failure = FailStop()
 
     /** The entry [next] returned last, or null before the first and after the end. */
     public var current: ArchiveEntry? = null
         private set
 
     /**
-     * Move to the next member and return it, or null at the end of the archive.
+     * Move to the next member and return it, or null at the end of the archive. After any
+     * exception the reader is failed and later calls rethrow it.
      *
      * @throws ArchiveFormatException for a damaged or truncated header.
      * @throws ArchiveUnsupportedException for a thin archive.
@@ -112,14 +141,15 @@ public class ArStreamReader @JvmOverloads public constructor(
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException past [ArchiveLimits.maxEntries].
      */
     @Throws(ArchiveException::class)
-    public fun next(): ArchiveEntry? {
+    public fun next(): ArchiveEntry? = failure.guarded { nextMember() }
+
+    private fun nextMember(): ArchiveEntry? {
         skip(remaining + padding)
         remaining = 0
         padding = 0
         current = null
         if (ended) return null
         if (!started) {
-            started = true
             val magic = ByteArray(8)
             if (!input.ensure(8)) throw ArchiveFormatException("ar: invalid archive magic", 0)
             input.readFully(magic, 0, 8, "ar magic")
@@ -128,6 +158,7 @@ public class ArStreamReader @JvmOverloads public constructor(
                 "!<thin>\n" -> throw ArchiveUnsupportedException("ar: a thin archive's members are outside it; read it with ArReader", 0)
                 else -> throw ArchiveFormatException("ar: invalid archive magic", 0)
             }
+            started = true
         }
         val h = ByteArray(60)
         while (true) {
@@ -159,10 +190,19 @@ public class ArStreamReader @JvmOverloads public constructor(
             }
             when {
                 rawName == "//" -> {
-                    if (size > Int.MAX_VALUE) throw ArchiveFormatException("ar: name table of $size bytes cannot fit in a ByteArray", pos, rawName)
+                    if (size > MAX_NAME_TABLE) {
+                        throw ArchiveFormatException("ar: name table of $size bytes exceeds the $MAX_NAME_TABLE this reader accepts", pos, rawName)
+                    }
                     limits.checkOutputSize(size)
-                    val table = ByteArray(size.toInt())
-                    input.readFully(table, 0, table.size, "ar name table")
+                    // Read in pieces, so a table that claims more than the input holds allocates only what arrives.
+                    val data = ByteArrayBuilder(minOf(size, 64L * 1024).toInt())
+                    while (data.size < size) {
+                        if (!input.ensure(1)) throw ArchiveFormatException("ar: name table is truncated", input.streamPosition, rawName)
+                        val n = minOf(size - data.size, input.available.toLong()).toInt()
+                        data.append(input.buffer, input.position, n)
+                        input.position += n
+                    }
+                    val table = data.takeByteArray()
                     skip(pad.toLong())
                     nameTable = table
                     nulDelimitedNames = 0.toByte() in table
@@ -217,12 +257,13 @@ public class ArStreamReader @JvmOverloads public constructor(
 
     /**
      * Stream the current member's data, or the part not read yet, to [sink]; return the bytes
-     * written. [limits] bound the member's size.
+     * written. [limits] bound the member's size. After any exception the reader is failed and
+     * later calls rethrow it.
      * @throws ArchiveException for a truncated archive or a sink failure.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long {
+    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long = failure.guarded {
         val entry = current ?: throw IllegalStateException("no current entry; call next() first")
         limits.checkOutputSize(remaining)
         var written = 0L
@@ -234,13 +275,22 @@ public class ArStreamReader @JvmOverloads public constructor(
             remaining -= n
             written += n
         }
-        return written
+        written
     }
 
-    /** The current member's data as a source, for a decoder or another writer. */
+    /**
+     * The current member's data as a source, for a decoder or another writer. A failure of the
+     * source fails the reader, as one of [read] does. Like [read], it refuses an entry larger
+     * than the reader's [ArchiveLimits.maxUncompressedBytes].
+     */
     public fun data(): ByteSource = ByteSource { into, offset, length ->
+        // The same size rule as read: what is left of the entry must fit this reader's limits.
+        failure.guarded { limits.checkOutputSize(remaining); dataRead(into, offset, length) }
+    }
+
+    private fun dataRead(into: ByteArray, offset: Int, length: Int): Int {
         val entry = current ?: throw IllegalStateException("no current entry; call next() first")
-        when {
+        return when {
             remaining == 0L -> -1
             !input.ensure(1) -> throw ArchiveFormatException("ar: '${entry.name}' is truncated", input.streamPosition, entry.name)
             else -> {

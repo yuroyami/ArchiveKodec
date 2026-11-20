@@ -14,6 +14,8 @@ import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.issuedBy
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
+import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -85,7 +87,9 @@ public class IsoReader(
                 item.target != null -> item.target.copyOf()
                 item.interleaved -> throw ArchiveUnsupportedException("ISO 9660: interleaved files are not supported", listed.dataOffset, listed.name)
                 else -> {
-                    if (listed.size > Int.MAX_VALUE) throw ArchiveFormatException("ISO 9660: file of ${listed.size} bytes cannot fit in a ByteArray")
+                    requireByteArraySize(listed.size)
+                    // Every extent must lie inside the image before the output is allocated.
+                    for (i in item.extents.indices step 2) source.requireRange(item.extents[i], item.extents[i + 1])
                     val out = ByteArray(listed.size.toInt())
                     var at = 0
                     for (i in item.extents.indices step 2) {

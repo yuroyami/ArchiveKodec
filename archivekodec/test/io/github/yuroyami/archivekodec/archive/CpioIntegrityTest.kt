@@ -456,7 +456,7 @@ class CpioIntegrityTest {
         CpioReader(s).use { r ->
             val e = r.entries().first(); assertEquals(size, e.size)
             assertFailsWith<DecompressionBombException> { r.read(e, ArchiveLimits { maxUncompressedBytes = 8 }) }
-            assertTrue(assertFailsWith<ArchiveFormatException> { r.read(e, ArchiveLimits.UNBOUNDED) }.message!!.contains("ByteArray"))
+            assertTrue(assertFailsWith<io.github.yuroyami.archivekodec.ArchiveSizeException> { r.read(e, ArchiveLimits.UNBOUNDED) }.message!!.contains("ByteArray"))
             assertEquals(0, s.largestPayloadRead)
         }
     }

@@ -13,7 +13,7 @@ reader takes one.
 | `maxCompressionRatio` | 10,000 | Output bytes for each input byte |
 | `maxEntries` | 100,000 | The entries of one listing |
 | `maxSegments` | 100,000 | The segments of one initramfs listing |
-| `maxDecoderMemory` | 256 MiB | Memory that a header asks a decoder to allocate up front |
+| `maxDecoderMemory` | 256 MiB | Memory that a header asks a decoder to allocate, and the phrases a HuffCdic decoder keeps |
 | `rejectUnsafeNames` | `true` | Whether a listing refuses unsafe entry names |
 
 A violation throws `DecompressionBombException`. `rejectUnsafeNames` is described in
@@ -62,6 +62,11 @@ does not change the ceiling that the listing used.
 Every codec checks the ratio before its output grows. ZIP checks the ratio of each entry, and
 TAR, ar and cpio check their 1:1 ratio.
 
+Holes in sparse TAR members and SquashFS files cost no input, so such a member's full size is
+measured against the larger of its stored bytes and the size of the whole archive (the image's
+used bytes for SquashFS). A 10 KB archive cannot expand to gigabytes of zeros under the default
+ratio, while sparse files in ordinary archives still read.
+
 The default ratio of 10,000:1 cannot reject a valid stream from DEFLATE (below 1,032:1), LZ4
 (below 255:1), Snappy (below 22:1) or STORE (1:1). It still rejects a declared size that no
 valid stream could reach. Deflate64, bzip2, zstd and brotli can pass it on input with long
@@ -78,8 +83,20 @@ Raise `maxCompressionRatio` to read such a file.
 
 ## Decoder memory
 
-`maxDecoderMemory` applies before anything is allocated. It caps the model of a PPMd stream
-and the window of a RAR5 archive.
+`maxDecoderMemory` caps the memory that a stream's header asks a decoder to allocate, and is
+checked before that memory is allocated:
+
+- the model of a PPMd stream (ZIP, 7z and RAR 2.9 PPMd blocks);
+- the 4 MiB RAR 2.9 window and the RAR5 window;
+- the bzip2 block table, 4 bytes for each byte of block size (3.6 MB at level 9);
+- an LZMA literal table whose lc + lp is above 4 (up to 6 MiB);
+- the dictionary window of a streamed xz, lzip or `.lzma` decode, and the window of a streamed
+  zstd frame. A whole-array decode needs no window beyond its output, so it does not check them.
+
+HuffCdic is the exception to "up front": it counts the phrases it decodes and keeps, across
+all of a decoder's calls, and throws once they pass the limit.
+
+A violation throws `DecompressionBombException`.
 
 ## Entry counts
 

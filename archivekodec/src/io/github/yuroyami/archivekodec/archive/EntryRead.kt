@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.ArchivePasswordException
 import io.github.yuroyami.archivekodec.ArchiveClosedException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveIOException
+import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.codec.deflate.InflateException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -22,6 +23,11 @@ internal inline fun <T> withEntryContext(name: String, offset: Long, operation: 
 
 internal fun ArchiveException.withEntryContext(name: String, fallbackOffset: Long, relativeOffset: Boolean = false): ArchiveException {
     if (entryName != null && offset != null || this is ArchivePathException) return this
+    // ArchiveSizeException carries no entry or offset fields: keep its type, with the context
+    // in its message, once.
+    if (this is ArchiveSizeException) {
+        return if (message.orEmpty().contains(" (entry '")) this else ArchiveSizeException("$message (entry '${entryName ?: name}', source offset ${offset ?: fallbackOffset})")
+    }
     val position = if (relativeOffset && offset != null) fallbackOffset + offset else offset ?: fallbackOffset
     val label = entryName ?: name
     val text = "${message} (entry '$label', source offset $position)"

@@ -4,6 +4,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveSizeException
 import kotlin.jvm.JvmName
 
 /**
@@ -83,6 +84,22 @@ internal fun RandomAccessSource.readFullyChecked(offset: Long, length: Long): By
     val buf = ByteArray(length.toInt())
     readFullyInto(offset, buf, buf.size)
     return buf
+}
+
+/**
+ * Read an entry's stored data, the result of a read, exactly [length] bytes at [offset]. Like
+ * [readFullyChecked], but data too large for one ByteArray is an [ArchiveSizeException], as
+ * [ArchiveReader.read] promises, rather than the format error a declared structure gets.
+ */
+internal fun RandomAccessSource.readEntryChecked(offset: Long, length: Long): ByteArray {
+    requireRange(offset, length)
+    if (length > Int.MAX_VALUE) throw ArchiveSizeException("entry data at $offset of $length bytes cannot fit in one ByteArray (maximum ${Int.MAX_VALUE})")
+    return readFullyChecked(offset, length)
+}
+
+/** @throws ArchiveSizeException when a read's result of [length] bytes cannot fit in one ByteArray. */
+internal fun requireByteArraySize(length: Long) {
+    if (length > Int.MAX_VALUE) throw ArchiveSizeException("result of $length bytes cannot fit in one ByteArray (maximum ${Int.MAX_VALUE})")
 }
 
 /** Fill `into[0, count)` from [offset], which the caller has range-checked. */

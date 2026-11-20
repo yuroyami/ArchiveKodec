@@ -6,6 +6,7 @@ import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
+import io.github.yuroyami.archivekodec.archive.FailStop
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.ByteSource
@@ -20,34 +21,45 @@ import kotlin.jvm.JvmOverloads
  * ustar prefix split where possible, otherwise a GNU long-name record. A file larger than
  * the 8 GiB ustar field gets a pax size record. Call [finish] to write the end records.
  * Not thread-safe.
+ *
+ * The writer is fail-stop: once a call has handed any byte to the sink and then fails, for a
+ * failure of the data source, the sink, or data that ends early, the archive in the sink is
+ * incomplete, and every later put or [finish] rethrows that same exception without writing. A
+ * failure before anything is written, such as a refused argument or name, leaves the writer
+ * usable. A source read that returns 0, or more than was asked, is refused with
+ * [ArchiveFormatException].
  */
 public class TarStreamWriter(private val sink: ByteSink) {
     private var finished = false
+    private val failure = FailStop()
+    private val out = failure.tracking(sink)
     private val buffer = ByteArray(64 * 1024)
 
     /**
      * Write a regular file of exactly [size] bytes read from [data].
      *
      * @throws ArchiveFormatException for an invalid name, or when [data] ends before [size] bytes.
-     * @throws ArchiveException when the source or the sink fails.
+     * @throws ArchiveException when the source or the sink fails, or the failure that stopped the writer.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun putFile(name: String, size: Long, data: ByteSource, mode: Int = 0x1A4, modificationTime: Long = 0) {
+    public fun putFile(name: String, size: Long, data: ByteSource, mode: Int = 0x1A4, modificationTime: Long = 0): Unit = failure.guardedWrite {
         check(!finished) { "the TAR stream is finished" }
         require(size >= 0) { "size must not be negative" }
         require(mode in 0..0xFFF) { "TAR: mode must contain only Unix permission bits" }
         val header = TarWriter.headerRecords(name, isDirectory = false, size, mode, 0, 0, modificationTime)
-        sink.write(header, 0, header.size)
+        out.write(header, 0, header.size)
         var remaining = size
         while (remaining > 0) {
-            val n = data.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+            val asked = minOf(buffer.size.toLong(), remaining).toInt()
+            val n = data.read(buffer, 0, asked)
             if (n < 0) throw ArchiveFormatException("TAR: '$name' ended after ${size - remaining} of $size bytes", entryName = name)
-            sink.write(buffer, 0, n)
+            FailStop.checkRead(n, asked, "TAR", name)
+            out.write(buffer, 0, n)
             remaining -= n
         }
         val padding = ((512 - (size and 511)) and 511).toInt()
-        if (padding > 0) sink.write(ByteArray(padding), 0, padding)
+        if (padding > 0) out.write(ByteArray(padding), 0, padding)
     }
 
     /**
@@ -56,19 +68,22 @@ public class TarStreamWriter(private val sink: ByteSink) {
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun putDirectory(name: String, mode: Int = 0x1ED, modificationTime: Long = 0) {
+    public fun putDirectory(name: String, mode: Int = 0x1ED, modificationTime: Long = 0): Unit = failure.guardedWrite {
         check(!finished) { "the TAR stream is finished" }
         require(mode in 0..0xFFF) { "TAR: mode must contain only Unix permission bits" }
         val header = TarWriter.headerRecords(if (name.endsWith('/')) name else "$name/", isDirectory = true, 0, mode, 0, 0, modificationTime)
-        sink.write(header, 0, header.size)
+        out.write(header, 0, header.size)
     }
 
-    /** Write the two zero records that end the archive. Later calls do nothing. */
+    /**
+     * Write the two zero records that end the archive. Later calls do nothing once they were
+     * written, and rethrow the failure if writing them, or an earlier call, failed.
+     */
     @Throws(ArchiveException::class)
-    public fun finish() {
-        if (finished) return
+    public fun finish(): Unit = failure.guardedWrite {
+        if (finished) return@guardedWrite
         finished = true
-        sink.write(ByteArray(1024), 0, 1024)
+        out.write(ByteArray(1024), 0, 1024)
     }
 }
 
@@ -79,6 +94,13 @@ public class TarStreamWriter(private val sink: ByteSink) {
  * paths, link paths, sizes and times. Sparse members are refused with
  * [ArchiveUnsupportedException]; [TarReader] reads them from a seekable source. Names are
  * checked as [ArchiveLimits.rejectUnsafeNames] says. Not thread-safe.
+ *
+ * The reader is fail-stop: once [next], [read] or a [data] source throws, the reader is
+ * failed and every later call to them rethrows that same exception. It reads forward and
+ * cannot rewind, so after a refused or damaged entry it cannot tell where the next header
+ * starts. A refused name or sparse member is such a failure too; to list past unsafe names,
+ * turn [ArchiveLimits.rejectUnsafeNames] off and check each [ArchiveEntry.name] yourself,
+ * with [io.github.yuroyami.archivekodec.security.PathGuard] for example.
  *
  * Decoders write to a [ByteSink] rather than offer a source, so for a `.tar.gz` and the like,
  * decode into a [TarStreamSink] instead.
@@ -98,9 +120,11 @@ public class TarStreamReader @JvmOverloads public constructor(
         private set
 
     private val headers = TarHeaderState(limits, nameDecoder)
+    private val failure = FailStop()
 
     /**
-     * Move to the next entry and return it, or null at the end of the archive.
+     * Move to the next entry and return it, or null at the end of the archive. After any
+     * exception the reader is failed and later calls rethrow it.
      *
      * @throws ArchiveFormatException for a damaged or truncated header.
      * @throws ArchiveUnsupportedException for a sparse member.
@@ -108,7 +132,9 @@ public class TarStreamReader @JvmOverloads public constructor(
      * @throws DecompressionBombException past [ArchiveLimits.maxEntries].
      */
     @Throws(ArchiveException::class)
-    public fun next(): ArchiveEntry? {
+    public fun next(): ArchiveEntry? = failure.guarded { nextEntry() }
+
+    private fun nextEntry(): ArchiveEntry? {
         skip(remaining + padding)
         remaining = 0
         padding = 0
@@ -141,12 +167,13 @@ public class TarStreamReader @JvmOverloads public constructor(
 
     /**
      * Stream the current entry's data, or the part not read yet, to [sink]; return the bytes
-     * written. [limits] bound the entry's size.
+     * written. [limits] bound the entry's size. After any exception the reader is failed and
+     * later calls rethrow it.
      * @throws ArchiveException for a truncated archive or a sink failure.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long {
+    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long = failure.guarded {
         val entry = current ?: throw IllegalStateException("no current entry; call next() first")
         limits.checkOutputSize(remaining)
         var written = 0L
@@ -158,11 +185,20 @@ public class TarStreamReader @JvmOverloads public constructor(
             remaining -= n
             written += n
         }
-        return written
+        written
     }
 
-    /** The current entry's data as a source, for a decoder or another writer. */
+    /**
+     * The current entry's data as a source, for a decoder or another writer. A failure of the
+     * source fails the reader, as one of [read] does. Like [read], it refuses an entry larger
+     * than the reader's [ArchiveLimits.maxUncompressedBytes].
+     */
     public fun data(): ByteSource = ByteSource { into, offset, length ->
+        // The same size rule as read: what is left of the entry must fit this reader's limits.
+        failure.guarded { limits.checkOutputSize(remaining); dataRead(into, offset, length) }
+    }
+
+    private fun dataRead(into: ByteArray, offset: Int, length: Int): Int =
         when {
             current == null -> throw IllegalStateException("no current entry; call next() first")
             remaining == 0L -> -1
@@ -175,7 +211,6 @@ public class TarStreamReader @JvmOverloads public constructor(
                 n
             }
         }
-    }
 
     private fun skip(count: Long) {
         var left = count
@@ -303,8 +338,10 @@ internal class TarHeaderState(private val limits: ArchiveLimits, private val nam
         return bytes.copyOf(end)
     }
 
-    private companion object {
-        const val BLOCK = 512
+    companion object {
+        private const val BLOCK = 512
+
+        /** The largest GNU long name or link, or pax record, read into memory: 1 MiB. TarReader caps L and K records with it too. */
         const val MAX_METADATA = 1L shl 20
     }
 }
@@ -327,10 +364,16 @@ public interface TarStreamVisitor {
  * and its data as they arrive. Memory stays near one header and the metadata records, whatever
  * the archive's size. Call [finish] after the last byte, to check that the archive was complete.
  * It reads what [TarStreamReader] reads and refuses the same. Not thread-safe.
+ *
+ * Like [TarStreamReader], the sink is fail-stop: once [write] or [finish] throws, including
+ * for an exception from the [visitor], the sink is failed and every later [write] or [finish]
+ * rethrows that same exception, since it cannot tell where the next header starts. To list
+ * past unsafe names, turn [ArchiveLimits.rejectUnsafeNames] off and check each
+ * [ArchiveEntry.name] in [TarStreamVisitor.onEntry] yourself.
  */
 public class TarStreamSink @JvmOverloads public constructor(
     private val visitor: TarStreamVisitor,
-    limits: ArchiveLimits = ArchiveLimits.DEFAULT,
+    private val limits: ArchiveLimits = ArchiveLimits.DEFAULT,
     nameDecoder: ArchiveNameDecoder = ArchiveNameDecoder.UTF8,
 ) : ByteSink {
     private val headers = TarHeaderState(limits, nameDecoder)
@@ -345,8 +388,11 @@ public class TarStreamSink @JvmOverloads public constructor(
     private var skip = 0L
     private var position = 0L
     private var ended = false
+    private val failure = FailStop()
 
-    override fun write(bytes: ByteArray, offset: Int, length: Int) {
+    override fun write(bytes: ByteArray, offset: Int, length: Int): Unit = failure.guarded { push(bytes, offset, length) }
+
+    private fun push(bytes: ByteArray, offset: Int, length: Int) {
         var at = offset
         val end = offset + length
         while (at < end) {
@@ -397,6 +443,8 @@ public class TarStreamSink @JvmOverloads public constructor(
             }
             is TarHeaderState.Step.Skip -> skip = step.bytes
             is TarHeaderState.Step.Entry -> {
+                // An entry's data must fit the limits, as for TarStreamReader.read.
+                limits.checkOutputSize(step.dataSize)
                 entry = step.entry
                 visitor.onEntry(step.entry)
                 data = step.dataSize
@@ -407,10 +455,10 @@ public class TarStreamSink @JvmOverloads public constructor(
 
     /**
      * Check that the archive ended cleanly: no entry, record or header was cut short.
-     * @throws ArchiveFormatException for a truncated archive.
+     * @throws ArchiveFormatException for a truncated archive, or the failure that stopped the sink.
      */
     @Throws(ArchiveException::class)
-    public fun finish() {
+    public fun finish(): Unit = failure.guarded {
         if (data > 0) throw ArchiveFormatException("TAR: '${entry?.name}' is truncated", position, entry?.name)
         if (!ended && (headerFill != 0 || metadata != null || skip > 0)) throw ArchiveFormatException("TAR: archive is truncated", position)
     }

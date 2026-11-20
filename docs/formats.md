@@ -43,7 +43,7 @@ supplied LZ4 dictionaries.
 | CAB | Stored, MSZIP and LZX folders, each decoded once | No |
 | WIM | Uncompressed, XPRESS and LZX, deduplicated resources with SHA-1 checks, several images as `1/`, `2/` | No |
 | SquashFS 4.0 | gzip, LZMA, LZO, xz with any branch filter but RISC-V, LZ4 and zstd, fragments, sparse blocks, symbolic links read as their target, devices and FIFOs listed | No |
-| RAR4 and RAR5 | Stored members of both; RAR 2.9 compressed members (RAR 3.x and 4.x: LZ77, PPMd and filters, including RAR's virtual machine); RAR5 compressed members (all methods, delta, x86 and ARM filters); solid archives; CRC checks | No |
+| RAR4 and RAR5 | Stored members of both; RAR 2.9 compressed members (RAR 3.x and 4.x: LZ77, PPMd and filters, including RAR's virtual machine); RAR5 compressed members (all methods, delta, x86 and ARM filters); solid RAR5 archives, and solid RAR4 archives, which are not yet tested against archives that RAR wrote; CRC checks | No |
 
 Refused on read:
 
@@ -111,10 +111,14 @@ Sniffing does not close the source. `open` adds the ZIP footer search for an unk
   archive can end without its two zero blocks, and an empty source is an empty archive.
 - pax `x` records apply to the next member and `g` records to every later member. `path`,
   `size` and `mtime` replace the ustar fields, and names are UTF-8 unless
-  `hdrcharset=BINARY`. A pax header above 16 MiB is refused.
+  `hdrcharset=BINARY`. `TarReader` refuses a pax header above 16 MiB with
+  `ArchiveUnsupportedException`, and a GNU long name or long link record above 1 MiB with
+  `ArchiveFormatException`. `TarStreamReader` and `TarStreamSink` refuse any of these records
+  above 1 MiB with `ArchiveFormatException`.
 - Sparse members (GNU `S`, and pax GNU sparse 0.0, 0.1 and 1.0) list their full `size`, with
   `compressedSize` for the stored bytes, and read with zero-filled holes. Holes count toward
-  `maxUncompressedBytes` but not toward the ratio.
+  `maxUncompressedBytes`. For the ratio, a sparse member's full size is measured against the
+  larger of its stored bytes and the whole archive's size.
 
 ### cpio
 

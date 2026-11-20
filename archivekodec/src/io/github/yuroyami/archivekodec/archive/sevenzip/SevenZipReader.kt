@@ -157,6 +157,10 @@ public class SevenZipReader(
             }
             val out = bytes.copyOfRange(location.offset.toInt(), (location.offset + listed.size).toInt())
             if (location.crc != null && Crc32.of(out) != location.crc) {
+                // 7z AES has no authentication: in an encrypted folder a wrong password shows up here.
+                if (folder.coders.any { it.method == AES }) {
+                    throw ArchivePasswordException("7z: wrong password or corrupt data", entryName = listed.name)
+                }
                 throw ArchiveFormatException("7z: file CRC-32 mismatch", entryName = listed.name)
             }
             out
@@ -463,7 +467,12 @@ public class SevenZipReader(
                     for (i in folders.indices) unpackStreams[i] = count()
                     id = byte()
                 }
-                val totalStreams = unpackStreams.sum()
+                // Each count alone is bounded by the header, but their sum is not: bound it
+                // before allocating. Every substream is a file the header must still name.
+                val declared = unpackStreams.fold(0L) { total, n -> total + n }
+                if (declared > bytes.size - pos) fail("$declared substreams exceed what the header can describe")
+                limits.checkEntryCount(declared.toInt())
+                val totalStreams = declared.toInt()
                 substreamSizes = LongArray(totalStreams)
                 var k = 0
                 val hasSizes = id == SIZE

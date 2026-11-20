@@ -12,8 +12,10 @@ import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.issuedBy
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
@@ -36,7 +38,8 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * 3.x and 4.x write: LZ77 and PPMd blocks, and filters, run natively or in RAR's virtual
  * machine) and RAR5 compressed members (including the delta, x86 and ARM filters) are read and
  * checked against their CRC-32, solid archives too; a solid member decodes the members before
- * it, and reading in listing order decodes each once. RAR 1.5 and 2.0 compression, RAR 7
+ * it, and reading in listing order decodes each once. Solid RAR4 archives are not yet tested
+ * against archives that RAR wrote. RAR 1.5 and 2.0 compression, RAR 7
  * compression with dictionaries over 4 GB,
  * encrypted members and members split across volumes are listed but refused on read with an
  * [ArchiveUnsupportedException] that names the reason, as are archives whose headers are
@@ -122,7 +125,7 @@ public class RarReader(
                 else -> {
                     limits.checkOutputSize(item.packed)
                     limits.checkRatio(item.packed, item.packed)
-                    val data = source.readFullyChecked(item.dataOffset, item.packed)
+                    val data = source.readEntryChecked(item.dataOffset, item.packed)
                     if (item.crc != null && Crc32.of(data) != item.crc) throw ArchiveFormatException("RAR: CRC-32 mismatch", item.dataOffset)
                     data
                 }
@@ -153,11 +156,15 @@ public class RarReader(
             }
         }
         val current = unpacker
-        // A kept window is reused only while this call's limits would allow it too.
-        val resume = current != null && unpackerStart == start && unpackerLast < index && unpackerWindow <= limits.maxDecoderMemory
+        // A kept window is reused only while this call's limits would allow it too: its window,
+        // and for RAR 2.9 the PPMd model it already holds. A resumed RAR 2.9 unpacker then
+        // answers to this call's limit for any model a later block starts.
+        val resume = current != null && unpackerStart == start && unpackerLast < index && unpackerWindow <= limits.maxDecoderMemory &&
+            (current !is Rar29Unpacker || current.ppmdMemory <= limits.maxDecoderMemory)
+        if (resume && current is Rar29Unpacker) current.maxPpmdMemory = limits.maxDecoderMemory
         val target = items[index]
         limits.checkOutputSize(target.size)
-        if (target.size > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", target.dataOffset)
+        requireByteArraySize(target.size)
         val worker = if (resume) current!! else if (items[start].rar29) {
             // RAR 2.9 always uses a 4 MiB window; its PPMd model is checked when a block starts one.
             if (RAR29_WINDOW > limits.maxDecoderMemory) {
@@ -193,7 +200,8 @@ public class RarReader(
             for (j in first..index) {
                 val item = items[j]
                 if (item.compression < 0) continue
-                if (item.size > Int.MAX_VALUE || item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", item.dataOffset)
+                requireByteArraySize(item.size)
+                if (item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: packed data of ${item.packed} bytes is too large for a ByteArray", item.dataOffset)
                 // An empty RAR 2.9 member has no data and leaves the stream untouched, as RAR writes it.
                 if (item.rar29 && item.size == 0L) {
                     if (j == index) result = ByteArray(0)

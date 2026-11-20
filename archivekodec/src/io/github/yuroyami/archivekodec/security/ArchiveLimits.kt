@@ -55,9 +55,11 @@ public class ArchiveLimits private constructor(builder: Builder) {
 
     /**
      * Ceiling on memory a decoder allocates up front because the stream's header asks for
-     * it, in bytes, checked before allocating: the PPMd model, the RAR5 window, the bzip2
-     * block table (4 bytes per byte of block size, 3.6 MB at level 9) and an LZMA literal table
-     * whose lc + lp exceeds 4 (up to 6 MiB).
+     * it, in bytes, checked before allocating: the PPMd model (ZIP, 7z and RAR 2.9), the RAR
+     * 2.9 and RAR5 windows, the bzip2 block table (4 bytes per byte of block size, 3.6 MB at
+     * level 9), an LZMA literal table whose lc + lp exceeds 4 (up to 6 MiB), and the dictionary
+     * window of a streamed xz, lzip or `.lzma` decode and of a streamed zstd frame. HuffCdic
+     * also bounds the decoded phrases it keeps, in all, by this limit.
      * Default 256 MiB, which covers every ZIP PPMd stream and 7-Zip's settings up to -mx9.
      */
     public val maxDecoderMemory: Long = builder.maxDecoderMemory

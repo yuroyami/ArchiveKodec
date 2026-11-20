@@ -17,7 +17,17 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
  * at an end-of-file marker, after which the stream says whether the next member starts with new
  * codes.
  */
-internal class Rar29Unpacker(private val maxPpmdMemory: Long) : RarDecoder {
+internal class Rar29Unpacker(
+    /**
+     * The largest PPMd model a block may start, in bytes. A caller resuming a solid stream sets
+     * it to the limit of the call that resumes, so a later block answers to that call's limit.
+     */
+    var maxPpmdMemory: Long,
+) : RarDecoder {
+    /** Bytes of the PPMd model allocated now, or 0 before any PPMd block started one. */
+    var ppmdMemory: Long = 0
+        private set
+
     private val window = ByteArray(WINDOW)
     private var position = 0L // bytes decoded into the window
 
@@ -337,6 +347,7 @@ internal class Rar29Unpacker(private val maxPpmdMemory: Long) : RarDecoder {
                     throw DecompressionBombException("RAR: a $bytes B PPMd model exceeds the decoder memory limit $maxPpmdMemory B")
                 }
                 ppmd = Ppmd7(bytes.toInt(), order)
+                ppmdMemory = bytes
             } else if (ppmd == null) fail("PPMd block continues a model that was never started")
             ppmCoder = RangeDecoderRar { byte() }
             return

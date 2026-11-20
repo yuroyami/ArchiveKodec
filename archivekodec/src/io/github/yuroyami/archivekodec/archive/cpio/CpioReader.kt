@@ -3,6 +3,8 @@ package io.github.yuroyami.archivekodec.archive.cpio
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
@@ -99,12 +101,10 @@ public class CpioReader private constructor(
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
-        if (entry.size > Int.MAX_VALUE) {
-            throw ArchiveFormatException("cpio: range of ${entry.size} bytes cannot fit in a ByteArray", entry.dataOffset)
-        }
+        requireByteArraySize(entry.size)
         val payload = group.payload
         val bytes = if (entry.isDirectory || entry.size == 0L) ByteArray(0)
-            else source.readFullyChecked(payload.entry.dataOffset, payload.storedSize)
+            else source.readEntryChecked(payload.entry.dataOffset, payload.storedSize)
         var buffer: ByteArray? = null
         for (record in group.records) {
             if (record.checksum == null) continue

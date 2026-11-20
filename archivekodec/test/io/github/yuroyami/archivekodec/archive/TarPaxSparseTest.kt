@@ -100,10 +100,51 @@ class TarPaxSparseTest {
                 assertFailsWith<DecompressionBombException>(dialect) {
                     reader.read(entry, ArchiveLimits { maxUncompressedBytes = 1000 })
                 }
-                // The ratio limit sees only stored bytes, so a 128:1 sparse file passes a 2:1 ratio.
-                assertContentEquals(expected, reader.read(entry, ArchiveLimits { maxCompressionRatio = 2 }), dialect)
+                // Holes cost no input, so the ratio is measured against the whole archive: this
+                // 128:1 sparse file passes a ratio of its size over the archive's, and no less.
+                val ratio = (((1L shl 20) + bytes.size - 1) / bytes.size).toInt()
+                assertTrue(ratio < 128, dialect)
+                assertContentEquals(expected, reader.read(entry, ArchiveLimits { maxCompressionRatio = ratio }), dialect)
+                assertFailsWith<DecompressionBombException>(dialect) {
+                    reader.read(entry, ArchiveLimits { maxCompressionRatio = ratio - 1 })
+                }
             }
         }
+    }
+
+    @Test
+    fun aFullySparseMemberIsMeasuredAgainstTheWholeArchive() {
+        // A GNU `S` member that stores nothing and expands to 16 MiB, in a 1.5 KB archive: past 10,000:1.
+        val realSize = 16L shl 20
+        val h = header("holes", 'S', 0)
+        realSize.toString(8).padStart(11, '0').encodeToByteArray().copyInto(h, 483)
+        h.fill(32, 148, 156)
+        (h.sumOf { it.toInt() and 0xFF }.toString(8).padStart(6, '0') + "\u0000 ").encodeToByteArray().copyInto(h, 148)
+        val bytes = h + ByteArray(1024)
+        reader(bytes).use { reader ->
+            val entry = reader.entries().single()
+            assertEquals(realSize, entry.size)
+            assertEquals(0L, entry.compressedSize)
+            assertFailsWith<DecompressionBombException> { reader.read(entry) }
+            val ratio = ((realSize + bytes.size - 1) / bytes.size).toInt()
+            assertFailsWith<DecompressionBombException> { reader.read(entry, ArchiveLimits { maxCompressionRatio = ratio - 1 }) }
+            assertEquals(realSize.toInt(), reader.read(entry, ArchiveLimits { maxCompressionRatio = ratio }).size)
+        }
+    }
+
+    @Test
+    fun aGnuLongNameAboveOneMebibyteIsRefusedAtListing() {
+        // A 2 MiB `L` record, all of it present, naming the member after it.
+        val name = ByteArray(2 shl 20) { 'a'.code.toByte() }
+        val bytes = header("././@LongLink", 'L', name.size + 1) + pad(name + 0) +
+            header("short", '0', 5) + pad("hello".encodeToByteArray()) + ByteArray(1024)
+        val error = assertFailsWith<ArchiveFormatException> { reader(bytes).use { it.entries() } }
+        assertTrue("larger than" in error.message!!, error.message)
+        // One within the cap still names its member.
+        val long = "d/" + "n".repeat(300)
+        val ok = header("././@LongLink", 'L', long.length + 1) + pad(long.encodeToByteArray() + 0) +
+            header("short", '0', 5) + pad("hello".encodeToByteArray()) + ByteArray(1024)
+        assertEquals(listOf(long), reader(ok).use { it.entries().map { e -> e.name } })
     }
 
     /** A ustar member preceded by an `x` header with [records]. */

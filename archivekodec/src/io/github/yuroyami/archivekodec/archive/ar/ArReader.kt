@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec.archive.ar
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
@@ -93,7 +94,7 @@ public class ArReader(
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
-        return@withEntryContext source.readFullyChecked(entry.dataOffset, entry.size)
+        return@withEntryContext source.readEntryChecked(entry.dataOffset, entry.size)
     }
 
     private fun parse(external: MutableList<Boolean>): List<ArchiveEntry> {

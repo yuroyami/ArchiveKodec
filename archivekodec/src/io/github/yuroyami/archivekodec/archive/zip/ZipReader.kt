@@ -15,6 +15,7 @@ import io.github.yuroyami.archivekodec.archive.CrcPolicy
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.readFullyInto
@@ -479,7 +480,8 @@ public class ZipReader(
             }
             password
         } else null
-        val stored = source.readFullyChecked(dataStart, entry.compressedSize)
+        // A stored entry's data is the result itself; too large for an array is a size error.
+        val stored = if (method == 0) source.readEntryChecked(dataStart, entry.compressedSize) else source.readFullyChecked(dataStart, entry.compressedSize)
         val comp = if (password != null) decrypt(member, lh, stored, dataStart, password) else stored
         if (method == 0 && comp.size.toLong() != entry.size) {
             throw ArchiveFormatException("ZIP: stored compressed size ${comp.size} differs from output size ${entry.size}", dataStart, entry.name)

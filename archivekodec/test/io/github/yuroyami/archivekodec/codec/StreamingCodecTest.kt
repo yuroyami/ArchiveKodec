@@ -133,6 +133,28 @@ class StreamingCodecTest {
     }
 
     @Test
+    fun theFinalFlushOfAStreamedInflateAnswersToTheRatio() {
+        // 500 KB of zeros never fills the 1 MiB output buffer, so all of it goes out in the
+        // final flush; it is still measured against the compressed bytes, about 1000:1.
+        val zeros = ByteArray(500_000)
+        for (codec in listOf(Codecs.DEFLATE, Codecs.ZLIB, Codecs.GZIP)) {
+            val stream = codec.compress(zeros)
+            val sink = Collector()
+            assertFailsWith<DecompressionBombException>(codec.id.toString()) {
+                codec.decompress(ByteSource.of(stream), sink, ArchiveLimits { maxCompressionRatio = 100 })
+            }
+            assertEquals(0, sink.out.size, codec.id.toString())
+            assertContentEquals(zeros, decode(codec, stream, 4096, ArchiveLimits { maxCompressionRatio = 2000 }), codec.id.toString())
+        }
+        // Across gzip members the ratio still counts from the start of the stream: a little over
+        // the whole stream's ratio passes, though the second member alone is twice as dense.
+        val twice = Codecs.GZIP.compress(zeros) + Codecs.GZIP.compress(zeros)
+        val ratio = 2 * zeros.size / twice.size
+        assertContentEquals(zeros + zeros, decode(Codecs.GZIP, twice, 4096, ArchiveLimits { maxCompressionRatio = ratio + ratio / 10 }))
+        assertFailsWith<DecompressionBombException> { decode(Codecs.GZIP, twice, 4096, ArchiveLimits { maxCompressionRatio = ratio / 2 }) }
+    }
+
+    @Test
     fun otherCodecsUseTheBufferingDefaults() {
         val input = data(50_000, 6)
         for (codec in listOf(Codecs.BROTLI, Codecs.COMPRESS, Codecs.LZOP)) {

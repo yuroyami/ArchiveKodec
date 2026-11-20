@@ -553,6 +553,56 @@ class IsoReaderTest {
         }
     }
 
+    /** The plain image with BIG.BIN claiming [length] bytes, in both byte orders. */
+    private fun claiming(length: Long): ByteArray {
+        val iso = image(plainGz)
+        val name = "BIG.BIN".encodeToByteArray()
+        var patched = 0
+        for (at in 33 until iso.size - name.size) {
+            if (iso[at - 1].toInt() != name.size + 2 || !name.indices.all { iso[at + it] == name[it] }) continue
+            for (i in 0 until 4) {
+                iso[at - 33 + 10 + i] = (length ushr (8 * i)).toByte()
+                iso[at - 33 + 17 - i] = (length ushr (8 * i)).toByte()
+            }
+            patched++
+        }
+        assertEquals(1, patched)
+        return iso
+    }
+
+    @Test
+    fun aFileOfTwoGibibytesIsASizeError() {
+        // 2^31 bytes pass the default 2 GiB output limit, but no ByteArray holds them.
+        IsoReader(ByteArrayRandomAccessSource(claiming(1L shl 31))).use { reader ->
+            val entry = reader.entries().single { it.name == "BIG.BIN" }
+            assertEquals(1L shl 31, entry.size)
+            assertFailsWith<io.github.yuroyami.archivekodec.ArchiveSizeException> { reader.read(entry) }
+        }
+    }
+
+    @Test
+    fun aFileLargerThanTheImageIsRefusedBeforeItsOutputIsAllocated() {
+        // Claim 0x7FFFFFFF bytes (2 GiB - 1, more than any JVM array holds) for BIG.BIN: both byte orders.
+        val iso = image(plainGz)
+        val name = "BIG.BIN".encodeToByteArray()
+        var patched = 0
+        for (at in 33 until iso.size - name.size) {
+            if (iso[at - 1].toInt() != name.size + 2 || !name.indices.all { iso[at + it] == name[it] }) continue
+            val record = at - 33
+            for (i in 0 until 4) {
+                iso[record + 10 + i] = (0x7FFFFFFF ushr (8 * i)).toByte()
+                iso[record + 17 - i] = (0x7FFFFFFF ushr (8 * i)).toByte()
+            }
+            patched++
+        }
+        assertEquals(1, patched)
+        IsoReader(ByteArrayRandomAccessSource(iso)).use { reader ->
+            val entry = reader.entries().single { it.name == "BIG.BIN" }
+            assertEquals(0x7FFFFFFFL, entry.size)
+            assertFailsWith<ArchiveFormatException> { reader.read(entry) }
+        }
+    }
+
     @Test
     fun malformedImagesAndLimits() {
         val iso = image(rockGz)

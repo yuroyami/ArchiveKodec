@@ -503,6 +503,82 @@ class RarReaderTest {
         return byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00) + block(file) + block(end)
     }
 
+    /** RAR 2.9 bits, most significant first. */
+    private class Bits {
+        private val out = ArrayList<Byte>()
+        private var acc = 0
+        private var count = 0
+        fun put(value: Int, bits: Int) {
+            for (i in bits - 1 downTo 0) {
+                acc = (acc shl 1) or ((value ushr i) and 1)
+                if (++count == 8) { out.add(acc.toByte()); acc = 0; count = 0 }
+            }
+        }
+        /** The bytes, the last one padded with ones, which no code here starts with. */
+        fun bytes(): ByteArray { while (count != 0) put(1, 1); return out.toByteArray() }
+    }
+
+    /** A RAR 1.5-4.x archive of RAR 2.9 compressed files: name, packed data, then the content and whether it is solid. */
+    private fun rar4(vararg files: Triple<String, ByteArray, Pair<ByteArray, Boolean>>): ByteArray {
+        fun block(bytes: ByteArray): ByteArray {
+            val crc = Crc32().apply { update(bytes, 2, bytes.size - 2) }.value()
+            bytes[0] = crc.toByte(); bytes[1] = (crc ushr 8).toByte()
+            return bytes
+        }
+        fun put(into: ByteArray, at: Int, value: Long, bytes: Int) { for (i in 0 until bytes) into[at + i] = (value ushr (8 * i)).toByte() }
+        var out = byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00)
+        out += block(ByteArray(13).also { it[2] = 0x73; put(it, 5, 13, 2) })
+        for ((name, packed, original) in files) {
+            val (content, solid) = original
+            val nameBytes = name.encodeToByteArray()
+            val h = ByteArray(32 + nameBytes.size)
+            h[2] = 0x74
+            put(h, 3, 0x8000L or (if (solid) 0x10L else 0L), 2)
+            put(h, 5, h.size.toLong(), 2)
+            put(h, 7, packed.size.toLong(), 4)
+            put(h, 11, content.size.toLong(), 4)
+            h[15] = 3 // Unix
+            put(h, 16, Crc32.of(content), 4)
+            h[24] = 29
+            h[25] = 0x33
+            put(h, 26, nameBytes.size.toLong(), 2)
+            put(h, 28, 0x81A4, 4)
+            nameBytes.copyInto(h, 32)
+            out += block(h) + packed
+        }
+        return out
+    }
+
+    @Test
+    fun aResumedRar29StreamAnswersToTheResumingCallsPpmdLimit() {
+        // The first member: an LZ block whose only code is the literal 'A', length 1.
+        val lz = Bits()
+        lz.put(0, 1); lz.put(0, 1) // not PPMd; reset the lengths
+        // Precode lengths: symbols 1 and 19 (a run of zeros) of length 1, the rest 0.
+        lz.put(0, 4); lz.put(1, 4); lz.put(15, 4); lz.put(15, 4); lz.put(1, 4)
+        // Table lengths: 65 zeros, 1 for 'A', then 338 zeros. Precode: 1 is "0", 19 is "1".
+        lz.put(1, 1); lz.put(65 - 11, 7)
+        lz.put(0, 1)
+        lz.put(1, 1); lz.put(127, 7); lz.put(1, 1); lz.put(127, 7); lz.put(1, 1); lz.put(62 - 11, 7)
+        repeat(8) { lz.put(0, 1) } // eight 'A's; the data then ends, so the next member starts new codes
+        val first = "AAAAAAAA".encodeToByteArray()
+        // The second member starts a PPMd block (order 6) asking for an 8 MiB model.
+        val ppmd = byteArrayOf(0xA5.toByte(), 7) + ByteArray(16)
+        val archive = rar4(
+            Triple("a.txt", lz.bytes(), first to false),
+            Triple("b.txt", ppmd, ByteArray(10) to true),
+        )
+        val tight = ArchiveLimits { maxDecoderMemory = 5L shl 20 }
+        reader(archive).use { reader ->
+            val (a, b) = reader.entries()
+            assertContentEquals(first, reader.read(a))
+            // Resuming the stream that the default 256 MiB limit started still refuses the model.
+            assertFailsWith<DecompressionBombException> { reader.read(b, tight) }
+        }
+        // As a fresh read does.
+        reader(archive).use { reader -> assertFailsWith<DecompressionBombException> { reader.read(reader.entries()[1], tight) } }
+    }
+
     @Test
     fun aCompressedMemberWithoutDataIsCheckedBeforeItsOutputIsAllocated() {
         reader(rar5WithoutData(100_000_000)).use { reader ->

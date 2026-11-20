@@ -376,7 +376,10 @@ public object Inflate {
                 }
             } while (last == 0)
         } finally {
-            output.compressedProgress = null
+            // Freeze the count rather than drop it: the output's final flush, up to the last
+            // window of output, is still measured against the bytes this stream consumed.
+            val consumed = s.streamOffset - origin
+            output.compressedProgress = { consumed }
         }
         s.release()
         return s.streamOffset
@@ -403,7 +406,8 @@ public object Inflate {
 
         /**
          * For streamed input, the compressed bytes consumed so far, which the ratio limit is
-         * measured against instead of [compressedBytes], since the total is not known yet.
+         * measured against instead of [compressedBytes], since the total is not known yet. Once
+         * a stream ends it holds that stream's final count, for [finish].
          */
         var compressedProgress: (() -> Long)? = null
 

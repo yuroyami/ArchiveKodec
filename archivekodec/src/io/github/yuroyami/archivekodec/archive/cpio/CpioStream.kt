@@ -5,6 +5,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.DuplicateNames
+import io.github.yuroyami.archivekodec.archive.FailStop
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.codec.ByteSource
@@ -18,12 +19,21 @@ import kotlin.jvm.JvmOverloads
  * never sit in memory whole: [CpioWriter.Dialect.NEWC] or [CpioWriter.Dialect.ODC], with the
  * same records as [CpioWriter] writes. [CpioWriter.Dialect.CRC] is not offered, because its
  * header holds a sum of the body, which a stream has not read yet. Not thread-safe.
+ *
+ * The writer is fail-stop: once a call has handed any byte to the sink and then fails, for a
+ * failure of the data source, the sink, or data of the wrong size, the archive in the sink is
+ * incomplete, and every later put or [finish] rethrows that same exception without writing. A
+ * failure before anything is written, such as a refused argument or name, leaves the writer
+ * usable. A source read that returns 0, or more than was asked, is refused with
+ * [ArchiveFormatException].
  */
 public class CpioStreamWriter @JvmOverloads public constructor(
     private val sink: ByteSink,
     private val dialect: CpioWriter.Dialect = CpioWriter.Dialect.NEWC,
 ) {
     private var finished = false
+    private val failure = FailStop()
+    private val out = failure.tracking(sink)
 
     init {
         require(dialect != CpioWriter.Dialect.CRC) { "cpio: the crc dialect needs each body's sum before the body; use CpioWriter" }
@@ -34,11 +44,11 @@ public class CpioStreamWriter @JvmOverloads public constructor(
      *
      * @throws ArchiveFormatException for an invalid name, a value an odc field cannot hold, or
      *   when [data] holds a different number of bytes than [size].
-     * @throws ArchiveException for a failure of [data] or the sink.
+     * @throws ArchiveException for a failure of [data] or the sink, or the failure that stopped the writer.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun putFile(name: String, size: Long, data: ByteSource, mode: Int = 0x81A4, modificationTime: Long = 0, uid: Long = 0, gid: Long = 0) {
+    public fun putFile(name: String, size: Long, data: ByteSource, mode: Int = 0x81A4, modificationTime: Long = 0, uid: Long = 0, gid: Long = 0): Unit = failure.guardedWrite {
         require(mode in 0..0xFFFF && (mode and 0xF000 == 0 || mode and 0xF000 == 0x8000)) { "cpio: mode must be permission bits or a regular file mode" }
         require(size in 0..0xFFFFFFFFL) { "cpio: size must fit an unsigned 32-bit field" }
         val buffer = ByteArray(minOf(size, 64L * 1024).toInt().coerceAtLeast(1))
@@ -47,8 +57,9 @@ public class CpioStreamWriter @JvmOverloads public constructor(
         while (true) {
             val n = data.read(buffer, 0, buffer.size)
             if (n < 0) break
+            FailStop.checkRead(n, buffer.size, "cpio", name)
             if (copied + n > size) throw ArchiveFormatException("cpio: '$name' holds more than its declared $size bytes", entryName = name)
-            sink.write(buffer, 0, n)
+            out.write(buffer, 0, n)
             copied += n
         }
         if (copied != size) throw ArchiveFormatException("cpio: '$name' holds $copied bytes, not its declared $size", entryName = name)
@@ -58,7 +69,7 @@ public class CpioStreamWriter @JvmOverloads public constructor(
     /** Write a directory. @throws ArchiveFormatException for an invalid name. */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun putDirectory(name: String, mode: Int = 0x1ED, modificationTime: Long = 0, uid: Long = 0, gid: Long = 0) {
+    public fun putDirectory(name: String, mode: Int = 0x1ED, modificationTime: Long = 0, uid: Long = 0, gid: Long = 0): Unit = failure.guardedWrite {
         require(mode in 0..0xFFF) { "cpio: mode must contain only permission bits" }
         record(name, mode or 0x4000, 0, modificationTime, uid, gid)
     }
@@ -66,21 +77,24 @@ public class CpioStreamWriter @JvmOverloads public constructor(
     /** Write a symbolic link to [target]. @throws ArchiveFormatException for an invalid name. */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun putSymbolicLink(name: String, target: String, modificationTime: Long = 0, uid: Long = 0, gid: Long = 0) {
+    public fun putSymbolicLink(name: String, target: String, modificationTime: Long = 0, uid: Long = 0, gid: Long = 0): Unit = failure.guardedWrite {
         val bytes = target.encodeToByteArray()
         require(bytes.isNotEmpty() && 0.toByte() !in bytes) { "cpio: a link target must be nonempty without NUL" }
         record(name, 0xA1FF, bytes.size.toLong(), modificationTime, uid, gid)
-        sink.write(bytes, 0, bytes.size)
+        out.write(bytes, 0, bytes.size)
         pad(bytes.size.toLong())
     }
 
-    /** Write the trailer that ends the archive. Later calls do nothing. */
+    /**
+     * Write the trailer that ends the archive. Later calls do nothing once it was written, and
+     * rethrow the failure if writing it, or an earlier call, failed.
+     */
     @Throws(ArchiveException::class)
-    public fun finish() {
-        if (finished) return
+    public fun finish(): Unit = failure.guardedWrite {
+        if (finished) return@guardedWrite
         finished = true
         val trailer = CpioWriter.trailer(dialect)
-        sink.write(trailer, 0, trailer.size)
+        out.write(trailer, 0, trailer.size)
     }
 
     private fun record(name: String, mode: Int, size: Long, modificationTime: Long, uid: Long, gid: Long) {
@@ -91,12 +105,12 @@ public class CpioStreamWriter @JvmOverloads public constructor(
         val encoded = CpioWriter.encodeName(name)
         val head = CpioWriter.recordHead(dialect, encoded,
             longArrayOf(0, mode.toLong(), uid, gid, 1, modificationTime, size, 0, 0, 0, 0, encoded.size + 1L, 0))
-        sink.write(head, 0, head.size)
+        out.write(head, 0, head.size)
     }
 
     private fun pad(size: Long) {
         val padding = CpioWriter.dataPadding(dialect, size)
-        if (padding > 0) sink.write(ByteArray(padding), 0, padding)
+        if (padding > 0) out.write(ByteArray(padding), 0, padding)
     }
 }
 
@@ -110,6 +124,13 @@ public class CpioStreamWriter @JvmOverloads public constructor(
  * group the group's data, but newc stores it with the last link, which a forward reader has
  * not reached at the earlier ones, so those read as empty here. Names are checked as
  * [ArchiveLimits.rejectUnsafeNames] says. Not thread-safe.
+ *
+ * The reader is fail-stop: once [next], [read] or a [data] source throws, the reader is
+ * failed and every later call to them rethrows that same exception. It reads forward and
+ * cannot rewind, so after a refused or damaged record it cannot tell where the next header
+ * starts. A refused name or a crc sum mismatch is such a failure too; to list past unsafe
+ * names, turn [ArchiveLimits.rejectUnsafeNames] off and check each [ArchiveEntry.name]
+ * yourself, with [PathGuard] for example.
  *
  * Decoders write to a [ByteSink] rather than offer a source, so a compressed archive must be
  * decoded first, to a file for example.
@@ -129,6 +150,7 @@ public class CpioStreamReader @JvmOverloads public constructor(
     private var sum = 0L
     private var sumOffset = 0L
     private val duplicates = if (limits.rejectDuplicateNames) DuplicateNames() else null
+    private val failure = FailStop()
 
     /** The entry [next] returned last, or null before the first and after the end. */
     public var current: ArchiveEntry? = null
@@ -136,13 +158,16 @@ public class CpioStreamReader @JvmOverloads public constructor(
 
     /**
      * Move to the next record and return it, or null at the trailer or the end of the input.
+     * After any exception the reader is failed and later calls rethrow it.
      *
      * @throws ArchiveFormatException for a damaged or truncated header, or a crc sum mismatch.
      * @throws io.github.yuroyami.archivekodec.security.ArchivePathException for an unsafe name, when the limits reject them.
      * @throws io.github.yuroyami.archivekodec.security.DecompressionBombException past [ArchiveLimits.maxEntries].
      */
     @Throws(ArchiveException::class)
-    public fun next(): ArchiveEntry? {
+    public fun next(): ArchiveEntry? = failure.guarded { nextRecord() }
+
+    private fun nextRecord(): ArchiveEntry? {
         consume(remaining, null)
         skip(padding)
         padding = 0
@@ -247,22 +272,33 @@ public class CpioStreamReader @JvmOverloads public constructor(
 
     /**
      * Stream the current record's data, or the part not read yet, to [sink]; return the bytes
-     * written. [limits] bound the record's size.
+     * written. [limits] bound the record's size. After any exception the reader is failed and
+     * later calls rethrow it.
      * @throws ArchiveException for a truncated archive, a crc sum mismatch or a sink failure.
      */
     @Throws(ArchiveException::class)
     @JvmOverloads
-    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long {
+    public fun read(sink: ByteSink, limits: ArchiveLimits = this.limits): Long = failure.guarded {
         val entry = current ?: throw IllegalStateException("no current entry; call next() first")
-        if (entry.isDirectory) return 0
-        limits.checkOutputSize(remaining)
-        return consume(remaining, sink)
+        if (entry.isDirectory) 0L else {
+            limits.checkOutputSize(remaining)
+            consume(remaining, sink)
+        }
     }
 
-    /** The current record's data as a source, for a decoder or another writer. */
+    /**
+     * The current record's data as a source, for a decoder or another writer. A failure of the
+     * source fails the reader, as one of [read] does. Like [read], it refuses an entry larger
+     * than the reader's [ArchiveLimits.maxUncompressedBytes].
+     */
     public fun data(): ByteSource = ByteSource { into, offset, length ->
+        // The same size rule as read: what is left of the entry must fit this reader's limits.
+        failure.guarded { limits.checkOutputSize(remaining); dataRead(into, offset, length) }
+    }
+
+    private fun dataRead(into: ByteArray, offset: Int, length: Int): Int {
         val entry = current ?: throw IllegalStateException("no current entry; call next() first")
-        if (remaining == 0L || entry.isDirectory) -1 else {
+        return if (remaining == 0L || entry.isDirectory) -1 else {
             val n = minOf(remaining, length.toLong()).toInt()
             var copied = 0
             consume(n.toLong()) { b, o, count -> b.copyInto(into, offset + copied, o, o + count); copied += count }

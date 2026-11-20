@@ -3,6 +3,8 @@ package io.github.yuroyami.archivekodec.archive.tar
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
@@ -33,7 +35,9 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * and `mtime` override the ustar fields (pax names are UTF-8 unless `hdrcharset` is
  * `BINARY`). Sparse members (GNU `S`, and pax GNU sparse 0.0, 0.1 and 1.0) list their
  * expanded size, with [ArchiveEntry.compressedSize] holding the stored bytes, and read
- * with zero-filled holes. Holes count toward the output limit but not the ratio limit.
+ * with zero-filled holes. Holes count toward the output limit; for the ratio limit, a sparse
+ * member's expanded size is measured against the larger of its stored bytes and the whole
+ * archive's size, so a small archive cannot expand to gigabytes of zeros.
  * Ustar prefixes require the complete `ustar\u0000` marker; old GNU/v7 tails are not paths.
  * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
  * Complete records may end without a trailer; nonempty partial headers are rejected.
@@ -102,13 +106,14 @@ public class TarReader(
     private fun readListed(entry: ArchiveEntry, sparse: SparseMap?, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
-        // Holes cost no input, so only the stored regions take part in the ratio check.
-        limits.checkRatio(entry.compressedSize, entry.compressedSize)
+        // Holes cost no input per byte, but a sparse member's output is measured against the
+        // larger of its stored bytes and the whole archive, so a small archive cannot claim
+        // gigabytes of zeros under the ratio limit. A member without holes reads 1:1.
+        if (sparse == null) limits.checkRatio(entry.compressedSize, entry.compressedSize)
+        else limits.checkRatio(maxOf(entry.compressedSize, source.size, 1L), entry.size)
         if (entry.isDirectory || entry.size == 0L) return@withEntryContext ByteArray(0)
-        if (sparse == null) return@withEntryContext source.readFullyChecked(entry.dataOffset, entry.size)
-        if (entry.size > Int.MAX_VALUE) {
-            throw ArchiveFormatException("TAR: sparse file of ${entry.size} bytes cannot fit in a ByteArray", entry.dataOffset)
-        }
+        if (sparse == null) return@withEntryContext source.readEntryChecked(entry.dataOffset, entry.size)
+        requireByteArraySize(entry.size)
         val out = ByteArray(entry.size.toInt())
         var stored = entry.dataOffset
         for (i in sparse.offsets.indices) {
@@ -178,6 +183,10 @@ public class TarReader(
                     extensions++
                 }
                 oldSparse = SparseMap.of(numeric(hdr, 483, 12, pos), offsets, lengths, size, pos)
+            }
+            // GNU long names and links are read whole; refuse a huge one before reading it.
+            if ((typeFlag == 'L' || typeFlag == 'K') && size > TarHeaderState.MAX_METADATA) {
+                throw ArchiveFormatException("TAR: a $size-byte $typeFlag record is larger than ${TarHeaderState.MAX_METADATA} bytes", pos)
             }
             val dataStart = pos + BLOCK * (1 + extensions)
             source.requireRange(dataStart, size)
