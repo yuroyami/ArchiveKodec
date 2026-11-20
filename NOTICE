@@ -27,7 +27,8 @@ The RAR container is read from RARLAB's published format description (technote),
 from UnRAR source, whose license forbids using it to build a RAR-compatible
 compressor; ArchiveKodec will never create RAR archives. RAR5 decompression was
 written without a recorded reference; reference/REFERENCES.md records what is known,
-and names libarchive's BSD-2 RAR4 reader as the only approved RAR4 reference. ACE / StuffIt are excluded:
+and records the approved RAR4 references: libarchive's BSD-2 reader, and XADMaster's
+RAR decoders, ported to Kotlin with the permission of their copyright holders. ACE / StuffIt are excluded:
 no clean open reference exists for them.
 
 Some test fixtures are third-party data, used unmodified: RAR test

@@ -72,6 +72,20 @@ Why later revisions are excluded:
 - **What that leaves out:** RAR4 filters (x86, delta, audio, RGB and Itanium) have no approved
   reference yet. Until they do, RAR4 members that use a filter are refused.
 
+### XADMaster's RAR decoders, ported with permission
+
+XADMaster, the library behind The Unarchiver (LGPL-2.1, Copyright 2017-present MacPaw Way Ltd.,
+originally written by Dag Ågren), is approved as the reference for the RAR 1.5, 2.0 and 2.9
+(RAR 3.x and 4.x) decompressors, including the filters, the RAR virtual machine and the audio
+filter. On 2026-11-20 the owner obtained permission from both Dag Ågren and MacPaw to port that
+code to Kotlin under Apache-2.0. Both waived credit, so the ported files carry this project's
+license only. This entry is the provenance record, kept as for every other source.
+
+The files are `XADRAR15Handle.m`, `XADRAR20Handle.m`, `XADRAR30Handle.m`, `XADRARFilters.m`,
+`RARVirtualMachine.c`, `XADRARVirtualMachine.m`, `RARAudioDecoder.c` and the RAR range coder
+of its PPMd variant H, at XADMaster commit `7cb9ee0` (2026-09-21). It is not kept under
+`reference/`; read it from a separate clone. libarchive's 2011 reader drew on the same code.
+
 ### RAR5 decompression
 
 `codec/rar/Rar5Unpacker.kt` (commit `23a034d`) was written in an earlier AI-assisted session,
