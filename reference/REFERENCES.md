@@ -76,9 +76,19 @@ Why later revisions are excluded:
 
 `codec/rar/Rar5Unpacker.kt` (commit `23a034d`) was written in an earlier AI-assisted session,
 and no reference was recorded for it. RARLAB's description covers the container, not the
-compression algorithm. A candidate reference is libarchive's
-`archive_read_support_format_rar5.c` (BSD-2, Copyright 2018 Grzegorz Antoniak); its history
-has not been checked yet. Until it is, the decoder's provenance is undocumented.
+compression algorithm. libarchive's RAR5 reader,
+`archive_read_support_format_rar5.c` (BSD-2, Copyright 2018 Grzegorz Antoniak), does **not**
+qualify as a reference. In its [pull request 1061](https://github.com/libarchive/libarchive/pull/1061)
+(September 2018) the author wrote that its block decompression "was written according to
+`libunrar`'s structures", and do not read it.
+
+The decoder's provenance therefore stays undocumented. It is kept, disclosed in `NOTICE`, for
+three reasons:
+- **It never writes RAR.** The UnRAR license forbids building a RAR-compatible archiver, and
+  ArchiveKodec only reads.
+- **It is checked against `unrar`.** It decodes byte for byte the same as `unrar x`.
+- **It can be left out.** In the approved module layout, RAR is its own artifact. A consumer
+  that needs a strict provenance policy leaves that artifact out.
 
 ## Refresh
 
