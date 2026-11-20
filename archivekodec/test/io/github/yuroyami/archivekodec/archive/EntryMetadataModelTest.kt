@@ -75,6 +75,16 @@ class EntryMetadataModelTest {
     }
 
     @Test
+    fun malformedOwnerFieldsReadAsAbsentInsteadOfFailingTheListing() {
+        // newc's uid field is the third: bytes 22 to 29 of the header.
+        val damaged = cpio.copyOf().also { "zzzzzzzz".encodeToByteArray().copyInto(it, 22) }
+        val f = CpioReader(ByteArrayRandomAccessSource(damaged)).use { it.entries().single() }
+        assertNull(f.uid)
+        assertEquals("f", f.name)
+        assertNull(CpioStreamReader(ByteSource.of(damaged)).next()!!.uid)
+    }
+
+    @Test
     fun timesConvertAndCompare() {
         // 1601-01-01 is FILETIME zero; one 100 ns tick after the Unix epoch.
         assertEquals(ArchiveTime(-11_644_473_600), ArchiveTime.fromFileTime(0))

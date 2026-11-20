@@ -180,7 +180,7 @@ public class CpioStreamReader @JvmOverloads public constructor(
         val size = field(6)
         val nameSize = field(11)
         val checksum = if (crc) field(12) else null
-        val owner = CpioOwner(field(2), field(3), field(9), field(10))
+        val owner = CpioOwner.lenient { CpioOwner(field(2), field(3), field(9), field(10)) }
         val name = name(pos + 110, nameSize)
         skip(align4(pos + 110 + nameSize) - (pos + 110 + nameSize))
         return start(name, pos + 110, size, mode, mtime, checksum, pos + 102, align4(size) - size, owner)
@@ -194,9 +194,9 @@ public class CpioStreamReader @JvmOverloads public constructor(
         val mtime = field(48, 11)
         val nameSize = field(59)
         val size = field(65, 11)
-        val rdev = field(42)
+        val owner = CpioOwner.lenient { field(42).let { rdev -> CpioOwner(field(24), field(30), rdev / 256, rdev % 256) } }
         val name = name(pos + 76, nameSize)
-        return start(name, pos + 76, size, mode, mtime, null, pos, 0, CpioOwner(field(24), field(30), rdev / 256, rdev % 256))
+        return start(name, pos + 76, size, mode, mtime, null, pos, 0, owner)
     }
 
     /** Old binary cpio: thirteen 16-bit words, name and body each padded to two bytes. */

@@ -579,7 +579,12 @@ public class SevenZipReader(
                     }
                     CREATED_TIME, ACCESSED_TIME, MODIFIED_TIME -> {
                         val defined = definedBits(count)
-                        if (byte() != 0) throw ArchiveUnsupportedException("7z: external times are not supported")
+                        // Creation and access times are informational: external ones are skipped, as before.
+                        if (byte() != 0) {
+                            if (type == MODIFIED_TIME) throw ArchiveUnsupportedException("7z: external times are not supported")
+                            pos = end.toInt()
+                            continue
+                        }
                         val times = Array(count) { if (defined[it]) ArchiveTime.fromFileTime(u64()) else null }
                         when (type) {
                             CREATED_TIME -> created = times

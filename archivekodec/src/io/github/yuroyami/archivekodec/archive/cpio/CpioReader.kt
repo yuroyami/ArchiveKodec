@@ -236,7 +236,7 @@ public class CpioReader private constructor(
         val minor = field(8)
         val nameSize = field(11)
         val checksum = if (crc) field(12) else null
-        val owner = CpioOwner(field(2), field(3), field(9), field(10))
+        val owner = CpioOwner.lenient { CpioOwner(field(2), field(3), field(9), field(10)) }
         val nameStart = pos + 110
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = align4(nameStart + nameSize)
@@ -261,8 +261,7 @@ public class CpioReader private constructor(
         val mtime = field(48, 11)
         val nameSize = field(59)
         val fileSize = field(65, 11)
-        val rdev = field(42)
-        val owner = CpioOwner(field(24), field(30), rdev / 256, rdev % 256)
+        val owner = CpioOwner.lenient { field(42).let { rdev -> CpioOwner(field(24), field(30), rdev / 256, rdev % 256) } }
         val nameStart = pos + 76
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = nameStart + nameSize
@@ -417,7 +416,12 @@ public class CpioReader private constructor(
 }
 
 /** The owner ids and device number of a cpio record; the device applies to device nodes only. */
-internal class CpioOwner(val uid: Long, val gid: Long, val rdevMajor: Long, val rdevMinor: Long) {
+internal class CpioOwner(val uid: Long?, val gid: Long?, val rdevMajor: Long?, val rdevMinor: Long?) {
+    companion object {
+        /** Owner fields are informational: a malformed one reads as absent instead of failing the listing. */
+        fun lenient(read: () -> CpioOwner): CpioOwner = try { read() } catch (_: ArchiveException) { CpioOwner(null, null, null, null) }
+    }
+
     fun applyTo(builder: ArchiveEntry.Builder, mode: Long) {
         builder.uid = uid
         builder.gid = gid

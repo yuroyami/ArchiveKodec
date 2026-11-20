@@ -279,9 +279,9 @@ public class SquashfsReader(
             }
             // A link count, then the device number, encoded as Linux's new_encode_dev does.
             BASIC_BLOCK_DEVICE, EXTENDED_BLOCK_DEVICE ->
-                Inode(OTHER, S_IFBLK or permissions, modified, uidIndex, gidIndex, rdev = readU32Le(stream.bytes(8), 4))
+                Inode(OTHER, S_IFBLK or permissions, modified, uidIndex, gidIndex, rdev = deviceNumber(stream))
             BASIC_CHAR_DEVICE, EXTENDED_CHAR_DEVICE ->
-                Inode(OTHER, S_IFCHR or permissions, modified, uidIndex, gidIndex, rdev = readU32Le(stream.bytes(8), 4))
+                Inode(OTHER, S_IFCHR or permissions, modified, uidIndex, gidIndex, rdev = deviceNumber(stream))
             BASIC_FIFO, EXTENDED_FIFO -> Inode(OTHER, S_IFIFO or permissions, modified, uidIndex, gidIndex)
             BASIC_SOCKET, EXTENDED_SOCKET -> Inode(OTHER, S_IFSOCK or permissions, modified, uidIndex, gidIndex)
             else -> fail("unknown inode type $type", inodeTable + block)
@@ -311,6 +311,9 @@ public class SquashfsReader(
         }.also { ids = it }
         return table.getOrNull(index)
     }
+
+    /** A device inode's number, after its link count; informational, so unreadable reads as absent. */
+    private fun deviceNumber(stream: MetadataStream): Long? = try { readU32Le(stream.bytes(8), 4) } catch (_: ArchiveException) { null }
 
     // ---- Directories ----
 
