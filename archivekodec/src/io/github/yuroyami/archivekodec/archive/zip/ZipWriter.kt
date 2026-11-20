@@ -219,7 +219,7 @@ public object ZipWriter {
     private const val UNIX_HOST = 3 shl 8
 
     /** Strict UTF-8 for a ZIP comment field. */
-    private fun encodeComment(comment: String, what: String): ByteArray {
+    internal fun encodeComment(comment: String, what: String): ByteArray {
         val bytes = try {
             comment.encodeToByteArray(throwOnInvalidSequence = true)
         } catch (error: CharacterCodingException) {
@@ -230,7 +230,7 @@ public object ZipWriter {
     }
 
     /** Info-ZIP extended timestamp (0x5455) holding only the modification time, or empty. */
-    private fun extendedTimestamp(epochSeconds: Long?): ByteArray {
+    internal fun extendedTimestamp(epochSeconds: Long?): ByteArray {
         if (epochSeconds == null || epochSeconds !in Int.MIN_VALUE..Int.MAX_VALUE) return ByteArray(0)
         val t = epochSeconds.toInt()
         return byteArrayOf(0x55, 0x54, 5, 0, 1, t.toByte(), (t shr 8).toByte(), (t shr 16).toByte(), (t shr 24).toByte())
@@ -247,9 +247,24 @@ public object ZipWriter {
         0x01, 0x99.toByte(), 7, 0, 2, 0, 'A'.code.toByte(), 'E'.code.toByte(), strength.toByte(), method.toByte(), (method ushr 8).toByte(),
     )
     private const val MAX_NAME_BYTES = 0xFFFF
+
+    /** DOS date in the high 16 bits and time in the low 16 bits; null gives 1980-01-01 00:00:00. */
+    internal fun dosDateTime(epochSeconds: Long?): Int = epochSeconds?.let(DosTime::fromEpochSeconds) ?: (DEFAULT_DOS_DATE shl 16)
+
+    /** Version made by: at least 4.5, with host 3 (Unix) when a mode is written. */
+    internal fun versionMadeBy(versionNeeded: Int, unixMode: Int?): Int {
+        val madeBy = maxOf(45, versionNeeded)
+        return if (unixMode == null) madeBy else UNIX_HOST or madeBy
+    }
+
+    /** st_mode in the high 16 bits; directories also carry the MS-DOS directory bit. */
+    internal fun externalAttributes(name: String, unixMode: Int?): Long {
+        val directoryBit = if (name.endsWith('/')) 0x10L else 0L
+        return if (unixMode == null) 0 else (unixMode.toLong() shl 16) or directoryBit
+    }
     private const val DEFAULT_DOS_DATE = 0x0021 // 1980-01-01
 
-    private fun encodeName(name: String): ByteArray {
+    internal fun encodeName(name: String): ByteArray {
         // UTF-8 needs at least one byte per valid UTF-16 code unit. Reject
         // names that cannot fit before allocating their encoded representation.
         if (name.length > MAX_NAME_BYTES) {
@@ -403,7 +418,7 @@ public object ZipWriter {
             val method = if (aes) AES_METHOD else f.method.code
             val flags = if (encrypt) UTF8_FLAG or ENCRYPTED_FLAG else UTF8_FLAG
             val versionNeeded = if (aes) 51 else 20
-            val dosDateTime = f.lastModifiedEpochSeconds?.let(DosTime::fromEpochSeconds) ?: (DEFAULT_DOS_DATE shl 16)
+            val dosDateTime = dosDateTime(f.lastModifiedEpochSeconds)
             val extra = extendedTimestamp(f.lastModifiedEpochSeconds) +
                 (if (aes) aesExtra(encryption!!.strength, f.method.code) else ByteArray(0))
             out.le32(ZipFormat.LOC)
@@ -427,8 +442,7 @@ public object ZipWriter {
             val mode = r.spec.unixMode
             val comment = r.spec.commentBytes ?: ByteArray(0)
             out.le32(ZipFormat.CEN)
-            val madeBy = maxOf(45, r.versionNeeded)
-            out.le16(if (mode == null) madeBy else UNIX_HOST or madeBy) // version made by, host 3 = Unix
+            out.le16(versionMadeBy(r.versionNeeded, mode))
             out.le16(r.versionNeeded)
             out.le16(r.flags)                  // UTF-8 name and comment, and encryption
             out.le16(r.method)
@@ -440,9 +454,7 @@ public object ZipWriter {
             out.le16(comment.size)
             out.le16(0)                        // disk start
             out.le16(0)                        // internal attrs
-            // st_mode in the high 16 bits; directories also carry the MS-DOS directory bit.
-            val directoryBit = if (r.spec.name.endsWith('/')) 0x10L else 0L
-            out.le32(if (mode == null) 0 else (mode.toLong() shl 16) or directoryBit)
+            out.le32(externalAttributes(r.spec.name, mode))
             out.le32(r.offset)
             out.append(r.nameBytes)
             out.append(r.extra)

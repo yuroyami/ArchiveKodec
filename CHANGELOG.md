@@ -5,6 +5,13 @@
 0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
 [#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
 
+- `ZipStreamWriter` writes a ZIP to a `ByteSink` entry by entry, reading each file from a
+  `ByteSource`, so the archive no longer has to fit in memory and can pass 4 GiB. Files get a
+  data descriptor, and ZIP64 fields where a size, an offset or the entry count needs them.
+  It takes the settings `ZipWriter.FileSpec` takes, except encryption, and writes the same
+  metadata; after a failure part-way through an entry or `finish`, every later call throws
+  that failure again. `ZipWriter`'s output is unchanged. A test writes and reads back a ZIP larger than
+  a 32 MiB JVM heap through that heap, and another an entry past 4 GiB.
 - RAR 2.9 decompression: the compressed members RAR 3.x and 4.x write now read, with LZ77 and
   PPMd blocks, solid archives, and filters, both RAR's standard ones and bytecode for its
   virtual machine, which runs under an instruction budget. Ported from XADMaster with the

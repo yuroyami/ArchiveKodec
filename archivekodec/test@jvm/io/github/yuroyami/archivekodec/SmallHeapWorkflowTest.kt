@@ -3,6 +3,7 @@ package io.github.yuroyami.archivekodec
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.zip.ZipReader
+import io.github.yuroyami.archivekodec.archive.zip.ZipStreamWriter
 import io.github.yuroyami.archivekodec.archive.tar.TarStreamSink
 import io.github.yuroyami.archivekodec.archive.tar.TarStreamVisitor
 import io.github.yuroyami.archivekodec.archive.tar.TarStreamWriter
@@ -36,6 +37,10 @@ class SmallHeapWorkflowTest {
     /** A ZIP entry whose compressed data alone is larger than the heap streams through it. */
     @Test
     fun aZipEntryLargerThanTheHeapIsReadInThirtyTwoMegabytes() = run("zip", 1, 112L shl 20)
+
+    /** ZipStreamWriter writes DEFLATE entries each larger than the heap; ZipReader reads them back. */
+    @Test
+    fun aZipLargerThanTheHeapIsWrittenAndReadInThirtyTwoMegabytes() = run("zipwrite", 2, 40L shl 20)
 
     private fun run(codec: String, entries: Int, entrySize: Long) {
         val dir = kotlin.io.path.createTempDirectory("archivekodec-small-heap").toFile()
@@ -78,6 +83,7 @@ object SmallHeapWorkflow {
     @JvmStatic
     fun main(args: Array<String>) {
         if (args[1] == "zip") return zip(File(args[0], "big.zip"), args[3].toLong())
+        if (args[1] == "zipwrite") return zipWrite(File(args[0], "big.zip"), args[2].toInt(), args[3].toLong())
         val codec = Codecs.byName(args[1])!!
         val ENTRIES = args[2].toInt()
         val ENTRY_SIZE = args[3].toLong()
@@ -135,19 +141,9 @@ object SmallHeapWorkflow {
             }
             out.closeEntry()
         }
-        val raf = java.io.RandomAccessFile(file, "r")
-        val source = object : RandomAccessSource {
-            override val size: Long = raf.length()
-            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
-                if (length == 0) return 0
-                raf.seek(offset)
-                return raf.read(into, intoOffset, length)
-            }
-            override fun close() = raf.close()
-        }
         val read = Crc32()
         var total = 0L
-        val reader = ZipReader(source)
+        val reader = ZipReader(fileSource(file))
         try {
             val entry = reader.entries().single()
             check(entry.compressedSize > Runtime.getRuntime().maxMemory()) { "compressed ${entry.compressedSize} fits the heap" }
@@ -157,5 +153,50 @@ object SmallHeapWorkflow {
         }
         check(read.value() == written.value() && total == size) { "CRC-32 or size differs: $total bytes" }
         println("OK zip: $size bytes from ${file.length()} compressed through a ${Runtime.getRuntime().maxMemory() shr 20} MiB heap")
+    }
+
+    /** Write [entries] DEFLATE entries of [size] bytes with ZipStreamWriter, then read each back through ZipReader. */
+    private fun zipWrite(file: File, entries: Int, size: Long) {
+        val written = LongArray(entries)
+        FileOutputStream(file).buffered().use { out ->
+            val writer = ZipStreamWriter(ByteSink { b, o, n -> out.write(b, o, n) })
+            for (i in 0 until entries) {
+                val crc = Crc32()
+                writer.putFile("entry-$i.bin", generator(i + 1, size, crc))
+                written[i] = crc.value()
+            }
+            writer.finish()
+        }
+        val reader = ZipReader(fileSource(file))
+        try {
+            val listed = reader.entries()
+            check(listed.map { it.name } == List(entries) { "entry-$it.bin" }) { "names ${listed.map { it.name }}" }
+            for ((i, entry) in listed.withIndex()) {
+                check(entry.size == size && entry.crc32 == written[i]) { "entry $i lists ${entry.size} bytes, CRC-32 ${entry.crc32}" }
+                val crc = Crc32()
+                var total = 0L
+                reader.read(entry, ByteSink { b, o, n -> crc.update(b, o, n); total += n })
+                check(crc.value() == written[i] && total == size) { "entry $i reads $total bytes, CRC-32 ${crc.value()}" }
+            }
+        } finally {
+            reader.close()
+        }
+        val heap = Runtime.getRuntime().maxMemory()
+        check(entries * size > heap) { "${entries * size} bytes fit the $heap-byte heap" }
+        println("OK zipwrite: ${entries * size} bytes in ${file.length()} through a ${heap shr 20} MiB heap")
+    }
+
+    /** A file read by offset. */
+    private fun fileSource(file: File): RandomAccessSource {
+        val raf = java.io.RandomAccessFile(file, "r")
+        return object : RandomAccessSource {
+            override val size: Long = raf.length()
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                if (length == 0) return 0
+                raf.seek(offset)
+                return raf.read(into, intoOffset, length)
+            }
+            override fun close() = raf.close()
+        }
     }
 }

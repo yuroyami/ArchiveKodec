@@ -990,6 +990,24 @@ public final class io/github/yuroyami/archivekodec/archive/zip/ZipReader : io/gi
 	public static synthetic fun verify$default (Lio/github/yuroyami/archivekodec/archive/zip/ZipReader;Lio/github/yuroyami/archivekodec/archive/ArchiveEntry;Lio/github/yuroyami/archivekodec/security/ArchiveLimits;ILjava/lang/Object;)Z
 }
 
+public final class io/github/yuroyami/archivekodec/archive/zip/ZipStreamWriter {
+	public fun <init> (Lio/github/yuroyami/archivekodec/codec/ByteSink;)V
+	public final fun finish ()V
+	public final fun finish (Ljava/lang/String;)V
+	public final fun putDirectory (Ljava/lang/String;)V
+	public final fun putDirectory (Ljava/lang/String;Ljava/lang/Long;)V
+	public final fun putDirectory (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Integer;)V
+	public final fun putDirectory (Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/String;)V
+	public static synthetic fun putDirectory$default (Lio/github/yuroyami/archivekodec/archive/zip/ZipStreamWriter;Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun putFile (Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;)V
+	public final fun putFile (Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;)V
+	public final fun putFile (Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;Ljava/lang/Long;)V
+	public final fun putFile (Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;Ljava/lang/Long;Ljava/lang/Integer;)V
+	public final fun putFile (Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/String;)V
+	public final fun putFile (Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;)V
+	public static synthetic fun putFile$default (Lio/github/yuroyami/archivekodec/archive/zip/ZipStreamWriter;Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/ByteSource;Lio/github/yuroyami/archivekodec/archive/zip/ZipMethod;Ljava/lang/Long;Ljava/lang/Integer;Ljava/lang/String;Lio/github/yuroyami/archivekodec/codec/deflate/DeflateOptions;ILjava/lang/Object;)V
+}
+
 public final class io/github/yuroyami/archivekodec/archive/zip/ZipWriter {
 	public static final field INSTANCE Lio/github/yuroyami/archivekodec/archive/zip/ZipWriter;
 	public static final fun write (Ljava/util/List;)[B

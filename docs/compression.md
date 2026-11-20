@@ -134,6 +134,10 @@ the crc dialect puts each body's sum in the header before the body, which a stre
 yet, so `CpioWriter` writes it. The reader reports each record with the body it stores, so the
 earlier links of a newc hard-link group, whose data comes with the last link, read as empty.
 
+`ZipStreamWriter` writes a ZIP the same way, entry by entry from sources, with a data descriptor
+after each file and ZIP64 where sizes or offsets need it; [Writing](writing.md#large-zip-archives)
+shows it. A ZIP is read with `ZipReader`, which needs a seekable source.
+
 ## Limits on a decode
 
 Every `decompress` takes an `ArchiveLimits`, which defaults to `ArchiveLimits.DEFAULT`. The

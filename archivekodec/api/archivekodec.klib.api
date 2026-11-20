@@ -561,6 +561,15 @@ final class io.github.yuroyami.archivekodec.archive.zip/ZipReader : io.github.yu
     final fun verify(io.github.yuroyami.archivekodec.archive/ArchiveEntry, io.github.yuroyami.archivekodec.security/ArchiveLimits = ...): kotlin/Boolean // io.github.yuroyami.archivekodec.archive.zip/ZipReader.verify|verify(io.github.yuroyami.archivekodec.archive.ArchiveEntry;io.github.yuroyami.archivekodec.security.ArchiveLimits){}[0]
 }
 
+final class io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter { // io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter|null[0]
+    constructor <init>(io.github.yuroyami.archivekodec.codec/ByteSink) // io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter.<init>|<init>(io.github.yuroyami.archivekodec.codec.ByteSink){}[0]
+
+    final fun finish() // io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter.finish|finish(){}[0]
+    final fun finish(kotlin/String) // io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter.finish|finish(kotlin.String){}[0]
+    final fun putDirectory(kotlin/String, kotlin/Long? = ..., kotlin/Int? = ..., kotlin/String? = ...) // io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter.putDirectory|putDirectory(kotlin.String;kotlin.Long?;kotlin.Int?;kotlin.String?){}[0]
+    final fun putFile(kotlin/String, io.github.yuroyami.archivekodec.codec/ByteSource, io.github.yuroyami.archivekodec.archive.zip/ZipMethod = ..., kotlin/Long? = ..., kotlin/Int? = ..., kotlin/String? = ..., io.github.yuroyami.archivekodec.codec.deflate/DeflateOptions? = ...) // io.github.yuroyami.archivekodec.archive.zip/ZipStreamWriter.putFile|putFile(kotlin.String;io.github.yuroyami.archivekodec.codec.ByteSource;io.github.yuroyami.archivekodec.archive.zip.ZipMethod;kotlin.Long?;kotlin.Int?;kotlin.String?;io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions?){}[0]
+}
+
 final class io.github.yuroyami.archivekodec.archive/ArchiveEntry { // io.github.yuroyami.archivekodec.archive/ArchiveEntry|null[0]
     constructor <init>(kotlin/String, kotlin/Long, kotlin/Boolean) // io.github.yuroyami.archivekodec.archive/ArchiveEntry.<init>|<init>(kotlin.String;kotlin.Long;kotlin.Boolean){}[0]
 

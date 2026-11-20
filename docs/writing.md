@@ -1,7 +1,9 @@
 # Writing archives
 
 ArchiveKodec writes ZIP, TAR, GNU ar and cpio. Each writer takes a list of `FileSpec` values
-and returns the whole archive as one `ByteArray`. A writer is not reachable from the
+and returns the whole archive as one `ByteArray`. For an archive too large for memory, each
+format also has a stream writer: [`ZipStreamWriter`](#large-zip-archives) here, and the TAR, ar
+and cpio ones in [Compression](compression.md#stream-both-sides). A writer is not reachable from the
 `ArchiveKodec` object, so import it directly.
 
 Every `FileSpec` keeps its own copy of the data, so a later change to your array or builder
@@ -54,6 +56,43 @@ always use the classic 32-bit fields, because a `ByteArray` cannot reach 4 GiB.
 
 To encrypt the files, pass a `ZipEncryption`, as [Encrypted archives](encryption.md#write)
 shows.
+
+### Large ZIP archives
+
+`ZipWriter` holds every file and the whole archive in memory, so its output must fit one
+`ByteArray`. When the files are large, or come from a file or a network stream, use
+`ZipStreamWriter`. It reads each file from a `ByteSource`, compresses it as it reads, and
+writes the archive to a `ByteSink` as it goes, so memory stays bounded whatever the file sizes,
+and the archive can pass 4 GiB.
+
+```kotlin
+FileOutputStream("backup.zip").buffered().use { out ->
+    val zip = ZipStreamWriter(ByteSink { b, offset, length -> out.write(b, offset, length) })
+    FileInputStream("disk.img").use { input ->
+        zip.putFile("disk.img", ByteSource { b, offset, length -> input.read(b, offset, length) },
+            lastModifiedEpochSeconds = 1_700_000_000)
+    }
+    zip.putDirectory("logs")
+    zip.finish("archive comment")
+}
+```
+
+- It takes the same settings as a `FileSpec`: the method, time, Unix mode, comment and DEFLATE
+  options, with the same name rules, and it writes the same metadata.
+- The sizes and CRC-32 of a file are known only after its data, so each nonempty file is
+  followed by a data descriptor, and the central directory at the end holds the real values.
+- ZIP64 fields are added where a size, an offset or the entry count needs them.
+- The writer keeps a small record per entry for the central directory, so its memory grows
+  with the number of entries, not with their size.
+- A failure after a call has written to the sink, from the source or the sink, leaves the
+  archive incomplete, so the writer stops: every later call throws that failure again. A
+  rejected argument, or a source that fails on its first read, writes nothing and the writer
+  stays usable.
+- It does not encrypt. Use `ZipWriter` with a `ZipEncryption` for that.
+- A stored file with a data descriptor reads through the central directory, as `unzip`, 7-Zip,
+  `java.util.zip.ZipFile` and `ZipReader` read it. `java.util.zip.ZipInputStream` and other
+  readers that only read forward cannot tell where its data ends, so deflate the files for
+  them.
 
 ## TAR
 
