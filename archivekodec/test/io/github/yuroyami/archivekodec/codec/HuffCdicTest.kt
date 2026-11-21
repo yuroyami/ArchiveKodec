@@ -92,6 +92,23 @@ class HuffCdicTest {
         assertFailsWith<DecompressionBombException> { decoder.decode(code(1, 2, 3)) }
     }
 
+    @Test
+    fun theRatioAndTheKeptPhrasesAreLimited() {
+        fun code(vararg phrase: Int) = ByteArray(phrase.size) { (255 - phrase[it]).toByte() }
+        val phrases = (0 until 256).map { ByteArray(1000) to true }.toMutableList()
+        // One byte of code expands to 1000 bytes: past a 100:1 ratio.
+        val strict = HuffCdic(flatHuff(), listOf(cdic(phrases, bits = 8)), ArchiveLimits { maxCompressionRatio = 100 })
+        assertFailsWith<DecompressionBombException> { strict.decode(code(0)) }
+        // Phrases 1 and 2 are each five copies of phrase 0: 5000 bytes kept apiece.
+        phrases[1] = code(0, 0, 0, 0, 0) to false
+        phrases[2] = code(0, 0, 0, 0, 0) to false
+        val decoder = HuffCdic(flatHuff(), listOf(cdic(phrases, bits = 8)), ArchiveLimits { maxDecoderMemory = 6000 })
+        assertEquals(5000, decoder.decode(code(1)).size)
+        assertFailsWith<DecompressionBombException> { decoder.decode(code(2)) }
+        // A failed phrase is not kept, and one already kept still decodes.
+        assertEquals(5000, decoder.decode(code(1)).size)
+    }
+
     /** A HUFF record whose 256 codes are all eight bits long and terminal. */
     private fun flatHuff(): ByteArray {
         val table1 = ByteArray(1024)

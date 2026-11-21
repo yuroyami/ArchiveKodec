@@ -62,4 +62,68 @@ internal object XxHash64 {
         h *= P3
         return h xor (h ushr 32)
     }
+
+    /** xxHash64 over data given in pieces: the same value [hash] gives for all of it at once. */
+    class Streaming {
+        private var v1 = P1 + P2
+        private var v2 = P2
+        private var v3 = 0L
+        private var v4 = -P1
+        private val tail = ByteArray(32)
+        private var tailSize = 0
+        private var total = 0L
+
+        fun update(data: ByteArray, offset: Int, length: Int) {
+            var p = offset
+            val end = offset + length
+            total += length
+            if (tailSize > 0) {
+                val n = minOf(32 - tailSize, end - p)
+                data.copyInto(tail, tailSize, p, p + n)
+                tailSize += n
+                p += n
+                if (tailSize < 32) return
+                stripe(tail, 0)
+                tailSize = 0
+            }
+            while (p <= end - 32) {
+                stripe(data, p)
+                p += 32
+            }
+            data.copyInto(tail, 0, p, end)
+            tailSize = end - p
+        }
+
+        private fun stripe(data: ByteArray, p: Int) {
+            v1 = round(v1, long(data, p)); v2 = round(v2, long(data, p + 8))
+            v3 = round(v3, long(data, p + 16)); v4 = round(v4, long(data, p + 24))
+        }
+
+        fun value(): Long {
+            var h = if (total >= 32) {
+                var x = v1.rotateLeft(1) + v2.rotateLeft(7) + v3.rotateLeft(12) + v4.rotateLeft(18)
+                x = merge(x, v1); x = merge(x, v2); x = merge(x, v3); merge(x, v4)
+            } else P5
+            h += total
+            var p = 0
+            val end = tailSize
+            while (p <= end - 8) {
+                h = (h xor round(0, long(tail, p))).rotateLeft(27) * P1 + P4
+                p += 8
+            }
+            if (p <= end - 4) {
+                h = (h xor (int(tail, p) * P1)).rotateLeft(23) * P2 + P3
+                p += 4
+            }
+            while (p < end) {
+                h = (h xor ((tail[p].toLong() and 0xFF) * P5)).rotateLeft(11) * P1
+                p++
+            }
+            h = h xor (h ushr 33)
+            h *= P2
+            h = h xor (h ushr 29)
+            h *= P3
+            return h xor (h ushr 32)
+        }
+    }
 }

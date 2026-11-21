@@ -1,10 +1,22 @@
 package io.github.yuroyami.archivekodec.codec.zstd
 
 import io.github.yuroyami.archivekodec.checksum.XxHash64
+import io.github.yuroyami.archivekodec.codec.ringSize
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
- * Zstandard encoder: one single-segment frame with a content size and checksum. Blocks hold
+ * The largest Window_Size a frame of this encoder requires: 8 MiB, the most RFC 8878
+ * (section 3.1.1.1.2) asks every decoder to support.
+ */
+internal const val ZSTD_WRITER_MAX_WINDOW = 8 shl 20
+
+/** The Window_Descriptor of [ZSTD_WRITER_MAX_WINDOW]: exponent 13 (2^(10 + 13) bytes), mantissa 0. */
+private const val MAX_WINDOW_DESCRIPTOR = 13 shl 3
+
+/**
+ * Zstandard encoder: one frame with a content size and checksum. Input up to
+ * [ZSTD_WRITER_MAX_WINDOW] gets a single-segment frame, whose window is the content; larger input
+ * gets a Window_Descriptor of [ZSTD_WRITER_MAX_WINDOW], and no match reaches further back. Blocks hold
  * raw literals and LZ77 sequences coded with the predefined FSE tables, and fall back to raw
  * blocks when that does not shrink them. It favours simplicity over ratio: there are no
  * Huffman literals, repeat offsets or custom tables, so `zstd -3` compresses better.
@@ -29,10 +41,17 @@ internal object ZstdEncoder {
             size < 65_536 + 256 -> 1 to 2
             else -> 2 to 4
         }
-        out.append(((flag shl 6) or 0x20 or 0x04).toByte()) // single segment, content checksum
-        le(if (flag == 1) size - 256 else size, fieldSize)
+        val singleSegment = data.size <= ZSTD_WRITER_MAX_WINDOW
+        if (singleSegment) {
+            out.append(((flag shl 6) or 0x20 or 0x04).toByte()) // single segment, content checksum
+            le(if (flag == 1) size - 256 else size, fieldSize)
+        } else {
+            out.append(((2 shl 6) or 0x04).toByte()) // a 4-byte content size, content checksum
+            out.append(MAX_WINDOW_DESCRIPTOR.toByte())
+            le(size, 4)
+        }
 
-        val matcher = Matcher(data)
+        val matcher = Matcher(data, if (singleSegment) data.size else ZSTD_WRITER_MAX_WINDOW)
         var pos = 0
         do {
             val end = minOf(data.size, pos + MAX_BLOCK_SIZE)
@@ -51,10 +70,14 @@ internal object ZstdEncoder {
         return out.takeByteArray()
     }
 
-    /** Hash-chain match finder over the whole input, since the frame is a single segment. */
-    private class Matcher(private val data: ByteArray) {
+    /**
+     * Hash-chain match finder whose matches reach back less than [window] bytes. The chains
+     * are a ring of that reach, so a slot is overwritten only once its position is out of reach.
+     */
+    private class Matcher(private val data: ByteArray, private val window: Int) {
         private val head = IntArray(1 shl HASH_BITS) { -1 }
-        private val chain = IntArray(data.size)
+        private val chain = IntArray(ringSize(window))
+        private val chainMask = chain.size - 1
         private var inserted = 0
         var distance = 0
             private set
@@ -69,7 +92,7 @@ internal object ZstdEncoder {
             while (inserted < p) {
                 if (inserted + 3 < data.size) {
                     val h = hash(inserted)
-                    chain[inserted] = head[h]
+                    chain[inserted and chainMask] = head[h]
                     head[h] = inserted
                 }
                 inserted++
@@ -79,15 +102,16 @@ internal object ZstdEncoder {
             var best = 0
             var candidate = head[hash(p)]
             var depth = CHAIN_DEPTH
-            // The predefined offset table codes offset values below 2^29.
-            val oldest = p - (1 shl 29) + 4
+            // The predefined offset table codes offset values below 2^29, and an offset must not
+            // pass the window.
+            val oldest = maxOf(p - (1 shl 29) + 4, p - window + 1)
             while (candidate >= 0 && candidate >= oldest && depth-- > 0) {
                 if (data[candidate + best] == data[p + best]) {
                     var n = 0
                     while (n < limit && data[candidate + n] == data[p + n]) n++
                     if (n > best) { best = n; distance = p - candidate; if (n == limit) break }
                 }
-                candidate = chain[candidate]
+                candidate = chain[candidate and chainMask]
             }
             return if (best >= MIN_MATCH) best else 0
         }

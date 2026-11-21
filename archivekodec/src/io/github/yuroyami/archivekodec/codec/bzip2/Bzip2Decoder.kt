@@ -1,7 +1,11 @@
 package io.github.yuroyami.archivekodec.codec.bzip2
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.codec.ByteSink
+import io.github.yuroyami.archivekodec.codec.ByteSource
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 /**
@@ -23,24 +27,41 @@ internal object Bzip2Decoder {
         limits.checkOutputSize(0)
         limits.checkRatio(input.size.toLong(), 0)
         val out = Output(limits, input.size)
-        val bits = BitReader(input)
-        var streams = 0
-        while (streams == 0 || bits.bytePosition < input.size) {
-            decodeStream(bits, out)
-            streams++
-        }
+        decodeAll(BitReader(SourceBuffer(ByteSource.of(input))), out)
         return out.take()
     }
 
+    /**
+     * Decode every stream read from [source] to [sink] and return the byte count. Input is
+     * read as it is needed and output written as each block decodes, so memory stays near
+     * one block (at most 900 kB of data and its 3.6 MB table) whatever the stream's size.
+     */
+    fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        limits.checkOutputSize(0)
+        val bits = BitReader(SourceBuffer(source))
+        val out = Output(limits, Int.MAX_VALUE, sink) { bits.bytePosition }
+        decodeAll(bits, out)
+        return out.finish()
+    }
+
+    private fun decodeAll(bits: BitReader, out: Output) {
+        var streams = 0
+        while (streams == 0 || !bits.atEnd()) {
+            decodeStream(bits, out)
+            streams++
+        }
+    }
+
     private fun decodeStream(bits: BitReader, out: Output) {
-        val start = bits.bytePosition.toLong()
-        if (bits.remainingBits < 32) throw ArchiveFormatException("bzip2: truncated stream header", start)
+        val start = bits.bytePosition
+        if (!bits.has(32)) throw ArchiveFormatException("bzip2: truncated stream header", start)
         if (bits.bits(8) != 'B'.code || bits.bits(8) != 'Z'.code || bits.bits(8) != 'h'.code) {
             throw ArchiveFormatException("bzip2: missing BZh signature", start)
         }
         val level = bits.bits(8) - '0'.code
         if (level !in 1..9) throw ArchiveFormatException("bzip2: invalid block size level", start + 3)
         val maxBlock = level * 100_000
+        out.checkDecoderMemory(4L * maxBlock)
         val tt = IntArray(maxBlock)
         var combined = 0
         while (true) {
@@ -48,7 +69,7 @@ internal object Bzip2Decoder {
             when (magic) {
                 0x177245385090L -> {
                     val stored = bits.bits(32)
-                    if (stored != combined) throw ArchiveFormatException("bzip2: stream CRC mismatch", bits.bytePosition.toLong())
+                    if (stored != combined) throw ArchiveFormatException("bzip2: stream CRC mismatch", bits.bytePosition)
                     bits.alignToByte()
                     return
                 }
@@ -56,15 +77,15 @@ internal object Bzip2Decoder {
                     val crc = decodeBlock(bits, out, tt, maxBlock)
                     combined = (combined shl 1 or (combined ushr 31)) xor crc
                 }
-                else -> throw ArchiveFormatException("bzip2: invalid block signature", bits.bytePosition.toLong())
+                else -> throw ArchiveFormatException("bzip2: invalid block signature", bits.bytePosition)
             }
         }
     }
 
     /** Decode one block into [out] and return its verified CRC. */
     private fun decodeBlock(bits: BitReader, out: Output, tt: IntArray, maxBlock: Int): Int {
-        val blockOffset = bits.bytePosition.toLong()
-        fun fail(message: String): Nothing = throw ArchiveFormatException("bzip2: $message", bits.bytePosition.toLong())
+        val blockOffset = bits.bytePosition
+        fun fail(message: String): Nothing = throw ArchiveFormatException("bzip2: $message", bits.bytePosition)
         val storedCrc = bits.bits(32)
         val randomised = bits.bits(1) == 1
         val origPtr = bits.bits(24)
@@ -261,36 +282,54 @@ internal object Bzip2Decoder {
     }
 
     /** MSB-first bit reader over the whole input. */
-    private class BitReader(private val input: ByteArray) {
-        private var position = 0
+    /** Bits, most significant first, pulled from a [SourceBuffer] as they are needed. */
+    private class BitReader(private val input: SourceBuffer) {
         private var buffer = 0L
         private var count = 0
-        val bytePosition: Int get() = position - count / 8
-        val remainingBits: Long get() = (input.size - position) * 8L + count
+        val bytePosition: Long get() = input.streamPosition - count / 8
 
         fun bits(n: Int): Int {
             while (count < n) {
-                if (position >= input.size) throw ArchiveFormatException("bzip2: truncated stream", input.size.toLong())
-                buffer = buffer shl 8 or (input[position++].toLong() and 0xFF)
+                if (input.position == input.end && !input.ensure(1)) throw ArchiveFormatException("bzip2: truncated stream", input.streamPosition)
+                buffer = buffer shl 8 or (input.buffer[input.position++].toLong() and 0xFF)
                 count += 8
             }
             count -= n
             return ((buffer ushr count) and ((1L shl n) - 1)).toInt()
         }
 
+        /** True if at least [n] more bits can be read. */
+        fun has(n: Int): Boolean = count >= n || input.ensure((n - count + 7) / 8)
+
+        /** True when no whole byte is left, in the buffer or the input. */
+        fun atEnd(): Boolean = count < 8 && input.atEnd()
+
         fun alignToByte() { count -= count % 8 }
     }
 
     /** Output bounded by the caller's limits before each growth. */
-    private class Output(private val limits: ArchiveLimits, private val compressedBytes: Int) {
+    private class Output(
+        private val limits: ArchiveLimits, private val compressedBytes: Int,
+        /** With a sink, output goes there in chunks instead of growing one array. */
+        private val sink: ByteSink? = null,
+        /** For streamed input, the compressed bytes read so far, for the ratio. */
+        private val compressedProgress: (() -> Long)? = null,
+    ) {
+        /** Check the block table a stream header asks for against [ArchiveLimits.maxDecoderMemory]. */
+        fun checkDecoderMemory(bytes: Long) {
+            if (bytes > limits.maxDecoderMemory) {
+                throw DecompressionBombException("bzip2: a $bytes B block table exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+            }
+        }
+
         private val builder = ByteArrayBuilder(4096)
-        private val chunk = ByteArray(4096)
+        private val chunk = ByteArray(if (sink != null) 64 * 1024 else 4096)
         private var pending = 0
         private var size = 0L
 
         private fun reserve(n: Int) {
             limits.checkOutputSize(size + n)
-            limits.checkRatio(compressedBytes.toLong(), size + n)
+            limits.checkRatio(compressedProgress?.invoke() ?: compressedBytes.toLong(), size + n)
             size += n
         }
 
@@ -306,8 +345,14 @@ internal object Bzip2Decoder {
 
         private fun flush() {
             reserve(pending)
-            builder.append(chunk, 0, pending)
+            if (sink != null) sink.write(chunk, 0, pending) else builder.append(chunk, 0, pending)
             pending = 0
+        }
+
+        /** Write what is pending to the sink and return the byte count. */
+        fun finish(): Long {
+            flush()
+            return size
         }
 
         fun take(): ByteArray {

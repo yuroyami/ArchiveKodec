@@ -1,6 +1,7 @@
 # Contributing to ArchiveKodec
 
-Open work is in [GitHub Issues](https://github.com/yuroyami/ArchiveKodec/issues). The library
+Open work is in [GitHub Issues](https://github.com/yuroyami/ArchiveKodec/issues). Report vulnerabilities privately, as
+[SECURITY.md](SECURITY.md) describes. The library
 documentation is in [docs/](docs/index.md).
 
 ## Build

@@ -1,8 +1,8 @@
 # Encrypted archives
 
-The core reads and writes encrypted ZIP and 7z archives on every platform, with no extra
-artifact. Give the reader a password. AES comes from `CryptoProvider.DEFAULT`, the built-in
-provider.
+The core reads encrypted ZIP and 7z archives and writes encrypted ZIP archives on every
+platform, with no extra artifact. It has no 7z writer, so it cannot write encrypted 7z. Give
+the reader a password. AES comes from `CryptoProvider.DEFAULT`, the built-in provider.
 
 ## Read
 
@@ -38,12 +38,22 @@ val zip = ZipWriter.write(files, ZipEncryption(password))
 `keyBits` is 128, 192 or 256, and the default is 256. AE-2 stores no CRC, so the checksum of
 the plain data does not leak.
 
+A reader that understands only PKWARE's traditional encryption can be given ZipCrypto, which
+every ZIP tool reads. It is broken: a few known bytes of one file give away the keys. Ask for
+it by name:
+
+```kotlin
+val zip = ZipWriter.write(files, ZipEncryption.insecureZipCrypto(password))
+```
+
+Python's `zipfile`, Info-ZIP `unzip` and 7-Zip read the result.
+
 ## Schemes
 
 | Scheme | Read | Write | Notes |
 | --- | --- | --- | --- |
 | WinZip AES (AE-1 and AE-2; 128, 192 and 256 bits) | Yes | AE-2 | The HMAC-SHA1 tag is checked before decompression. A mismatch throws `ArchiveAuthenticationException` |
-| ZipCrypto | Yes | No | Broken. `entry.encryption` reports `ZIP_CRYPTO_INSECURE` |
+| ZipCrypto | Yes | With `ZipEncryption.insecureZipCrypto` | Broken. `entry.encryption` reports `ZIP_CRYPTO_INSECURE` |
 | 7z AES-256 | Yes, with encrypted headers | No | No authentication, so a wrong password shows as data that fails to decode or to match its CRC |
 | PKWARE strong encryption | No | No | Throws `ArchiveUnsupportedException` before any ciphertext is read |
 
@@ -101,7 +111,7 @@ so an archive that one writes, the other reads.
 
 ```kotlin
 dependencies {
-    implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
+    implementation("io.github.yuroyami:archivekodec-crypto:0.2.0-SNAPSHOT")
 }
 ```
 

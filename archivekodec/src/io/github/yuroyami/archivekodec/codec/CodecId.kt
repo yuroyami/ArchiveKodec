@@ -62,6 +62,12 @@ public class CodecId @Throws(IllegalArgumentException::class) public constructor
         @JvmField public val LZMA: CodecId = CodecId("lzma")
         /** Chunked LZMA2 compression, used by XZ and 7z. */
         @JvmField public val LZMA2: CodecId = CodecId("lzma2")
+        /** Unix `compress` (`.Z`): LZW with 9- to 16-bit codes in block mode. */
+        @JvmField public val COMPRESS: CodecId = CodecId("compress")
+        /** lzop (`.lzo`): LZO1X blocks with Adler-32 or CRC-32 checks. */
+        @JvmField public val LZOP: CodecId = CodecId("lzop")
+        /** lzip (`.lz`): LZMA members with a CRC-32 and size trailer. */
+        @JvmField public val LZIP: CodecId = CodecId("lzip")
         /** XZ compressed-stream container. */
         @JvmField public val XZ: CodecId = CodecId("xz")
         /** Zstandard compression. */

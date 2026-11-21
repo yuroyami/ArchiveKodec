@@ -36,7 +36,7 @@ class ArchiveFacadeConvenienceTest {
             assertSame(Codecs.byId(id), Codecs.byName(id.displayName.uppercase()), id.toString())
         }
         val supported = mapOf(ArchiveFormat.GZIP to Codecs.GZIP, ArchiveFormat.ZLIB to Codecs.ZLIB, ArchiveFormat.BZIP2 to Codecs.BZIP2,
-            ArchiveFormat.XZ to Codecs.XZ, ArchiveFormat.LZMA to Codecs.LZMA, ArchiveFormat.ZSTD to Codecs.ZSTD, ArchiveFormat.BROTLI to Codecs.BROTLI,
+            ArchiveFormat.XZ to Codecs.XZ, ArchiveFormat.LZIP to Codecs.LZIP, ArchiveFormat.COMPRESS to Codecs.COMPRESS, ArchiveFormat.LZOP to Codecs.LZOP, ArchiveFormat.LZMA to Codecs.LZMA, ArchiveFormat.ZSTD to Codecs.ZSTD, ArchiveFormat.BROTLI to Codecs.BROTLI,
             ArchiveFormat.LZ4 to Codecs.LZ4, ArchiveFormat.SNAPPY to Codecs.SNAPPY_FRAMED)
         for (format in FormatRegistry.DEFAULT.formats.map { it.id } + ArchiveFormat.UNKNOWN) {
             assertSame(supported[format], ArchiveKodec.codec(format), format.toString())
@@ -231,7 +231,7 @@ class ArchiveFacadeConvenienceTest {
     @Test
     fun nestedGzipAndOtherWrappersDoNotOpenRecursively() {
         for ((bytes, format) in listOf(Gzip.compress(Gzip.compress(zip())) to ArchiveFormat.GZIP,
-            Codecs.ZLIB.compress(zip()) to ArchiveFormat.ZLIB, Codecs.LZ4.compress(zip()) to ArchiveFormat.LZ4)) {
+            Codecs.ZLIB.compress(zip()) to ArchiveFormat.ZLIB, Codecs.LZ4.compress(Gzip.compress(zip())) to ArchiveFormat.GZIP)) {
             for (sourceCall in listOf(false, true)) {
                 val error = assertFailsWith<ArchiveUnsupportedException> {
                     if (sourceCall) ArchiveKodec.open(TrackingSource(bytes)) else ArchiveKodec.open(bytes)

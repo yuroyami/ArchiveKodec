@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -13,6 +14,8 @@ import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.issuedBy
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
+import io.github.yuroyami.archivekodec.archive.requireRange
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -84,7 +87,9 @@ public class IsoReader(
                 item.target != null -> item.target.copyOf()
                 item.interleaved -> throw ArchiveUnsupportedException("ISO 9660: interleaved files are not supported", listed.dataOffset, listed.name)
                 else -> {
-                    if (listed.size > Int.MAX_VALUE) throw ArchiveFormatException("ISO 9660: file of ${listed.size} bytes cannot fit in a ByteArray")
+                    requireByteArraySize(listed.size, listed.dataOffset)
+                    // Every extent must lie inside the image before the output is allocated.
+                    for (i in item.extents.indices step 2) source.requireRange(item.extents[i], item.extents[i + 1])
                     val out = ByteArray(listed.size.toInt())
                     var at = 0
                     for (i in item.extents.indices step 2) {
@@ -109,6 +114,10 @@ public class IsoReader(
     private fun fail(message: String, offset: Long? = null): Nothing = throw ArchiveFormatException("ISO 9660: $message", offset)
 
     private fun parse(): Directory {
+        // A failed parse may be retried: start from nothing every time.
+        entries.clear()
+        items.clear()
+        visited.clear()
         val size = source.size
         if (size < SYSTEM_AREA + SECTOR) fail("image is smaller than its system area and first descriptor", 0)
         var primary: ByteArray? = null
@@ -138,7 +147,11 @@ public class IsoReader(
         }
         val (extent, length) = if (names == Names.JOLIET) rootOf(joliet!!) else rootExtent to rootLength
         walk(extent, length, "", 0)
-        return Directory(entries.issuedBy(this, limits), items)
+        val directory = Directory(entries.issuedBy(this, limits), items.toList())
+        entries.clear()
+        items.clear()
+        visited.clear()
+        return directory
     }
 
     private fun rootOf(descriptor: ByteArray): Pair<Long, Long> =
@@ -228,6 +241,16 @@ public class IsoReader(
                 lastModifiedEpochSeconds = rock?.modified ?: record.modified
                 compressedSize = if (isDirectory) 0 else target?.size?.toLong() ?: total
                 unixMode = rock?.mode
+                rock?.created?.let { created = ArchiveTime(it) }
+                rock?.accessed?.let { lastAccessed = ArchiveTime(it) }
+                rock?.attributesChanged?.let { statusChanged = ArchiveTime(it) }
+                uid = rock?.uid
+                gid = rock?.gid
+                val type = rock?.mode?.and(0xF000)
+                if (type == 0x2000 || type == 0x6000) {
+                    deviceMajor = rock.deviceMajor
+                    deviceMinor = rock.deviceMinor
+                }
                 if (target != null) {
                     isSymbolicLink = true
                     linkTarget = rock?.symlinkTarget
@@ -310,6 +333,13 @@ internal class RockRidge private constructor() {
     var name: String? = null
     var mode: Int? = null
     var modified: Long? = null
+    var created: Long? = null
+    var accessed: Long? = null
+    var attributesChanged: Long? = null
+    var uid: Long? = null
+    var gid: Long? = null
+    var deviceMajor: Long? = null
+    var deviceMinor: Long? = null
     var symlinkTarget: String? = null
     var childLink: Long? = null
     var relocated = false
@@ -343,7 +373,26 @@ internal class RockRidge private constructor() {
                                 hasName = true
                             }
                         }
-                        "PX" -> if (length >= 12) result.mode = readU32Le(data, p + 4).toInt()
+                        // Both-endian fields: mode, link count, uid, gid; the little-endian half comes first.
+                        "PX" -> if (length >= 12) {
+                            result.mode = readU32Le(data, p + 4).toInt()
+                            if (length >= 36) {
+                                result.uid = readU32Le(data, p + 20)
+                                result.gid = readU32Le(data, p + 28)
+                            }
+                        }
+                        // Device number high and low words; a zero high word holds an old 8:8 number, as Linux reads it.
+                        "PN" -> if (length >= 20) {
+                            val high = readU32Le(data, p + 4)
+                            val low = readU32Le(data, p + 12)
+                            if (high == 0L) {
+                                result.deviceMajor = (low ushr 8) and 0xFF
+                                result.deviceMinor = low and 0xFF
+                            } else {
+                                result.deviceMajor = high
+                                result.deviceMinor = low
+                            }
+                        }
                         "SL" -> if (length >= 5) {
                             hasLink = true
                             var c = p + 5
@@ -366,10 +415,19 @@ internal class RockRidge private constructor() {
                             val flags = data[p + 4].toInt() and 0xFF
                             val long = flags and 0x80 != 0
                             val width = if (long) 17 else 7
-                            // Stamps appear in the order creation, modify, access, attributes.
-                            if (flags and 0x02 != 0) {
-                                val at = p + 5 + (if (flags and 0x01 != 0) width else 0)
-                                if (at + width <= p + length) result.modified = stamp(data, at, long)
+                            // Stamps appear in the order creation, modify, access, attributes, each when flagged.
+                            var at = p + 5
+                            for (bit in 0 until 4) {
+                                if (flags and (1 shl bit) == 0) continue
+                                if (at + width > p + length) break
+                                val time = stamp(data, at, long)
+                                when (bit) {
+                                    0 -> result.created = time
+                                    1 -> result.modified = time
+                                    2 -> result.accessed = time
+                                    else -> result.attributesChanged = time
+                                }
+                                at += width
                             }
                         }
                         "CL" -> if (length >= 12) result.childLink = readU32Le(data, p + 4)

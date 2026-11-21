@@ -3,6 +3,8 @@ package io.github.yuroyami.archivekodec.archive.cpio
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
@@ -21,12 +23,13 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.jvm.JvmSynthetic
 
 /**
- * cpio reader for the two portable ASCII dialects: `newc`/`crc` (magic 070701/070702,
- * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding).
+ * cpio reader for the two portable ASCII dialects, `newc`/`crc` (magic 070701/070702,
+ * hex fields, 4-byte padding) and `odc` (magic 070707, octal fields, no padding), and for
+ * old binary cpio (`cpio -H bin`: 16-bit words in either byte order, 2-byte padding).
  * Hard links resolve to their group's last nonempty payload. Listing reads only
  * metadata; reading verifies each crc record's unsigned byte sum, including
- * overwritten payloads. The archive ends at `TRAILER!!!`. Old binary cpio is
- * recognized in either byte order and refused with [ArchiveUnsupportedException].
+ * overwritten payloads. The archive ends at `TRAILER!!!`. An initramfs reader refuses
+ * odc and old binary cpio with [ArchiveUnsupportedException], as the kernel does.
  * Empty input, unknown magic and incomplete magic before a trailer throw
  * [ArchiveFormatException], rather than returning an empty or partial listing.
  * [limits] caps the listing count and supplies the default policy for each read.
@@ -98,12 +101,10 @@ public class CpioReader private constructor(
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
         limits.checkRatio(entry.size, entry.size)
-        if (entry.size > Int.MAX_VALUE) {
-            throw ArchiveFormatException("cpio: range of ${entry.size} bytes cannot fit in a ByteArray", entry.dataOffset)
-        }
+        requireByteArraySize(entry.size, entry.dataOffset)
         val payload = group.payload
         val bytes = if (entry.isDirectory || entry.size == 0L) ByteArray(0)
-            else source.readFullyChecked(payload.entry.dataOffset, payload.storedSize)
+            else source.readEntryChecked(payload.entry.dataOffset, payload.storedSize)
         var buffer: ByteArray? = null
         for (record in group.records) {
             if (record.checksum == null) continue
@@ -140,7 +141,12 @@ public class CpioReader private constructor(
             val prefix = source.readFully(pos, minOf(6L, total - pos).toInt())
             if (initramfs) rejectCompression(prefix, pos)
             if (isBinaryCpioMagic(prefix)) {
-                throw ArchiveUnsupportedException("cpio: old binary cpio is not supported", pos)
+                if (initramfs) throw ArchiveUnsupportedException("initramfs: old binary cpio is not supported; expected newc/crc", pos)
+                val parsed = parseBinary(pos, littleEndian = prefix[0] == 0xc7.toByte(), records, links)
+                pos = parsed.endOffset
+                recordEnd = pos
+                if (parsed.trailer) break
+                continue
             }
             if (prefix.size < 6) throw ArchiveFormatException("cpio: truncated header magic", pos)
             val magic = prefix.decodeToString()
@@ -230,6 +236,7 @@ public class CpioReader private constructor(
         val minor = field(8)
         val nameSize = field(11)
         val checksum = if (crc) field(12) else null
+        val owner = CpioOwner.lenient { CpioOwner(field(2), field(3), field(9), field(10)) }
         val nameStart = pos + 110
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = align4(nameStart + nameSize)
@@ -239,7 +246,7 @@ public class CpioReader private constructor(
             return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 14, dataStart,
-            if (nlink > 1) LinkKey(false, major, minor, inode) else null, checksum, pos + 102)
+            if (nlink > 1) LinkKey(false, major, minor, inode) else null, checksum, pos + 102, owner)
         return ParsedRecord(align4(dataStart + fileSize), false)
     }
 
@@ -254,6 +261,7 @@ public class CpioReader private constructor(
         val mtime = field(48, 11)
         val nameSize = field(59)
         val fileSize = field(65, 11)
+        val owner = CpioOwner.lenient { field(42).let { rdev -> CpioOwner(field(24), field(30), rdev / 256, rdev % 256) } }
         val nameStart = pos + 76
         val nameBytes = readName(nameStart, nameSize)
         val dataStart = nameStart + nameSize
@@ -263,14 +271,47 @@ public class CpioReader private constructor(
             return ParsedRecord(dataStart, true)
         }
         addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 18, dataStart,
-            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos)
+            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos, owner)
         return ParsedRecord(dataStart + fileSize, false)
+    }
+
+    /**
+     * Old binary cpio: thirteen 16-bit words in the byte order of the magic (26 bytes), with the
+     * modification time and file size as two words each, most significant first. The name and
+     * the data are each padded to an even length.
+     */
+    private fun parseBinary(pos: Long, littleEndian: Boolean, out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>): ParsedRecord {
+        val h = source.readFully(pos, 26)
+        fun word(i: Int): Long {
+            val a = h[2 * i].toInt() and 0xFF
+            val b = h[2 * i + 1].toInt() and 0xFF
+            return (if (littleEndian) (b shl 8) or a else (a shl 8) or b).toLong()
+        }
+        val device = word(1)
+        val inode = word(2)
+        val mode = word(3)
+        val nlink = word(6)
+        val mtime = (word(8) shl 16) or word(9)
+        val nameSize = word(10)
+        val fileSize = (word(11) shl 16) or word(12)
+        val owner = CpioOwner(word(4), word(5), word(7) / 256, word(7) % 256)
+        val nameStart = pos + 26
+        val nameBytes = readName(nameStart, nameSize)
+        val dataStart = nameStart + nameSize + (nameSize and 1)
+        source.requireRange(dataStart, fileSize)
+        if (nameBytes.contentEquals(TRAILER_BYTES)) {
+            checkTrailer(fileSize, pos + 22, null, pos)
+            return ParsedRecord(dataStart, true)
+        }
+        addEntry(out, links, nameBytes, nameStart, fileSize, mode, mtime, pos + 6, dataStart,
+            if (nlink > 1) LinkKey(true, device, 0, inode) else null, null, pos, owner)
+        return ParsedRecord(dataStart + fileSize + (fileSize and 1), false)
     }
 
     private fun addEntry(
         out: ArrayList<Pair<Record, Group>>, links: MutableMap<LinkKey, Group>, nameBytes: ByteArray,
         nameStart: Long, size: Long, mode: Long, mtime: Long, modeOffset: Long, dataStart: Long,
-        key: LinkKey?, checksum: Long?, checksumOffset: Long,
+        key: LinkKey?, checksum: Long?, checksumOffset: Long, owner: CpioOwner,
     ) {
         try {
             limits.checkEntryCount(out.size + 1)
@@ -282,6 +323,7 @@ public class CpioReader private constructor(
         val entry = ArchiveEntry(name, if (isDir) 0L else size, isDir) {
             lastModifiedEpochSeconds = mtime
             unixMode = mode.toInt()
+            owner.applyTo(this, mode)
         }.withNameBytes(nameBytes).locatedAt(dataStart)
         if (size == 0L && checksum != null) checkSum(name, checksumOffset, checksum, 0)
         val record = Record(entry, size, mode and 0xF000L, modeOffset, checksum, checksumOffset)
@@ -370,5 +412,23 @@ public class CpioReader private constructor(
         @JvmSynthetic
         internal fun initramfs(source: RandomAccessSource, nameDecoder: ArchiveNameDecoder, limits: ArchiveLimits): CpioReader =
             CpioReader(source, nameDecoder, limits, true)
+    }
+}
+
+/** The owner ids and device number of a cpio record; the device applies to device nodes only. */
+internal class CpioOwner(val uid: Long?, val gid: Long?, val rdevMajor: Long?, val rdevMinor: Long?) {
+    companion object {
+        /** Owner fields are informational: a malformed one reads as absent instead of failing the listing. */
+        fun lenient(read: () -> CpioOwner): CpioOwner = try { read() } catch (_: ArchiveException) { CpioOwner(null, null, null, null) }
+    }
+
+    fun applyTo(builder: ArchiveEntry.Builder, mode: Long) {
+        builder.uid = uid
+        builder.gid = gid
+        val type = mode and 0xF000L
+        if (type == 0x2000L || type == 0x6000L) {
+            builder.deviceMajor = rdevMajor
+            builder.deviceMinor = rdevMinor
+        }
     }
 }

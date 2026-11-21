@@ -3,6 +3,8 @@ package io.github.yuroyami.archivekodec.archive.tar
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
@@ -33,7 +35,9 @@ import io.github.yuroyami.archivekodec.security.ArchiveLimits
  * and `mtime` override the ustar fields (pax names are UTF-8 unless `hdrcharset` is
  * `BINARY`). Sparse members (GNU `S`, and pax GNU sparse 0.0, 0.1 and 1.0) list their
  * expanded size, with [ArchiveEntry.compressedSize] holding the stored bytes, and read
- * with zero-filled holes. Holes count toward the output limit but not the ratio limit.
+ * with zero-filled holes. Holes count toward the output limit; for the ratio limit, a sparse
+ * member's expanded size is measured against the larger of its stored bytes and the whole
+ * archive's size, so a small archive cannot expand to gigabytes of zeros.
  * Ustar prefixes require the complete `ustar\u0000` marker; old GNU/v7 tails are not paths.
  * Every nonzero header must have a valid unsigned or legacy signed-byte checksum.
  * Complete records may end without a trailer; nonempty partial headers are rejected.
@@ -102,13 +106,14 @@ public class TarReader(
     private fun readListed(entry: ArchiveEntry, sparse: SparseMap?, limits: ArchiveLimits): ByteArray = withEntryContext(entry.name, entry.dataOffset) {
         val source = ownedSource.source
         limits.checkOutputSize(entry.size)
-        // Holes cost no input, so only the stored regions take part in the ratio check.
-        limits.checkRatio(entry.compressedSize, entry.compressedSize)
+        // Holes cost no input per byte, but a sparse member's output is measured against the
+        // larger of its stored bytes and the whole archive, so a small archive cannot claim
+        // gigabytes of zeros under the ratio limit. A member without holes reads 1:1.
+        if (sparse == null) limits.checkRatio(entry.compressedSize, entry.compressedSize)
+        else limits.checkRatio(maxOf(entry.compressedSize, source.size, 1L), entry.size)
         if (entry.isDirectory || entry.size == 0L) return@withEntryContext ByteArray(0)
-        if (sparse == null) return@withEntryContext source.readFullyChecked(entry.dataOffset, entry.size)
-        if (entry.size > Int.MAX_VALUE) {
-            throw ArchiveFormatException("TAR: sparse file of ${entry.size} bytes cannot fit in a ByteArray", entry.dataOffset)
-        }
+        if (sparse == null) return@withEntryContext source.readEntryChecked(entry.dataOffset, entry.size)
+        requireByteArraySize(entry.size, entry.dataOffset)
         val out = ByteArray(entry.size.toInt())
         var stored = entry.dataOffset
         for (i in sparse.offsets.indices) {
@@ -179,6 +184,10 @@ public class TarReader(
                 }
                 oldSparse = SparseMap.of(numeric(hdr, 483, 12, pos), offsets, lengths, size, pos)
             }
+            // GNU long names and links are read whole; refuse a huge one before reading it.
+            if ((typeFlag == 'L' || typeFlag == 'K') && size > TarHeaderState.MAX_METADATA) {
+                throw ArchiveFormatException("TAR: a $size-byte $typeFlag record is larger than ${TarHeaderState.MAX_METADATA} bytes", pos)
+            }
             val dataStart = pos + BLOCK * (1 + extensions)
             source.requireRange(dataStart, size)
             val padding = (BLOCK - size % BLOCK) % BLOCK
@@ -221,11 +230,10 @@ public class TarReader(
                         val name = decoder.decodeStoredName(nameBytes, nameOffset)
                         val linkDecoder = if (pax.values["linkpath"] != null && pax.text("hdrcharset", pos) != "BINARY") ArchiveNameDecoder.UTF8 else nameDecoder
                         val target = linkDecoder.decodeStoredName(linkBytes, pos + 157)
-                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: optionalNumeric(hdr, 136, 12, pos)
                         val permissions = optionalNumeric(hdr, 100, 8, pos)?.let { (it and 0xFFF).toInt() }
                         if (typeFlag == '2') {
                             out.add(ArchiveEntry(name, linkBytes.size.toLong(), false) {
-                                lastModifiedEpochSeconds = mtime
+                                tarMetadata(hdr, pax, typeFlag, pos)
                                 unixMode = (permissions ?: 0x1FF) or 0xA000
                                 isSymbolicLink = true
                                 linkTarget = target
@@ -235,7 +243,7 @@ public class TarReader(
                             // A hard link shares an earlier member's data; it lists that member's size.
                             val index = out.indexOfLast { it.name == target && !it.isDirectory }
                             out.add(ArchiveEntry(name, if (index < 0) 0 else out[index].size, false) {
-                                lastModifiedEpochSeconds = mtime
+                                tarMetadata(hdr, pax, typeFlag, pos)
                                 unixMode = permissions?.let { it or 0x8000 }
                                 compressedSize = 0
                                 isHardLink = true
@@ -256,7 +264,6 @@ public class TarReader(
                         val isDir = typeFlag == '5' || name.endsWith("/")
                         val sparse = if (isDir) null else oldSparse ?: paxSparse(pax, dataStart, size, pos)
                         val storedStart = dataStart + (sparse?.let { size - it.storedSize } ?: 0L)
-                        val mtime = pax.text("mtime", pos)?.let { paxSeconds(it, pos) } ?: optionalNumeric(hdr, 136, 12, pos)
                         // The ustar mode field holds permission bits; the type flag supplies the file type.
                         val mode = optionalNumeric(hdr, 100, 8, pos)?.let {
                             (it and 0xFFF).toInt() or if (isDir) 0x4000 else 0x8000
@@ -264,12 +271,30 @@ public class TarReader(
                         val logicalSize = if (isDir) 0L else sparse?.realSize ?: size
                         out.add(
                             ArchiveEntry(name, logicalSize, isDir) {
-                                lastModifiedEpochSeconds = mtime
+                                tarMetadata(hdr, pax, typeFlag, pos)
                                 unixMode = mode
                                 compressedSize = if (isDir) 0L else sparse?.storedSize ?: size
                             }.withNameBytes(nameBytes).locatedAt(storedStart),
                         )
                         maps.add(sparse)
+                        links.add(null)
+                    }
+
+                    // Devices and FIFOs list with their type and device numbers and read as empty.
+                    val special = tarSpecialType(typeFlag)
+                    if (special != null && nameBytes.isNotEmpty()) {
+                        limits.checkEntryCount(out.size + 1)
+                        val decoder = if (paxName != null && pax.text("hdrcharset", pos) != "BINARY") ArchiveNameDecoder.UTF8 else nameDecoder
+                        val name = decoder.decodeStoredName(nameBytes, nameOffset)
+                        val permissions = optionalNumeric(hdr, 100, 8, pos)?.let { (it and 0xFFF).toInt() } ?: 0x1A4
+                        out.add(
+                            ArchiveEntry(name, 0, false) {
+                                tarMetadata(hdr, pax, typeFlag, pos)
+                                unixMode = permissions or special
+                                compressedSize = 0
+                            }.withNameBytes(nameBytes).locatedAt(dataStart),
+                        )
+                        maps.add(null)
                         links.add(null)
                     }
                 }
@@ -361,54 +386,8 @@ public class TarReader(
         return Triple(values.filterIndexed { i, _ -> i % 2 == 0 }, values.filterIndexed { i, _ -> i % 2 == 1 }, mapBytes)
     }
 
-    /** Remove NUL framing while preserving all stored filename bytes. */
-    private fun cString(b: ByteArray, off: Int, len: Int): ByteArray {
-        var end = off
-        val max = off + len
-        while (end < max && b[end].toInt() != 0) end++
-        return b.copyOfRange(off, end)
-    }
-
-    /** Like [numeric], but null for a field holding only NUL and space padding. */
-    private fun optionalNumeric(b: ByteArray, off: Int, len: Int, headerOffset: Long): Long? {
-        for (i in off until off + len) if (b[i].toInt() != 0 && b[i].toInt() != SPACE) return numeric(b, off, len, headerOffset)
-        return null
-    }
-
-    /**
-     * Parse a numeric header field: octal ASCII normally, GNU base-256 binary when
-     * the field's high bit is set (used when a value overflows the octal width).
-     */
-    private fun numeric(b: ByteArray, off: Int, len: Int, headerOffset: Long): Long {
-        if (len > 0 && (b[off].toInt() and 0x80) != 0) {
-            val first = b[off].toInt() and 0x7F
-            var v = if (first and 0x40 != 0) first.toLong() - 128 else first.toLong()
-            for (i in 1 until len) {
-                if (v < (Long.MIN_VALUE shr 8) || v > (Long.MAX_VALUE shr 8)) {
-                    throw ArchiveFormatException("TAR: numeric field overflows Long", headerOffset + off)
-                }
-                v = (v shl 8) or (b[off + i].toLong() and 0xFF)
-            }
-            return v
-        }
-        var v = 0L
-        var i = off
-        val max = off + len
-        while (i < max) {
-            val c = b[i].toInt()
-            if (c == 0 || c == SPACE) { i++; continue }
-            if (c < ZERO || c > SEVEN) break
-            v = v * 8 + (c - ZERO)
-            i++
-        }
-        return v
-    }
-
     /** Holds the reader's internal format constants; exposes no public operations. */
     public companion object {
         private const val BLOCK = TarHeader.SIZE
-        private const val SPACE = ' '.code
-        private const val ZERO = '0'.code
-        private const val SEVEN = '7'.code
     }
 }

@@ -32,7 +32,9 @@ public class ArchiveFormatException @JvmOverloads public constructor(
 ) : ArchiveException(message, cause, offset, entryName)
 
 /** An in-memory archive or codec result cannot be represented by a single ByteArray. */
-public class ArchiveSizeException(message: String) : ArchiveException(message)
+public class ArchiveSizeException @JvmOverloads public constructor(
+    message: String, offset: Long? = null, entryName: String? = null, cause: Throwable? = null,
+) : ArchiveException(message, cause, offset, entryName)
 
 /** A recognized format, compression method or requested operation is not implemented. */
 public class ArchiveUnsupportedException @JvmOverloads public constructor(

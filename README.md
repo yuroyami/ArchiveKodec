@@ -64,9 +64,9 @@ ArchiveKodec.open(bytes).use { reader ->
 }
 ```
 
-`open` detects the format and removes one gzip layer, so a `.tar.gz` opens in one call. A
-listing refuses names such as `../../etc/passwd` by default, but always build the output path
-with `PathGuard.sanitize`. See [Reading archives](docs/reading.md) and
+`open` detects the format and removes one compression layer, so a `.tar.gz` or `.tar.xz` opens
+in one call. A listing refuses names such as `../../etc/passwd` by default, but always build
+the output path with `PathGuard.sanitize`. See [Reading archives](docs/reading.md) and
 [Entry names and Zip-Slip](docs/entry-names.md).
 
 ### Write a ZIP
@@ -85,14 +85,22 @@ TAR, GNU ar and cpio have writers too. See [Writing archives](docs/writing.md).
 ### Extract a file from disk
 
 ```kotlin
-ArchiveKodec.open(FileRandomAccessSource(path)).use { reader ->
+val source = FileRandomAccessSource(path)
+// The reader closes the source, but only once it exists: close it yourself if open throws.
+val reader = try { ArchiveKodec.open(source) } catch (e: Throwable) { source.close(); throw e }
+reader.use {
     reader.extract(reader.entries()) { entry ->
-        SystemFileSystem.sink(Path(outDir, PathGuard.sanitize(entry.name)))
+        val target = Path(outDir, PathGuard.sanitize(entry.name))
+        target.parent?.let { SystemFileSystem.createDirectories(it) }
+        SystemFileSystem.sink(target)
     }
 }
 ```
 
-`archivekodec-io` reads the file on demand, so a large archive never sits in memory.
+`archivekodec-io` reads the file on demand, so a large ZIP, TAR, 7z or other seekable
+archive is listed and read without loading it. A compressed layer such as `.tar.gz` is read
+and decoded whole in memory by `open`; `TarStreamSink` streams one instead
+([Compression](docs/compression.md#stream-both-sides)).
 `extract` reports progress, stops when its coroutine is cancelled and skips symbolic links by
 default. See [Files and extraction](docs/files.md).
 
@@ -134,8 +142,18 @@ source cannot open a file, so read the file into a `ByteArray` there.
 
 ## Limits
 
-- Codecs and most entry reads work on whole arrays, so an entry must fit one `ByteArray`.
-  ZIP members that are stored, DEFLATE or Deflate64 can stream to a sink instead.
+- What streams, in memory that does not grow with the data: `decompress(source, sink)` for
+  DEFLATE, zlib, gzip, bzip2, xz, zstd, LZ4, lzip, `.lzma`, Unix compress and lzop; the
+  `encoder` of DEFLATE, zlib, gzip, bzip2, xz, zstd, LZ4 and lzip; `ZipReader.read(entry, sink)`
+  for unencrypted stored, DEFLATE, Deflate64, bzip2, zstd and xz members; the TAR, ar and cpio
+  stream readers and writers, `TarStreamSink` and `ZipStreamWriter`.
+- Everything else works on whole arrays, so its input and output must each fit one
+  `ByteArray`: the other codecs, `read(entry)` into an array, the other ZIP members and the
+  entries of the other archive readers (read whole even into a sink), and the compression
+  layer `open` removes.
+- The encoders are not tuned to match the reference tools: [Compression ratios](docs/compression.md#compression-ratios)
+  gives the measured sizes, and [Memory](docs/compression.md#memory) what each codec holds. No
+  stream they write declares a window or dictionary above 8 MiB.
 - The default compression ratio limit of 10,000:1 rejects valid bzip2, zstd and brotli files
   with long runs of one byte. [Limits](docs/limits.md) shows how to raise it.
 - The Swift frameworks and the JavaScript module are built from this repository. They are not

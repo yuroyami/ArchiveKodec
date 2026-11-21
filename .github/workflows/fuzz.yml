@@ -1,0 +1,86 @@
+name: Fuzz
+
+# Coverage-guided fuzzing with the Jazzer harnesses in fuzz/src, every night. #154 sets the
+# release bar: 30 days of continuous fuzzing with no open finding. Each target keeps its
+# corpus in the Actions cache, so every run starts from what earlier runs found.
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds to fuzz each target
+        type: number
+        default: 2400
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz
+  cancel-in-progress: false
+
+env:
+  KOTLIN_CLI_NO_WELCOME_BANNER: 1
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }} ${{ matrix.id }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: archive, id: any }
+          - { target: archive, id: zip }
+          - { target: archive, id: seven_zip }
+          - { target: archive, id: rar }
+          - { target: archive, id: tar }
+          - { target: codec, id: deflate }
+          - { target: codec, id: bzip2 }
+          - { target: codec, id: xz }
+          - { target: codec, id: zstd }
+          - { target: codec, id: brotli }
+          - { target: codec, id: lz4 }
+          - { target: codec, id: ppmd }
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Cache the Kotlin Toolchain downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/JetBrains/Kotlin
+          key: kotlin-toolchain-${{ runner.os }}-${{ hashFiles('kotlin', 'project.yaml', '**/module.yaml', '*.module-template.yaml', 'libs.versions.toml', 'build-plugins/**/plugin.yaml') }}
+          restore-keys: kotlin-toolchain-${{ runner.os }}-
+      - name: Restore the corpus
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/fuzz/corpus
+          key: fuzz-corpus-${{ matrix.target }}-${{ matrix.id }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-${{ matrix.id }}-
+      - name: Fuzz
+        env:
+          TARGET: ${{ matrix.target }}
+          ID: ${{ matrix.id }}
+          SECONDS_EACH: ${{ inputs.seconds || 2400 }}
+        run: |
+          args=("$TARGET" --seconds "$SECONDS_EACH" --seeds archivekodec/testResources@jvm)
+          if [[ "$TARGET" == archive && "$ID" != any ]]; then args+=(--format "$ID"); fi
+          if [[ "$TARGET" == codec ]]; then args+=(--codec "$ID"); fi
+          python3 scripts/fuzz.py "${args[@]}"
+      # Save the corpus even when the run found something, so the next run keeps the coverage.
+      - name: Save the corpus
+        if: ${{ !cancelled() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/fuzz/corpus
+          key: fuzz-corpus-${{ matrix.target }}-${{ matrix.id }}-${{ github.run_id }}
+      - name: Keep the findings
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fuzz-findings-${{ matrix.target }}-${{ matrix.id }}
+          path: build/fuzz/findings/
+          retention-days: 90

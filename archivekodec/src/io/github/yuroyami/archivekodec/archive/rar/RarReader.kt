@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveNameDecoder
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
@@ -11,13 +12,17 @@ import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.issuedBy
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.CodecId
+import io.github.yuroyami.archivekodec.codec.rar.Rar29Unpacker
 import io.github.yuroyami.archivekodec.codec.rar.Rar5Unpacker
+import io.github.yuroyami.archivekodec.codec.rar.RarDecoder
 import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.DosTime
@@ -29,10 +34,13 @@ import io.github.yuroyami.archivekodec.util.readU32Le
  * `Rar!\x1A\x07\x00`) and RAR 5.0 and later ("RAR5", `Rar!\x1A\x07\x01\x00`).
  *
  * It lists every file and directory, with sizes, modification times, Unix modes for
- * archives made on Unix, and encryption. Stored members and RAR5 compressed members
- * (including solid archives and the delta, x86 and ARM filters) are read and checked against
- * their CRC-32; a solid member decodes the members before it, and reading in listing order
- * decodes each once. RAR4 compressed members, RAR 7 compression with dictionaries over 4 GB,
+ * archives made on Unix, and encryption. Stored members, RAR 2.9 compressed members (what RAR
+ * 3.x and 4.x write: LZ77 and PPMd blocks, and filters, run natively or in RAR's virtual
+ * machine) and RAR5 compressed members (including the delta, x86 and ARM filters) are read and
+ * checked against their CRC-32, solid archives too; a solid member decodes the members before
+ * it, and reading in listing order decodes each once. Solid RAR4 archives are not yet tested
+ * against archives that RAR wrote. RAR 1.5 and 2.0 compression, RAR 7
+ * compression with dictionaries over 4 GB,
  * encrypted members and members split across volumes are listed but refused on read with an
  * [ArchiveUnsupportedException] that names the reason, as are archives whose headers are
  * encrypted. The RAR5 window is refused above [ArchiveLimits.maxDecoderMemory]. RAR5 symbolic links read as their target text, and
@@ -55,8 +63,10 @@ public class RarReader(
     private class Item(
         val dataOffset: Long, val packed: Long, val crc: Long?,
         val refusal: String? = null, val target: ByteArray? = null, val linkTo: String? = null,
-        /** RAR5 compression information when the member is compressed, else -1. */
+        /** RAR5 compression information when the member is compressed, else -1; for RAR4, only the solid flag. */
         val compression: Long = -1, val size: Long = 0,
+        /** Whether the member is RAR 2.9 compressed, which RAR 3.x and 4.x write. */
+        val rar29: Boolean = false,
     )
 
     private class Directory(val entries: List<ArchiveEntry>, val items: List<Item>)
@@ -81,9 +91,10 @@ public class RarReader(
     }
 
     /** The solid stream decoded so far: its first member and the last member fed to it. */
-    private var unpacker: Rar5Unpacker? = null
+    private var unpacker: RarDecoder? = null
     private var unpackerStart = -1
     private var unpackerLast = -1
+    private var unpackerWindow = 0L
 
     @Throws(ArchiveException::class)
     override fun read(entry: ArchiveEntry, limits: ArchiveLimits): ByteArray {
@@ -97,13 +108,16 @@ public class RarReader(
                 val index = directory.entries.indices.firstOrNull { directory.entries[it].name == item.linkTo && directory.items[it].linkTo == null } ?: -1
                 if (index < 0) throw ArchiveFormatException("RAR: link target '${item.linkTo}' is not in the archive")
                 item = directory.items[index]
+                // A link produces its target's data, so the limits apply to the target's size.
+                limits.checkOutputSize(item.size)
             }
             when {
                 item.target != null -> item.target!!.copyOf()
                 item.refusal != null -> throw ArchiveUnsupportedException("RAR: ${item.refusal}", item.dataOffset)
                 listed.isDirectory -> ByteArray(0)
                 item.compression >= 0 -> {
-                    limits.checkRatio(item.packed, listed.size)
+                    // A member without data has no bytes to measure against: count one.
+                    limits.checkRatio(maxOf(item.packed, 1L), item.size)
                     val data = unpack(directory.items, directory.items.indexOf(item), limits)
                     if (item.crc != null && Crc32.of(data) != item.crc) throw ArchiveFormatException("RAR: CRC-32 mismatch", item.dataOffset)
                     data
@@ -111,7 +125,7 @@ public class RarReader(
                 else -> {
                     limits.checkOutputSize(item.packed)
                     limits.checkRatio(item.packed, item.packed)
-                    val data = source.readFullyChecked(item.dataOffset, item.packed)
+                    val data = source.readEntryChecked(item.dataOffset, item.packed)
                     if (item.crc != null && Crc32.of(data) != item.crc) throw ArchiveFormatException("RAR: CRC-32 mismatch", item.dataOffset)
                     data
                 }
@@ -142,8 +156,23 @@ public class RarReader(
             }
         }
         val current = unpacker
-        val resume = current != null && unpackerStart == start && unpackerLast < index
-        val worker = if (resume) current!! else {
+        // A kept window is reused only while this call's limits would allow it too: its window,
+        // and for RAR 2.9 the PPMd model it already holds. A resumed RAR 2.9 unpacker then
+        // answers to this call's limit for any model a later block starts.
+        val resume = current != null && unpackerStart == start && unpackerLast < index && unpackerWindow <= limits.maxDecoderMemory &&
+            (current !is Rar29Unpacker || current.ppmdMemory <= limits.maxDecoderMemory)
+        if (resume && current is Rar29Unpacker) current.maxPpmdMemory = limits.maxDecoderMemory
+        val target = items[index]
+        limits.checkOutputSize(target.size)
+        requireByteArraySize(target.size, target.dataOffset)
+        val worker = if (resume) current!! else if (items[start].rar29) {
+            // RAR 2.9 always uses a 4 MiB window; its PPMd model is checked when a block starts one.
+            if (RAR29_WINDOW > limits.maxDecoderMemory) {
+                throw DecompressionBombException("RAR: a $RAR29_WINDOW B window exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+            }
+            unpackerWindow = RAR29_WINDOW
+            Rar29Unpacker(limits.maxDecoderMemory)
+        } else {
             var total = 0L
             var j = start
             while (j < items.size && (j == start || items[j].compression < 0 || solid(j))) {
@@ -158,24 +187,36 @@ public class RarReader(
                 throw DecompressionBombException(
                     "RAR: a $window B window exceeds the decoder memory limit ${minOf(limits.maxDecoderMemory, MAX_WINDOW)} B")
             }
-            Rar5Unpacker(window.toInt(), dictionary)
+            Rar5Unpacker(window.toInt(), dictionary).also { unpackerWindow = window }
         }
         unpacker = worker
         unpackerStart = start
         var result: ByteArray? = null
-        for (j in (if (resume) unpackerLast + 1 else start)..index) {
-            val item = items[j]
-            if (item.compression < 0) continue
-            unpackerLast = j
-            if (j == index) limits.checkOutputSize(item.size)
-            if (item.size > Int.MAX_VALUE || item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: member is too large for a ByteArray", item.dataOffset)
-            val data = source.readFullyChecked(item.dataOffset, item.packed)
-            try {
+        val first = if (resume) unpackerLast + 1 else start
+        // The window holds the members up to unpackerLast only once each decode returned. Any
+        // failure part way leaves it out of step with the stream, so it is dropped.
+        unpackerLast = first - 1
+        try {
+            for (j in first..index) {
+                val item = items[j]
+                if (item.compression < 0) continue
+                requireByteArraySize(item.size, item.dataOffset)
+                if (item.packed > Int.MAX_VALUE) throw ArchiveFormatException("RAR: packed data of ${item.packed} bytes is too large for a ByteArray", item.dataOffset)
+                // An empty RAR 2.9 member has no data and leaves the stream untouched, as RAR writes it.
+                if (item.rar29 && item.size == 0L) {
+                    if (j == index) result = ByteArray(0)
+                    unpackerLast = j
+                    continue
+                }
+                val data = source.readFullyChecked(item.dataOffset, item.packed)
                 result = worker.unpack(data, 0, data.size, item.size.toInt(), keep = j == index)
-            } catch (error: ArchiveException) {
-                unpacker = null
-                throw error
+                unpackerLast = j
             }
+        } catch (error: Throwable) {
+            unpacker = null
+            unpackerStart = -1
+            unpackerLast = -1
+            throw error
         }
         return result ?: throw ArchiveFormatException("RAR: member has no compressed data", items[index].dataOffset)
     }
@@ -264,10 +305,11 @@ public class RarReader(
             val refusal = when {
                 flags and (SPLIT_BEFORE or SPLIT_AFTER) != 0 -> "the member continues in another volume; multi-volume archives are not supported"
                 flags and ENCRYPTED != 0 -> "the member is encrypted; RAR encryption is not supported"
-                !isDirectory && method != METHOD_STORE ->
+                !isDirectory && method != METHOD_STORE && h[24].toInt() != UNPACK_29 && h[24].toInt() != UNPACK_36 ->
                     "compression method ${method - METHOD_STORE} (${METHOD_NAMES.getOrElse(method - METHOD_STORE) { "unknown" }}) " +
-                        "of RAR ${h[24] / 10}.${h[24] % 10} is not supported; only stored members are read"
-                !isDirectory && packed != unpacked -> "a stored member holds $packed bytes for $unpacked"
+                        "of RAR ${h[24] / 10}.${h[24] % 10} is not supported; RAR 2.9 compression and stored members are read"
+                !isDirectory && method != METHOD_STORE && method > METHOD_STORE + 5 -> "unknown compression method $method"
+                !isDirectory && method == METHOD_STORE && packed != unpacked -> "a stored member holds $packed bytes for $unpacked"
                 else -> null
             }
             val entry = ArchiveEntry(if (isDirectory) "$name/" else name, if (isDirectory) 0 else unpacked, isDirectory) {
@@ -276,8 +318,15 @@ public class RarReader(
                 codec = if (method == METHOD_STORE || isDirectory) CodecId.STORE else CodecId("rar")
                 isEncrypted = flags and ENCRYPTED != 0
                 unixMode = if (unix) attributes and 0xFFFF else null
+                // MS-DOS, OS/2 and Win32 hosts store Windows attributes.
+                windowsAttributes = if (host == HOST_MSDOS || host == HOST_OS2 || host == HOST_WIN32) attributes else null
             }.withNameBytes(raw).locatedAt(dataOffset)
-            add(entries, items, entry, Item(dataOffset, packed, crc, refusal))
+            val compressed = !isDirectory && method != METHOD_STORE && refusal == null
+            add(entries, items, entry, Item(
+                dataOffset, packed, crc, refusal,
+                compression = if (compressed) (if (flags and SOLID4 != 0) SOLID_FLAG else 0L) else -1,
+                size = unpacked, rar29 = compressed,
+            ))
             return packed
         }
 
@@ -350,7 +399,9 @@ public class RarReader(
             val fileFlags = vint().toInt()
             var unpacked = vint()
             val attributes = vint()
-            var modified = if (fileFlags and FILE_HAS_TIME != 0) u32() else null
+            var modified = if (fileFlags and FILE_HAS_TIME != 0) ArchiveTime(u32()) else null
+            var created: ArchiveTime? = null
+            var accessed: ArchiveTime? = null
             val crc = if (fileFlags and FILE_HAS_CRC != 0) u32() else null
             val compression = vint()
             val host = vint().toInt()
@@ -375,12 +426,23 @@ public class RarReader(
                     when (vint().toInt()) {
                         EXTRA_ENCRYPTION -> encrypted = true
                         EXTRA_TIME -> {
+                            // Modified, created and accessed, each when flagged, as Unix seconds or FILETIME;
+                            // Unix times may be followed by their nanoseconds, in the same order.
                             val timeFlags = vint().toInt()
-                            if (timeFlags and TIME_MODIFIED != 0) {
-                                modified = if (timeFlags and TIME_UNIX != 0) u32() else {
-                                    val ticks = u32() or (u32() shl 32)
-                                    (ticks - FILETIME_EPOCH).floorDiv(10_000_000L)
+                            val unixTime = timeFlags and TIME_UNIX != 0
+                            val present = listOf(TIME_MODIFIED, TIME_CREATED, TIME_ACCESSED).filter { timeFlags and it != 0 }
+                            if (recordEnd - p < present.size * (if (unixTime) 4 else 8)) fail("time record runs past its record", headerStart)
+                            val times = present.map { if (unixTime) ArchiveTime(u32()) else ArchiveTime.fromFileTime(u32() or (u32() shl 32)) }.toMutableList()
+                            if (unixTime && timeFlags and TIME_UNIX_NANOS != 0 && recordEnd - p >= present.size * 4) {
+                                for (i in times.indices) {
+                                    val nanos = u32()
+                                    if (nanos < 1_000_000_000L) times[i] = ArchiveTime(times[i].epochSeconds, nanos.toInt())
                                 }
+                            }
+                            for ((i, flag) in present.withIndex()) when (flag) {
+                                TIME_MODIFIED -> modified = times[i]
+                                TIME_CREATED -> created = times[i]
+                                else -> accessed = times[i]
                             }
                         }
                         EXTRA_REDIRECTION -> {
@@ -412,7 +474,10 @@ public class RarReader(
                 else -> null
             }
             val entry = ArchiveEntry(if (isDirectory) "$name/" else name, if (isDirectory) 0 else unpacked, isDirectory) {
-                lastModifiedEpochSeconds = modified
+                lastModified = modified
+                this.created = created
+                lastAccessed = accessed
+                windowsAttributes = if (host == HOST5_WINDOWS) attributes.toInt() else null
                 compressedSize = if (isDirectory) 0 else dataSize
                 codec = if (method == 0 || isDirectory) CodecId.STORE else CodecId("rar5")
                 isEncrypted = encrypted
@@ -447,7 +512,14 @@ public class RarReader(
         const val SALT = 0x0400
         const val EXT_TIME = 0x1000
         const val METHOD_STORE = 0x30
+        const val SOLID4 = 0x0010
+        const val RAR29_WINDOW = 0x400000L
+        const val UNPACK_29 = 29
+        const val UNPACK_36 = 36
         val METHOD_NAMES = listOf("store", "fastest", "fast", "normal", "good", "best")
+        const val HOST_MSDOS = 0
+        const val HOST_OS2 = 1
+        const val HOST_WIN32 = 2
         const val HOST_UNIX = 3
         const val HOST_BEOS = 5
 
@@ -464,18 +536,21 @@ public class RarReader(
         const val FILE_HAS_TIME = 0x0002
         const val FILE_HAS_CRC = 0x0004
         const val FILE_UNKNOWN_SIZE = 0x0008
+        const val HOST5_WINDOWS = 0
         const val HOST5_UNIX = 1
         const val EXTRA_ENCRYPTION = 1
         const val EXTRA_TIME = 3
         const val EXTRA_REDIRECTION = 5
         const val TIME_UNIX = 0x0001
         const val TIME_MODIFIED = 0x0002
+        const val TIME_CREATED = 0x0004
+        const val TIME_ACCESSED = 0x0008
+        const val TIME_UNIX_NANOS = 0x0010
         const val REDIRECT_UNIX_SYMLINK = 1
         const val REDIRECT_WINDOWS_SYMLINK = 2
         const val REDIRECT_JUNCTION = 3
         const val REDIRECT_HARD_LINK = 4
         const val REDIRECT_FILE_COPY = 5
-        const val FILETIME_EPOCH = 116_444_736_000_000_000L
         const val SOLID_FLAG = 0x40L
         const val DICTIONARY_UNIT = 128L * 1024
         const val MAX_WINDOW = 1L shl 30

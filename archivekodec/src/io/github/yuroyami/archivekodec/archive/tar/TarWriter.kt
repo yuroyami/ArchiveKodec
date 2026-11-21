@@ -191,9 +191,10 @@ public object TarWriter {
         return out.takeByteArray()
     }
 
-    private fun encodeName(spec: FileSpec): ByteArray {
-        val name = spec.name
-        if (name.isEmpty() || '\u0000' in name || !spec.isDirectory && name.endsWith('/')) {
+    private fun encodeName(spec: FileSpec): ByteArray = encodeName(spec.name, spec.isDirectory)
+
+    private fun encodeName(name: String, isDirectory: Boolean): ByteArray {
+        if (name.isEmpty() || '\u0000' in name || !isDirectory && name.endsWith('/')) {
             throw ArchiveFormatException("TAR: invalid member name or directory spelling on a regular file", entryName = name)
         }
         return try {
@@ -202,6 +203,48 @@ public object TarWriter {
             throw ArchiveFormatException("TAR: filename is not valid Unicode", entryName = name, cause = error)
         }
     }
+
+    /**
+     * The records before one member's data: a GNU long-name record when the name fits no ustar
+     * split, a pax record when the size passes the 11 octal digits of ustar, then the header.
+     */
+    internal fun headerRecords(name: String, isDirectory: Boolean, size: Long, mode: Int, uid: Int, gid: Int, time: Long): ByteArray {
+        val encoded = encodeName(name, isDirectory)
+        val out = ByteArrayBuilder(1536)
+        var base = encoded
+        var prefix = byteArrayOf()
+        if (encoded.size > 100) {
+            val split = if (encoded.size <= 256) (encoded.lastIndex downTo 1).firstOrNull {
+                encoded[it].toInt() == 47 && it <= 155 && encoded.size - it - 1 in 1..100
+            } else null
+            if (split != null) {
+                prefix = encoded.copyOfRange(0, split)
+                base = encoded.copyOfRange(split + 1, encoded.size)
+            } else {
+                out.append(header("././@LongLink".encodeToByteArray(), byteArrayOf(), encoded.size + 1L, 'L', 0x1a4, 0, 0, 0))
+                out.append(encoded)
+                out.append(0)
+                pad(out)
+                base = "LongName".encodeToByteArray()
+            }
+        }
+        val ustarSize = if (size > MAX_USTAR_SIZE) {
+            // "NN size=VALUE\n", where NN counts the whole record including itself.
+            val body = " size=$size\n"
+            var length = body.length + 2
+            while ((length.toString() + body).length != length) length = (length.toString() + body).length
+            val record = (length.toString() + body).encodeToByteArray()
+            out.append(header("././@PaxHeader".encodeToByteArray(), byteArrayOf(), record.size.toLong(), 'x', 0x1a4, 0, 0, 0))
+            out.append(record)
+            pad(out)
+            0L
+        } else size
+        out.append(header(base, prefix, ustarSize, if (isDirectory) '5' else '0', mode, uid, gid, time))
+        return out.takeByteArray()
+    }
+
+    /** The largest size the 12-byte octal field holds: 11 digits. */
+    internal const val MAX_USTAR_SIZE = 0x1FFFFFFFFL
 
     private fun header(name: ByteArray, prefix: ByteArray, size: Long, type: Char, mode: Int, uid: Int, gid: Int, time: Long): ByteArray {
         val bytes = ByteArray(512)

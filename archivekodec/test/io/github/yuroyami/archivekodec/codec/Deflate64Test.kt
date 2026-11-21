@@ -13,6 +13,7 @@ import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -74,12 +75,23 @@ class Deflate64Test {
     }
 
     @Test
-    fun compressedOutputRoundTripsAndAvoidsLengthCode285() {
-        val data = ByteArray(200_000) { (it % 7).toByte() }
-        val encoded = Codecs.DEFLATE64.compress(data)
-        assertContentEquals(data, Codecs.DEFLATE64.decompress(encoded))
-        // Without length 258 matches, plain DEFLATE decodes the same stream identically.
-        assertContentEquals(data, Codecs.DEFLATE.decompress(encoded))
+    fun compressedOutputUsesLongMatchesAndTheWideWindow() {
+        // Long runs: Deflate64's 65,538-byte matches need far fewer codes than DEFLATE's 258.
+        val runs = ByteArray(200_000) { (it % 7).toByte() }
+        val runsEncoded = Codecs.DEFLATE64.compress(runs)
+        assertContentEquals(runs, Codecs.DEFLATE64.decompress(runsEncoded))
+        assertTrue(runsEncoded.size * 4 < Codecs.DEFLATE.compress(runs).size, "${runsEncoded.size} vs ${Codecs.DEFLATE.compress(runs).size}")
+        // A 40,000-byte block of noise, repeated: only a window past 32 KiB reaches the copy.
+        val noise = kotlin.random.Random(64).nextBytes(40_000)
+        val repeated = noise + noise
+        val wide = Codecs.DEFLATE64.compress(repeated)
+        assertContentEquals(repeated, Codecs.DEFLATE64.decompress(wide))
+        assertTrue(wide.size < 45_000, "the second copy should be one long match, not ${wide.size - 40_000} more bytes")
+        assertTrue(Codecs.DEFLATE.compress(repeated).size > 79_000)
+        // Short and empty inputs round-trip too.
+        for (data in listOf(ByteArray(0), "x".encodeToByteArray(), runs.copyOf(70_000), repeated)) {
+            assertContentEquals(data, Codecs.DEFLATE64.decompress(Codecs.DEFLATE64.compress(data)))
+        }
     }
 
     @Test

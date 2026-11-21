@@ -1,8 +1,184 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-11-21
 
-## 0.2.0 - 2026-11-15
+Not yet run under the nightly fuzzer, which starts with this release; its findings go into
+0.2.1. Solid RAR4 archives are not yet tested against archives that RAR wrote.
+
+- Fixed: the zstd, xz, `.lzma`, LZMA2 and lzip encoders no longer declare a window or dictionary
+  that grows with the input. zstd frames need a window of at most 8 MiB, the most RFC 8878 asks a
+  decoder to support; `compress` wrote one frame whose window was the whole input, which
+  `zstd -d` refused past 128 MiB and browser and embedded decoders may refuse past 8 MiB. The
+  LZMA writers declare at most 8 MiB, the dictionary of `xz -6`, instead of up to 64 MiB. Their
+  output is read by any conforming decoder without flags, a streamed decode of it needs at most
+  an 8 MiB window, and the encoders' match chains stop at 32 MiB. Input up to 8 MiB gives the
+  same bytes as before.
+- Docs: [Compression ratios](docs/compression.md#compression-ratios) gives every encoder's size on
+  the Silesia Corpus next to the reference tools, and [Memory](docs/compression.md#memory) what
+  each codec holds; `scripts/compression-ratios.py` reproduces both, and
+  `scripts/fetch-silesia.sh` now checks each file's SHA-256.
+- `ZipStreamWriter` writes a ZIP to a `ByteSink` entry by entry, reading each file from a
+  `ByteSource`, so the archive no longer has to fit in memory and can pass 4 GiB. Files get a
+  data descriptor, and ZIP64 fields where a size, an offset or the entry count needs them.
+  It takes the settings `ZipWriter.FileSpec` takes, except encryption, and writes the same
+  metadata; after a failure part-way through an entry or `finish`, every later call throws
+  that failure again. `ZipWriter`'s output is unchanged. A test writes and reads back a ZIP larger than
+  a 32 MiB JVM heap through that heap, and another an entry past 4 GiB.
+- Fixed: the PalmDOC decoder checks the compression ratio before its output grows, against
+  the input read so far, instead of once at the end.
+- Fixed: `extract` in `archivekodec-io` reports a sink that cannot be opened, such as one in a
+  missing directory, as an `ArchiveIOException` and passes it to `onFailure`; the IO exception
+  escaped raw before. The README and Files examples now create parent directories.
+- Behaviour change: a sparse member's holes now count against the ratio limit. A sparse TAR
+  member or SquashFS file with holes is measured against the larger of its stored bytes and the
+  whole archive (the SquashFS image's used bytes). A 10 KB SquashFS image of one fully sparse
+  file allocated up to 2 GiB under any ratio limit, and a 1.5 KB TAR of a GNU sparse member
+  that stores nothing 16 MiB; both are now refused under the default 10,000:1. Sparse files in
+  ordinary archives still read.
+- Behaviour change: an entry too large for one `ByteArray` (exactly 2^31 bytes passes the
+  default 2 GiB output limit) failed with `ArchiveFormatException` in TAR, ar, cpio, RAR, ZIP
+  stored entries, ISO 9660 and SquashFS. It now fails with `ArchiveSizeException`, as
+  `ArchiveReader.read` documents, naming the entry and its offset. A declared structure, such
+  as a header or a table, that large stays a format error. `ArchiveSizeException` takes
+  `offset`, `entryName` and `cause`, as the other archive exceptions do.
+- Fixed: a 7z header could demand gigabytes before any limit: each folder's substream count was
+  bounded by the header's size, but not their sum, so a 64 KB header could ask for 480 million
+  sizes (3.8 GB), and a larger one overflowed the count to a `NegativeArraySizeException`. Every
+  substream is a file, so the total now answers to `maxEntries` before anything is allocated,
+  and a total past `Int.MAX_VALUE` is refused.
+- Fixed: `IsoReader` allocated a file's declared size before checking that its extents lie in
+  the image: a 40 KB image could allocate 2.1 GB. Every extent is checked first.
+- Fixed: `SquashfsReader` built the whole fragment table from the superblock's u32 count, 16
+  bytes per fragment, up to 1024 times the image size, and from 2^30 fragments the count
+  overflowed an `Int`. It now reads only the metadata block that holds the fragment it needs.
+- Fixed: `TarReader` read a GNU long name or long link record whole, at any size up to 2 GiB.
+  Above 1 MiB, the stream readers' cap, it is now refused with `ArchiveFormatException`.
+- Fixed: a wrong password on an encrypted 7z folder without a folder CRC, a stored one for
+  example, failed the file's CRC-32 with `ArchiveFormatException`. It is now an
+  `ArchivePasswordException`, as for other wrong passwords.
+- RAR 2.9 decompression: the compressed members RAR 3.x and 4.x write now read, with LZ77 and
+  PPMd blocks, solid archives, and filters, both RAR's standard ones and bytecode for its
+  virtual machine, which runs under an instruction budget. Ported from XADMaster with the
+  permission of its copyright holders (reference/REFERENCES.md). Checked against libarchive's
+  RAR test archives by CRC-32, including with the x86 filter run as bytecode. Solid RAR4
+  archives are not yet tested against archives that RAR wrote. A read that resumes a solid
+  stream answers to its own `maxDecoderMemory` for any PPMd model a later block starts, and
+  restarts the stream when the model already held is larger than that.
+- Entry metadata (#154, owner decision 3). `ArchiveEntry` adds `lastModified`, `lastAccessed`,
+  `created` and `statusChanged` as `ArchiveTime` (seconds and nanoseconds), `uid`, `gid`,
+  `ownerName`, `groupName`, `deviceMajor`, `deviceMinor`, `windowsAttributes`, `xattrs` and
+  `type` (`EntryType`). TAR, cpio, ZIP, 7z, RAR, WIM, CAB, SquashFS and ISO 9660 fill what they
+  store; [Reading](docs/reading.md#entry-metadata) has the table. `lastModifiedEpochSeconds`
+  stays, as a whole-second view. `TarReader` now lists devices and FIFOs, which it skipped, and
+  `extract` skips devices, FIFOs and sockets instead of writing them as empty files.
+  SquashFS owners and device numbers read as absent from a damaged table, but a failure of the
+  source while reading them fails the listing, and a retried listing reads them again.
+- Fixed: `extract` selects each entry by its own listing slot. Of two members with identical
+  metadata (two TAR members `notes` with different data), passing one extracted both.
+- Fixed: the platform inflater stops at the smaller of the size limit and the input size times
+  the ratio limit. A 64 KB stream of zeros under a 10:1 ratio limit allocated 320 MiB before
+  it was rejected.
+- Fixed: a preview read (`InflateOptions.stopAfterBytes`) checks the size and ratio limits
+  first, so it never returns more than they allow.
+- Fixed: a CAB read that fails while decoding a folder no longer breaks the next read of the
+  folder cached before it with a `NullPointerException`.
+- Fixed: an ISO 9660 listing that failed, for example on an IO error, can be retried. The retry
+  failed with "directory is reached twice".
+- Fixed: the JavaScript `compress` applies the level to `deflate`, `zlib` and `gzip` whatever
+  the case of the codec name.
+- Fixed: `extract` reports a total of -1 when an entry's size is unknown, instead of a sum that
+  counted -1 sizes.
+- The npm package that `scripts/js_package.py` writes is named `archivekodec`, since npm refuses
+  capitals in new package names.
+- Fixed: a solid RAR5 read that failed part way (an IO error, a size limit) no longer makes
+  the next read resume past the member it never decoded. A kept RAR5 window is reused only under
+  limits that allow it, and a RAR link is checked against its target's size.
+- Fixed, small inputs that reserved large outputs before a limit could reject them: CAB folders
+  whose files claim more than their data blocks, RAR5 compressed members without data, SquashFS
+  block lists that point outside the image, chained 7z coders measured against another coder's
+  output, LZW and PackBits with a large `expectedSize`, and HUFF/CDIC phrases, which now also
+  check the ratio and keep at most `maxDecoderMemory` of decoded phrases.
+- `maxDecoderMemory` also bounds the bzip2 block table and LZMA literal tables with lc + lp
+  above 4. A 7z read served from the folder cache checks the ratio limit as well.
+- **Breaking for Java:** each built-in codec is its own object, so referencing one no longer
+  initializes the other 17, and a shrinker keeps only the codecs a program uses. `Codecs.GZIP`
+  and the others are now static getters (`Codecs.getGZIP()` from Java) instead of fields.
+  Kotlin and Swift source is unchanged.
+- The JavaScript facade (`JsExports.kt`) moved from the core into the `archivekodec-js` module.
+  A Kotlin/JS program that depends on the core no longer keeps the facade's exports. The npm
+  module that `scripts/js_package.py` assembles exports the same functions as before.
+- `Crc32` and `Adler32` use `java.util.zip` on the JVM and Android, which runs as an intrinsic.
+  On 64 KiB of text, CRC-32 went from 1.3 GB/s to 58 GB/s and Adler-32 from 1.9 GB/s to
+  22 GB/s on the benchmark machine. Other platforms keep the table code.
+- `extract` takes `maxTotalBytes`, a budget for all entries together, checked against the
+  listed sizes first and before every write, and `onFailure`, called with an entry and its
+  error after a failed entry's sink is closed, so a partial file can be deleted.
+- The cpio reader reads old binary cpio (`cpio -H bin`) in both byte orders, which it used to
+  refuse. An initramfs reader still refuses it, as the kernel does.
+- `ZipEncryption.insecureZipCrypto` writes PKWARE's traditional ZIP encryption for readers that
+  support nothing else. `ZipEncryption.scheme` names the scheme a `ZipEncryption` writes.
+- `CpioWriter.Dialect.ODC` writes POSIX odc cpio, which GNU cpio lists and extracts.
+- `ArWriter.NameStyle.BSD` writes long ar names inline as BSD and macOS `ar` do.
+- The Deflate64 encoder uses the 64 KiB window, distance codes 30 and 31 and matches up to
+  65,538 bytes, instead of writing plain DEFLATE. 7-Zip decodes its output.
+- The pure encoders are deterministic across platforms: `GoldenEncoderTest` pins the size and
+  CRC-32 of every codec's output, and of DEFLATE at every level and strategy, on every target.
+- `ArchiveKodec.open` removes one layer of bzip2, xz, zstd, LZ4 or framed Snappy as well as
+  gzip, so `.tar.xz` and `.tar.zst` open in one call. The layer is still decoded whole; bounded
+  memory comes with streaming.
+- Added lzip (`.lz`): `Codecs.LZIP` decodes concatenated members and checks every trailer, and
+  encodes one member; the sniffer detects it and `open` removes it like the other layers. The
+  lzip tool reads our output, and we read its output, single and multi-member.
+- Added Unix compress (`.Z`): `Codecs.COMPRESS` decodes 10- to 16-bit LZW in either block
+  mode and encodes 16-bit block mode, and `open` removes it like the other layers. ncompress 5.0
+  reads our output, and we read its output at every width from 10 to 16. Streams whose widest
+  code is 9 bits are refused, since how ncompress changes width there is not pinned down.
+- Added lzop (`.lzo`) and an LZO1X encoder: `Codecs.LZOP` reads LZO1X blocks with every
+  checksum option and writes greedy LZO1X blocks, and `open` removes it like the other layers.
+  lzop 1.04 reads our output, and we read its output at levels 1 and 9 and with CRC-32 checks.
+- xz and 7z decode the PowerPC, IA-64, ARM, ARM-Thumb, SPARC and ARM64 branch filters, and x86
+  with a start offset. xz 5.4.5 and 7-Zip output with each filter decodes byte for byte. RISC-V
+  and BCJ2 are still refused.
+- LZ4 decodes legacy frames (`lz4 -l`, the Linux kernel's format), alone or mixed with standard
+  and skippable frames, instead of refusing them.
+- `Bzip2Options` sets the bzip2 block size level, 1 to 9, as `bzip2 -1` to `-9` do. bzip2 1.0.8
+  reads every level, and our output is a little smaller than its own at levels 1, 5 and 9.
+- Streaming on both sides. `ByteSource` is the input side of `ByteSink`; `Codec.decompress(source,
+  sink, limits)` and `Codec.encoder(sink)` (an `EncoderSession` with `write`, `flush` and
+  `finish`) stream DEFLATE, zlib and gzip in fixed memory, and fall back to buffering for the
+  other codecs. `TarStreamWriter`, `TarStreamReader` and `TarStreamSink` write and read TAR
+  entry by entry, so a `.tar.gz` larger than memory is written and read in a 32 MiB heap, as
+  a test checks. bzip2 streams too: the decoder reads its input as it decodes, and an encoder
+  session writes each full block as its own stream, which every bzip2 decoder joins. xz
+  streams: the decoder slides a window of the block's dictionary over its output and streams
+  the delta filter, and the encoder session writes 2 MiB blocks. `.tar.gz`, `.tar.bz2` and
+  `.tar.xz` larger than a 32 MiB heap are written and read in it, as tests check. zstd
+  decodes from a source too, through a window of the frame's window size, with a running
+  content checksum; zstd, LZ4 and lzip encoder sessions write one frame or member per chunk.
+  LZ4 decodes from a source one block at a time, keeping 64 KiB of history for linked blocks.
+  lzip and `.lzma` decode from a source through a window of the dictionary, which
+  `maxDecoderMemory` bounds.
+  Unix compress decodes from a source in the memory of its code table, and lzop one block at
+  a time.
+  `ZipReader.read(entry, sink)` reads DEFLATE and Deflate64 input as it decodes, so a member
+  whose compressed data is larger than the heap streams through it, as a 32 MiB test checks.
+  bzip2, zstd and xz members stream the same way, and ZIP method 95 (xz) now reads.
+  `ArStreamWriter` and `ArStreamReader` write and read Unix `ar` member by member, the reader
+  listing what `ArReader` lists and refusing thin archives.
+  `CpioStreamWriter` (newc and odc) and `CpioStreamReader` (newc, crc, odc and old binary) do the
+  same for cpio, checking crc sums as bodies pass, read or skipped.
+  The stream readers and `TarStreamSink` are fail-stop: once a call throws, every later one
+  rethrows that failure, since a forward-only reader cannot tell where the next header starts
+  after a refused or damaged member. To list past unsafe names, turn `rejectUnsafeNames` off
+  and check names yourself. The one exception is an entry larger than `maxUncompressedBytes`,
+  which `read` and `data()` refuse before consuming anything, so `next()` skips it. The stream
+  writers are fail-stop too once a call has written part of an entry, while a refused argument
+  or name leaves them usable; they refuse a data source that returns 0 bytes, or more than
+  asked. `ArStreamReader` reads a GNU `//` name table as it arrives, up to 16 MiB. The last
+  part of a streamed DEFLATE, zlib or gzip decode, up to 1 MiB, answers to the ratio limit like
+  the rest, measured from the start of the stream across gzip members.
+- Corrected KDoc: the xz filters, `ZipReader`'s default methods, `FormatRegistry.DEFAULT`, the
+  exceptions of `ArchiveReader.read`, what ZIP streams, `nameDecoder` for 7z and WIM, and others.
 
 - **Breaking:** the library is renamed from KiteArchive to ArchiveKodec. The artifacts are
   `io.github.yuroyami:archivekodec` and `io.github.yuroyami:archivekodec-io`. The packages
@@ -35,8 +211,9 @@
   CRC-32 does not match and tells `crcMismatchListener`; ZipCrypto entries stay strict.
   `ZipReader.verify(entry)` checks an entry's CRC-32 without keeping its bytes.
   `ArchiveReader.entry(name)` finds an entry by its exact name; when two share it, the last
-  wins, and `ArchiveOpenOptions.duplicateNames = DuplicateNamePolicy.REJECT` refuses such a
-  ZIP. An entry whose sizes and CRC-32 appear only in the data descriptor after its data now
+  wins, in every facade (the JS `read(name)` returned the first), and
+  `ArchiveLimits.rejectDuplicateNames` makes every reader refuse a listing that repeats a name
+  other than a directory's. An entry whose sizes and CRC-32 appear only in the data descriptor after its data now
   reads: it lists with a size and compressed size of -1 and no CRC-32, and a read finds its
   end in the data, without reading past the next local header.
   `ArchiveNameDecoder.UTF8_OR_CP437` reads valid UTF-8 names as UTF-8 and other names as CP437.
@@ -126,8 +303,9 @@
   inflate is now within 1.7 times of `java.util.zip` on every benchmark corpus.
 
 - `FileRandomAccessSource` in `archivekodec-io` opens an archive from a file path and reads
-  it on demand through a small page cache, so archives larger than memory can be listed
-  and read: `RandomAccessFile` on the JVM and Android, POSIX `pread` on Apple, Linux and
+  it on demand through a small page cache, so seekable archives larger than memory (ZIP,
+  TAR, 7z and the like, but not a compressed layer such as `.tar.gz`, which `open` decodes
+  whole) can be listed and read: `RandomAccessFile` on the JVM and Android, POSIX `pread` on Apple, Linux and
   Android native, `ReadFile` on Windows, Node's `fs` on Kotlin/JS and Kotlin/Wasm (JS).
   Browsers and WASI refuse it with `ArchiveUnsupportedException`.
 

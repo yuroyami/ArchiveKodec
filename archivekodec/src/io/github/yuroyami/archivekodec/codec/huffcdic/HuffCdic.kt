@@ -23,7 +23,8 @@ import kotlin.jvm.JvmOverloads
  *
  * @param huff the HUFF record, which starts with `HUFF`.
  * @param cdics the CDIC records in book order, each starting with `CDIC`.
- * @param limits the output ceiling of one [decode] and of one phrase.
+ * @param limits the output and ratio ceilings of one [decode] and of one phrase, and with
+ * [ArchiveLimits.maxDecoderMemory], the ceiling on the decoded phrases kept in all.
  * @throws ArchiveFormatException if a record has the wrong signature or its tables are cut short or invalid.
  */
 public class HuffCdic @Throws(ArchiveFormatException::class) @JvmOverloads public constructor(
@@ -38,6 +39,8 @@ public class HuffCdic @Throws(ArchiveFormatException::class) @JvmOverloads publi
     private val maxCode = LongArray(33)
     private val phrases = ArrayList<ByteArray?>()
     private val plain = ArrayList<Boolean>()
+    /** Bytes of the phrases decoded and kept so far, bounded by [ArchiveLimits.maxDecoderMemory]. */
+    private var keptBytes = 0L
 
     init {
         if (huff.size < 24 || !huff.startsWith("HUFF")) throw ArchiveFormatException("huffcdic: no HUFF signature", 0)
@@ -156,11 +159,18 @@ public class HuffCdic @Throws(ArchiveFormatException::class) @JvmOverloads publi
                     phrases[r] = packed
                     throw e
                 }
+                keptBytes += phrase.size
+                if (keptBytes > limits.maxDecoderMemory) {
+                    phrases[r] = packed
+                    keptBytes -= phrase.size
+                    throw DecompressionBombException("huffcdic: decoded phrases exceed the decoder memory limit ${limits.maxDecoderMemory} B")
+                }
                 phrases[r] = phrase
                 plain[r] = true
             }
             val needed = out.size.toLong() + phrase.size
             limits.checkOutputSize(needed)
+            limits.checkRatio(size.toLong(), needed)
             if (needed > Int.MAX_VALUE - 8L) throw DecompressionBombException("huffcdic: output exceeds the ByteArray maximum")
             out.append(phrase)
         }

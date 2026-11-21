@@ -47,6 +47,9 @@ public object Magic {
             at(0) == 0xFD && at(1) == 0x37 && at(2) == 0x7A && at(3) == 0x58 && at(4) == 0x5A && at(5) == 0x00 ->
                 ArchiveFormat.XZ
             at(0) == 0x28 && at(1) == 0xB5 && at(2) == 0x2F && at(3) == 0xFD -> ArchiveFormat.ZSTD
+            at(0) == 0x4C && at(1) == 0x5A && at(2) == 0x49 && at(3) == 0x50 && at(4) == 0x01 -> ArchiveFormat.LZIP
+            at(0) == 0x1F && at(1) == 0x9D && (at(2) and 0x1F) in 9..16 -> ArchiveFormat.COMPRESS
+            io.github.yuroyami.archivekodec.codec.lzo.Lzop.isLzop(header) -> ArchiveFormat.LZOP
             at(0) == 0x04 && at(1) == 0x22 && at(2) == 0x4D && at(3) == 0x18 -> ArchiveFormat.LZ4
             SnappyFraming.hasIdentifier(header) -> ArchiveFormat.SNAPPY
             isBzip2(header) -> ArchiveFormat.BZIP2

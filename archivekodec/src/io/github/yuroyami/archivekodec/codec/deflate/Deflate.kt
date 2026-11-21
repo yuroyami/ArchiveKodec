@@ -91,15 +91,31 @@ public object Deflate {
     }
 
     /**
-     * Compress [data] to a Deflate64 stream. Deflate64 shares DEFLATE's codes except length
-     * code 285, so capping matches at 257 bytes makes the DEFLATE output valid Deflate64.
+     * Compress [data] to a Deflate64 stream: a 64 KiB window, distance codes 30 and 31, and
+     * length code 285 with 16 extra bits for matches up to 65,538 bytes.
      */
-    internal fun encode64(data: ByteArray): ByteArray = Deflater(data, maxMatch = 257).encode()
+    internal fun encode64(data: ByteArray): ByteArray = Deflater(data, deflate64 = true).encode()
 }
 
-private class Deflater(input: ByteArray, private val options: DeflateOptions = DeflateOptions.DEFAULT, private val maxMatch: Int = 258) {
+/**
+ * Encode one input. With [final] false the output ends with a sync flush, an empty stored block,
+ * instead of a final block, so the next chunk's output continues the same stream at a byte
+ * boundary; prime that chunk with this one's last 32 KiB as its dictionary.
+ */
+internal fun deflateChunk(input: ByteArray, options: DeflateOptions, final: Boolean): ByteArray =
+    Deflater(input, options, final = final).encode()
 
-    private val windowSize = 1 shl options.windowBits
+private class Deflater(
+    input: ByteArray, private val options: DeflateOptions = DeflateOptions.DEFAULT, private val deflate64: Boolean = false,
+    private val final: Boolean = true,
+) {
+
+    private val windowSize = if (deflate64) 1 shl 16 else 1 shl options.windowBits
+    private val maxMatch = if (deflate64) MAX_MATCH_64 else MAX_MATCH
+    // Deflate64 redefines length code 285 as 16 extra bits over a base of 3, and adds two distance codes.
+    private val lengthBase = if (deflate64) LENGTH_BASE_64 else LENGTH_BASE
+    private val lengthExtra = if (deflate64) LENGTH_EXTRA_64 else LENGTH_EXTRA
+    private val distanceCodes = if (deflate64) 32 else 30
     private val mask = windowSize - 1
 
     /** The window buffer: the dictionary's last [windowSize] bytes, then the input. */
@@ -121,11 +137,12 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
 
     // One block's LZ77 tokens, packed one Int per token (see [MATCH_FLAG]).
     private val tokens = IntArray(BLOCK_TOKENS)
+    private val distances = IntArray(BLOCK_TOKENS)
     private var tokenCount = 0
 
     // The current block's symbol frequencies and extra-bit total.
     private val llFreq = IntArray(286)   // literals 0..255, EOB 256, length codes 257..285
-    private val dFreq = IntArray(30)     // distance codes
+    private val dFreq = IntArray(32)     // distance codes; 30 and 31 only in Deflate64
     private var extraBits = 0L
     private var blockStart = start       // first input byte of the current block
     private var storedFrom = -1          // first input byte of the stored run not yet written, or -1
@@ -145,7 +162,8 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
     fun encode(): ByteArray {
         when {
             options.level == 0 -> {
-                writeStored(start, data.size, final = true)
+                if (data.size > start || final) writeStored(start, data.size, final = final)
+                if (!final) writeStored(data.size, data.size, final = false)
                 flushToByte()
                 return out.toByteArray()
             }
@@ -157,7 +175,14 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
             options.level <= 3 -> greedy()
             else -> lazy()
         }
-        flushBlock(final = true)
+        if (final) {
+            flushBlock(final = true)
+        } else {
+            // The chunk's last block, then an empty stored block that byte-aligns the stream.
+            if (tokenCount > 0 || emitted > blockStart) flushBlock(final = false)
+            writeStoredRun(emitted, final = false)
+            writeStored(data.size, data.size, final = false)
+        }
         flushToByte()
         return out.toByteArray()
     }
@@ -169,7 +194,7 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
         // Build dynamic tables.
         val llLen = LengthLimitedHuffman.codeLengths(llFreq, MAX_BITS, workspace)
         val dLenRaw = LengthLimitedHuffman.codeLengths(dFreq, MAX_BITS, workspace)
-        val dLen = if (dLenRaw.any { it > 0 }) dLenRaw else IntArray(30).also { it[0] = 1 }
+        val dLen = if (dLenRaw.any { it > 0 }) dLenRaw else IntArray(32).also { it[0] = 1 }
 
         val hlit = maxIndex(llLen, minTop = END_OF_BLOCK) + 1   // >= 257
         val hdist = maxIndex(dLen, minTop = 0) + 1              // >= 1
@@ -407,12 +432,13 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
     }
 
     private fun addMatch(length: Int, distance: Int) {
-        appendToken(MATCH_FLAG or (length shl 16) or distance)
+        distances[tokenCount] = distance
+        appendToken(MATCH_FLAG or length)
         val lc = lengthCode(length)
         val dc = distCode(distance)
         llFreq[END_OF_BLOCK + 1 + lc]++  // 257 + lc
         dFreq[dc]++
-        extraBits += LENGTH_EXTRA[lc] + DIST_EXTRA[dc]
+        extraBits += lengthExtra[lc] + DIST_EXTRA[dc]
         emitted += length
     }
 
@@ -428,12 +454,12 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
             if (t and MATCH_FLAG == 0) {
                 writeCode(llCode[t], llLen[t])                              // literal
             } else {
-                val length = (t ushr 16) and 0x1FF
-                val distance = t and 0xFFFF
+                val length = t and (MATCH_FLAG - 1)
+                val distance = distances[i]
                 val lc = lengthCode(length)
                 val sym = END_OF_BLOCK + 1 + lc
                 writeCode(llCode[sym], llLen[sym])
-                if (LENGTH_EXTRA[lc] > 0) writeBits(length - LENGTH_BASE[lc], LENGTH_EXTRA[lc])
+                if (lengthExtra[lc] > 0) writeBits(length - lengthBase[lc], lengthExtra[lc])
                 val dc = distCode(distance)
                 writeCode(dCode[dc], dLen[dc])
                 if (DIST_EXTRA[dc] > 0) writeBits(distance - DIST_BASE[dc], DIST_EXTRA[dc])
@@ -500,14 +526,14 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
     private fun symbolBits(llLen: IntArray, dLen: IntArray): Long {
         var bits = 0L
         for (s in 0..285) bits += llFreq[s].toLong() * llLen[s]
-        for (d in 0..29) bits += dFreq[d].toLong() * dLen[d]
+        for (d in 0 until distanceCodes) bits += dFreq[d].toLong() * dLen[d]
         return bits
     }
 
     private fun fixedSymbolBits(): Long {
         var bits = 0L
         for (s in 0..285) bits += llFreq[s].toLong() * FIXED_LITLEN_LEN[s]
-        for (d in 0..29) bits += dFreq[d].toLong() * FIXED_DIST_LEN[d]
+        for (d in 0 until distanceCodes) bits += dFreq[d].toLong() * FIXED_DIST_LEN[d]
         return bits
     }
 
@@ -559,6 +585,13 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
     }
 
     private fun lengthCode(length: Int): Int {
+        // In Deflate64, 258 takes code 284 (227 plus 31), and longer matches take 285.
+        if (deflate64) {
+            if (length > 258) return 28
+            var i = 0
+            while (i < 27 && LENGTH_BASE[i + 1] <= length) i++
+            return i
+        }
         var i = 0
         while (i < 28 && LENGTH_BASE[i + 1] <= length) i++
         return i
@@ -566,13 +599,14 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
 
     private fun distCode(distance: Int): Int {
         var j = 0
-        while (j < 29 && DIST_BASE[j + 1] <= distance) j++
+        while (j < distanceCodes - 1 && DIST_BASE[j + 1] <= distance) j++
         return j
     }
 
     companion object {
         private const val MIN_MATCH = 3
         private const val MAX_MATCH = 258
+        private const val MAX_MATCH_64 = 65_538
         private const val HASH_BITS = 15
         private const val HASH_SIZE = 1 shl HASH_BITS
         private const val TOO_FAR = 4096
@@ -605,14 +639,17 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
             0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
             3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
         )
+        private val LENGTH_BASE_64 = LENGTH_BASE.copyOf().also { it[28] = 3 }
+        private val LENGTH_EXTRA_64 = LENGTH_EXTRA.copyOf().also { it[28] = 16 }
+        // Codes 30 and 31 exist only in Deflate64.
         private val DIST_BASE = intArrayOf(
             1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193,
             257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145,
-            8193, 12289, 16385, 24577,
+            8193, 12289, 16385, 24577, 32769, 49153,
         )
         private val DIST_EXTRA = intArrayOf(
             0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
-            7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13,
+            7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14,
         )
 
         /** Fixed-Huffman literal/length code lengths (RFC 1951 §3.2.6). */
@@ -626,8 +663,8 @@ private class Deflater(input: ByteArray, private val options: DeflateOptions = D
         }
         private val FIXED_LITLEN_CODE = canonicalCodes(FIXED_LITLEN_LEN)
 
-        /** Fixed-Huffman distance codes: all 30 are 5 bits. */
-        private val FIXED_DIST_LEN = IntArray(30) { 5 }
+        /** Fixed-Huffman distance codes: all 32 are 5 bits; DEFLATE uses only the first 30. */
+        private val FIXED_DIST_LEN = IntArray(32) { 5 }
         private val FIXED_DIST_CODE = canonicalCodes(FIXED_DIST_LEN)
 
         /** Assign canonical Huffman codes from code lengths (RFC 1951 §3.2.2). */

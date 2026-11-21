@@ -180,6 +180,30 @@ public object Zlib {
         return output.finish()
     }
 
+    /**
+     * Decode one zlib stream read from [source] to [sink] and return the byte count; the input
+     * is read as needed and the output written in chunks, so neither has to fit in memory.
+     * Preset dictionaries are refused, and nothing may follow the Adler-32 trailer.
+     */
+    internal fun decompress(source: io.github.yuroyami.archivekodec.codec.ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = io.github.yuroyami.archivekodec.codec.SourceBuffer(source)
+        val output = Inflate.Output(limits, Int.MAX_VALUE, sink = sink, reserveInputSize = false)
+        val streamStart = input.streamPosition
+        val header = ByteArray(2)
+        input.readFully(header, 0, 2, "zlib header")
+        if (!hasZlibHeader(header, 0)) throw ArchiveFormatException("zlib: invalid header", streamStart)
+        if (header[1].toInt() and 0x20 != 0) {
+            throw ArchiveUnsupportedException("zlib: a stream with a preset dictionary cannot be streamed; pass the dictionary to decompress", streamStart + 2)
+        }
+        output.startChecksum(Adler32())
+        Inflate.inflateFrom(input, output, origin = streamStart)
+        val trailer = ByteArray(4)
+        input.readFully(trailer, 0, 4, "zlib Adler-32 trailer")
+        if (readU32Be(trailer, 0) != output.checksumValue()) throw ArchiveFormatException("zlib: Adler-32 mismatch", input.streamPosition - 4)
+        if (!input.atEnd()) throw ArchiveFormatException("zlib: trailing bytes after stream", input.streamPosition)
+        return output.finish()
+    }
+
     private fun rejectTrailing(input: ByteArray, streamEnd: Int) {
         if (streamEnd != input.size) throw ArchiveFormatException("zlib: trailing bytes after stream", streamEnd.toLong())
     }

@@ -18,12 +18,3 @@ public fun interface CrcMismatchListener {
     /** [entry] decoded to bytes whose CRC-32 is [actual], where the archive stores [expected]. */
     public fun onMismatch(entry: ArchiveEntry, expected: Long, actual: Long)
 }
-
-/** What a reader does when two entries share one name. */
-public enum class DuplicateNamePolicy {
-    /** List both, and let a lookup by name return the last, as Info-ZIP's `unzip` extracts it. The default. */
-    LAST_WINS,
-
-    /** Refuse the archive with an [io.github.yuroyami.archivekodec.ArchiveFormatException]. */
-    REJECT,
-}

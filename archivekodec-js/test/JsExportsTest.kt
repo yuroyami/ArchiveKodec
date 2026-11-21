@@ -22,6 +22,18 @@ class JsExportsTest {
     }
 
     @Test
+    fun theLevelAppliesWhateverTheCaseOfTheName() {
+        val data = "level test ".repeat(500).encodeToByteArray()
+        for (name in listOf("gzip", "zlib", "deflate")) {
+            for (spelling in listOf(name, name.uppercase(), name.replaceFirstChar { it.uppercase() })) {
+                assertContentEquals(compress(name, data, 0), compress(spelling, data, 0), spelling)
+                assertContentEquals(compress(name, data, 9), compress(spelling, data, 9), spelling)
+            }
+            assertTrue(compress(name, data, 0).size > compress(name, data, 9).size, name)
+        }
+    }
+
+    @Test
     fun maxBytesCapsOutput() {
         val packed = gzip(ByteArray(5000))
         assertFailsWith<DecompressionBombException> { gunzip(packed, 4999.0) }
@@ -38,8 +50,9 @@ class JsExportsTest {
         assertEquals(listOf("a.txt", "a.txt"), entries.map { it.name })
         assertEquals(5.0, entries[0].size)
         assertEquals(1, entries[1].index)
-        assertContentEquals(hello, archive.read("a.txt"))
-        assertContentEquals(ByteArray(3), archive.readAt(1))
+        // The last of two members with one name wins, as in ArchiveReader.entry(name).
+        assertContentEquals(ByteArray(3), archive.read("a.txt"))
+        assertContentEquals(hello, archive.readAt(0))
         assertFailsWith<IllegalArgumentException> { archive.read("b.txt") }
         assertFailsWith<IllegalArgumentException> { archive.readAt(2) }
         archive.close()

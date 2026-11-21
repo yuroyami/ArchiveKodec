@@ -6,9 +6,11 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
+import io.github.yuroyami.archivekodec.archive.EntryType
 import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -21,7 +23,8 @@ import kotlin.jvm.JvmName
 public fun interface ProgressSink {
     /**
      * Called after each chunk is written. [bytesDone] only rises; [bytesTotal] is the sum of
-     * the requested entries' listed sizes.
+     * the requested entries' listed sizes, or -1 when any of them is unknown (a ZIP entry
+     * sized only by its data descriptor lists a size of -1).
      */
     public fun progress(bytesDone: Long, bytesTotal: Long)
 }
@@ -34,6 +37,8 @@ public fun interface ProgressSink {
  * without a password, so its read fails with
  * [io.github.yuroyami.archivekodec.ArchivePasswordException]. The prompt is asked once per
  * encrypted entry; remember an answer inside it to reuse one password for a whole archive.
+ * The encrypted header of a 7z archive is asked for while listing, before [extract] runs, so
+ * it is not prompted for: supply that password with [ArchivePasswordProvider.of].
  */
 public class PromptedPasswords(private val prompt: suspend (entryName: String) -> CharArray?) : ArchivePasswordProvider {
     private var name: String? = null
@@ -59,11 +64,27 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
 
 /**
  * Extract [entries] to the sinks [into] returns, one per entry, and close each sink after
- * its entry. Entries must come from this reader's [ArchiveReader.entries]; they are
- * extracted in listing order, whatever order they are given in, so a solid block (a 7z
- * folder, a cabinet folder, a solid RAR5 stream) is decoded once for all the entries it
- * holds. Directories are skipped: [into] is called for files and other members with data.
- * [limits] apply to each entry.
+ * its entry. Entries must come from this reader's [ArchiveReader.entries], and each one
+ * selects its own listing slot: of two members with identical metadata, passing one extracts
+ * only that one. An unchanged copy of a listed entry selects the first slot with equal
+ * metadata that no other given entry has taken. Entries are extracted in listing order,
+ * whatever order they are given in, so a solid block (a 7z folder, a cabinet folder, a solid
+ * RAR5 stream) is decoded once for all the entries it holds. Directories are skipped: [into] is called for files and other members with data.
+ * [limits] apply to each entry, and [maxTotalBytes] to all of them together: the extraction
+ * fails with a [DecompressionBombException] before a write would pass it, or before it starts
+ * when the listed sizes already do. A file that is safe alone can still fill a disk in
+ * company, so set a total budget for untrusted archives.
+ *
+ * When an entry fails, for a decoding, integrity, limit or sink error or a cancellation,
+ * its sink keeps what was written before the failure and is closed. [onFailure] is then
+ * called with the entry and the error, before the error propagates, so the caller can delete
+ * the partial file; the extraction stops there. Writing to a temporary name and renaming it
+ * after [extract] returns is the other safe pattern. When [into] itself fails, there is no
+ * sink to close: [onFailure] hears the failure, an [IOException] as an [ArchiveIOException],
+ * and no later entry is extracted.
+ *
+ * Devices, FIFOs and sockets ([ArchiveEntry.type]) are skipped: [into] is never called for
+ * them, and no special file is created.
  *
  * Symbolic links are never written through [into]. By default they are skipped, the safe
  * choice for untrusted archives: a link to `../..` followed by a file "inside" it is the
@@ -79,8 +100,10 @@ public class PromptedPasswords(private val prompt: suspend (entryName: String) -
  * large entry stays cancellable. [progress] hears about every write. With [passwords],
  * each encrypted entry first suspends on its prompt; open the reader with the same object.
  *
- * @throws IllegalArgumentException if an entry was not listed by this reader.
- * @throws ArchiveIOException if a sink reports an IO failure.
+ * @throws IllegalArgumentException if an entry was not listed by this reader, or [maxTotalBytes] is negative.
+ * @throws DecompressionBombException if the entries together pass [maxTotalBytes].
+ * @throws ArchiveIOException if [into] or a sink reports an IO failure, such as a sink that
+ *   cannot be opened.
  * @throws ArchiveException for the reading, decoding, integrity and limit failures of [ArchiveReader.read].
  * @throws kotlinx.coroutines.CancellationException when the calling coroutine is cancelled.
  */
@@ -91,15 +114,28 @@ public suspend fun ArchiveReader.extract(
     progress: ProgressSink? = null,
     passwords: PromptedPasswords? = null,
     onLink: ((entry: ArchiveEntry, target: String) -> Unit)? = null,
+    maxTotalBytes: Long = Long.MAX_VALUE,
+    onFailure: ((entry: ArchiveEntry, error: Throwable) -> Unit)? = null,
     into: (ArchiveEntry) -> RawSink,
 ) {
+    require(maxTotalBytes >= 0) { "maxTotalBytes must not be negative, not $maxTotalBytes" }
     val listing = entries()
-    val wanted = entries.toHashSet()
-    val selected = listing.filter { it in wanted && !it.isDirectory }
+    val chosen = BooleanArray(listing.size)
+    var missing = 0
+    for (entry in entries) {
+        // The listed object itself selects its slot; equality alone cannot tell apart two
+        // members with identical metadata, such as two TAR members of one name and size.
+        var slot = listing.indexOfFirst { it === entry }
+        if (slot < 0) slot = listing.indices.firstOrNull { !chosen[it] && listing[it] == entry } ?: listing.indexOf(entry)
+        if (slot < 0) missing++ else chosen[slot] = true
+    }
+    require(missing == 0) { "$missing of the entries were not listed by this reader" }
+    // Devices, FIFOs and sockets are never created: writing one as a file would be wrong, and
+    // creating a device node from an archive is a privilege the caller should not hand out.
+    val selected = listing.filterIndexed { index, entry -> chosen[index] && !entry.isDirectory && entry.type.isExtractable() }
     val ordered = selected.filter { !it.isSymbolicLink }
-    val found = listing.filter { it in wanted }.toHashSet()
-    require(found.size == wanted.size) { "${wanted.size - found.size} of the entries were not listed by this reader" }
-    val total = ordered.sumOf { it.size }
+    val total = if (ordered.any { it.size < 0 }) -1L else ordered.sumOf { it.size }
+    if (total > maxTotalBytes) throw DecompressionBombException("extract: the entries list $total bytes, more than the total budget of $maxTotalBytes")
     var done = 0L
     val context = currentCoroutineContext()
     for (entry in selected) {
@@ -113,12 +149,24 @@ public suspend fun ArchiveReader.extract(
         }
         context.ensureActive()
         if (entry.isEncrypted && passwords != null) passwords.ask(entry.name)
-        val sink = into(entry)
+        val sink = try {
+            into(entry)
+        } catch (error: Throwable) {
+            // Opening the sink failed, for example for a missing directory: nothing was written.
+            passwords?.forget()
+            val reported = if (error is IOException) ArchiveIOException("opening the sink for '${entry.name}' failed: ${error.message}", error) else error
+            onFailure?.invoke(entry, reported)
+            throw reported
+        }
         val buffer = Buffer()
         var completed = false
+        var failure: Throwable? = null
         try {
             read(entry, ByteSink { bytes, offset, length ->
                 context.ensureActive()
+                if (length > maxTotalBytes - done) {
+                    throw DecompressionBombException("extract: '${entry.name}' takes the output past the total budget of $maxTotalBytes bytes", null, entry.name, null)
+                }
                 buffer.write(bytes, offset, offset + length)
                 try {
                     sink.write(buffer, buffer.size)
@@ -134,14 +182,25 @@ public suspend fun ArchiveReader.extract(
                 throw ArchiveIOException("writing '${entry.name}' failed: ${error.message}", error)
             }
             completed = true
+        } catch (error: Throwable) {
+            failure = error
+            throw error
         } finally {
             passwords?.forget()
             try {
                 sink.close()
             } catch (error: IOException) {
                 // After a failure, that failure propagates; after a success, the close failure does.
-                if (completed) throw ArchiveIOException("closing the sink for '${entry.name}' failed: ${error.message}", error)
+                if (completed) {
+                    val closing = ArchiveIOException("closing the sink for '${entry.name}' failed: ${error.message}", error)
+                    onFailure?.invoke(entry, closing)
+                    throw closing
+                }
             }
+            failure?.let { onFailure?.invoke(entry, it) }
         }
     }
 }
+
+private fun EntryType.isExtractable(): Boolean =
+    this == EntryType.FILE || this == EntryType.HARD_LINK || this == EntryType.SYMBOLIC_LINK

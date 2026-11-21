@@ -1,6 +1,7 @@
 package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.archive.iso.IsoReader
 import io.github.yuroyami.archivekodec.checksum.Crc32
@@ -490,6 +491,9 @@ class IsoReaderTest {
             assertEquals(5L, file.size)
             assertEquals(1714979289L, file.lastModifiedEpochSeconds)
             assertEquals(0b1000_000_000_000_000 or 0b100_100_100, file.unixMode, "regular file, r--r--r-- or wider")
+            // -r makes every owner 0:0; both tools also store access and attribute-change times in TF.
+            assertEquals(0L to 0L, file.uid to file.gid)
+            assertTrue(file.lastAccessed != null && file.statusChanged != null, "TF times of $file")
             assertTrue(entries.getValue("sub/").isDirectory)
             val link = entries.getValue("link")
             assertEquals(0b1010_000_000_000_000, link.unixMode!! and 0b1111_000_000_000_000)
@@ -501,6 +505,30 @@ class IsoReaderTest {
             assertEquals(0xb515ec2fL, Crc32.of(read(gz, "big.bin")))
             // The relocated directory appears where it belongs, not twice.
             assertFalse(entries.keys.any { it.startsWith("rr_moved/h") }, "${entries.keys}")
+        }
+    }
+
+    @Test
+    fun aFailedListingCanBeRetried() {
+        val iso = image(rockGz)
+        // Count the reads of a whole listing, then fail the last of them, once.
+        val delegate = ByteArrayRandomAccessSource(iso)
+        var calls = 0
+        var failAt = -1
+        val flaky = object : RandomAccessSource by delegate {
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                if (++calls == failAt) throw ArchiveIOException("transient failure", IllegalStateException("flaky"))
+                return delegate.read(offset, into, intoOffset, length)
+            }
+        }
+        IsoReader(flaky).use { it.entries() }
+        failAt = calls
+        calls = 0
+        IsoReader(flaky).use { reader ->
+            assertFailsWith<ArchiveIOException> { reader.entries() }
+            val entries = reader.entries().associateBy { it.name }
+            assertContentEquals("hello".encodeToByteArray(), reader.read(entries.getValue("sub/file.txt")))
+            assertEquals(entries.size, reader.entries().size)
         }
     }
 
@@ -522,6 +550,56 @@ class IsoReaderTest {
         assertEquals(5000, reference.size)
         for ((gz, name) in listOf(jolietGz to "big.bin", plainGz to "BIG.BIN", bothGz to "big.bin", xorrisoGz to "big.bin")) {
             assertContentEquals(reference, read(gz, name))
+        }
+    }
+
+    /** The plain image with BIG.BIN claiming [length] bytes, in both byte orders. */
+    private fun claiming(length: Long): ByteArray {
+        val iso = image(plainGz)
+        val name = "BIG.BIN".encodeToByteArray()
+        var patched = 0
+        for (at in 33 until iso.size - name.size) {
+            if (iso[at - 1].toInt() != name.size + 2 || !name.indices.all { iso[at + it] == name[it] }) continue
+            for (i in 0 until 4) {
+                iso[at - 33 + 10 + i] = (length ushr (8 * i)).toByte()
+                iso[at - 33 + 17 - i] = (length ushr (8 * i)).toByte()
+            }
+            patched++
+        }
+        assertEquals(1, patched)
+        return iso
+    }
+
+    @Test
+    fun aFileOfTwoGibibytesIsASizeError() {
+        // 2^31 bytes pass the default 2 GiB output limit, but no ByteArray holds them.
+        IsoReader(ByteArrayRandomAccessSource(claiming(1L shl 31))).use { reader ->
+            val entry = reader.entries().single { it.name == "BIG.BIN" }
+            assertEquals(1L shl 31, entry.size)
+            assertFailsWith<io.github.yuroyami.archivekodec.ArchiveSizeException> { reader.read(entry) }
+        }
+    }
+
+    @Test
+    fun aFileLargerThanTheImageIsRefusedBeforeItsOutputIsAllocated() {
+        // Claim 0x7FFFFFFF bytes (2 GiB - 1, more than any JVM array holds) for BIG.BIN: both byte orders.
+        val iso = image(plainGz)
+        val name = "BIG.BIN".encodeToByteArray()
+        var patched = 0
+        for (at in 33 until iso.size - name.size) {
+            if (iso[at - 1].toInt() != name.size + 2 || !name.indices.all { iso[at + it] == name[it] }) continue
+            val record = at - 33
+            for (i in 0 until 4) {
+                iso[record + 10 + i] = (0x7FFFFFFF ushr (8 * i)).toByte()
+                iso[record + 17 - i] = (0x7FFFFFFF ushr (8 * i)).toByte()
+            }
+            patched++
+        }
+        assertEquals(1, patched)
+        IsoReader(ByteArrayRandomAccessSource(iso)).use { reader ->
+            val entry = reader.entries().single { it.name == "BIG.BIN" }
+            assertEquals(0x7FFFFFFFL, entry.size)
+            assertFailsWith<ArchiveFormatException> { reader.read(entry) }
         }
     }
 

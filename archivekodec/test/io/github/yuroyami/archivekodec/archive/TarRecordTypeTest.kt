@@ -35,7 +35,16 @@ class TarRecordTypeTest {
                 val bytes = header(if (type == '5') "d/" else "special", type, size) + regular + ByteArray(1024)
                 val reader = TarReader(ByteArrayRandomAccessSource(bytes))
                 val entries = reader.entries()
-                assertEquals(if (type == '5') 2 else 1, entries.size)
+                // Every type lists: devices and FIFOs with their type and no data, before the file.
+                assertEquals(2, entries.size)
+                val expected = when (type) {
+                    '3' -> EntryType.CHARACTER_DEVICE
+                    '4' -> EntryType.BLOCK_DEVICE
+                    '6' -> EntryType.FIFO
+                    else -> EntryType.DIRECTORY
+                }
+                assertEquals(expected, entries.first().type)
+                assertEquals(0L, entries.first().size)
                 val file = entries.last()
                 assertEquals("after.txt", file.name)
                 assertEquals(4L, file.size)

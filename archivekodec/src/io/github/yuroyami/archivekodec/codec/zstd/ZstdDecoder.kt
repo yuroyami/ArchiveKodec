@@ -4,6 +4,10 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.checksum.XxHash64
 import io.github.yuroyami.archivekodec.codec.lzma.LzOutput
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
+import io.github.yuroyami.archivekodec.codec.ByteSource
+import io.github.yuroyami.archivekodec.codec.ByteSink
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
 import io.github.yuroyami.archivekodec.util.readI32Le
 
@@ -60,8 +64,48 @@ internal object ZstdDecoder {
         return out.take()
     }
 
-    private class Frame(private val input: ByteArray, private var pos: Int, private val out: LzOutput, private val limits: ArchiveLimits) {
-        private val frameStart = out.size
+    /**
+     * Decode every frame read from [source] to [sink] and return the byte count. Each block,
+     * at most 128 KiB, is read as it is needed, and output leaves through a window of the
+     * frame's window size, which [ArchiveLimits.maxDecoderMemory] bounds.
+     */
+    fun decompress(source: ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = SourceBuffer(source)
+        val begin = input.streamPosition
+        val out = LzOutput(limits, Int.MAX_VALUE, sink = sink)
+        out.compressedProgress = { input.streamPosition - begin }
+        var frames = 0
+        val magic = ByteArray(8)
+        while (frames == 0 || !input.atEnd()) {
+            val at = input.streamPosition
+            input.readFully(magic, 0, 4, "zstd frame")
+            val value = readI32Le(magic, 0)
+            if (value and -0x10 == 0x184D2A50) {
+                input.readFully(magic, 4, 4, "zstd skippable frame")
+                var skip = readI32Le(magic, 4).toLong() and 0xFFFFFFFFL
+                while (skip > 0) {
+                    if (!input.ensure(1)) throw ArchiveFormatException("zstd: truncated skippable frame", at)
+                    val n = minOf(skip, input.available.toLong()).toInt()
+                    input.position += n
+                    skip -= n
+                }
+            } else {
+                if (value != ZSTD_MAGIC) throw ArchiveFormatException("zstd: invalid frame magic", at)
+                Frame(ByteArray(0), 0, out, limits, input).decode()
+            }
+            frames++
+        }
+        out.flush()
+        return out.produced
+    }
+
+    private class Frame(
+        private var input: ByteArray, private var pos: Int, private val out: LzOutput, private val limits: ArchiveLimits,
+        /** With a source, header fields and blocks are read from it as they are needed. */
+        private val source: SourceBuffer? = null,
+    ) {
+        private val frameStart = out.produced
+        private fun frameOutput(): Long = out.produced - frameStart
         private var windowSize = 0L
         private val reps = intArrayOf(1, 4, 8)
         private var huffman: HuffmanTable? = null
@@ -70,7 +114,17 @@ internal object ZstdDecoder {
         private var mlTable: FseTable? = null
 
         private fun fail(message: String, at: Int = pos): Nothing = throw ArchiveFormatException("zstd: $message", at.toLong())
-        private fun need(n: Int) { if (input.size - pos < n) fail("truncated frame") }
+        private fun need(n: Int) {
+            if (input.size - pos >= n) return
+            val from = source ?: fail("truncated frame")
+            // The bytes before pos are consumed: load the next n into a fresh window.
+            val window = if (input.size >= n) input else ByteArray(maxOf(n, 1 shl 17))
+            if (pos < input.size) input.copyInto(window, 0, pos, input.size)
+            val kept = input.size - pos
+            from.readFully(window, kept, n - kept, "zstd frame")
+            input = if (window.size == n) window else window.copyOf(n)
+            pos = 0
+        }
         private fun byte(): Int { need(1); return input[pos++].toInt() and 0xFF }
         private fun le(n: Int): Long { need(n); var v = 0L; for (i in n - 1 downTo 0) v = v shl 8 or (input[pos + i].toLong() and 0xFF); pos += n; return v }
 
@@ -96,8 +150,16 @@ internal object ZstdDecoder {
                 else -> le(8)
             }
             if (singleSegment) windowSize = contentSize
+            if (source != null) {
+                if (windowSize > limits.maxDecoderMemory) {
+                    throw DecompressionBombException("zstd: a $windowSize B window exceeds the decoder memory limit ${limits.maxDecoderMemory} B")
+                }
+                out.window = maxOf(windowSize, 1024L).toInt()
+            }
+            val hasher = if (source != null && hasChecksum) XxHash64.Streaming() else null
+            out.onWrite = hasher?.let { h -> { b, o, n -> h.update(b, o, n) } }
             if (contentSize >= 0) {
-                limits.checkOutputSize(out.size - 0L + contentSize)
+                limits.checkOutputSize(out.produced + contentSize)
             } else if (contentSize < -1) fail("frame content size exceeds Long")
             val blockMaximum = minOf(windowSize, MAX_BLOCK_SIZE.toLong()).toInt()
             while (true) {
@@ -127,18 +189,20 @@ internal object ZstdDecoder {
                 }
                 if (last) break
             }
-            val produced = out.size - frameStart
-            if (contentSize >= 0 && produced.toLong() != contentSize) fail("frame decoded $produced bytes, header says $contentSize")
+            val produced = frameOutput()
+            if (contentSize >= 0 && produced != contentSize) fail("frame decoded $produced bytes, header says $contentSize")
+            out.flush()
+            out.onWrite = null
             if (hasChecksum) {
                 val stored = le(4)
-                val actual = XxHash64.hash(out.bytes, frameStart, produced) and 0xFFFFFFFFL
+                val actual = (hasher?.value() ?: XxHash64.hash(out.bytes, frameStart.toInt(), produced.toInt())) and 0xFFFFFFFFL
                 if (stored != actual) fail("content checksum mismatch", pos - 4)
             }
             return pos
         }
 
         private fun compressedBlock(start: Int, end: Int, blockMaximum: Int) {
-            val blockOutputStart = out.size
+            val blockOutputStart = out.produced
             var p = start
             fun failAt(message: String): Nothing = fail(message, p)
             if (p >= end) failAt("empty compressed block")
@@ -280,14 +344,14 @@ internal object ZstdDecoder {
                 if (literalLength > literals.size - literal) failAt("sequence uses more literals than exist")
                 out.put(literals, literal, literalLength)
                 literal += literalLength
-                val available = out.size - frameStart
+                val available = frameOutput()
                 if (offset > available || offset > windowSize) failAt("match offset $offset is too far back")
-                if (out.size - blockOutputStart + matchLength > blockMaximum) failAt("block output exceeds the block maximum")
+                if (out.produced - blockOutputStart + matchLength > blockMaximum) failAt("block output exceeds the block maximum")
                 out.copy(offset - 1, matchLength)
             }
             if (!bits.finished) failAt("sequence bitstream has unused bits")
             out.put(literals, literal, literals.size - literal)
-            if (out.size - blockOutputStart > blockMaximum) failAt("block output exceeds the block maximum")
+            if (out.produced - blockOutputStart > blockMaximum) failAt("block output exceeds the block maximum")
         }
 
         private fun decodeStream(table: HuffmanTable, start: Int, end: Int, target: ByteArray, offset: Int, count: Int) {

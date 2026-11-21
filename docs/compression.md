@@ -10,8 +10,9 @@ val raw = ArchiveKodec.deflate.compress(bytes)   // bare RFC 1951
 val back = ArchiveKodec.gzip.decompress(gz)
 ```
 
-All 15 accessors are non-null: `store`, `deflate`, `deflate64`, `bzip2`, `lzma`, `lzma2`,
-`xz`, `zstd`, `brotli`, `ppmd`, `gzip`, `zlib`, `lz4`, `snappy` and `snappyFramed`.
+All 18 accessors are non-null: `store`, `deflate`, `deflate64`, `bzip2`, `lzma`, `lzma2`,
+`xz`, `zstd`, `brotli`, `ppmd`, `gzip`, `zlib`, `lz4`, `snappy`, `snappyFramed`, `lzw`,
+`packBits` and `palmDoc`.
 [Format support](formats.md#codecs) lists what each one decodes and encodes.
 
 ## Find a codec by name
@@ -77,6 +78,67 @@ val written: Long = ArchiveKodec.gzip.decompress(gzBytes, ByteSink { chunk, offs
 The limits apply before every write, so raise `maxUncompressedBytes` for an output above its
 2 GiB default. `archivekodec-io` adds the same call for kotlinx-io sources and sinks, as
 [Files and extraction](files.md#kotlinx-io-adapters) shows.
+
+## Stream both sides
+
+A `ByteSource` is the input side of a `ByteSink`: decoders pull compressed bytes from it as
+they need them. With a source and a sink, DEFLATE, zlib, gzip, bzip2, xz and zstd hold neither the input nor
+the output whole, so both can be larger than memory. The ratio limit counts the compressed
+bytes read so far.
+
+```kotlin
+val input = FileInputStream(path)
+ArchiveKodec.gzip.decompress(ByteSource { b, offset, length -> input.read(b, offset, length) },
+    ByteSink { b, offset, length -> out.write(b, offset, length) }, limits)
+```
+
+To compress a stream, open an `EncoderSession` with `codec.encoder(sink)`, `write` the input
+in pieces of any size and `finish` it. DEFLATE, zlib and gzip encode 1 MiB at a time, each
+piece primed with the 32 KiB before it, so matches still reach back across pieces and the
+output is a little larger than a whole-array encode. `flush` makes everything written so far
+decodable from what the sink has, as zlib's sync flush does. bzip2 writes each full block as
+its own stream, which every bzip2 decoder joins, and xz writes blocks of 2 MiB, as `xz -T`
+does. zstd, LZ4 and lzip write each 1 to 4 MiB
+of input as a complete frame or member, which their decoders join. The xz, zstd, lzip and `.lzma`
+decoders keep a window of the dictionary or the frame's window, which `maxDecoderMemory` bounds, and
+the LZ4 decoder keeps one block, at most 4 MiB in a standard frame and 8 MiB in a legacy
+frame, and 64 KiB of history; Unix compress needs only
+its code table and lzop one block; an xz
+block with a branch filter is held whole until its end. The other codecs keep the input and compress
+it at `finish`, until they stream too.
+
+```kotlin
+val gzip = ArchiveKodec.gzip.encoder(ByteSink { b, offset, length -> out.write(b, offset, length) })
+for (chunk in chunks) gzip.write(chunk)
+gzip.finish()
+```
+
+`TarStreamWriter` writes a TAR entry by entry from sources, `TarStreamReader` reads one
+forward from a source, and `TarStreamSink` reads one from bytes pushed into it, such as a
+decoder's output, so a `.tar.gz` of any size goes through a fixed amount of memory in either
+direction. Tests write and read a `.tar.gz`, a `.tar.bz2` and a `.tar.xz` larger than a 32 MiB JVM heap
+through that heap.
+
+```kotlin
+ArchiveKodec.gzip.decompress(fileSource, TarStreamSink(object : TarStreamVisitor {
+    override fun onEntry(entry: ArchiveEntry) { /* open the output for entry */ }
+    override fun onData(entry: ArchiveEntry, bytes: ByteArray, offset: Int, length: Int) { /* write */ }
+}), limits)
+```
+
+`ArStreamWriter` and `ArStreamReader` do the same for Unix `ar`. The writer stores names longer
+than 16 bytes inline, as BSD and macOS `ar` do and GNU `ar` reads, since a GNU name table would
+have to come before every member. There is no push-side `ar` reader yet, so a compressed `ar`
+is decoded to a file before `ArStreamReader` reads it.
+
+`CpioStreamWriter` and `CpioStreamReader` do the same for cpio. The writer writes newc or odc;
+the crc dialect puts each body's sum in the header before the body, which a stream cannot know
+yet, so `CpioWriter` writes it. The reader reports each record with the body it stores, so the
+earlier links of a newc hard-link group, whose data comes with the last link, read as empty.
+
+`ZipStreamWriter` writes a ZIP the same way, entry by entry from sources, with a data descriptor
+after each file and ZIP64 where sizes or offsets need it; [Writing](writing.md#large-zip-archives)
+shows it. A ZIP is read with `ZipReader`, which needs a seekable source.
 
 ## Limits on a decode
 
@@ -227,6 +289,200 @@ val mobi = HuffCdic(huffRecord, cdicRecords).decode(record, 0, record.size - tra
 - A `HuffCdic` decoder keeps the phrases it has decoded, so use one from one thread at a time.
 - `HuffmanCode.lengths(frequencies, maxLength)` and `HuffmanCode.canonicalCodes(lengths)` build
   the length-limited canonical Huffman codes of DEFLATE and lossless WebP.
+
+## Compression ratios
+
+The encoders are correct but not tuned to match the reference tools; matching them is a goal
+for 1.0. The table gives the total compressed size of the 12 files of the
+[Silesia Corpus](https://sun.aei.polsl.pl//~sdeor/index.php?page=silesia), 211,938,580 bytes,
+each file compressed on its own. Ratio is input bytes over output bytes. The last column is
+ArchiveKodec's size over the reference's, so 1.100 means 10% larger.
+
+Measured on 2026-11-20 at commit `e0e70ab` (0.2.0-SNAPSHOT) on OpenJDK 21.0.13, and the zstd,
+LZMA2, xz, `.lzma` and lzip rows again with the window bound below, on top of `13d2db1`; no
+other encoder changed between the two. The encoders
+are common Kotlin, so the sizes do not depend on the platform. The references are gzip 1.12,
+zlib 1.3 (through Python's `zlib` module), bzip2 1.0.8, XZ Utils 5.4.5, lzip 1.24.1, zstd
+1.5.5, lz4 1.9.4, lzop 1.04 with LZO 2.10, ncompress 5.0 and 7-Zip 23.01. `xz` ran with `-T1`,
+so it wrote one block. `encoder(sink)` is the streaming `EncoderSession`, written in 64 KiB
+pieces. The ZIP rows count the member data only.
+
+| Codec | ArchiveKodec | Bytes | Ratio | Reference | Bytes | ArchiveKodec / reference |
+| --- | --- | ---: | ---: | --- | ---: | ---: |
+| gzip | default (level 6) | 68,190,490 | 3.108 | `gzip -6` (default) | 68,227,893 | 0.999 |
+| gzip | level 1 | 77,233,473 | 2.744 | `gzip -1` | 77,366,636 | 0.998 |
+| gzip | level 2 | 74,979,144 | 2.827 | `gzip -2` | 75,111,953 | 0.998 |
+| gzip | level 3 | 72,939,378 | 2.906 | `gzip -3` | 73,039,598 | 0.999 |
+| gzip | level 4 | 70,974,705 | 2.986 | `gzip -4` | 71,045,043 | 0.999 |
+| gzip | level 5 | 69,125,619 | 3.066 | `gzip -5` | 69,143,908 | 1.000 |
+| gzip | level 7 | 67,904,536 | 3.121 | `gzip -7` | 67,930,298 | 1.000 |
+| gzip | level 8 | 67,653,179 | 3.133 | `gzip -8` | 67,678,859 | 1.000 |
+| gzip | level 9 | 67,605,824 | 3.135 | `gzip -9` | 67,631,918 | 1.000 |
+| gzip | `encoder(sink)` | 68,192,557 | 3.108 | `gzip -6` (default) | 68,227,893 | 0.999 |
+| zlib | default (level 6) | 68,190,346 | 3.108 | zlib, level 6 | 68,220,487 | 1.000 |
+| deflate | default (level 6) | 68,190,274 | 3.108 | zlib, raw, level 6 | 68,220,415 | 1.000 |
+| deflate64 | default | 66,531,775 | 3.186 | `7z a -tzip -mm=Deflate64` (level 5) | 63,809,169 | 1.043 |
+| bzip2 | default (level 9) | 54,512,292 | 3.888 | `bzip2 -9` (default) | 54,506,769 | 1.000 |
+| bzip2 | level 1 | 60,503,814 | 3.503 | `bzip2 -1` | 60,509,041 | 1.000 |
+| bzip2 | `encoder(sink)` | 54,570,380 | 3.884 | `bzip2 -9` (default) | 54,506,769 | 1.001 |
+| lzma | default | 59,180,544 | 3.581 | `xz --format=lzma -6` (default) | 49,221,276 | 1.202 |
+| lzma | default | 59,180,544 | 3.581 | `xz --format=lzma -9` | 48,780,457 | 1.213 |
+| lzma2 | default | 59,469,205 | 3.564 | `xz --format=raw --lzma2=preset=6` | 49,232,609 | 1.208 |
+| lzma2 | default | 59,469,205 | 3.564 | `xz --format=raw --lzma2=preset=9` | 48,794,742 | 1.219 |
+| xz | default | 59,469,944 | 3.564 | `xz -6` (default) | 49,233,340 | 1.208 |
+| xz | default | 59,469,944 | 3.564 | `xz -9` | 48,795,480 | 1.219 |
+| xz | `encoder(sink)` | 59,767,652 | 3.546 | `xz -6` (default) | 49,233,340 | 1.214 |
+| lzip | default | 59,180,774 | 3.581 | `lzip -6` (default) | 49,787,570 | 1.189 |
+| lzip | default | 59,180,774 | 3.581 | `lzip -9` | 48,335,267 | 1.224 |
+| lzip | `encoder(sink)` | 59,494,583 | 3.562 | `lzip -6` (default) | 49,787,570 | 1.195 |
+| zstd | default | 73,895,648 | 2.868 | `zstd -3` (default) | 66,547,664 | 1.110 |
+| zstd | default | 73,895,648 | 2.868 | `zstd -1` | 73,448,492 | 1.006 |
+| zstd | default | 73,895,648 | 2.868 | `zstd -19` | 53,024,573 | 1.394 |
+| zstd | `encoder(sink)` | 76,821,374 | 2.759 | `zstd -3` (default) | 66,547,664 | 1.154 |
+| lz4 | default | 98,396,721 | 2.154 | `lz4 -1` (default) | 100,934,427 | 0.975 |
+| lz4 | default | 98,396,721 | 2.154 | `lz4 -9` | 77,992,601 | 1.262 |
+| lz4 | `linkedBlocks = true` | 98,349,451 | 2.155 | `lz4 -1 -BD` | 100,883,728 | 0.975 |
+| lz4 | `encoder(sink)` | 98,397,216 | 2.154 | `lz4 -1` (default) | 100,934,427 | 0.975 |
+| lzop | default | 101,158,272 | 2.095 | `lzop -3` (default) | 101,036,657 | 1.001 |
+| lzop | default | 101,158,272 | 2.095 | `lzop -1` | 101,914,918 | 0.993 |
+| lzop | default | 101,158,272 | 2.095 | `lzop -9` | 76,317,298 | 1.325 |
+| compress | default | 88,446,916 | 2.396 | `compress -b16` (default) | 93,573,664 | 0.945 |
+| ppmd | default | 50,159,523 | 4.225 | `7z a -tzip -mm=PPMd:o=6:mem=16m` | 50,159,523 | 1.000 |
+| ppmd | default | 50,159,523 | 4.225 | `7z a -tzip -mm=PPMd` (level 5) | 50,286,473 | 0.997 |
+| brotli | default | 63,476,553 | 3.339 | none |  |  |
+| snappy | default | 97,121,259 | 2.182 | none |  |  |
+| snappy-framed | default | 100,156,136 | 2.116 | none |  |  |
+| lzw | default | 107,337,405 | 1.975 | none |  |  |
+| packbits | default | 201,554,993 | 1.052 | none |  |  |
+| palmdoc | 4,096-byte records | 117,958,837 | 1.797 | none |  |  |
+
+- **Within 0.5% of the reference:** DEFLATE, zlib and gzip at every level are 0.0% to 0.2%
+  smaller than GNU gzip and zlib at the same level. bzip2 at levels 1 and 9 is within 0.01%
+  of `bzip2`. PPMd writes the same number of bytes as 7-Zip with the same order and memory,
+  50,159,523. lzop is 0.1% larger than `lzop -3`, and zstd 0.6% larger than `zstd -1`.
+- **Smaller than the reference in total:** LZ4 is 2.5% smaller than `lz4 -1` (per file, 0.868 to
+  1.098 of its size) and 26.2% larger than `lz4 -9`. Unix compress is 5.5% smaller than
+  ncompress in total, but per file it is 0.812 to 1.242 of ncompress's size: mozilla is
+  6,389,388 bytes smaller, and the other 11 files together are 1,262,640 bytes larger.
+- **Clearly weaker:** the LZMA encoder, which `.lzma`, LZMA2, xz and lzip share, is 18.9% to
+  20.8% larger than `xz -6` and `lzip -6`, and 21.3% to 22.4% larger than `-9`. zstd is 11.0%
+  larger than `zstd -3`, its default, and 39.4% larger than `zstd -19`. Deflate64 is 4.3% larger
+  than 7-Zip's. The zstd session writes a frame per 1 MiB, which costs 4.0% against one frame;
+  the bzip2, xz and lzip sessions cost 0.1% to 0.5%, and the gzip and LZ4 sessions less than
+  0.01%.
+- **No reference tool here:** brotli, Snappy, LZW, PackBits and PalmDOC. There is no brotli
+  command-line tool on the machine, so brotli's 63,476,553 bytes have no comparison; its encoder
+  writes no context modeling and no dictionary references.
+- **No encoder at all (decode only):** HUFF/CDIC, and the methods that only appear inside
+  archives the library reads but does not write: LZX (CAB, WIM), XPRESS (WIM), RAR 2.9 and RAR5
+  compression, PPMd var.H (7z) and the branch filters. [Format support](formats.md) lists them.
+
+Each tool decoded ArchiveKodec's output of every row of its codec, and ArchiveKodec decoded each
+tool's output, for every file: 768 decodes, and 233 again for the five codecs the window bound
+changed, all byte-exact. For Deflate64 and PPMd the
+streams went through a ZIP member, which 7-Zip extracted and `ArchiveKodec.open` read. zlib and
+raw DEFLATE were checked against Python's `zlib`.
+
+No stream declares a window or dictionary above 8 MiB, whatever the input size: zstd frames
+declare at most 8 MiB, the most RFC 8878 asks a decoder to support, and the `.lzma`, LZMA2, xz
+and lzip writers at most 8 MiB, the dictionary of `xz -6` and `lzip -6`. Input up to 8 MiB
+gets the same bytes as before the bound. The script checks the bound on the 12 files
+concatenated in name order, 211,938,580 bytes, with each tool's memory held near it:
+
+| Codec | Bytes | Ratio | Declared window | Decoded by |
+| --- | ---: | ---: | ---: | --- |
+| zstd | 73,900,125 | 2.868 | 8,388,608 | `zstd -dc --memory=8MiB` |
+| xz | 59,518,528 | 3.561 | 8,388,608 | `xz -dc --memlimit=10MiB` |
+| lzma | 59,229,574 | 3.578 | 8,388,608 | `xz --format=lzma -dc --memlimit=10MiB` |
+| lzma2 | 59,518,466 | 3.561 | (not in the stream) | `xz --format=raw --lzma2=dict=8MiB -dc --memlimit=10MiB` |
+| lzip | 59,229,593 | 3.578 | 8,388,608 | `lzip -dc` |
+
+All five decoded byte-exact. The zstd, LZMA2, xz, `.lzma` and lzip rows of the first table were
+measured again after the bound: the LZMA streams became 0.2% smaller and the zstd streams 0.1%
+larger.
+
+To reproduce the tables, with the reference tools on `PATH`:
+
+```sh
+python3 scripts/compression-ratios.py --work /tmp/ratios
+```
+
+The script downloads the corpus with `scripts/fetch-silesia.sh` and checks each file's SHA-256.
+It writes `ratios.md` with this table and `ratios.json` with the size of every file, and exits
+with an error if any decode differs. It measures no time.
+
+## Memory
+
+A whole-array call, `compress(bytes)` or `decompress(bytes)`, holds the input and the output.
+The output grows by doubling and is copied to its exact size at the end, so for a moment it is
+held about twice. The encoders add the working arrays below. The calls that stream, described in
+[Stream both sides](#stream-both-sides), keep the windows in the last column instead.
+
+From the code:
+
+| Codec | Encoder working memory | `decompress(source, sink)` keeps |
+| --- | --- | --- |
+| DEFLATE, zlib, gzip | 128 KiB hash heads, up to 128 KiB of chains, two 16,384-entry token buffers; a session adds a 1 MiB piece and 32 KiB of history | The 32 KiB window and about 1 MiB of output |
+| Deflate64 | As DEFLATE, with a 64 KiB window | (whole input) |
+| bzip2 | One block of level × 100,000 bytes and about 26 bytes per block byte to sort and code it, 23 MB at level 9 | One block and its table, which `maxDecoderMemory` caps |
+| LZMA, LZMA2, xz, lzip | Match chains of 4 bytes per dictionary byte (32 MiB at most) and 512 KiB of heads; the dictionary is the input size rounded up, at most 8 MiB; a session encodes 2 MiB blocks (xz) or members (lzip) | The dictionary, or the declared size of a `.lzma` stream if smaller: at most 8 MiB for this library's streams |
+| zstd | Match chains of 4 bytes per window byte (32 MiB at most); the window is the input up to 8 MiB, then 8 MiB | The frame's window: at most 8 MiB for this library's frames |
+| brotli | 4 bytes per input byte of match chains; a 4 MiB window | (whole input) |
+| PPMd | A model of 1 MiB per 64 KiB of input, from 1 to 16 MiB | (whole input) |
+| LZ4 | 256 KiB of hash table; blocks up to 4 MiB; a session encodes 4 MiB frames | One block, at most 4 MiB (8 MiB in a legacy frame), and 64 KiB of history |
+| lzop | 64 KiB of hash heads; 256 KiB blocks | One block, at most 64 MiB |
+| Unix compress | A hash map of up to 65,536 codes | The 65,536-entry code table and 64 KiB of output |
+| Snappy, LZW, PackBits | A hash table of at most 64 KiB (Snappy, LZW), or none (PackBits) | (whole input) |
+| PalmDOC | 4 bytes per input byte of match chains, 16 KiB of heads | (whole input) |
+
+`(whole input)` means the codec has no streaming decoder, so `decompress(source, sink)` reads
+the whole input and decodes it in memory. `ArchiveLimits.maxDecoderMemory`, 256 MiB by default,
+caps the PPMd model, the bzip2 block table and the streaming windows before they are allocated;
+[Limits](limits.md#decoder-memory) lists what it covers. A whole-array decode checks no window,
+because it keeps the whole output anyway.
+
+Measured: the smallest JVM heap (`-Xmx`, in MiB) at which one call on the largest Silesia file,
+mozilla (51,220,480 bytes), succeeded in a child JVM. Each figure is a step of 16, 24, 32, 48,
+64, 96, 128, 192, 256, 384, 512, 768, 1,024 or 1,536 MiB; the step below it failed. The
+decodes read ArchiveKodec's own default output, and for `decompress(source, sink)` also the
+reference tool's default output. Same commits as the ratios, OpenJDK 21.0.13, default garbage
+collector.
+
+| Codec | `compress` | `decompress` | `encoder(sink)` | `decompress(source, sink)`, tool's stream | `decompress(source, sink)`, own stream |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| gzip | 128 | 128 | 16 | 16 | 16 |
+| zlib | 128 | 192 | 16 | 16 | 16 |
+| deflate | 128 | 192 | 16 | 16 | 16 |
+| deflate64 | 128 | 192 |  |  |  |
+| bzip2 | 128 | 192 | 32 | 16 | 16 |
+| lzma | 128 | 192 |  | 16 | 16 |
+| lzma2 | 128 | 192 |  |  |  |
+| xz | 128 | 192 | 24 | 16 | 16 |
+| lzip | 128 | 192 | 24 | 16 | 16 |
+| zstd | 192 | 192 | 16 | 16 | 16 |
+| lz4 | 128 | 192 | 24 | 16 | 16 |
+| lzop | 128 | 192 |  | 16 | 16 |
+| compress | 128 | 192 |  | 16 | 16 |
+| ppmd | 128 | 192 |  |  |  |
+| brotli | 384 | 192 |  |  |  |
+| snappy | 128 | 96 |  |  |  |
+| snappy-framed | 128 | 192 |  |  |  |
+| lzw | 128 | 192 |  |  |  |
+| packbits | 192 | 192 |  |  |  |
+
+- brotli keeps 4 bytes of match chains per input byte and needs 384 MiB for a 49 MiB input.
+  The other encoders need 128 to 192 MiB, two to four times the input.
+- The streaming decoders read mozilla in 16 MiB, from the tools' streams and from this
+  library's own.
+- The zstd, LZMA2, xz, `.lzma` and lzip rows were measured again after the window bound. Before
+  it, their `compress` needed 384 MiB, and streaming their own output needed 64 MiB (`.lzma`,
+  zstd) or 96 MiB (xz, lzip), because the window grew with the input.
+
+To reproduce the measured table:
+
+```sh
+python3 scripts/compression-ratios.py --work /tmp/ratios --memory
+```
 
 ## Checksums
 

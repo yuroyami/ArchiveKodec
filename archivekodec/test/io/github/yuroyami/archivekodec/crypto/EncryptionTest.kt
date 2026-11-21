@@ -330,6 +330,33 @@ class EncryptionTest {
     }
 
     @Test
+    fun zipWriterWritesZipCryptoOnlyWhenAskedByName() {
+        val body = text(5000)
+        val files = listOf(
+            ZipWriter.FileSpec("dir/", ByteArray(0)),
+            ZipWriter.FileSpec("dir/a.txt", body),
+            ZipWriter.FileSpec("stored.bin", body, ZipMethod.STORED),
+        )
+        val encryption = ZipEncryption.insecureZipCrypto("SECRET".toCharArray())
+        assertEquals(ArchiveEncryption.ZIP_CRYPTO_INSECURE, encryption.scheme)
+        assertEquals(ArchiveEncryption.WINZIP_AES_256, ZipEncryption("SECRET".toCharArray()).scheme)
+        val zip = ZipWriter.write(files, encryption)
+        open(zip, options("SECRET")).use { reader ->
+            val entries = reader.entries().associateBy { it.name }
+            assertFalse(entries.getValue("dir/").isEncrypted)
+            for (name in listOf("dir/a.txt", "stored.bin")) {
+                val entry = entries.getValue(name)
+                assertEquals(ArchiveEncryption.ZIP_CRYPTO_INSECURE, entry.encryption)
+                assertContentEquals(body, reader.read(entry), name)
+            }
+        }
+        open(zip, options("WRONG")).use { reader ->
+            assertFailsWith<ArchivePasswordException> { reader.read(reader.entries().single { it.name == "stored.bin" }) }
+        }
+        assertFailsWith<IllegalArgumentException> { ZipEncryption.insecureZipCrypto(CharArray(0)) }
+    }
+
+    @Test
     fun zipWriterEncryptsWithWinZipAes() {
         val files = listOf(
             ZipWriter.FileSpec("dir/", ByteArray(0), ZipMethod.STORED),

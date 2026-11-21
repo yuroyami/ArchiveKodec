@@ -40,8 +40,8 @@ public class Example {
 
 ## Where things are
 
-- Codec instances are fields such as `Codecs.GZIP`, or getters such as
-  `ArchiveKodec.getGzip()`. `codec.decompress(bytes)` uses `ArchiveLimits.DEFAULT`.
+- Codec instances are static getters such as `Codecs.getGZIP()` or `ArchiveKodec.getGzip()`.
+  Each codec is its own object, created on first use. `codec.decompress(bytes)` uses `ArchiveLimits.DEFAULT`.
 - A checksum updates with `checksum.update(bytes)` or `checksum.update(bytes, offset)`.
 - Builders replace Kotlin's lambda configuration: `ArchiveLimits.Builder`,
   `GzipHeader.Builder` and `ZipWriter.FileSpec.Builder(name, data)`, each with `build()`.

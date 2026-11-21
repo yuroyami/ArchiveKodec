@@ -6,17 +6,20 @@
 | --- | --- | --- |
 | STORE | Yes | Yes |
 | DEFLATE (RFC 1951) | Yes, with an optional preset dictionary | zlib's levels 0 to 9 and strategies, 9 to 15 window bits, preset dictionaries |
-| Deflate64 (ZIP method 9) | Yes (64 KiB window, long matches) | DEFLATE-compatible codes with a 32 KiB window |
+| Deflate64 (ZIP method 9) | Yes (64 KiB window, long matches) | Yes (64 KiB window, long matches) |
 | zlib (RFC 1950) | Yes, with FDICT when you pass the dictionary | Yes, with FDICT |
 | gzip (RFC 1952) | All members, with header and trailer checks | Yes |
-| bzip2 | Any level, concatenated streams, randomized blocks, CRC checks | Level 9 |
+| bzip2 | Any level, concatenated streams, randomized blocks, CRC checks | Levels 1 to 9 (`Bzip2Options`) |
 | LZMA (`.lzma`) | Known size or end marker | Greedy and lazy parser, no end marker |
 | LZMA2 (raw chunks) | Yes | LZMA chunks, stored when incompressible |
-| xz | CRC-32, CRC-64 and SHA-256 checks, delta and x86 BCJ filters, the index, concatenated streams | One LZMA2 block with CRC-64 |
+| xz | CRC-32, CRC-64 and SHA-256 checks, delta and branch filters (x86, PowerPC, IA-64, ARM, ARM-Thumb, SPARC, ARM64; RISC-V refused), the index, concatenated streams | One LZMA2 block with CRC-64 |
+| Unix compress (`.Z`) | LZW with 10- to 16-bit codes; 9-bit streams are refused | 16-bit codes, block mode |
+| lzop (`.lzo`) | LZO1X blocks, Adler-32 and CRC-32 checks; filters and multi-part files are refused | Greedy LZO1X, 256 KiB blocks, Adler-32 |
+| lzip (`.lz`, version 1) | Concatenated members, CRC-32 and size trailers | One member with an end marker |
 | zstd (RFC 8878) | All block, literal and table modes, skippable and concatenated frames, xxHash64 checks | Predefined tables, raw literals |
 | brotli (RFC 7932) | Context modeling, block switching, the static dictionary with all 121 transforms | One prefix code for each category, no dictionary references |
 | PPMd var.I rev. 1 (ZIP method 98) | Restart and cut-off restore | Order 6, up to 16 MiB of model memory |
-| LZ4 (frame and block) | Yes | 64 KiB to 4 MiB blocks, block and content checksums, content size, linked blocks |
+| LZ4 (frame and block) | Yes, also legacy frames | 64 KiB to 4 MiB blocks, block and content checksums, content size, linked blocks |
 | Snappy (raw block) | Yes | Greedy matching |
 | Snappy (framed `.sz`) | CRC-32C checks | Yes, with stored chunks when incompressible |
 | LZW (PDF, TIFF, GIF) | 9- to 12-bit codes in either bit order, early change or not, 2- to 8-bit literals | Yes, in every form it decodes |
@@ -24,23 +27,23 @@
 | PalmDOC (PalmDOC and MOBI text) | Yes | Hash-chain matching over the 2047-byte window |
 | HUFF/CDIC (MOBI text) | Yes, with phrases decoded once and kept | No |
 
-Refused on decode: zstd dictionaries, xz BCJ filters other than x86, PPMd's freeze restore and
+Refused on decode: zstd dictionaries, the RISC-V branch filter, PPMd's freeze restore and
 supplied LZ4 dictionaries.
 
 ## Archives
 
 | Format | Read | Write |
 | --- | --- | --- |
-| ZIP and ZIP64 | STORE, DEFLATE, Deflate64, bzip2, LZMA, zstd and PPMd | STORE and DEFLATE |
+| ZIP and ZIP64 | STORE, DEFLATE, Deflate64, bzip2, LZMA, zstd, xz and PPMd | STORE and DEFLATE |
 | TAR (v7, ustar, GNU, pax) | Yes | ustar with GNU long names, regular files and directories |
-| 7z | Copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and BCJ x86, compressed headers, solid folders decoded once | No |
+| 7z | Copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta and the branch filters but BCJ2 and RISC-V, compressed headers, solid folders decoded once | No |
 | ar (GNU, BSD, COFF, GNU thin) | Yes, thin members through an `ExternalMemberResolver` | GNU |
-| cpio (newc, crc, odc) | Yes | newc and crc |
+| cpio (newc, crc, odc, old binary) | Yes | newc, crc and odc |
 | ISO 9660 (Joliet, Rock Ridge) | Multi-extent files, Rock Ridge symbolic links read as their target | No |
 | CAB | Stored, MSZIP and LZX folders, each decoded once | No |
 | WIM | Uncompressed, XPRESS and LZX, deduplicated resources with SHA-1 checks, several images as `1/`, `2/` | No |
-| SquashFS 4.0 | gzip, LZMA, LZO, xz with the x86 BCJ filter, LZ4 and zstd, fragments, sparse blocks, symbolic links read as their target, devices and FIFOs listed | No |
-| RAR4 and RAR5 | Stored members of both, and RAR5 compressed members (all methods, solid archives, delta, x86 and ARM filters), with CRC checks | No |
+| SquashFS 4.0 | gzip, LZMA, LZO, xz with any branch filter but RISC-V, LZ4 and zstd, fragments, sparse blocks, symbolic links read as their target, devices and FIFOs listed | No |
+| RAR4 and RAR5 | Stored members of both; RAR 2.9 compressed members (RAR 3.x and 4.x: LZ77, PPMd and filters, including RAR's virtual machine); RAR5 compressed members (all methods, delta, x86 and ARM filters); solid RAR5 archives, and solid RAR4 archives, which are not yet tested against archives that RAR wrote; CRC checks | No |
 
 Refused on read:
 
@@ -48,8 +51,7 @@ Refused on read:
   local headers (bit 13).
 - CAB: Quantum folders and files that span cabinets. They are listed, but a read fails.
 - WIM: LZMS and solid `.esd` images.
-- RAR: RAR4 compression, encrypted members, multi-volume members and encrypted headers.
-- cpio: the old binary dialect is recognized, but a listing fails.
+- RAR: RAR 1.5 and 2.0 compression, encrypted members, multi-volume members and encrypted headers.
 
 ArchiveKodec reads RAR from RARLAB's published format description and will never create RAR
 archives. ACE, StuffIt and ALZ are proprietary with no clean reference, so they are out of
@@ -109,10 +111,14 @@ Sniffing does not close the source. `open` adds the ZIP footer search for an unk
   archive can end without its two zero blocks, and an empty source is an empty archive.
 - pax `x` records apply to the next member and `g` records to every later member. `path`,
   `size` and `mtime` replace the ustar fields, and names are UTF-8 unless
-  `hdrcharset=BINARY`. A pax header above 16 MiB is refused.
+  `hdrcharset=BINARY`. `TarReader` refuses a pax header above 16 MiB with
+  `ArchiveUnsupportedException`, and a GNU long name or long link record above 1 MiB with
+  `ArchiveFormatException`. `TarStreamReader` and `TarStreamSink` refuse any of these records
+  above 1 MiB with `ArchiveFormatException`.
 - Sparse members (GNU `S`, and pax GNU sparse 0.0, 0.1 and 1.0) list their full `size`, with
   `compressedSize` for the stored bytes, and read with zero-filled holes. Holes count toward
-  `maxUncompressedBytes` but not toward the ratio.
+  `maxUncompressedBytes`. For the ratio, a sparse member's full size is measured against the
+  larger of its stored bytes and the whole archive's size.
 
 ### cpio
 
@@ -132,8 +138,9 @@ Sniffing does not close the source. `open` adds the ZIP footer search for an unk
 
 ### LZ4 frames
 
-- The decoder reads every concatenated frame and all 16 skippable-frame types. The legacy
-  frame format is refused.
+- The decoder reads every concatenated frame and all 16 skippable-frame types, and legacy
+  frames (`lz4 -l`, as the Linux kernel uses them): independent blocks of up to 8 MiB until
+  the input ends or another frame begins.
 - It checks the descriptor checksum, each block checksum before the block is used and the
   content checksum before it returns.
 - The output cap covers all frames together, and the ratio applies to each frame.

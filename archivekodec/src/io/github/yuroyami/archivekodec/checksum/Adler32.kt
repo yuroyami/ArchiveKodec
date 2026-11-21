@@ -11,10 +11,13 @@ import kotlin.jvm.JvmStatic
 public class Adler32 : Checksum {
     private var a = 1
     private var b = 0
+    // The JVM's own Adler-32 where there is one; the pure code elsewhere.
+    private val platform = platformAdler32()
 
     @Throws(IllegalArgumentException::class)
     override fun update(data: ByteArray, offset: Int, length: Int) {
         val end = checkedChecksumEnd(data.size, offset, length)
+        if (platform != null) return platform.update(data, offset, length)
         var s1 = a
         var s2 = b
         var i = offset
@@ -32,9 +35,13 @@ public class Adler32 : Checksum {
         b = s2
     }
 
-    override fun value(): Long = ((b shl 16) or a).toLong() and 0xFFFFFFFFL
+    override fun value(): Long = platform?.value() ?: (((b shl 16) or a).toLong() and 0xFFFFFFFFL)
 
-    override fun reset() { a = 1; b = 0 }
+    override fun reset() {
+        platform?.reset()
+        a = 1
+        b = 0
+    }
 
     /** One-shot checksum calculation for a complete byte array. */
     public companion object {

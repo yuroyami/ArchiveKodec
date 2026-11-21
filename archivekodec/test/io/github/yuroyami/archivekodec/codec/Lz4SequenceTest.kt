@@ -113,12 +113,23 @@ class Lz4SequenceTest {
     }
 
     @Test
-    fun legacyMagicHasAnExplicitUnsupportedCategoryAtAnyBoundary() {
+    fun legacyFramesDecodeAtAnyBoundary() {
+        // lz4 1.9.4: `printf 'tiny\n' | lz4 -l`, then a standard frame of "x2\n".
+        assertContentEquals("tiny\nx2\n".encodeToByteArray(), Lz4.frameDecompress(hex("02214c18060000005074696e790a04224d186440a7030000807832\n0a000000001ebee702".replace("\n", ""))))
+        fun le32(v: Int) = byteArrayOf(v.toByte(), (v ushr 8).toByte(), (v ushr 16).toByte(), (v ushr 24).toByte())
+        val one = "legacy block one ".repeat(40).encodeToByteArray()
+        val two = "and an independent second block".repeat(30).encodeToByteArray()
+        val blocks = listOf(one, two).map { Lz4.blockCompress(it) }
+        val legacy = hex("02214c18") + blocks.flatMap { (le32(it.size) + it).toList() }.toByteArray()
         for (prefix in listOf(byteArrayOf(), skip(15), first, first + skip(0))) {
-            val error = assertFailsWith<ArchiveUnsupportedException> { Lz4.frameDecompress(prefix + hex("02214c18")) }
-            assertEquals(prefix.size.toLong(), error.offset)
-            assertTrue(error.message!!.contains("legacy"), error.toString())
+            val prefixOutput = Lz4.frameDecompress(prefix + hex("02214c18"))
+            assertContentEquals(prefixOutput + one + two, Lz4.frameDecompress(prefix + legacy), "after ${prefix.size} bytes")
+            // A standard frame may follow the legacy one.
+            assertContentEquals(prefixOutput + one + two + expected, Lz4.frameDecompress(prefix + legacy + first + second))
         }
+        assertFailsWith<ArchiveFormatException> { Lz4.frameDecompress(legacy.copyOf(legacy.size - 1)) }
+        assertFailsWith<ArchiveFormatException> { Lz4.frameDecompress(hex("02214c18") + le32(0)) }
+        assertFailsWith<DecompressionBombException> { Lz4.frameDecompress(legacy, ArchiveLimits { maxUncompressedBytes = one.size.toLong() }) }
     }
 
     @Test

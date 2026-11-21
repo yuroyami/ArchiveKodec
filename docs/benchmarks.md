@@ -68,6 +68,14 @@ samples or five full samples. A JVM volatile sink and a Node global sink retain
 results to prevent dead-code elimination. Sink and call overhead is included,
 which matters most for tiny inputs and hardware-accelerated JDK checksums.
 
+## Compression ratios
+
+Compressed sizes do not depend on speed, so they have their own harness:
+`scripts/compression-ratios.py` measures every encoder on the Silesia Corpus next to the
+reference tools, and `--memory` finds the heap each codec needs.
+[Compression ratios](compression.md#compression-ratios) and [Memory](compression.md#memory)
+show the results and how to reproduce them.
+
 ## Encryption
 
 ```sh
@@ -107,10 +115,12 @@ Kotlin harness and Python validator.
 
 ### Smoke baseline
 
-Recorded on a shared Linux x86_64 cloud worker reporting an Intel Xeon Platinum
-8573C, with five CPUs available to the process. Runtimes were OpenJDK
-21.0.12.1 and Node 24.10.0 (V8 13.6.233.10), using Kotlin 2.4.10. Compilation
-finished before the separately executed JVM and Node runs.
+Recorded on 2026-11-19 on a shared Linux x86_64 cloud worker reporting an Intel Xeon
+processor at 2.10 GHz, with four CPUs available to the process. Runtimes were OpenJDK
+21.0.13 and Node 22.23.5 (V8 12.4.254.21), using Kotlin 2.4.21. Compilation finished before
+the separately executed JVM and Node runs. The previous baseline, of October 2026, was 3 to
+100 times below these numbers after the speed work since then, so its 10x gate no longer
+caught anything.
 
 Representative **64 KiB text** results, in decimal MB/s; the final row uses the
 stored-block corpus. These are short smoke measurements on a shared machine,
@@ -120,15 +130,15 @@ the [baseline JSON](https://github.com/yuroyami/ArchiveKodec/blob/main/benchmark
 
 | Operation | Kotlin JVM | JDK reference | Kotlin/JS |
 |---|---:|---:|---:|
-| CRC-32 | 492.8 | 21,584.8 | 591.2 |
-| CRC-32C | 463.8 | 26,238.6 | 446.2 |
-| Adler-32 | 338.6 | 9,379.4 | 505.3 |
-| CRC-64 | 134.8 |  | 279.9 |
-| xxHash32 | 1,260.3 |  | 504.6 |
-| DEFLATE encode | 6.1 | 39.5 (level 1), 8.7 (level 6) | 1.1 |
-| Inflate | 29.3 | 230.4 | 3.4 |
-| LZ4 frame encode | 88.5 |  | 6.4 |
-| LZ4 frame decode | 64.3 |  | 1.2 |
-| Snappy encode | 65.5 |  | 8.5 |
-| Snappy decode | 183.8 |  | 7.4 |
-| Inflate, stored blocks | 688.1 | 2,169.4 | 419.0 |
+| CRC-32 | 1,344.8 | 57,847.5 | 1,089.3 |
+| CRC-32C | 1,343.9 | 57,622.1 | 1,055.8 |
+| Adler-32 | 1,875.2 | 22,093.0 | 1,339.0 |
+| CRC-64 | 525.5 |  | 437.9 |
+| xxHash32 | 3,750.1 |  | 1,547.1 |
+| DEFLATE encode | 14.4 | 148.0 (level 1), 27.5 (level 6) | 9.5 |
+| Inflate | 521.5 | 579.9 | 124.3 |
+| LZ4 frame encode | 220.4 |  | 124.3 |
+| LZ4 frame decode | 788.6 |  | 101.8 |
+| Snappy encode | 210.2 |  | 134.6 |
+| Snappy decode | 673.0 |  | 123.5 |
+| Inflate, stored blocks | 3,313.6 | 5,566.3 | 2,996.7 |

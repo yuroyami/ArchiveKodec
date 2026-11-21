@@ -1,5 +1,7 @@
 package io.github.yuroyami.archivekodec.archive.tar
 
+import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
@@ -90,18 +92,65 @@ internal fun paxNumber(text: String, key: String, offset: Long): Long {
     return text.toLongOrNull() ?: throw ArchiveFormatException("TAR: pax $key '$text' overflows Long", offset)
 }
 
-/** Parse a pax time such as `1700000000.123456`, rounded down to whole seconds. */
-internal fun paxSeconds(text: String, offset: Long): Long {
+/** Parse a pax time such as `1700000000.123456` or `-1.5`, keeping up to nanoseconds; more digits are cut. */
+internal fun paxTime(text: String, key: String, offset: Long): ArchiveTime {
     val negative = text.startsWith("-")
     val digits = if (negative) text.substring(1) else text
     val point = digits.indexOf('.')
     val whole = if (point < 0) digits else digits.substring(0, point)
     val fraction = if (point < 0) "" else digits.substring(point + 1)
     if (whole.isEmpty() || (whole + fraction).any { it !in '0'..'9' }) {
-        throw ArchiveFormatException("TAR: pax mtime '$text' is not a decimal time", offset)
+        throw ArchiveFormatException("TAR: pax $key '$text' is not a decimal time", offset)
     }
-    val seconds = whole.toLongOrNull() ?: throw ArchiveFormatException("TAR: pax mtime '$text' overflows Long", offset)
-    return if (!negative) seconds else if (fraction.any { it != '0' }) -seconds - 1 else -seconds
+    val seconds = whole.toLongOrNull() ?: throw ArchiveFormatException("TAR: pax $key '$text' overflows Long", offset)
+    val nanos = fraction.take(9).padEnd(9, '0').toInt()
+    return when {
+        !negative -> ArchiveTime(seconds, nanos)
+        nanos == 0 -> ArchiveTime(-seconds)
+        // -1.25 is two seconds before zero plus 0.75: floor the seconds, keep the fraction positive.
+        else -> ArchiveTime(-seconds - 1, 1_000_000_000 - nanos)
+    }
+}
+
+/**
+ * The metadata a TAR header and its pax records give beyond the name, type, size and mode:
+ * times at the precision stored, owner ids and names, device numbers for character and block
+ * devices, and `SCHILY.xattr.*` extended attributes. pax values win over header fields.
+ * Only the modification time is checked strictly, as before: these other fields are
+ * informational, so a malformed one reads as absent rather than failing the listing, and
+ * owner names that are not valid UTF-8 are decoded with replacement characters.
+ */
+internal fun ArchiveEntry.Builder.tarMetadata(header: ByteArray, pax: PaxRecords, type: Char, at: Long) {
+    val posix = TarHeader.usesUstarPrefix(header)
+    val gnu = header.size >= TarHeader.SIZE && header.decodeToString(257, 263) == "ustar " && header[263].toInt() == ' '.code
+    fun <T> lenient(read: () -> T?): T? = try { read() } catch (_: io.github.yuroyami.archivekodec.ArchiveException) { null }
+    fun paxOrNull(key: String) = pax.text(key, at)?.let { paxTime(it, key, at) }
+    // Old GNU headers keep atime and ctime where ustar keeps its prefix; zero means unset there.
+    fun gnuTime(offset: Int) = if (gnu) lenient { optionalNumeric(header, offset, 12, at) }?.takeIf { it != 0L }?.let { ArchiveTime(it) } else null
+    lastModified = paxOrNull("mtime") ?: optionalNumeric(header, 136, 12, at)?.let { ArchiveTime(it) }
+    lastAccessed = lenient { paxOrNull("atime") } ?: gnuTime(345)
+    statusChanged = lenient { paxOrNull("ctime") } ?: gnuTime(357)
+    uid = lenient { pax.text("uid", at)?.let { paxNumber(it, "uid", at) } } ?: lenient { optionalNumeric(header, 108, 8, at) }
+    gid = lenient { pax.text("gid", at)?.let { paxNumber(it, "gid", at) } } ?: lenient { optionalNumeric(header, 116, 8, at) }
+    fun headerText(offset: Int) = if (posix || gnu) cString(header, offset, 32).takeIf { it.isNotEmpty() }?.decodeToString() else null
+    ownerName = pax.values["uname"]?.decodeToString() ?: headerText(265)
+    groupName = pax.values["gname"]?.decodeToString() ?: headerText(297)
+    if ((type == '3' || type == '4') && (posix || gnu)) {
+        deviceMajor = lenient { optionalNumeric(header, 329, 8, at) }
+        deviceMinor = lenient { optionalNumeric(header, 337, 8, at) }
+    }
+    val attributes = pax.values.filterKeys { it.startsWith(XATTR) && it.length > XATTR.length }
+    if (attributes.isNotEmpty()) xattrs = attributes.mapKeys { it.key.substring(XATTR.length) }
+}
+
+private const val XATTR = "SCHILY.xattr."
+
+/** The Unix file type a TAR type flag names: 0x2000 for a character device, 0x6000 block, 0x1000 FIFO. */
+internal fun tarSpecialType(type: Char): Int? = when (type) {
+    '3' -> 0x2000
+    '4' -> 0x6000
+    '6' -> 0x1000
+    else -> null
 }
 
 /**

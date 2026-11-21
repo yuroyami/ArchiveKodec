@@ -11,8 +11,9 @@ import kotlin.jvm.JvmSynthetic
 import kotlin.text.CharacterCodingException
 
 /**
- * Buffered GNU ar writer for ordinary `.a` and `.deb` member containers.
- * Writes 60-byte ASCII headers, even-byte padding and a GNU `//` long-name table.
+ * Buffered ar writer for ordinary `.a` and `.deb` member containers. Writes 60-byte ASCII
+ * headers and even-byte padding, with long names in a GNU `//` table or, with
+ * [NameStyle.BSD], inline as BSD and macOS `ar` write them.
  * Names are UTF-8 basenames: no empty/dot names, slashes, backslashes, colons,
  * ASCII controls or reserved symbol-index names. Accepted spelling is preserved.
  * The complete archive must fit in one ByteArray.
@@ -20,10 +21,21 @@ import kotlin.text.CharacterCodingException
  * Metadata defaults are reproducible: Unix time zero, uid/gid zero and mode 0100644.
  * No symbol index is generated; use a platform's `ranlib` when a linker needs one.
  * Debian member ordering and the contents of control/data archives are the caller's
- * responsibility. BSD inline names and thin archives are not emitted.
+ * responsibility. Thin archives are not emitted.
  * This object has no mutable state. File descriptions own their payload snapshots.
  */
 public object ArWriter {
+    /** How names that do not fit the 16-byte header field are stored. */
+    public enum class NameStyle {
+        /** GNU and System V: names end with `/`, and long names go to a `//` table. */
+        GNU,
+        /**
+         * BSD and macOS: names up to 16 bytes without spaces fill the field, and longer ones
+         * are written as `#1/length` with the name at the start of the member's data.
+         */
+        BSD,
+    }
+
     /** Immutable member settings and an owned payload snapshot. */
     public class FileSpec private constructor(builder: Builder) {
         /** Exact UTF-8 basename, validated by [write]. */
@@ -137,7 +149,18 @@ public object ArWriter {
      */
     @Throws(ArchiveException::class)
     @JvmStatic
-    public fun write(files: List<FileSpec>): ByteArray {
+    public fun write(files: List<FileSpec>): ByteArray = write(files, NameStyle.GNU)
+
+    /**
+     * Assemble members as [write] does, storing names in [style].
+     *
+     * @throws ArchiveFormatException for an invalid or reserved basename or malformed Unicode.
+     * @throws io.github.yuroyami.archivekodec.ArchiveSizeException if the archive cannot fit in one ByteArray.
+     */
+    @Throws(ArchiveException::class)
+    @JvmStatic
+    public fun write(files: List<FileSpec>, style: NameStyle): ByteArray {
+        if (style == NameStyle.BSD) return writeBsd(files)
         var total = 8L + 60L * files.size
         checkedArraySize(total) // Reject impossible synthetic lists before reading their elements.
         val prepared = ArrayList<Prepared>()
@@ -162,7 +185,7 @@ public object ArWriter {
         val out = ByteArrayBuilder(checkedArraySize(total))
         out.append("!<arch>\n".encodeToByteArray())
         if (tableSize > 0) {
-            out.append(header("//".encodeToByteArray(), tableSize, 0, 0, 0, 0))
+            out.append(header("//".encodeToByteArray(), tableSize.toLong(), 0, 0, 0, 0))
             for ((_, entry) in tableNames) {
                 out.append(entry.second)
                 out.append(47)
@@ -173,14 +196,40 @@ public object ArWriter {
         for (file in prepared) {
             val spec = file.spec
             val field = file.field
-            out.append(header(field, spec.payload.size, spec.modificationTime, spec.uid, spec.gid, spec.mode))
+            out.append(header(field, spec.payload.size.toLong(), spec.modificationTime, spec.uid, spec.gid, spec.mode))
             out.append(spec.payload)
             if (spec.payload.size and 1 != 0) out.append(10)
         }
         return out.takeByteArray()
     }
 
-    private fun encodeName(name: String): ByteArray {
+    private fun writeBsd(files: List<FileSpec>): ByteArray {
+        var total = 8L + 60L * files.size
+        checkedArraySize(total)
+        val prepared = ArrayList<Pair<FileSpec, ByteArray>>()
+        for (spec in files) {
+            val name = encodeName(spec.name)
+            val inline = name.size > 16 || ' ' in spec.name || spec.name.startsWith("#1/")
+            val stored = (if (inline) name.size.toLong() else 0L) + spec.payload.size
+            total += stored + (stored and 1)
+            checkedArraySize(total)
+            prepared.add(spec to name)
+        }
+        val out = ByteArrayBuilder(checkedArraySize(total))
+        out.append("!<arch>\n".encodeToByteArray())
+        for ((spec, name) in prepared) {
+            val inline = name.size > 16 || ' ' in spec.name || spec.name.startsWith("#1/")
+            val field = if (inline) "#1/${name.size}".encodeToByteArray() else name
+            val size = (if (inline) name.size else 0) + spec.payload.size
+            out.append(header(field, size.toLong(), spec.modificationTime, spec.uid, spec.gid, spec.mode))
+            if (inline) out.append(name)
+            out.append(spec.payload)
+            if (size and 1 != 0) out.append(10)
+        }
+        return out.takeByteArray()
+    }
+
+    internal fun encodeName(name: String): ByteArray {
         if (name.isEmpty() || name == "." || name == ".." || name.any { it == '/' || it == '\\' || it == ':' || it.code < 32 || it.code == 127 }) {
             throw ArchiveFormatException("ar: expected a nonempty basename without paths or ASCII controls", entryName = name)
         }
@@ -194,7 +243,7 @@ public object ArWriter {
         }
     }
 
-    private fun header(name: ByteArray, size: Int, time: Long, uid: Int, gid: Int, mode: Int): ByteArray {
+    internal fun header(name: ByteArray, size: Long, time: Long, uid: Int, gid: Int, mode: Int): ByteArray {
         val bytes = ByteArray(60) { 32 }
         name.copyInto(bytes)
         time.toString().encodeToByteArray().copyInto(bytes, 16)

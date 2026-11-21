@@ -25,6 +25,7 @@ import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.zip.ZipEncryption
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
 import io.github.yuroyami.archivekodec.codec.Codec
+import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.deflate.DeflateOptions
 import io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
@@ -49,15 +50,20 @@ public fun sniff(data: ByteArray): String = ArchiveKodec.sniff(data).id
  */
 public fun compress(codec: String, data: ByteArray, level: Int = 6): ByteArray {
     val chosen = codecNamed(codec)
-    return if (codec == "deflate" || codec == "zlib" || codec == "gzip") chosen.compress(data, DeflateOptions { this.level = level })
-    else chosen.compress(data)
+    // Dispatch on the resolved codec, since the lookup ignores the case of [codec].
+    val deflateFamily = chosen.id == CodecId.DEFLATE || chosen.id == CodecId.ZLIB || chosen.id == CodecId.GZIP
+    return if (deflateFamily) chosen.compress(data, DeflateOptions { this.level = level }) else chosen.compress(data)
 }
 
 /** Decompress [data] with the codec named [codec], producing at most [maxBytes] bytes. */
 public fun decompress(codec: String, data: ByteArray, maxBytes: Double = DEFAULT_MAX_BYTES): ByteArray =
     codecNamed(codec).decompress(data, limits(maxBytes))
 
-/** Decompress [data], detecting gzip, zlib, bzip2, xz, LZMA, zstd, LZ4, Brotli or framed Snappy. */
+/**
+ * Decompress [data], detecting gzip, zlib, bzip2, xz, zstd, LZ4 or framed Snappy. Raw
+ * DEFLATE, raw Snappy, LZMA and Brotli cannot be reliably detected: use [decompress] with
+ * their codec id.
+ */
 public fun decompressAny(data: ByteArray, maxBytes: Double = DEFAULT_MAX_BYTES): ByteArray =
     ArchiveKodec.decompress(data, limits(maxBytes))
 
@@ -138,13 +144,14 @@ public class Archive internal constructor(private val reader: ArchiveReader) {
     public val entries: Array<Entry> get() = Array(listed.size) { Entry(listed[it], it) }
 
     /**
-     * The contents of the first member called [name]. A symbolic link reads as its target's
-     * path in the formats that store the target as data.
+     * The contents of the last member called [name], as in every facade: extracting the
+     * archive leaves that one in place. [readAt] reads an earlier one. A symbolic link reads
+     * as its target's path in the formats that store the target as data.
      *
      * @throws Error if no member has that name, or the member cannot be read.
      */
     public fun read(name: String): ByteArray {
-        val entry = listed.firstOrNull { it.name == name } ?: throw IllegalArgumentException("no member named '$name'")
+        val entry = listed.lastOrNull { it.name == name } ?: throw IllegalArgumentException("no member named '$name'")
         return reader.read(entry)
     }
 

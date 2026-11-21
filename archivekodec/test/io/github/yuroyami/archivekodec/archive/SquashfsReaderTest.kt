@@ -378,6 +378,128 @@ class SquashfsReaderTest {
         }
     }
 
+    /**
+     * A hand-made image with uncompressed metadata: a root directory holding one file "f" of
+     * [size] bytes in blocks of 2^[blockLog] bytes, all of them holes, or with [fragment] the
+     * tail "hello" in fragment 0. The superblock claims [fragmentCount] fragments, and
+     * [padding] zero bytes follow the fragment table's first pointer. The id table holds 1000.
+     */
+    private fun handMade(size: Long, blockLog: Int, fragment: Boolean, fragmentCount: Long = if (fragment) 1 else 0, padding: Int = 0): ByteArray {
+        val blocks = if (fragment) (size shr blockLog).toInt() else ((size + (1L shl blockLog) - 1) shr blockLog).toInt()
+        val inodes = 32 + 32 + 4 * blocks
+        assertTrue(inodes <= 8192)
+        val inodeTable = 96
+        val directoryTable = inodeTable + 2 + inodes
+        val idBlock = directoryTable + 2 + 21
+        val idTable = idBlock + 2 + 4
+        val fragmentBlock = idTable + 8
+        val fragmentTable = fragmentBlock + 2 + 16
+        val data = if (fragment) fragmentTable + 8 + padding else idTable + 8
+        val total = if (fragment) data + 5 else data
+        val out = ByteArray(total)
+        fun put(at: Int, value: Long, bytes: Int) { for (i in 0 until bytes) out[at + i] = (value ushr (8 * i)).toByte() }
+        // Superblock.
+        put(0, 0x73717368, 4); put(4, 2, 4); put(12, 1L shl blockLog, 4); put(16, fragmentCount, 4)
+        put(20, 1, 2); put(22, blockLog.toLong(), 2); put(26, 1, 2); put(28, 4, 2)
+        put(40, total.toLong(), 8); put(48, idTable.toLong(), 8); put(56, -1, 8); put(64, inodeTable.toLong(), 8)
+        put(72, directoryTable.toLong(), 8); put(80, if (fragment) fragmentTable.toLong() else -1L, 8); put(88, -1, 8)
+        // The inode table: the root directory, then the file and its block words, all zero.
+        put(inodeTable, 0x8000L or inodes.toLong(), 2)
+        val root = inodeTable + 2
+        put(root, 1, 2); put(root + 2, 0x1ED, 2); put(root + 12, 1, 4)
+        put(root + 16, 0, 4); put(root + 20, 2, 4); put(root + 24, 21 + 3, 2); put(root + 28, 1, 4)
+        val file = root + 32
+        put(file, 2, 2); put(file + 2, 0x1A4, 2); put(file + 12, 2, 4)
+        put(file + 16, 0, 4); put(file + 20, if (fragment) 0L else 0xFFFFFFFFL, 4); put(file + 28, size, 4)
+        // The root's listing: one header, one entry for inode 2 at offset 32.
+        put(directoryTable, 0x8000L or 21, 2)
+        put(directoryTable + 2 + 8, 2, 4)
+        put(directoryTable + 14, 32, 2); put(directoryTable + 18, 2, 2)
+        out[directoryTable + 22] = 'f'.code.toByte()
+        // One id, 1000, and the table's pointer to its block.
+        put(idBlock, 0x8000L or 4, 2); put(idBlock + 2, 1000, 4)
+        put(idTable, idBlock.toLong(), 8)
+        if (fragment) {
+            put(fragmentBlock, 0x8000L or 16, 2); put(fragmentBlock + 2, data.toLong(), 8); put(fragmentBlock + 10, 0x01000005, 4)
+            put(fragmentTable, fragmentBlock.toLong(), 8)
+            "hello".encodeToByteArray().copyInto(out, data)
+        }
+        return out
+    }
+
+    @Test
+    fun aHandMadeImageReads() {
+        reader(handMade(5, 12, fragment = true)).use {
+            val file = it.entries().single { e -> e.name == "f" }
+            assertEquals(1000L, file.uid)
+            assertContentEquals("hello".encodeToByteArray(), it.read(file))
+        }
+    }
+
+    @Test
+    fun aHugeFragmentCountReadsOnlyTheEntryItNeeds() {
+        // 2^30 fragments: a 16 MiB pointer list that the whole table would need 16 GiB for
+        // (and 2^31 longs overflow an Int). Only the first pointer leads anywhere.
+        val count = 1L shl 30
+        val bytes = handMade(5, 12, fragment = true, fragmentCount = count, padding = (count / 512 * 8).toInt())
+        reader(bytes).use {
+            assertContentEquals("hello".encodeToByteArray(), it.read(it.entries().single { e -> e.name == "f" }))
+        }
+    }
+
+    @Test
+    fun aFullySparseFileIsMeasuredAgainstTheWholeImage() {
+        // 4 MiB of holes in an image of under 400 bytes: past 10,000:1 against the image.
+        val size = 4L shl 20
+        val bytes = handMade(size, 20, fragment = false)
+        assertTrue(bytes.size < 400, "${bytes.size}")
+        reader(bytes).use {
+            val file = it.entries().single { e -> e.name == "f" }
+            assertFailsWith<DecompressionBombException> { it.read(file) }
+            val ratio = ((size + bytes.size - 1) / bytes.size).toInt()
+            assertContentEquals(ByteArray(size.toInt()), it.read(file, ArchiveLimits { maxCompressionRatio = ratio }))
+            assertFailsWith<DecompressionBombException> { it.read(file, ArchiveLimits { maxCompressionRatio = ratio - 1 }) }
+        }
+    }
+
+    @Test
+    fun aSourceFailureInTheIdTableFailsTheListingAndARetryReadsTheIds() {
+        val bytes = handMade(5, 12, fragment = true)
+        val idTable = readU32(bytes, 48).toInt()
+        val delegate = ByteArrayRandomAccessSource(bytes)
+        var failed = false
+        val flaky = object : RandomAccessSource by delegate {
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                if (!failed && offset == idTable.toLong()) {
+                    failed = true
+                    throw io.github.yuroyami.archivekodec.ArchiveIOException("transient failure", IllegalStateException("flaky"))
+                }
+                return delegate.read(offset, into, intoOffset, length)
+            }
+        }
+        SquashfsReader(flaky).use { reader ->
+            assertFailsWith<io.github.yuroyami.archivekodec.ArchiveIOException> { reader.entries() }
+            // The failure was not remembered as an empty id table.
+            assertEquals(1000L, reader.entries().single { it.name == "f" }.uid)
+        }
+    }
+
+    @Test
+    fun aFileOfTwoGibibytesIsASizeError() {
+        // The file inode's size field, at the inode table (96), past its block header (2), the
+        // root inode (32) and 28 bytes into the file inode: claim 2^31 bytes, which pass the
+        // default 2 GiB output limit but fit no ByteArray.
+        val bytes = handMade(5, 12, fragment = true)
+        for (i in 0 until 4) bytes[96 + 2 + 32 + 28 + i] = ((1L shl 31) ushr (8 * i)).toByte()
+        reader(bytes).use {
+            val file = it.entries().single { e -> e.name == "f" }
+            assertEquals(1L shl 31, file.size)
+            assertFailsWith<io.github.yuroyami.archivekodec.ArchiveSizeException> { it.read(file) }
+        }
+    }
+
+    private fun readU32(bytes: ByteArray, at: Int): Long = (0 until 4).fold(0L) { v, i -> v or ((bytes[at + i].toLong() and 0xFF) shl (8 * i)) }
+
     @Test
     fun damagedImagesFailCleanly() {
         for (gz in listOf(gzipGz, lzoGz, lz4Gz)) {

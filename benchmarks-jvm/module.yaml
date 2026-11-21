@@ -1,8 +1,10 @@
-# Runs the JVM benchmarks of the benchmarks module. Not published. benchmarks/run.py starts it.
+# Runs the JVM benchmarks of the benchmarks module, and the compression-ratio jobs of
+# scripts/compression-ratios.py. Not published. benchmarks/run.py starts it.
 product: jvm/app
 
 dependencies:
   - //benchmarks
+  - //archivekodec
 
 settings:
   kotlin:

@@ -70,8 +70,11 @@ class SourceBoundsTest {
         for (reader in readers) {
             val entry = reader.entries().single()
             assertEquals(large, entry.size)
-            val e = assertFailsWith<ArchiveFormatException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
+            // Too large for one ByteArray is a size error, as ArchiveReader.read documents.
+            val e = assertFailsWith<io.github.yuroyami.archivekodec.ArchiveSizeException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
             kotlin.test.assertTrue(e.message!!.contains("ByteArray"), e.message)
+            assertEquals(entry.name, e.entryName)
+            assertEquals(entry.dataOffset, e.offset)
         }
     }
 
@@ -135,7 +138,7 @@ class SourceBoundsTest {
         val entry = reader.entries().single()
         assertEquals(large, entry.compressedSize)
         armed = true
-        val error = assertFailsWith<ArchiveFormatException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
+        val error = assertFailsWith<io.github.yuroyami.archivekodec.ArchiveSizeException> { reader.read(entry, ArchiveLimits.UNBOUNDED) }
         kotlin.test.assertTrue(error.message!!.contains("ByteArray"), error.message)
         assertEquals("a.txt", error.entryName)
         assertEquals(payloadStart, error.offset)

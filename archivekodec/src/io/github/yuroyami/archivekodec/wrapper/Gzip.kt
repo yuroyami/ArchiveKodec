@@ -85,7 +85,20 @@ public object Gzip {
             (if (header.hasHeaderCrc) 2L else 0L)
         checkedArraySize(headerSize + 8)
         val compressed = Deflate.encode(data, options)
-        val out = ByteArrayBuilder(checkedArraySize(headerSize + compressed.size + 8))
+        val head = headerBytes(header, options)
+        val out = ByteArrayBuilder(checkedArraySize(head.size.toLong() + compressed.size + 8))
+        out.append(head)
+        out.append(compressed)
+        out.le32(Crc32.of(data))                       // CRC-32 of uncompressed data
+        out.le32(data.size.toLong() and 0xFFFFFFFFL)   // ISIZE mod 2^32
+        return out.takeByteArray()
+    }
+
+
+    /** The member header [compress] writes for [header]. */
+    internal fun headerBytes(header: GzipHeader, @Suppress("UNUSED_PARAMETER") options: DeflateOptions): ByteArray {
+        val extra = header.storedExtra
+        val out = ByteArrayBuilder(64)
         val flags = (if (header.isText) FTEXT else 0) or (if (header.hasHeaderCrc) FHCRC else 0) or
             (if (extra != null) FEXTRA else 0) or (if (header.name != null) FNAME else 0) or
             (if (header.comment != null) FCOMMENT else 0)
@@ -112,9 +125,6 @@ public object Gzip {
             val sum = out.checksum { bytes, size -> Crc32().apply { update(bytes, 0, size) }.value() }
             out.le16((sum and 0xffff).toInt())
         }
-        out.append(compressed)
-        out.le32(Crc32.of(data))                       // CRC-32 of uncompressed data
-        out.le32(data.size.toLong() and 0xFFFFFFFFL)   // ISIZE mod 2^32
         return out.takeByteArray()
     }
 
@@ -188,6 +198,62 @@ public object Gzip {
         decodeMembers(input, output)
         return output.finish()
     }
+
+    /**
+     * Decode every gzip member read from [source] to [sink], checking each member's CRC-32 and
+     * ISIZE, and return the byte count. The input is read as the decoder needs it, and the
+     * output is written in chunks of about 1 MiB, so neither has to fit in memory. Zero bytes
+     * may pad between and after members. [limits] are checked before every write, the ratio
+     * against the compressed bytes read so far.
+     */
+    internal fun decompress(source: io.github.yuroyami.archivekodec.codec.ByteSource, sink: ByteSink, limits: ArchiveLimits): Long {
+        val input = io.github.yuroyami.archivekodec.codec.SourceBuffer(source)
+        val output = Inflate.Output(limits, Int.MAX_VALUE, sink = sink, reserveInputSize = false)
+        val streamStart = input.streamPosition
+        var first = true
+        while (true) {
+            // Zero padding may follow a member; the input may end after it.
+            if (!first) {
+                while (input.ensure(1) && input.buffer[input.position] == 0.toByte()) input.position++
+                if (input.atEnd()) break
+            }
+            first = false
+            val headerEnd = streamHeader(input)
+            input.position = headerEnd
+            val produced = output.produced
+            output.startChecksum(Crc32())
+            Inflate.inflateFrom(input, output, origin = streamStart)
+            val trailer = ByteArray(8)
+            input.readFully(trailer, 0, 8, "gzip trailer")
+            if (readU32Le(trailer, 0) != output.checksumValue()) throw ArchiveFormatException("gzip: CRC-32 mismatch", input.streamPosition - 8)
+            if (readU32Le(trailer, 4) != (output.produced - produced) and 0xFFFFFFFFL) {
+                throw ArchiveFormatException("gzip: ISIZE mismatch", input.streamPosition - 4)
+            }
+        }
+        return output.finish()
+    }
+
+    /** Parse the member header at the window's position, growing the window until it fits; returns the index after it. */
+    private fun streamHeader(input: io.github.yuroyami.archivekodec.codec.SourceBuffer): Int {
+        var want = 64
+        while (true) {
+            input.ensure(want)
+            val window = input.buffer.copyOfRange(input.position, input.end)
+            try {
+                return input.position + gzipHeader(window, 0)
+            } catch (error: ArchiveFormatException) {
+                // Only a header cut by the window's end is worth a larger window.
+                val truncated = error.message.orEmpty().contains("truncated")
+                if (!truncated || window.size < want || want >= MAX_STREAM_HEADER) {
+                    throw ArchiveFormatException(error.message.orEmpty().substringBefore(" ["), input.streamPosition + (error.offset ?: 0L))
+                }
+                want *= 4
+            }
+        }
+    }
+
+    /** The longest member header a streamed read accepts: the extra field and a long name and comment. */
+    private const val MAX_STREAM_HEADER = 1 shl 20
 
     /** Decode every member into [output], checking each member's CRC-32 and ISIZE. */
     private fun decodeMembers(input: ByteArray, output: Inflate.Output) {

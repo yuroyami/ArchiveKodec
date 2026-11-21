@@ -40,11 +40,76 @@ public class ArchiveEntry private constructor(builder: Builder) {
     public val isDirectory: Boolean = builder.isDirectory
 
     /**
-     * Modification time in seconds since the Unix epoch, UTC, or null when the archive holds
-     * none. ZIP prefers its extended-timestamp field and otherwise reads the zoneless DOS time
-     * as UTC; pax times round down to whole seconds.
+     * Modification time, at the precision the archive stores, or null when it holds none. ZIP
+     * prefers its NTFS and extended-timestamp fields and otherwise reads the zoneless DOS time
+     * as UTC.
      */
-    public val lastModifiedEpochSeconds: Long? = builder.lastModifiedEpochSeconds
+    public val lastModified: ArchiveTime? = builder.lastModified
+
+    /** [lastModified] in whole seconds since the Unix epoch, UTC, or null. */
+    public val lastModifiedEpochSeconds: Long? get() = lastModified?.epochSeconds
+
+    /** Last access time, or null when the archive stores none: pax `atime`, ZIP, 7z, RAR, WIM and ISO 9660 can. */
+    public val lastAccessed: ArchiveTime? = builder.lastAccessed
+
+    /**
+     * Unix status-change time (`ctime`), or null when the archive stores none: pax `ctime` and
+     * Rock Ridge can. It cannot be restored on extraction. Not the creation time; see [created].
+     */
+    public val statusChanged: ArchiveTime? = builder.statusChanged
+
+    /** Creation (birth) time, or null when the archive stores none: ZIP's NTFS field, 7z, RAR and WIM can. */
+    public val created: ArchiveTime? = builder.created
+
+    /** Owner user id, or null when the archive stores none. */
+    public val uid: Long? = builder.uid
+
+    /** Owner group id, or null when the archive stores none. */
+    public val gid: Long? = builder.gid
+
+    /** Owner user name, as TAR stores it next to [uid], or null. */
+    public val ownerName: String? = builder.ownerName
+
+    /** Owner group name, as TAR stores it next to [gid], or null. */
+    public val groupName: String? = builder.groupName
+
+    /** Major number of a character or block device ([type]), or null for other members. */
+    public val deviceMajor: Long? = builder.deviceMajor
+
+    /** Minor number of a character or block device ([type]), or null for other members. */
+    public val deviceMinor: Long? = builder.deviceMinor
+
+    /**
+     * Windows file attributes (`FILE_ATTRIBUTE_*`, the low bits shared with MS-DOS: read-only
+     * 0x1, hidden 0x2, system 0x4, directory 0x10, archive 0x20, ...), or null when the
+     * archive stores none or stores Unix metadata instead.
+     */
+    public val windowsAttributes: Int? = builder.windowsAttributes
+
+    private val storedXattrs: Map<String, ByteArray> = builder.xattrs.mapValues { it.value.copyOf() }
+
+    /**
+     * Extended attributes by name, such as `user.comment` or `security.capability`, as the
+     * archive stores them; empty when it stores none. POSIX ACLs appear here as the Linux
+     * `system.posix_acl_access` and `system.posix_acl_default` attributes. A fresh copy on each
+     * access. Extraction never applies them.
+     */
+    public val xattrs: Map<String, ByteArray> get() = storedXattrs.mapValues { it.value.copyOf() }
+
+    /** The kind of member, from [isDirectory], [isSymbolicLink], [isHardLink] and the [unixMode] file type. */
+    public val type: EntryType get() = when {
+        isHardLink -> EntryType.HARD_LINK
+        isSymbolicLink -> EntryType.SYMBOLIC_LINK
+        isDirectory -> EntryType.DIRECTORY
+        else -> when (unixMode?.and(0xF000)) {
+            0x2000 -> EntryType.CHARACTER_DEVICE
+            0x6000 -> EntryType.BLOCK_DEVICE
+            0x1000 -> EntryType.FIFO
+            0xC000 -> EntryType.SOCKET
+            0x4000 -> EntryType.DIRECTORY
+            else -> EntryType.FILE
+        }
+    }
 
     /** Encoded payload size in bytes; equals [size] for uncompressed members. */
     public val compressedSize: Long = builder.compressedSize
@@ -147,8 +212,46 @@ public class ArchiveEntry private constructor(builder: Builder) {
         /** Whether the member is a directory. */
         public var isDirectory: Boolean,
     ) {
-        /** Modification time in Unix epoch seconds, initially null. */
-        public var lastModifiedEpochSeconds: Long? = null
+        /** Modification time, initially null. */
+        public var lastModified: ArchiveTime? = null
+
+        /** [lastModified] in whole seconds; setting it replaces [lastModified] with a whole-second time. */
+        public var lastModifiedEpochSeconds: Long?
+            get() = lastModified?.epochSeconds
+            set(value) { lastModified = value?.let { ArchiveTime(it) } }
+
+        /** See [ArchiveEntry.lastAccessed]; initially null. */
+        public var lastAccessed: ArchiveTime? = null
+
+        /** See [ArchiveEntry.statusChanged]; initially null. */
+        public var statusChanged: ArchiveTime? = null
+
+        /** See [ArchiveEntry.created]; initially null. */
+        public var created: ArchiveTime? = null
+
+        /** See [ArchiveEntry.uid]; initially null. */
+        public var uid: Long? = null
+
+        /** See [ArchiveEntry.gid]; initially null. */
+        public var gid: Long? = null
+
+        /** See [ArchiveEntry.ownerName]; initially null. */
+        public var ownerName: String? = null
+
+        /** See [ArchiveEntry.groupName]; initially null. */
+        public var groupName: String? = null
+
+        /** See [ArchiveEntry.deviceMajor]; initially null. */
+        public var deviceMajor: Long? = null
+
+        /** See [ArchiveEntry.deviceMinor]; initially null. */
+        public var deviceMinor: Long? = null
+
+        /** See [ArchiveEntry.windowsAttributes]; initially null. */
+        public var windowsAttributes: Int? = null
+
+        /** See [ArchiveEntry.xattrs]; initially empty. [build] copies the map and its values. */
+        public var xattrs: Map<String, ByteArray> = emptyMap()
 
         /** Encoded payload size, initially the constructor's [size]. */
         public var compressedSize: Long = size
@@ -184,7 +287,18 @@ public class ArchiveEntry private constructor(builder: Builder) {
             private set
 
         internal constructor(source: ArchiveEntry) : this(source.name, source.size, source.isDirectory) {
-            lastModifiedEpochSeconds = source.lastModifiedEpochSeconds
+            lastModified = source.lastModified
+            lastAccessed = source.lastAccessed
+            statusChanged = source.statusChanged
+            created = source.created
+            uid = source.uid
+            gid = source.gid
+            ownerName = source.ownerName
+            groupName = source.groupName
+            deviceMajor = source.deviceMajor
+            deviceMinor = source.deviceMinor
+            windowsAttributes = source.windowsAttributes
+            xattrs = source.storedXattrs
             compressedSize = source.compressedSize
             codec = source.codec
             isEncrypted = source.isEncrypted
@@ -247,7 +361,10 @@ public class ArchiveEntry private constructor(builder: Builder) {
     /** Compare the metadata properties; stored names, ZIP methods and the issuing reader are not part of equality. */
     override fun equals(other: Any?): Boolean = this === other || other is ArchiveEntry &&
         name == other.name && size == other.size && isDirectory == other.isDirectory &&
-        lastModifiedEpochSeconds == other.lastModifiedEpochSeconds && compressedSize == other.compressedSize &&
+        lastModified == other.lastModified && lastAccessed == other.lastAccessed && statusChanged == other.statusChanged &&
+        created == other.created && uid == other.uid && gid == other.gid && ownerName == other.ownerName &&
+        groupName == other.groupName && deviceMajor == other.deviceMajor && deviceMinor == other.deviceMinor &&
+        windowsAttributes == other.windowsAttributes && xattrsEqual(other) && compressedSize == other.compressedSize &&
         codec == other.codec && isEncrypted == other.isEncrypted && encryption == other.encryption && crc32 == other.crc32 &&
         unixMode == other.unixMode && comment == other.comment && isSymbolicLink == other.isSymbolicLink &&
         isHardLink == other.isHardLink && linkTarget == other.linkTarget
@@ -257,7 +374,18 @@ public class ArchiveEntry private constructor(builder: Builder) {
         var result = name.hashCode()
         result = 31 * result + size.hashCode()
         result = 31 * result + isDirectory.hashCode()
-        result = 31 * result + (lastModifiedEpochSeconds?.hashCode() ?: 0)
+        result = 31 * result + (lastModified?.hashCode() ?: 0)
+        result = 31 * result + (lastAccessed?.hashCode() ?: 0)
+        result = 31 * result + (statusChanged?.hashCode() ?: 0)
+        result = 31 * result + (created?.hashCode() ?: 0)
+        result = 31 * result + (uid?.hashCode() ?: 0)
+        result = 31 * result + (gid?.hashCode() ?: 0)
+        result = 31 * result + (ownerName?.hashCode() ?: 0)
+        result = 31 * result + (groupName?.hashCode() ?: 0)
+        result = 31 * result + (deviceMajor?.hashCode() ?: 0)
+        result = 31 * result + (deviceMinor?.hashCode() ?: 0)
+        result = 31 * result + (windowsAttributes ?: 0)
+        result = 31 * result + storedXattrs.entries.sumOf { it.key.hashCode() xor it.value.contentHashCode() }
         result = 31 * result + compressedSize.hashCode()
         result = 31 * result + codec.hashCode()
         result = 31 * result + isEncrypted.hashCode()
@@ -270,12 +398,22 @@ public class ArchiveEntry private constructor(builder: Builder) {
         return 31 * result + (linkTarget?.hashCode() ?: 0)
     }
 
+    private fun xattrsEqual(other: ArchiveEntry): Boolean = storedXattrs.size == other.storedXattrs.size &&
+        storedXattrs.all { (key, value) -> other.storedXattrs[key]?.contentEquals(value) == true }
+
     /** Describe the member metadata with an escaped, bounded name; never reads its payload. */
     override fun toString(): String = "ArchiveEntry(name=\"${describeName(name)}\", size=$size, isDirectory=$isDirectory, " +
-        "lastModifiedEpochSeconds=$lastModifiedEpochSeconds, compressedSize=$compressedSize, codec=$codec, " +
+        "lastModified=$lastModified, compressedSize=$compressedSize, codec=$codec, " +
         "isEncrypted=$isEncrypted, encryption=$encryption, crc32=$crc32, unixMode=${unixMode?.toString(8)}, " +
         "comment=${comment?.let { "\"${describeName(it)}\"" }}, zipMethod=$zipMethod" +
-        (if (isSymbolicLink || isHardLink) ", ${if (isHardLink) "hardLink" else "symbolicLink"}=${linkTarget?.let { "\"${describeName(it)}\"" }}" else "") + ")"
+        (if (isSymbolicLink || isHardLink) ", ${if (isHardLink) "hardLink" else "symbolicLink"}=${linkTarget?.let { "\"${describeName(it)}\"" }}" else "") +
+        listOfNotNull(
+            lastAccessed?.let { "lastAccessed=$it" }, statusChanged?.let { "statusChanged=$it" }, created?.let { "created=$it" },
+            uid?.let { "uid=$it" }, gid?.let { "gid=$it" },
+            ownerName?.let { "ownerName=\"${describeName(it)}\"" }, groupName?.let { "groupName=\"${describeName(it)}\"" },
+            deviceMajor?.let { "device=$it:$deviceMinor" }, windowsAttributes?.let { "windowsAttributes=0x${it.toString(16)}" },
+            storedXattrs.takeIf { it.isNotEmpty() }?.let { "xattrs=${it.size}" },
+        ).joinToString("") { ", $it" } + ")"
 
     /** Builder-based construction. */
     public companion object {

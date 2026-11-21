@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.rar.RarReader
@@ -352,22 +353,22 @@ class RarReaderTest {
     }
 
     @Test
-    fun rar4UnicodeNamesAndRefusals() {
+    fun rar4UnicodeNamesCompressedMembersAndRefusals() {
         reader(unicode4).use {
             val byName = it.entries().associateBy { e -> e.name }
             val kanji = "\u8868\u3060\u3088/\u6f22\u5b57\u9577\u3044\u30d5\u30a1\u30a4\u30eb\u540dlong-filename-in-\u6f22\u5b57.txt"
             assertContentEquals("kanji".encodeToByteArray(), it.read(byName.getValue(kanji)))
             assertTrue("\u8868\u3060\u3088/\u30d5\u30a1\u30a4\u30eb" in byName, "${byName.keys}")
+            // RAR 2.9 compressed; the read checks the CRC-32.
             val compressed = byName.getValue("abcdefghijklmnopqrs\u30c6\u30b9\u30c8.txt")
-            val error = assertFailsWith<ArchiveUnsupportedException> { it.read(compressed) }
-            assertTrue("compression method 3" in error.message!! && "2.9" in error.message!!, error.message)
+            assertEquals(16, it.read(compressed).size)
         }
         reader(partly4).use {
             val byName = it.entries().associateBy { e -> e.name }
             assertTrue(byName.getValue("foo.txt").isEncrypted)
             assertFalse(byName.getValue("bar.txt").isEncrypted)
             assertTrue("encrypted" in assertFailsWith<ArchiveUnsupportedException> { it.read(byName.getValue("foo.txt")) }.message!!)
-            assertFailsWith<ArchiveUnsupportedException> { it.read(byName.getValue("bar.txt")) }
+            assertEquals(16, it.read(byName.getValue("bar.txt")).size)
         }
     }
 
@@ -437,6 +438,153 @@ class RarReaderTest {
         }
         reader(solid5, ArchiveLimits { maxDecoderMemory = 1000 }).use {
             assertFailsWith<DecompressionBombException> { it.read(it.entries().first { e -> !e.isDirectory }) }
+        }
+    }
+
+    @Test
+    fun aFailedSolidReadDoesNotSkipAMember() {
+        val expected = mapOf(
+            "s/code.bin" to 0x57905e5fL, "s/audio.raw" to 0xd912dcd9L, "s/text.txt" to 0x82c88ff2L, "s/text-copy.txt" to 0xc8c1bc42L,
+        )
+        val delegate = ByteArrayRandomAccessSource(solid5)
+        var failNext = false
+        val offsetsRead = ArrayList<Long>()
+        val flaky = object : RandomAccessSource by delegate {
+            override fun read(offset: Long, into: ByteArray, intoOffset: Int, length: Int): Int {
+                offsetsRead += offset
+                if (failNext) {
+                    failNext = false
+                    throw ArchiveIOException("transient failure", IllegalStateException("flaky"))
+                }
+                return delegate.read(offset, into, intoOffset, length)
+            }
+        }
+        RarReader(flaky).use { reader ->
+            val files = reader.entries().filter { !it.isDirectory }
+            // Read the first member, then fail the read of the second member's data on the way to the third.
+            assertEquals(expected.getValue(files[0].name), Crc32.of(reader.read(files[0])))
+            failNext = true
+            assertFailsWith<ArchiveIOException> { reader.read(files[2]) }
+            // The retry decodes the second member into the window instead of resuming past it.
+            offsetsRead.clear()
+            assertEquals(expected.getValue(files[2].name), Crc32.of(reader.read(files[2])))
+            assertTrue(files[1].dataOffset in offsetsRead, "the retry skipped ${files[1].name}: read $offsetsRead")
+            assertEquals(expected.getValue(files[3].name), Crc32.of(reader.read(files[3])))
+        }
+        // A kept window is not reused under a decoder memory limit that forbids it.
+        reader(solid5).use { reader ->
+            val files = reader.entries().filter { !it.isDirectory }
+            reader.read(files[0])
+            assertFailsWith<DecompressionBombException> { reader.read(files[1], ArchiveLimits { maxDecoderMemory = 1000 }) }
+            assertEquals(expected.getValue(files[1].name), Crc32.of(reader.read(files[1])))
+        }
+    }
+
+    /** A RAR5 archive of one compressed file header with no data area, claiming [size] bytes. */
+    private fun rar5WithoutData(size: Long): ByteArray {
+        fun vint(value: Long): ByteArray {
+            val out = ArrayList<Byte>()
+            var v = value
+            while (true) {
+                val b = (v and 0x7F).toInt()
+                v = v ushr 7
+                if (v == 0L) { out.add(b.toByte()); return out.toByteArray() }
+                out.add((b or 0x80).toByte())
+            }
+        }
+        fun block(body: ByteArray): ByteArray {
+            val sized = vint(body.size.toLong()) + body
+            val crc = Crc32.of(sized)
+            return ByteArray(4) { (crc ushr (8 * it)).toByte() } + sized
+        }
+        // Type 2 (file), no flags; file flags 0, the size, attributes 0, method 3, host 1, name "x".
+        val file = vint(2) + vint(0) + vint(0) + vint(size) + vint(0) + vint(3L shl 7) + vint(1) + vint(1) + "x".encodeToByteArray()
+        val end = vint(5) + vint(0) + vint(0)
+        return byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00) + block(file) + block(end)
+    }
+
+    /** RAR 2.9 bits, most significant first. */
+    private class Bits {
+        private val out = ArrayList<Byte>()
+        private var acc = 0
+        private var count = 0
+        fun put(value: Int, bits: Int) {
+            for (i in bits - 1 downTo 0) {
+                acc = (acc shl 1) or ((value ushr i) and 1)
+                if (++count == 8) { out.add(acc.toByte()); acc = 0; count = 0 }
+            }
+        }
+        /** The bytes, the last one padded with ones, which no code here starts with. */
+        fun bytes(): ByteArray { while (count != 0) put(1, 1); return out.toByteArray() }
+    }
+
+    /** A RAR 1.5-4.x archive of RAR 2.9 compressed files: name, packed data, then the content and whether it is solid. */
+    private fun rar4(vararg files: Triple<String, ByteArray, Pair<ByteArray, Boolean>>): ByteArray {
+        fun block(bytes: ByteArray): ByteArray {
+            val crc = Crc32().apply { update(bytes, 2, bytes.size - 2) }.value()
+            bytes[0] = crc.toByte(); bytes[1] = (crc ushr 8).toByte()
+            return bytes
+        }
+        fun put(into: ByteArray, at: Int, value: Long, bytes: Int) { for (i in 0 until bytes) into[at + i] = (value ushr (8 * i)).toByte() }
+        var out = byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00)
+        out += block(ByteArray(13).also { it[2] = 0x73; put(it, 5, 13, 2) })
+        for ((name, packed, original) in files) {
+            val (content, solid) = original
+            val nameBytes = name.encodeToByteArray()
+            val h = ByteArray(32 + nameBytes.size)
+            h[2] = 0x74
+            put(h, 3, 0x8000L or (if (solid) 0x10L else 0L), 2)
+            put(h, 5, h.size.toLong(), 2)
+            put(h, 7, packed.size.toLong(), 4)
+            put(h, 11, content.size.toLong(), 4)
+            h[15] = 3 // Unix
+            put(h, 16, Crc32.of(content), 4)
+            h[24] = 29
+            h[25] = 0x33
+            put(h, 26, nameBytes.size.toLong(), 2)
+            put(h, 28, 0x81A4, 4)
+            nameBytes.copyInto(h, 32)
+            out += block(h) + packed
+        }
+        return out
+    }
+
+    @Test
+    fun aResumedRar29StreamAnswersToTheResumingCallsPpmdLimit() {
+        // The first member: an LZ block whose only code is the literal 'A', length 1.
+        val lz = Bits()
+        lz.put(0, 1); lz.put(0, 1) // not PPMd; reset the lengths
+        // Precode lengths: symbols 1 and 19 (a run of zeros) of length 1, the rest 0.
+        lz.put(0, 4); lz.put(1, 4); lz.put(15, 4); lz.put(15, 4); lz.put(1, 4)
+        // Table lengths: 65 zeros, 1 for 'A', then 338 zeros. Precode: 1 is "0", 19 is "1".
+        lz.put(1, 1); lz.put(65 - 11, 7)
+        lz.put(0, 1)
+        lz.put(1, 1); lz.put(127, 7); lz.put(1, 1); lz.put(127, 7); lz.put(1, 1); lz.put(62 - 11, 7)
+        repeat(8) { lz.put(0, 1) } // eight 'A's; the data then ends, so the next member starts new codes
+        val first = "AAAAAAAA".encodeToByteArray()
+        // The second member starts a PPMd block (order 6) asking for an 8 MiB model.
+        val ppmd = byteArrayOf(0xA5.toByte(), 7) + ByteArray(16)
+        val archive = rar4(
+            Triple("a.txt", lz.bytes(), first to false),
+            Triple("b.txt", ppmd, ByteArray(10) to true),
+        )
+        val tight = ArchiveLimits { maxDecoderMemory = 5L shl 20 }
+        reader(archive).use { reader ->
+            val (a, b) = reader.entries()
+            assertContentEquals(first, reader.read(a))
+            // Resuming the stream that the default 256 MiB limit started still refuses the model.
+            assertFailsWith<DecompressionBombException> { reader.read(b, tight) }
+        }
+        // As a fresh read does.
+        reader(archive).use { reader -> assertFailsWith<DecompressionBombException> { reader.read(reader.entries()[1], tight) } }
+    }
+
+    @Test
+    fun aCompressedMemberWithoutDataIsCheckedBeforeItsOutputIsAllocated() {
+        reader(rar5WithoutData(100_000_000)).use { reader ->
+            val entry = reader.entries().single()
+            assertEquals(100_000_000L, entry.size)
+            assertFailsWith<DecompressionBombException> { reader.read(entry) }
         }
     }
 

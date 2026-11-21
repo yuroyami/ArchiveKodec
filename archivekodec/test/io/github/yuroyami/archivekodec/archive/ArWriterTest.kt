@@ -161,4 +161,25 @@ class ArWriterTest {
         }
         assertFailsWith<ArchiveSizeException> { ArWriter.write(files) }
     }
+
+    @Test
+    fun bsdNamesRoundTripInlineAndInTheField() {
+        val long = "a-member-name-longer-than-sixteen.o"
+        val files = listOf(
+            ArWriter.FileSpec("short.o", "odd".encodeToByteArray()),
+            ArWriter.FileSpec(long, "even".encodeToByteArray()),
+            ArWriter.FileSpec("with space", "x".encodeToByteArray()),
+        )
+        val bsd = ArWriter.write(files, ArWriter.NameStyle.BSD)
+        val text = bsd.decodeToString()
+        assertTrue("#1/${long.length}" in text && "//" !in text)
+        assertTrue(ArWriter.write(files).decodeToString().contains("//"))
+        ArReader(ByteArrayRandomAccessSource(bsd)).use { reader ->
+            val entries = reader.entries()
+            assertEquals(listOf("short.o", long, "with space"), entries.map { it.name })
+            assertEquals(listOf(3L, 4L, 1L), entries.map { it.size })
+            assertContentEquals("even".encodeToByteArray(), reader.read(entries[1]))
+            assertContentEquals("x".encodeToByteArray(), reader.read(entries[2]))
+        }
+    }
 }

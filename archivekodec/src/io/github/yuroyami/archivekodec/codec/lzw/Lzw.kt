@@ -246,7 +246,8 @@ public object Lzw {
     /** The decoder's output: a fixed array when the size is known, else a growing one under the limits. */
     private class Output(expected: Long, private val inputLength: Int, private val limits: ArchiveLimits) {
         private val cap: Int = if (expected >= 0) expected.toInt() else Int.MAX_VALUE
-        private var buf = ByteArray(if (expected >= 0) expected.toInt() else minOf(maxOf(inputLength * 3, 256), 1 shl 20))
+        // The expected size is only a claim: grow toward it under the limits instead of reserving it.
+        private var buf = ByteArray(minOf(maxOf(inputLength * 3, 256), 1 shl 20, cap))
         var size = 0
             private set
 
@@ -272,14 +273,14 @@ public object Lzw {
         }
 
         private fun ensure(extra: Int) {
-            val needed = size.toLong() + extra
-            if (needed <= buf.size || cap != Int.MAX_VALUE) return
+            val needed = minOf(size.toLong() + extra, cap.toLong())
+            if (needed <= buf.size) return
             limits.checkOutputSize(needed)
             limits.checkRatio(inputLength.toLong(), needed)
             if (needed > Int.MAX_VALUE - 8L) throw DecompressionBombException("lzw: output exceeds the ByteArray maximum")
             var grown = buf.size.toLong() * 2
             if (grown < needed) grown = needed
-            buf = buf.copyOf(minOf(grown, Int.MAX_VALUE - 8L).toInt())
+            buf = buf.copyOf(minOf(grown, Int.MAX_VALUE - 8L, cap.toLong()).toInt())
         }
 
         fun toByteArray(): ByteArray {

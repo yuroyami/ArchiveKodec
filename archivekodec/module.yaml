@@ -238,7 +238,7 @@ plugins:
     enabled: true
     moduleName: archivekodec
     includes: [ Module.md ]
-    # The Apple NSData functions and the JavaScript facade. The -io and crypto platform folders hold no public API.
+    # The Apple NSData functions. The JavaScript facade is in archivekodec-js. The -io and crypto platform folders hold no public API.
     platformSourceDirs: [ src@apple, src@js ]
     customStyleSheets: [ ../docs/api-theme/kite.css ]
     templatesDir: ../dokka-templates

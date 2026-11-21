@@ -172,7 +172,7 @@ class FormatRegistryTest {
     }
 
     @Test fun unknownOrUnavailableExplicitIdsFailWithoutSourceReadsOrOwnershipTransfer() {
-        for (id in listOf("missing", "", "lzma", "brotli", "bzip2")) {
+        for (id in listOf("missing", "", "lzma", "brotli", "zlib")) {
             val source = Source(bytes).also { it.rejectReads = true }
             assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(source, format = id) }
             assertEquals(0, source.reads); assertEquals(0, source.closes)

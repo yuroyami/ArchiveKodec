@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.archive.zip
 
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchivePasswordException
@@ -11,10 +12,10 @@ import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.CrcMismatchListener
 import io.github.yuroyami.archivekodec.archive.CrcPolicy
-import io.github.yuroyami.archivekodec.archive.DuplicateNamePolicy
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
+import io.github.yuroyami.archivekodec.archive.readEntryChecked
 import io.github.yuroyami.archivekodec.archive.readFully
 import io.github.yuroyami.archivekodec.archive.readFullyChecked
 import io.github.yuroyami.archivekodec.archive.readFullyInto
@@ -24,6 +25,8 @@ import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.checksum.Crc32
 import io.github.yuroyami.archivekodec.codec.ByteSink
+import io.github.yuroyami.archivekodec.codec.SourceBuffer
+import io.github.yuroyami.archivekodec.codec.ByteSource
 import io.github.yuroyami.archivekodec.codec.Codec
 import io.github.yuroyami.archivekodec.codec.CodecId
 import io.github.yuroyami.archivekodec.codec.CodecRegistry
@@ -59,8 +62,9 @@ import kotlin.text.CharacterCodingException
  * otherwise valid Unicode Path metadata takes precedence over [nameDecoder]
  * (CP437 by default). Conflicting valid Unicode names are malformed.
  * Masked local headers with
- * central-directory encryption are unsupported. This reader decodes STORE and
- * DEFLATE by default. Supply [codecs] to add methods or replace engines. Other
+ * central-directory encryption are unsupported. By default this reader decodes STORE (0),
+ * DEFLATE (8), Deflate64 (9), bzip2 (12), LZMA (14), Zstandard (93), xz (95) and PPMd (98).
+ * Supply [codecs] to add methods or replace engines. Other
  * methods appear in [entries], but [read] throws when no decoder is registered.
  * [ArchiveEntry.zipMethod] preserves the numeric method; unbound methods use a
  * `zip-method-N` codec identifier instead of STORE. Encryption flags or method 99
@@ -119,14 +123,12 @@ public class ZipReader(
         crypto = options.crypto
         crcPolicy = options.crcPolicy
         crcListener = options.crcMismatchListener
-        duplicateNames = options.duplicateNames
     }
 
     private var passwords: ArchivePasswordProvider? = null
     private var crypto: CryptoProvider = CryptoProvider.DEFAULT
     private var crcPolicy: CrcPolicy = CrcPolicy.STRICT
     private var crcListener: CrcMismatchListener? = null
-    private var duplicateNames: DuplicateNamePolicy = DuplicateNamePolicy.LAST_WINS
 
     /** How one read treats a CRC-32 mismatch; [mismatch] records one that did not throw. */
     private class CrcCheck(val mode: CrcMode) {
@@ -218,8 +220,10 @@ public class ZipReader(
 
     /**
      * True when [entry] decodes whole and matches its CRC-32, or has none, and false when its
-     * CRC-32 does not match. The bytes are not kept: stored, DEFLATE and Deflate64 entries that
-     * are not encrypted stream through the check, so memory does not grow with the entry.
+     * CRC-32 does not match. The bytes are not kept: stored, DEFLATE, Deflate64, bzip2, zstd and
+     * xz entries that are not encrypted and whose sizes are in the central directory stream
+     * through the check, their input read as the decoder needs it, so memory grows with neither
+     * side. Other entries are decoded whole first.
      *
      * @throws ArchiveException for the other failures documented by [read].
      */
@@ -245,6 +249,8 @@ public class ZipReader(
         val listed = directory.entries.resolveIssued(this, entry, "ZIP")
         val member = directory.memberOf(this, listed)
         val method = member.method
+        // The prefix reader below knows stored data and DEFLATE streams; other methods take the
+        // general route, which decodes the entry and keeps the start.
         val builtIn = when (method) {
             0 -> Codecs.STORE
             8 -> Codecs.DEFLATE
@@ -326,20 +332,24 @@ public class ZipReader(
         val member = directory.memberOf(this, listed)
         val method = member.method
         // Only the built-in engines stream. A registry that replaces one decodes in memory, through it.
+        // Each reads its input from the archive as it decodes.
         val builtIn = when (method) {
             0 -> Codecs.STORE
             8 -> Codecs.DEFLATE
             9 -> Codecs.DEFLATE64
+            12 -> Codecs.BZIP2
+            93 -> Codecs.ZSTD
+            95 -> Codecs.XZ
             else -> null
         }
         if (listed.isEncrypted || member.flags and 0x20 != 0 || builtIn == null || codecs.byZipMethod(method) !== builtIn ||
-            (method != 0 && listed.compressedSize > Int.MAX_VALUE) || member.sizedByDescriptor
+            member.sizedByDescriptor
         ) {
             val bytes = readListed(member, limits, check)
             if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
             return bytes.size.toLong()
         }
-        return withEntryContext(listed.name, listed.dataOffset) { stream(member, sink, limits, check) }
+        return withEntryContext(listed.name, listed.dataOffset) { stream(member, builtIn, sink, limits, check) }
     }
 
     /**
@@ -356,8 +366,21 @@ public class ZipReader(
         if (check.mode == CrcMode.LENIENT) crcListener?.onMismatch(entry, expected, actual)
     }
 
-    /** Stream a stored, DEFLATE or Deflate64 member, checking its size and CRC-32 at the end. */
-    private fun stream(member: Member, sink: ByteSink, limits: ArchiveLimits, check: CrcCheck): Long {
+    /** A source over `source[from, to)`, which the caller has range-checked. */
+    private fun span(source: RandomAccessSource, from: Long, to: Long): ByteSource {
+        var position = from
+        return ByteSource { into, offset, length ->
+            if (position == to) -1 else {
+                val n = minOf(length.toLong(), to - position).toInt()
+                source.readFullyInto(position, into, n, offset)
+                position += n
+                n
+            }
+        }
+    }
+
+    /** Stream a stored, DEFLATE, Deflate64, bzip2, zstd or xz member, checking its size and CRC-32 at the end. */
+    private fun stream(member: Member, codec: Codec, sink: ByteSink, limits: ArchiveLimits, check: CrcCheck): Long {
         val entry = member.entry
         val source = ownedSource.source
         val dataStart = validateLocalHeader(member, source.readFully(entry.dataOffset, 30), source)
@@ -382,15 +405,39 @@ public class ZipReader(
             }
             done
         } else {
-            val comp = source.readFullyChecked(dataStart, entry.compressedSize)
-            val output = Inflate.Output(limits, comp.size, expectedSize = entry.size, sink = checked)
-            val end = try {
-                Inflate.inflateInto(comp, 0, comp.size, output, deflate64 = member.method == 9)
-            } catch (error: ArchiveException) {
-                throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+            // The compressed span is read as the decoder needs it, so neither side is held whole.
+            // Output is held to the declared size, whose ratio was checked above, so the
+            // decoder's running ratio check, against the bytes read so far, would add nothing.
+            source.requireRange(dataStart, entry.compressedSize)
+            val span = span(source, dataStart, dataStart + entry.compressedSize)
+            val relaxed = limits.copy { maxCompressionRatio = Int.MAX_VALUE }
+            if (member.method == 8 || member.method == 9) {
+                val input = SourceBuffer(span)
+                val output = Inflate.Output(relaxed, Int.MAX_VALUE, expectedSize = entry.size, sink = checked, reserveInputSize = false)
+                try {
+                    Inflate.inflateFrom(input, output, deflate64 = member.method == 9)
+                } catch (error: ArchiveException) {
+                    throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+                }
+                if (!input.atEnd()) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + input.streamPosition, entry.name)
+                output.finish()
+            } else {
+                var count = 0L
+                val capped = ByteSink { bytes, offset, length ->
+                    if (count + length > entry.size) {
+                        // Relative to the data, like the decoder's own errors; the catch below adds dataStart.
+                        throw ArchiveFormatException("ZIP: output passes the declared size ${entry.size}", 0)
+                    }
+                    count += length
+                    checked.write(bytes, offset, length)
+                }
+                try {
+                    codec.decompress(span, capped, relaxed)
+                } catch (error: ArchiveException) {
+                    throw error.withEntryContext(entry.name, dataStart, relativeOffset = true)
+                }
+                count
             }
-            if (end != comp.size) throw ArchiveFormatException("deflate: trailing bytes after stream", dataStart + end, entry.name)
-            output.finish()
         }
         if (written != entry.size) throw ArchiveFormatException("ZIP: output size $written differs from declared size ${entry.size}", dataStart, entry.name)
         entry.crc32?.let { expected -> checkCrc(check, member, expected, crc.value(), dataStart) }
@@ -433,7 +480,8 @@ public class ZipReader(
             }
             password
         } else null
-        val stored = source.readFullyChecked(dataStart, entry.compressedSize)
+        // A stored entry's data is the result itself; too large for an array is a size error.
+        val stored = if (method == 0) source.readEntryChecked(dataStart, entry.compressedSize) else source.readFullyChecked(dataStart, entry.compressedSize)
         val comp = if (password != null) decrypt(member, lh, stored, dataStart, password) else stored
         if (method == 0 && comp.size.toLong() != entry.size) {
             throw ArchiveFormatException("ZIP: stored compressed size ${comp.size} differs from output size ${entry.size}", dataStart, entry.name)
@@ -784,10 +832,13 @@ public class ZipReader(
                 unicodeName(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen, nameBytes, cdOffset, name)
             } else null
 
-            val extendedTime = extendedTimestamp(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen)
-            val modified = extendedTime ?: DosTime.toEpochSeconds(readU16Le(cd, p + 14), readU16Le(cd, p + 12))
+            val extras = ZipExtraMetadata.parse(cd, p + 46 + nameLen, p + 46 + nameLen + extraLen)
+            val modified = extras.modified ?: DosTime.toEpochSeconds(readU16Le(cd, p + 14), readU16Le(cd, p + 12))?.let { ArchiveTime(it) }
             // Version-made-by host 3 is Unix; its st_mode sits in the high external-attribute bits.
-            val unixMode = if (readU16Le(cd, p + 4) shr 8 == 3) (readU32Le(cd, p + 38) ushr 16).toInt().takeIf { it != 0 } else null
+            val host = readU16Le(cd, p + 4) shr 8
+            val unixMode = if (host == 3) (readU32Le(cd, p + 38) ushr 16).toInt().takeIf { it != 0 } else null
+            // MS-DOS, NTFS and VFAT hosts keep Windows attributes in the low external-attribute bits.
+            val windowsAttributes = if (host == 0 || host == 10 || host == 14) readU32Le(cd, p + 38).toInt() and 0xFFFF else null
             val comment = if (commentLen == 0) null else {
                 val commentStart = p + 46 + nameLen + extraLen
                 val bytes = cd.copyOfRange(commentStart, commentStart + commentLen)
@@ -874,7 +925,12 @@ public class ZipReader(
                     else -> null
                 }
                 crc32 = if (sizedByDescriptor) null else crc
-                lastModifiedEpochSeconds = modified
+                lastModified = modified
+                lastAccessed = extras.accessed
+                created = extras.created
+                uid = extras.uid
+                gid = extras.gid
+                this.windowsAttributes = windowsAttributes
                 this.unixMode = unixMode
                 this.comment = comment
             }.withZipMethod(method).locatedAt(localOffset) // local header offset; resolved to data in read()
@@ -899,9 +955,6 @@ public class ZipReader(
                 entry, nameBytes, method, flags, localExtraLength, aes?.get(0) ?: 0, aes?.get(1) ?: 0, aes?.get(2) ?: 0,
                 localNameBytes = localNameBytes, sizedByDescriptor = sizedByDescriptor,
             )
-            if (duplicateNames == DuplicateNamePolicy.REJECT && name in byName) {
-                throw ArchiveFormatException("ZIP: two entries are named '$name'", nameOffset, name)
-            }
             if (sharing == null) byOffset[localOffset] = member
             byName[name] = entry
             members.add(member)
@@ -946,26 +999,6 @@ public class ZipReader(
         return null
     }
 
-    /**
-     * Modification time from an Info-ZIP extended-timestamp field (0x5455) in [bytes]
-     * between [start] and [end], or null. This optional field never fails a listing:
-     * malformed framing or a field without a modification time falls back to DOS time.
-     */
-    private fun extendedTimestamp(bytes: ByteArray, start: Int, end: Int): Long? {
-        var pos = start
-        while (end - pos >= 4) {
-            val id = readU16Le(bytes, pos)
-            val length = readU16Le(bytes, pos + 2)
-            val data = pos + 4
-            if (length > end - data) return null
-            if (id == 0x5455 && length >= 5 && bytes[data].toInt() and 1 != 0) {
-                return readU32Le(bytes, data + 1).toInt().toLong() // signed 32-bit Unix time
-            }
-            pos = data + length
-        }
-        return null
-    }
-
     /** Optional Unicode payload failures fall back; broken framing and ambiguity do not. */
     private fun unicodeName(
         bytes: ByteArray, start: Int, end: Int, storedName: ByteArray, sourceOffset: Long, diagnosticName: String,
@@ -996,5 +1029,88 @@ public class ZipReader(
             pos = data + length
         }
         return result
+    }
+}
+
+/**
+ * Times and owners from a central record's extra fields: NTFS (0x000a) times at 100 ns, the
+ * Info-ZIP extended timestamp (0x5455), whose central copy holds only the modification
+ * time, and Info-ZIP Unix ids (0x7875). These optional fields never fail a listing:
+ * malformed framing ends the scan, and a malformed field is ignored.
+ */
+internal class ZipExtraMetadata private constructor() {
+    var modified: ArchiveTime? = null
+        private set
+    var accessed: ArchiveTime? = null
+        private set
+    var created: ArchiveTime? = null
+        private set
+    var uid: Long? = null
+        private set
+    var gid: Long? = null
+        private set
+
+    companion object {
+        fun parse(bytes: ByteArray, start: Int, end: Int): ZipExtraMetadata {
+            val out = ZipExtraMetadata()
+            var ntfs: Triple<ArchiveTime, ArchiveTime, ArchiveTime>? = null
+            var extended: ArchiveTime? = null
+            var pos = start
+            while (end - pos >= 4) {
+                val id = readU16Le(bytes, pos)
+                val length = readU16Le(bytes, pos + 2)
+                val data = pos + 4
+                if (length > end - data) break
+                when (id) {
+                    0x5455 -> if (length >= 5 && bytes[data].toInt() and 1 != 0) {
+                        extended = ArchiveTime(readU32Le(bytes, data + 1).toInt().toLong()) // signed 32-bit Unix time
+                    }
+                    // Reserved (4), then attributes; attribute 1 holds modified, accessed and created.
+                    0x000A -> {
+                        var at = data + 4
+                        while (data + length - at >= 4) {
+                            val tag = readU16Le(bytes, at)
+                            val size = readU16Le(bytes, at + 2)
+                            if (size > data + length - (at + 4)) break
+                            if (tag == 1 && size >= 24) {
+                                ntfs = Triple(
+                                    ArchiveTime.fromFileTime(readI64Le(bytes, at + 4)),
+                                    ArchiveTime.fromFileTime(readI64Le(bytes, at + 12)),
+                                    ArchiveTime.fromFileTime(readI64Le(bytes, at + 20)),
+                                )
+                            }
+                            at += 4 + size
+                        }
+                    }
+                    // Version 1, then a size-prefixed little-endian uid and gid.
+                    0x7875 -> if (length >= 3 && bytes[data].toInt() == 1) {
+                        val uidSize = bytes[data + 1].toInt() and 0xFF
+                        val gidAt = data + 2 + uidSize
+                        if (uidSize in 1..8 && gidAt < data + length) {
+                            val gidSize = bytes[gidAt].toInt() and 0xFF
+                            if (gidSize in 1..8 && gidAt + 1 + gidSize <= data + length) {
+                                out.uid = littleEndian(bytes, data + 2, uidSize)
+                                out.gid = littleEndian(bytes, gidAt + 1, gidSize)
+                            }
+                        }
+                    }
+                }
+                pos = data + length
+            }
+            val times = ntfs
+            out.modified = times?.first ?: extended
+            if (times != null) {
+                out.accessed = times.second
+                out.created = times.third
+            }
+            return out
+        }
+
+        private fun littleEndian(bytes: ByteArray, at: Int, size: Int): Long? {
+            var value = 0L
+            for (i in size - 1 downTo 0) value = (value shl 8) or (bytes[at + i].toLong() and 0xFF)
+            // An 8-byte id past Long.MAX_VALUE is not a real id; report none.
+            return value.takeIf { it >= 0 }
+        }
     }
 }

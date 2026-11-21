@@ -13,7 +13,7 @@ import io.github.yuroyami.archivekodec.ArchiveFormatException
  * size the stream may use, or the whole stream's size if that is smaller; [dictionary] is
  * the declared dictionary size, which bounds filter lengths.
  */
-internal class Rar5Unpacker(private val windowSize: Int, private val dictionary: Long) {
+internal class Rar5Unpacker(private val windowSize: Int, private val dictionary: Long) : RarDecoder {
     private val window = ByteArray(windowSize)
     private val mask = windowSize - 1
     private var written = 0L
@@ -166,7 +166,7 @@ internal class Rar5Unpacker(private val windowSize: Int, private val dictionary:
      * Decode one file's packed data, `input[from, to)`, into [size] bytes. With [keep] false
      * the output is only run through the window, for an earlier file of a solid stream.
      */
-    fun unpack(input: ByteArray, from: Int, to: Int, size: Int, keep: Boolean): ByteArray? {
+    override fun unpack(input: ByteArray, from: Int, to: Int, size: Int, keep: Boolean): ByteArray? {
         this.input = input
         end = to
         bit = from.toLong() * 8
@@ -350,4 +350,13 @@ internal class Rar5Unpacker(private val windowSize: Int, private val dictionary:
             b[at] = v.toByte(); b[at + 1] = (v ushr 8).toByte(); b[at + 2] = (v ushr 16).toByte(); b[at + 3] = (v ushr 24).toByte()
         }
     }
+}
+
+/** A RAR decompressor that decodes a solid stream member by member. */
+internal interface RarDecoder {
+    /**
+     * Decode one member's packed data, `input[from, to)`, into [size] bytes. With [keep] false
+     * the output is only decoded, for an earlier member of a solid stream.
+     */
+    fun unpack(input: ByteArray, from: Int, to: Int, size: Int, keep: Boolean): ByteArray?
 }

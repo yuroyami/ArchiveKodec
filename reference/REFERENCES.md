@@ -37,10 +37,72 @@ domain. That tree is not kept under `reference/`.
 ## RAR, ACE, StuffIt and ALZ
 
 The UnRAR license forbids using its source to build a RAR-compatible archiver, so no RAR or
-UnRAR source is fetched here. ArchiveKodec reads RAR from RARLAB's published format
-description, and it will never create RAR archives. Never add RAR, ACE, StuffIt or ALZ source
-to this folder. ACE, StuffIt and ALZ are proprietary with no clean reference, so they are out
-of scope.
+UnRAR source is fetched here. ArchiveKodec reads the RAR container from RARLAB's published
+format description, and it will never create RAR archives. Never add RAR, ACE, StuffIt or ALZ
+source to this folder. ACE, StuffIt and ALZ are proprietary with no clean reference, so they
+are out of scope.
+
+Never read UnRAR source, or code that carries the unRAR restriction, such as the RAR decoders
+in 7-Zip and p7zip.
+
+### The one exception: libarchive's RAR4 reader, at v3.5.2
+
+The owner approved one RAR4 decompression reference in
+[#154](https://github.com/yuroyami/ArchiveKodec/issues/154):
+`libarchive/archive_read_support_format_rar.c` (BSD-2, Copyright 2011 Andres Mejia), **at
+libarchive v3.5.2**, the last release before commit `d7fec62` (January 2022). Read that
+revision only.
+
+Why it qualifies, from libarchive's
+[issue 151](https://github.com/libarchive/libarchive/issues/151), where the project discussed
+RAR support:
+- **No UnRAR readers.** In 2009 its maintainer barred anyone who had read UnRAR source from
+  working on its RAR support, and kept the code BSD-licensed.
+- **Its source was The Unarchiver.** The 2011 patch drew on The Unarchiver, which, the patch's
+  author wrote, its author implemented from scratch and gave permission to relicense as BSD.
+- **What it covers:** LZSS and PPMd (variant H, through libarchive's copy of the public-domain
+  LZMA SDK).
+
+Why later revisions are excluded:
+- **Unclear provenance.** `d7fec62` ([pull request
+  1503](https://github.com/libarchive/libarchive/pull/1503)) added RAR filter support. Its
+  author described the code as moved from unarr, which is LGPL and derived from The
+  Unarchiver. The VM part was removed before the merge, but nothing records where the
+  remaining filter code came from.
+- **What that leaves out:** RAR4 filters (x86, delta, audio, RGB and Itanium) have no approved
+  reference yet. Until they do, RAR4 members that use a filter are refused.
+
+### XADMaster's RAR decoders, ported with permission
+
+XADMaster, the library behind The Unarchiver (LGPL-2.1, Copyright 2017-present MacPaw Way Ltd.,
+originally written by Dag Ågren), is approved as the reference for the RAR 1.5, 2.0 and 2.9
+(RAR 3.x and 4.x) decompressors, including the filters, the RAR virtual machine and the audio
+filter. On 2026-11-20 the owner obtained permission from both Dag Ågren and MacPaw to port that
+code to Kotlin under Apache-2.0. Both waived credit, so the ported files carry this project's
+license only. This entry is the provenance record, kept as for every other source.
+
+The files are `XADRAR15Handle.m`, `XADRAR20Handle.m`, `XADRAR30Handle.m`, `XADRARFilters.m`,
+`RARVirtualMachine.c`, `XADRARVirtualMachine.m`, `RARAudioDecoder.c` and the RAR range coder
+of its PPMd variant H, at XADMaster commit `7cb9ee0` (2026-09-21). It is not kept under
+`reference/`; read it from a separate clone. libarchive's 2011 reader drew on the same code.
+
+### RAR5 decompression
+
+`codec/rar/Rar5Unpacker.kt` (commit `23a034d`) was written in an earlier AI-assisted session,
+and no reference was recorded for it. RARLAB's description covers the container, not the
+compression algorithm. libarchive's RAR5 reader,
+`archive_read_support_format_rar5.c` (BSD-2, Copyright 2018 Grzegorz Antoniak), does **not**
+qualify as a reference. In its [pull request 1061](https://github.com/libarchive/libarchive/pull/1061)
+(September 2018) the author wrote that its block decompression "was written according to
+`libunrar`'s structures", and do not read it.
+
+The decoder's provenance therefore stays undocumented. It is kept, disclosed in `NOTICE`, for
+three reasons:
+- **It never writes RAR.** The UnRAR license forbids building a RAR-compatible archiver, and
+  ArchiveKodec only reads.
+- **It is checked against `unrar`.** It decodes byte for byte the same as `unrar x`.
+- **It can be left out.** In the approved module layout, RAR is its own artifact. A consumer
+  that needs a strict provenance policy leaves that artifact out.
 
 ## Refresh
 

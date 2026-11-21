@@ -136,10 +136,11 @@ def check_readme_version():
         found = coordinate.findall(page.read_text())
         if not found:
             raise RuntimeError(f"{page.name} names no archivekodec coordinates")
-        stale = [item for item in found if item[1] != release]
+        # Before a release the pages name the snapshot, which only Maven Local has.
+        stale = [item for item in found if item[1] not in (release, version)]
         if stale:
-            raise RuntimeError(f"{page.name} coordinates {stale} do not name release {release}")
-        print(f"{page.name}: {len(found)} coordinates name {release}", flush=True)
+            raise RuntimeError(f"{page.name} coordinates {stale} do not name {version} or release {release}")
+        print(f"{page.name}: {len(found)} coordinates name {found[0][1]}", flush=True)
 
 
 def class_majors(files):

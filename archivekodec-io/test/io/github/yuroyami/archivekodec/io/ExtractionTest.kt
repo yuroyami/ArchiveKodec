@@ -1,18 +1,29 @@
 package io.github.yuroyami.archivekodec.io
 
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveKodec
 import io.github.yuroyami.archivekodec.ArchivePasswordException
 import io.github.yuroyami.archivekodec.archive.ArchiveOpenOptions
 import io.github.yuroyami.archivekodec.archive.ByteArrayRandomAccessSource
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
 import io.github.yuroyami.archivekodec.archive.use
+import io.github.yuroyami.archivekodec.archive.tar.TarWriter
 import io.github.yuroyami.archivekodec.archive.zip.ZipWriter
+import io.github.yuroyami.archivekodec.checksum.Crc32
+import io.github.yuroyami.archivekodec.codec.deflate.Deflate
 import io.github.yuroyami.archivekodec.security.ArchiveLimits
+import io.github.yuroyami.archivekodec.security.DecompressionBombException
+import io.github.yuroyami.archivekodec.security.PathGuard
 import io.github.yuroyami.archivekodec.wrapper.Gzip
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.Buffer
+import kotlinx.io.IOException
 import kotlinx.io.RawSink
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
 import kotlinx.io.readByteArray
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -198,6 +209,183 @@ class ExtractionTest {
         ArchiveKodec.open(zipCrypto, format = null, options = ArchiveOpenOptions { password = refusing }).use { reader ->
             assertFailsWith<ArchivePasswordException> { reader.extract(reader.entries(), passwords = refusing) { Sink() } }
         }
+    }
+
+    @Test
+    fun oneOfTwoIdenticalEntriesExtractsOnlyItself() = runTest {
+        // Two members with equal metadata; only their data differs.
+        val tar = TarWriter.write(listOf(
+            TarWriter.FileSpec("notes", "one".encodeToByteArray()),
+            TarWriter.FileSpec("notes", "two".encodeToByteArray()),
+        ))
+        ArchiveKodec.open(tar).use { reader ->
+            val (first, second) = reader.entries()
+            assertEquals(first, second)
+            for ((entry, expected) in listOf(first to "one", second to "two")) {
+                val written = ArrayList<Sink>()
+                reader.extract(listOf(entry)) { Sink().also { written += it } }
+                assertEquals(listOf(expected), written.map { it.buffer.readByteArray().decodeToString() })
+            }
+            // Unchanged copies take distinct slots too.
+            val copies = ArrayList<Sink>()
+            reader.extract(listOf(first.copy(), second.copy())) { Sink().also { copies += it } }
+            assertEquals(listOf("one", "two"), copies.map { it.buffer.readByteArray().decodeToString() })
+        }
+    }
+
+    @Test
+    fun anUnknownSizeMakesTheTotalUnknown() = runTest {
+        val text = "streamed data ".repeat(40).encodeToByteArray()
+        val zip = descriptorZip("d.txt" to text, "e.txt" to text)
+        ArchiveKodec.open(zip).use { reader ->
+            val entries = reader.entries()
+            assertEquals(listOf(-1L, -1L), entries.map { it.size })
+            val totals = HashSet<Long>()
+            val written = ArrayList<Sink>()
+            reader.extract(entries, progress = { _, total -> totals += total }) { Sink().also { written += it } }
+            // Not the sum of the two -1 sizes.
+            assertEquals(setOf(-1L), totals)
+            assertEquals(listOf(text.size.toLong(), text.size.toLong()), written.map { it.buffer.size })
+        }
+    }
+
+    @Test
+    fun aTotalBudgetBoundsAllEntriesTogether() = runTest {
+        ArchiveKodec.open(zip).use { reader ->
+            val files = reader.entries().filter { !it.isDirectory }
+            // The listed sizes already pass the budget: nothing is written.
+            var opened = 0
+            assertFailsWith<DecompressionBombException> {
+                reader.extract(files, maxTotalBytes = big.size.toLong()) { opened++; Sink() }
+            }
+            assertEquals(0, opened)
+            // Sizes that lie are caught while writing: two descriptor-sized members of 560 bytes each.
+            val text = "streamed data ".repeat(40).encodeToByteArray()
+            ArchiveKodec.open(descriptorZip("d.txt" to text, "e.txt" to text)).use { lying ->
+                val written = ArrayList<Sink>()
+                val failed = ArrayList<String>()
+                assertFailsWith<DecompressionBombException> {
+                    lying.extract(lying.entries(), maxTotalBytes = 700, onFailure = { entry, error ->
+                        assertTrue(error is DecompressionBombException)
+                        failed += entry.name
+                    }) { Sink().also { written += it } }
+                }
+                assertEquals(listOf("e.txt"), failed)
+                assertEquals(text.size.toLong(), written[0].buffer.size)
+                assertTrue(written.all { it.closed })
+                assertTrue(written[1].buffer.size <= 700L - text.size)
+            }
+        }
+    }
+
+    @Test
+    fun aFailedEntryReachesOnFailureAfterItsSinkIsClosed() = runTest {
+        ArchiveKodec.open(zip).use { reader ->
+            val bigEntry = reader.entries().single { it.name == "big.bin" }
+            val sink = Sink()
+            var seen: Pair<String, Boolean>? = null
+            assertFailsWith<DecompressionBombException> {
+                reader.extract(listOf(bigEntry), limits = ArchiveLimits { maxUncompressedBytes = 1_000_000 },
+                    onFailure = { entry, _ -> seen = entry.name to sink.closed }) { sink }
+            }
+            assertEquals("big.bin" to true, seen)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            ArchiveKodec.open(zip).use { it.extract(it.entries(), maxTotalBytes = -1) { Sink() } }
+        }
+    }
+
+    @Test
+    fun aSinkThatCannotBeOpenedFailsAsAnArchiveIOExceptionAndReachesOnFailure() = runTest {
+        ArchiveKodec.open(zip).use { reader ->
+            val opened = ArrayList<String>()
+            var seen: Pair<String, Throwable>? = null
+            val cause = IOException("no such directory")
+            val error = assertFailsWith<ArchiveIOException> {
+                reader.extract(reader.entries(), onFailure = { entry, failure -> seen = entry.name to failure }) { entry ->
+                    if (entry.name == "big.bin") throw cause
+                    opened += entry.name
+                    Sink()
+                }
+            }
+            assertTrue(error.cause === cause, "the IOException is the cause")
+            assertEquals("big.bin", seen?.first)
+            assertTrue(seen?.second === error)
+            assertEquals(listOf("dir/a.txt"), opened, "nothing after the failed entry is opened")
+        }
+    }
+
+    /** The README's and docs/files.md's extraction example, as written, on a real file system. */
+    @Test
+    fun theDocumentedExtractionCreatesParentDirectories() = runTest {
+        val base: Path
+        try {
+            base = Path(SystemTemporaryDirectory, "archivekodec-extract-${Random.nextLong().toULong()}")
+            SystemFileSystem.createDirectories(base)
+        } catch (_: Throwable) {
+            return@runTest // no writable file system on this platform
+        }
+        try {
+            val path = Path(base, "archive.zip").toString()
+            SystemFileSystem.sink(Path(path)).buffered().use { it.write(zip) }
+            val outDir = Path(base, "out").toString()
+            SystemFileSystem.createDirectories(Path(outDir))
+
+            val source = FileRandomAccessSource(path)
+            // The reader closes the source, but only once it exists: close it yourself if open throws.
+            val reader = try { ArchiveKodec.open(source) } catch (e: Throwable) { source.close(); throw e }
+            reader.use {
+                reader.extract(reader.entries()) { entry ->
+                    val target = Path(outDir, PathGuard.sanitize(entry.name))
+                    target.parent?.let { SystemFileSystem.createDirectories(it) }
+                    SystemFileSystem.sink(target)
+                }
+            }
+
+            fun read(vararg parts: String) = SystemFileSystem.source(Path(outDir, *parts)).buffered().use { it.readByteArray() }
+            assertContentEquals("alpha".encodeToByteArray(), read("dir", "a.txt"))
+            assertContentEquals(big, read("big.bin"))
+            // Without the createDirectories line, the first entry in a folder fails, as an ArchiveIOException.
+            val bare = Path(base, "bare").toString()
+            SystemFileSystem.createDirectories(Path(bare))
+            ArchiveKodec.open(zip).use { r ->
+                assertFailsWith<ArchiveIOException> {
+                    r.extract(r.entries()) { entry -> SystemFileSystem.sink(Path(bare, PathGuard.sanitize(entry.name))) }
+                }
+            }
+        } finally {
+            fun delete(path: Path) {
+                if (SystemFileSystem.metadataOrNull(path)?.isDirectory == true) SystemFileSystem.list(path).forEach { delete(it) }
+                SystemFileSystem.delete(path, mustExist = false)
+            }
+            delete(base)
+        }
+    }
+
+    /** A ZIP of DEFLATE members with flag bit 3, zero sizes and CRC-32 in both headers, and signed descriptors. */
+    private fun descriptorZip(vararg members: Pair<String, ByteArray>): ByteArray {
+        val out = Buffer()
+        fun u16(v: Int) { out.writeByte(v.toByte()); out.writeByte((v ushr 8).toByte()) }
+        fun u32(v: Long) { u16((v and 0xFFFF).toInt()); u16(((v ushr 16) and 0xFFFF).toInt()) }
+        val offsets = ArrayList<Long>()
+        for ((name, data) in members) {
+            val nameBytes = name.encodeToByteArray()
+            val packed = Deflate.encode(data)
+            offsets += out.size
+            u32(0x04034b50); u16(20); u16(8); u16(8); u16(0); u16(0); u32(0); u32(0); u32(0); u16(nameBytes.size); u16(0)
+            out.write(nameBytes); out.write(packed)
+            u32(0x08074b50); u32(Crc32.of(data)); u32(packed.size.toLong()); u32(data.size.toLong())
+        }
+        val cdOffset = out.size
+        members.forEachIndexed { index, (name, _) ->
+            val nameBytes = name.encodeToByteArray()
+            u32(0x02014b50); u16(20); u16(20); u16(8); u16(8); u16(0); u16(0); u32(0); u32(0); u32(0)
+            u16(nameBytes.size); u16(0); u16(0); u16(0); u16(0); u32(0); u32(offsets[index])
+            out.write(nameBytes)
+        }
+        val cdSize = out.size - cdOffset
+        u32(0x06054b50); u16(0); u16(0); u16(members.size); u16(members.size); u32(cdSize); u32(cdOffset); u16(0)
+        return out.readByteArray()
     }
 
     private fun ArchiveEntryOf(name: String) = io.github.yuroyami.archivekodec.archive.ArchiveEntry(name, 1, false)

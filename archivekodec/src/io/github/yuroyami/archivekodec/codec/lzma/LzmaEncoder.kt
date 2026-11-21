@@ -1,5 +1,6 @@
 package io.github.yuroyami.archivekodec.codec.lzma
 
+import io.github.yuroyami.archivekodec.codec.ringSize
 import io.github.yuroyami.archivekodec.util.ByteArrayBuilder
 
 internal const val MATCH_MAX_LENGTH = 273
@@ -17,7 +18,11 @@ internal class LzmaEncoder(
 ) {
     val model = LzmaModel(properties)
     private val head = IntArray(HASH_SIZE) { -1 }
-    private val chain = IntArray(data.size)
+
+    // The chains are a ring as large as the reach of a match, so they do not grow past the
+    // dictionary. A slot is overwritten only once its position is out of reach.
+    private val chain = IntArray(ringSize(minOf(data.size, dictionarySize)))
+    private val chainMask = chain.size - 1
     private var inserted = 0
     private var matchDistance = 0
 
@@ -30,7 +35,7 @@ internal class LzmaEncoder(
         while (inserted < position) {
             if (inserted + 2 < data.size) {
                 val h = hash(inserted)
-                chain[inserted] = head[h]
+                chain[inserted and chainMask] = head[h]
                 head[h] = inserted
             }
             inserted++
@@ -60,7 +65,7 @@ internal class LzmaEncoder(
                     if (length == limit) break
                 }
             }
-            candidate = chain[candidate]
+            candidate = chain[candidate and chainMask]
         }
         // A length-2 match only pays off at a short distance.
         return if (best == 2 && matchDistance >= 128) 0 else best

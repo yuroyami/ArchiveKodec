@@ -169,8 +169,10 @@ class ZipPrefixTest {
         val bytes = byteArrayOf(0x1f, 0x8b.toByte(), 8) + zipMetadataBase()
         val malformedGzip = assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(ByteArrayRandomAccessSource(bytes)) }
         assertTrue(malformedGzip.message.orEmpty().contains("gzip", ignoreCase = true))
+        // The bzip2 header wins: the bytes decode as bzip2, which then fails, and never open as ZIP.
         val bzip = hex("425a6839177245385090") + zipMetadataBase()
-        assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(ByteArrayRandomAccessSource(bzip)) }
+        val malformedBzip = assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(ByteArrayRandomAccessSource(bzip)) }
+        assertTrue(malformedBzip.message.orEmpty().contains("bzip2", ignoreCase = true))
         val zeroTar = ByteArray(512) + zipMetadataBase()
         ArchiveKodec.open(ByteArrayRandomAccessSource(zeroTar)).use { assertEquals(ArchiveFormat.TAR, it.format) }
     }

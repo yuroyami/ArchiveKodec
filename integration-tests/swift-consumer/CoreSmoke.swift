@@ -1,6 +1,9 @@
 import Foundation
 import ArchiveKodecKit
 
+// Unbuffered, so a failed precondition shows the last check that passed, not a lost buffer.
+setvbuf(stdout, nil, _IONBF, 0)
+
 func bytes(_ values: [UInt8]) -> KotlinByteArray {
     let result = KotlinByteArray(size: Int32(values.count))
     for (i, value) in values.enumerated() { result.set(index: Int32(i), value: Int8(bitPattern: value)) }
@@ -328,9 +331,11 @@ for (label, suffix, offset) in [
 expectFailure("LZ4 unsigned skippable length", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 8 }) {
     _ = try lz4Protocol.decompress(data: bytes([0x50, 0x2a, 0x4d, 0x18, 255, 255, 255, 255]), limits: limits)
 }
-expectFailure("LZ4 legacy second frame", check: {
-    $0 is ArchiveUnsupportedException && $0.offset?.int64Value == 25 && $0.message?.contains("legacy") == true
-}) { _ = try lz4Protocol.decompress(data: bytes(lz4First + [2, 0x21, 0x4c, 0x18]), limits: limits) }
+// A legacy frame after a standard one decodes; this one has no blocks, so it adds nothing.
+let lz4WithLegacy = try lz4Protocol.decompress(data: bytes(lz4First + [2, 0x21, 0x4c, 0x18]), limits: limits)
+let lz4FirstOnly = try lz4Protocol.decompress(data: bytes(lz4First), limits: limits)
+precondition(lz4WithLegacy.size == lz4FirstOnly.size &&
+    (0..<lz4FirstOnly.size).allSatisfy { lz4WithLegacy.get(index: $0) == lz4FirstOnly.get(index: $0) })
 var lz4CorruptSecond = lz4Second
 lz4CorruptSecond[24] ^= 1
 expectFailure("LZ4 second content checksum", check: { $0 is ArchiveFormatException && $0.offset?.int64Value == 46 }) {
@@ -388,7 +393,8 @@ expectFailure("zlib dictionary", check: { $0 is ArchiveUnsupportedException }) {
     _ = try Zlib.shared.decompress(input: bytes([0x78, 0xbb, 0x35, 0x29, 0x06, 0x6b, 0xcb, 0x00, 0xf1, 0x01, 0x06, 0x2c, 0x02, 0x15]))
 }
 expectFailure("Codec protocol", check: { $0 is ArchiveFormatException }) { _ = try ArchiveKodec.shared.gzip.decompress(data: empty, limits: limits) }
-expectFailure("unsupported container", check: { $0 is ArchiveUnsupportedException }) {
+// open removes a bzip2 layer; this stream ends before its combined CRC, so the unwrap fails.
+expectFailure("truncated bzip2 wrapper", check: { $0 is ArchiveFormatException && $0.message?.contains("bzip2") == true }) {
     _ = try ArchiveKodec.shared.open(source: ByteArrayRandomAccessSource(data: bytes([66, 90, 104, 57, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90])))
 }
 for octets in [Array("x = 1\n".utf8), Array("BZh is a name".utf8), [0x50, 0x4b, 0x05, 0xff]] {

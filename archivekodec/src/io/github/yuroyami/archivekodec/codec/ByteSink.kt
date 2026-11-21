@@ -10,7 +10,8 @@ import io.github.yuroyami.archivekodec.ArchiveException
 public fun interface ByteSink {
     /**
      * Take `bytes[offset, offset + length)`. The array is reused after this call returns,
-     * so copy what you keep. A failure here stops the decoding and propagates.
+     * so copy what you keep, and do not change it: a decoder may pass its own history, which
+     * later output is copied from. A failure here stops the decoding and propagates.
      *
      * @throws ArchiveException if the sink cannot take the bytes; other exceptions propagate unchanged.
      */

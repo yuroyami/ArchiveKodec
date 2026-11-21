@@ -1,7 +1,9 @@
 package io.github.yuroyami.archivekodec.archive.squashfs
 
+import io.github.yuroyami.archivekodec.ArchiveClosedException
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveIOException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
@@ -12,6 +14,7 @@ import io.github.yuroyami.archivekodec.archive.ReaderSource
 import io.github.yuroyami.archivekodec.archive.decodeStoredName
 import io.github.yuroyami.archivekodec.archive.issuedBy
 import io.github.yuroyami.archivekodec.archive.readFully
+import io.github.yuroyami.archivekodec.archive.requireByteArraySize
 import io.github.yuroyami.archivekodec.archive.resolveIssued
 import io.github.yuroyami.archivekodec.archive.withEntryContext
 import io.github.yuroyami.archivekodec.codec.CodecId
@@ -27,13 +30,14 @@ import io.github.yuroyami.archivekodec.wrapper.Zlib
 
 /**
  * SquashFS 4.0 reader, the read-only filesystem of Linux live media, snaps and Android and
- * OpenWrt images. Blocks may be compressed with gzip, LZMA, LZO, xz (with the x86 BCJ
- * filter at most), LZ4 or zstd, as the superblock says.
+ * OpenWrt images. Blocks may be compressed with gzip, LZMA, LZO, xz (with any branch
+ * filter but RISC-V), LZ4 or zstd, as the superblock says.
  *
  * Directories are listed with a trailing slash. A symbolic link is listed with its link
  * mode and reads as its target text; devices, FIFOs and sockets are listed with their modes
  * and read as empty. Hard links list each name with the shared contents. Sparse blocks read
- * as zeros. Names are decoded with [nameDecoder] (UTF-8 by default). Owners and extended
+ * as zeros; for the ratio limit, a file with sparse blocks is measured against the larger of
+ * its stored bytes and the whole image's size. Names are decoded with [nameDecoder] (UTF-8 by default). Owners and extended
  * attributes are not exposed. [limits] caps the listing count and supplies the default
  * policy for each read.
  *
@@ -72,7 +76,6 @@ public class SquashfsReader(
     @Throws(ArchiveException::class)
     override fun close() {
         metadataCache.clear()
-        fragments = null
         cachedFragment = -1
         cachedFragmentBytes = null
         ownedSource.close()
@@ -103,12 +106,17 @@ public class SquashfsReader(
     private var directoryTable = 0L
     private var fragmentTable = 0L
     private var fragmentCount = 0L
+    private var idCount = 0
+    private var idTable = 0L
+    private var ids: LongArray? = null
     private lateinit var blockLimits: ArchiveLimits
     private lateinit var metadataLimits: ArchiveLimits
 
     private fun fail(message: String, offset: Long? = null): Nothing = throw ArchiveFormatException("SquashFS: $message", offset)
 
     private fun parse(): Directory {
+        // A failed parse may be retried: read the id table afresh.
+        ids = null
         if (source.size < SUPERBLOCK) fail("file is shorter than the superblock", 0)
         val sb = source.readFully(0, SUPERBLOCK)
         if (readU32Le(sb, 0) != MAGIC) fail("missing hsqs signature", 0)
@@ -127,6 +135,8 @@ public class SquashfsReader(
         inodeTable = readI64(sb, 64)
         directoryTable = readI64(sb, 72)
         fragmentTable = readI64(sb, 80)
+        idCount = readU16Le(sb, 26)
+        idTable = readI64(sb, 48)
         if (inodeTable !in SUPERBLOCK until bytesUsed || directoryTable !in inodeTable until bytesUsed) fail("metadata tables lie outside the image", 64)
         val outer = limits
         blockLimits = ArchiveLimits {
@@ -229,10 +239,10 @@ public class SquashfsReader(
     // ---- Inodes ----
 
     private class Inode(
-        val type: Int, val mode: Int, val modified: Long,
+        val type: Int, val mode: Int, val modified: Long, val uidIndex: Int, val gidIndex: Int,
         val size: Long = 0, val blocksStart: Long = 0, val fragment: Long = NO_FRAGMENT, val fragmentOffset: Long = 0,
         val blockList: Long = 0, val blockListOffset: Int = 0,
-        val listing: Long = 0, val listingOffset: Int = 0, val target: ByteArray? = null,
+        val listing: Long = 0, val listingOffset: Int = 0, val target: ByteArray? = null, val rdev: Long? = null,
     )
 
     /** The inode at [block] (relative to the inode table) and [offset] within it. */
@@ -241,16 +251,18 @@ public class SquashfsReader(
         val header = stream.bytes(16)
         val type = readU16Le(header, 0)
         val permissions = readU16Le(header, 2) and 0xFFF
+        val uidIndex = readU16Le(header, 4)
+        val gidIndex = readU16Le(header, 6)
         val modified = readU32Le(header, 8)
         return when (type) {
             BASIC_DIRECTORY -> {
                 val b = stream.bytes(16)
-                Inode(DIRECTORY, S_IFDIR or permissions, modified,
+                Inode(DIRECTORY, S_IFDIR or permissions, modified, uidIndex, gidIndex,
                     size = readU16Le(b, 8).toLong(), listing = readU32Le(b, 0), listingOffset = readU16Le(b, 10))
             }
             EXTENDED_DIRECTORY -> {
                 val b = stream.bytes(24)
-                Inode(DIRECTORY, S_IFDIR or permissions, modified,
+                Inode(DIRECTORY, S_IFDIR or permissions, modified, uidIndex, gidIndex,
                     size = readU32Le(b, 4), listing = readU32Le(b, 8), listingOffset = readU16Le(b, 18))
             }
             BASIC_FILE, EXTENDED_FILE -> {
@@ -262,21 +274,64 @@ public class SquashfsReader(
                 val fragmentOffset = if (extended) readU32Le(b, 32) else readU32Le(b, 8)
                 if (size < 0 || start < 0) fail("file inode has a negative size or start", inodeTable + block)
                 val (listBlock, listOffset) = stream.here
-                Inode(FILE, S_IFREG or permissions, modified, size, start, fragment, fragmentOffset, listBlock, listOffset)
+                Inode(FILE, S_IFREG or permissions, modified, uidIndex, gidIndex, size, start, fragment, fragmentOffset, listBlock, listOffset)
             }
             BASIC_SYMLINK, EXTENDED_SYMLINK -> {
                 val b = stream.bytes(8)
                 val length = readU32Le(b, 4)
                 if (length > MAX_TARGET) fail("symbolic link target of $length bytes", inodeTable + block)
-                Inode(SYMLINK, S_IFLNK or permissions, modified, target = stream.bytes(length.toInt()))
+                Inode(SYMLINK, S_IFLNK or permissions, modified, uidIndex, gidIndex, target = stream.bytes(length.toInt()))
             }
-            BASIC_BLOCK_DEVICE, EXTENDED_BLOCK_DEVICE -> Inode(OTHER, S_IFBLK or permissions, modified)
-            BASIC_CHAR_DEVICE, EXTENDED_CHAR_DEVICE -> Inode(OTHER, S_IFCHR or permissions, modified)
-            BASIC_FIFO, EXTENDED_FIFO -> Inode(OTHER, S_IFIFO or permissions, modified)
-            BASIC_SOCKET, EXTENDED_SOCKET -> Inode(OTHER, S_IFSOCK or permissions, modified)
+            // A link count, then the device number, encoded as Linux's new_encode_dev does.
+            BASIC_BLOCK_DEVICE, EXTENDED_BLOCK_DEVICE ->
+                Inode(OTHER, S_IFBLK or permissions, modified, uidIndex, gidIndex, rdev = deviceNumber(stream))
+            BASIC_CHAR_DEVICE, EXTENDED_CHAR_DEVICE ->
+                Inode(OTHER, S_IFCHR or permissions, modified, uidIndex, gidIndex, rdev = deviceNumber(stream))
+            BASIC_FIFO, EXTENDED_FIFO -> Inode(OTHER, S_IFIFO or permissions, modified, uidIndex, gidIndex)
+            BASIC_SOCKET, EXTENDED_SOCKET -> Inode(OTHER, S_IFSOCK or permissions, modified, uidIndex, gidIndex)
             else -> fail("unknown inode type $type", inodeTable + block)
         }
     }
+
+    /**
+     * The user or group id at [index] of the id table, or null when the table cannot give it.
+     * The table holds at most 65,536 ids (256 KiB), read once per listing. Ids are
+     * informational, so a damaged table reads as absent ids rather than failing the listing;
+     * a failure of the source does fail it, and is not remembered for a retry.
+     */
+    private fun id(index: Int): Long? {
+        val table = ids ?: try {
+            val blocks = (idCount * 4 + METADATA_BLOCK - 1) / METADATA_BLOCK
+            if (idTable < SUPERBLOCK || idTable > bytesUsed - 8L * blocks) LongArray(0) else {
+                val pointers = source.readFully(idTable, 8 * blocks)
+                val out = LongArray(idCount)
+                for (b in 0 until blocks) {
+                    val count = minOf(METADATA_BLOCK / 4, idCount - b * (METADATA_BLOCK / 4))
+                    val values = MetadataStream(readI64(pointers, 8 * b), 0).bytes(4 * count)
+                    for (i in 0 until count) out[b * (METADATA_BLOCK / 4) + i] = readU32Le(values, 4 * i)
+                }
+                out
+            }
+        } catch (error: ArchiveException) {
+            if (error.isSourceFailure()) throw error
+            LongArray(0)
+        }.also { ids = it }
+        return table.getOrNull(index)
+    }
+
+    /**
+     * A device inode's number, after its link count; informational, so malformed data reads as
+     * absent. A failure of the source itself still fails the listing.
+     */
+    private fun deviceNumber(stream: MetadataStream): Long? = try {
+        readU32Le(stream.bytes(8), 4)
+    } catch (error: ArchiveException) {
+        if (error.isSourceFailure()) throw error
+        null
+    }
+
+    /** A failed or closed source, as opposed to malformed data: never read as an absent value. */
+    private fun ArchiveException.isSourceFailure(): Boolean = this is ArchiveIOException || this is ArchiveClosedException
 
     // ---- Directories ----
 
@@ -324,6 +379,12 @@ public class SquashfsReader(
             entries.add(ArchiveEntry(if (isDirectory) "$path/" else path, size, isDirectory) {
                 lastModifiedEpochSeconds = inode.modified
                 unixMode = inode.mode
+                uid = id(inode.uidIndex)
+                gid = id(inode.gidIndex)
+                inode.rdev?.let {
+                    deviceMajor = (it ushr 8) and 0xFFF
+                    deviceMinor = (it and 0xFF) or ((it ushr 12) and 0xFFF00)
+                }
                 compressedSize = size
                 codec = if (inode.type == FILE) CODECS[compression] else CodecId.STORE
                 linkTarget = inode.target?.decodeToString()
@@ -336,13 +397,25 @@ public class SquashfsReader(
     // ---- File data ----
 
     private fun fileBytes(item: Item, size: Long, limits: ArchiveLimits): ByteArray {
-        if (size > Int.MAX_VALUE) fail("file of $size bytes cannot fit in a ByteArray")
+        requireByteArraySize(size)
         val hasFragment = item.fragment != NO_FRAGMENT
         val blocks = if (hasFragment) size / blockSize else (size + blockSize - 1) / blockSize
         val sizes = MetadataStream(item.blockList, item.blockListOffset).bytes((blocks * 4).toInt())
+        // Every block must lie inside the image before the output is allocated: the lengths are
+        // only claims, and a few bytes of block list can otherwise reserve 2 GiB.
         var stored = 0L
-        for (i in 0 until blocks.toInt()) stored += readU32Le(sizes, 4 * i) and BLOCK_SIZE_MASK
-        limits.checkRatio(stored, size)
+        var sparse = false
+        var extent = item.blocksStart
+        for (i in 0 until blocks.toInt()) {
+            val length = readU32Le(sizes, 4 * i) and BLOCK_SIZE_MASK
+            if (length != 0L && (extent < 0 || extent + length > bytesUsed)) fail("data block lies outside the image", extent)
+            if (length == 0L) sparse = true
+            extent += length
+            stored += length
+        }
+        // Holes cost no input, so a file with holes is measured against the whole image instead:
+        // a small image cannot claim gigabytes of zeros under the ratio limit.
+        limits.checkRatio(if (sparse) maxOf(stored, bytesUsed) else stored, size)
         val out = ByteArray(size.toInt())
         var position = item.blocksStart
         for (i in 0 until blocks.toInt()) {
@@ -367,16 +440,12 @@ public class SquashfsReader(
         return out
     }
 
-    private var fragments: LongArray? = null
     private var cachedFragment = -1L
     private var cachedFragmentBytes: ByteArray? = null
 
     private fun fragmentBytes(index: Long): ByteArray {
         if (index == cachedFragment) return cachedFragmentBytes!!
-        val table = fragments ?: fragmentTable().also { fragments = it }
-        if (index < 0 || index >= table.size / 2) fail("fragment $index of ${table.size / 2}")
-        val start = table[2 * index.toInt()]
-        val word = table[2 * index.toInt() + 1]
+        val (start, word) = fragmentEntry(index)
         val length = (word and BLOCK_SIZE_MASK).toInt()
         if (start < 0 || start + length > bytesUsed) fail("fragment $index lies outside the image", start)
         val raw = source.readFully(start, length)
@@ -386,26 +455,21 @@ public class SquashfsReader(
         return bytes
     }
 
-    /** Fragment start and size words, from 16-byte entries in metadata blocks listed at the table start. */
-    private fun fragmentTable(): LongArray {
-        val count = fragmentCount
-        val pointers = ((count + ENTRIES_PER_BLOCK - 1) / ENTRIES_PER_BLOCK).toInt()
-        if (fragmentTable < 0 || fragmentTable + 8L * pointers > bytesUsed) fail("fragment table lies outside the image", fragmentTable)
-        val list = source.readFully(fragmentTable, 8 * pointers)
-        val table = LongArray((2 * count).toInt())
-        var n = 0
-        for (p in 0 until pointers) {
-            val block = metadataBlock(readI64(list, 8 * p)).bytes
-            var at = 0
-            while (at + 16 <= block.size && n < count) {
-                table[2 * n] = readI64(block, at)
-                table[2 * n + 1] = readU32Le(block, at + 8)
-                n++
-                at += 16
-            }
+    /**
+     * Fragment [index]'s start and size words. The table is 16-byte entries in metadata blocks
+     * whose positions are listed at the table start; only the one block that holds the entry is
+     * read, since the superblock's u32 count can claim far more entries than the image holds.
+     */
+    private fun fragmentEntry(index: Long): Pair<Long, Long> {
+        if (index < 0 || index >= fragmentCount) fail("fragment $index of $fragmentCount")
+        val pointer = fragmentTable + 8L * (index / ENTRIES_PER_BLOCK)
+        if (fragmentTable < SUPERBLOCK || pointer < fragmentTable || pointer + 8 > bytesUsed) {
+            fail("fragment table lies outside the image", fragmentTable)
         }
-        if (n.toLong() != count) fail("fragment table holds $n of $count entries", fragmentTable)
-        return table
+        val block = metadataBlock(readI64(source.readFully(pointer, 8), 0)).bytes
+        val at = ((index % ENTRIES_PER_BLOCK) * 16).toInt()
+        if (at + 16 > block.size) fail("fragment table block holds no entry $index", pointer)
+        return readI64(block, at) to readU32Le(block, at + 8)
     }
 
     private companion object {

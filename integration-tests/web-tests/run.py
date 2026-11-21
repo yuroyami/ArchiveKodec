@@ -17,6 +17,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 MODULES = ("archivekodec", "archivekodec-io")
+# The JavaScript facade builds for Kotlin/JS only.
+JS_ONLY_MODULES = ("archivekodec-js",)
 ARTIFACTS = ROOT / "build/artifacts/CompiledWebArtifact"
 CACHE = Path.home() / ("Library/Caches/JetBrains/Kotlin" if sys.platform == "darwin" else ".cache/JetBrains/Kotlin")
 
@@ -81,6 +83,9 @@ def main():
         for platform in ("wasmJs", "wasmWasi"):
             if platform in platforms:
                 wasm_tests(module, executable, platform)
+    if "js" in platforms:
+        for module in JS_ONLY_MODULES:
+            js_tests(module, executable)
 
 
 if __name__ == "__main__":

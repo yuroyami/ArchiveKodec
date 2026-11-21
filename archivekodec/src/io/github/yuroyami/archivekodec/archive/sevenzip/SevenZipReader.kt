@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
@@ -46,8 +47,9 @@ import kotlin.jvm.JvmSynthetic
  * folder is cached, so reading the files of one folder in turn decodes it once. The read
  * limits apply to the folder's decoded size, since a file cannot be reached without it.
  *
- * Supported coders: copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, the x86 BCJ
- * filter and AES-256, chained through bind pairs. BCJ2 and other branch filters are refused
+ * Supported coders: copy, LZMA, LZMA2, PPMd, Deflate, Deflate64, bzip2, delta, the x86,
+ * PowerPC, IA-64, ARM, ARM-Thumb, SPARC and ARM64 branch filters and AES-256, chained through
+ * bind pairs. BCJ2 and the RISC-V filter are refused
  * with [ArchiveUnsupportedException] naming the method. AES needs a password from
  * [ArchiveOpenOptions.password] (asked with a null name for encrypted headers) and uses
  * [ArchiveOpenOptions.crypto]. The reader derives the key once for each password and salt.
@@ -147,12 +149,18 @@ public class SevenZipReader(
             val streams = directory.streams!!
             val folder = streams.folders[location.folder]
             limits.checkOutputSize(folder.size)
+            // A cached folder skips its decode, not this call's ratio limit.
+            limits.checkRatio(folder.packedStreams.indices.sumOf { streams.packSizes[folder.firstPackStream + it] }, folder.size)
             val bytes = if (cachedFolder == location.folder) cachedBytes!! else {
                 folderDecodes++
                 decodeFolder(streams, location.folder, limits, listed.name).also { cachedFolder = location.folder; cachedBytes = it }
             }
             val out = bytes.copyOfRange(location.offset.toInt(), (location.offset + listed.size).toInt())
             if (location.crc != null && Crc32.of(out) != location.crc) {
+                // 7z AES has no authentication: in an encrypted folder a wrong password shows up here.
+                if (folder.coders.any { it.method == AES }) {
+                    throw ArchivePasswordException("7z: wrong password or corrupt data", entryName = listed.name)
+                }
                 throw ArchiveFormatException("7z: file CRC-32 mismatch", entryName = listed.name)
             }
             out
@@ -219,7 +227,7 @@ public class SevenZipReader(
             password
         } else null
         try {
-            val out = decodeOutput(streams, folder, folder.mainOutput, limits, 0, password)
+            val out = decodeOutput(streams, folder, folder.mainOutput, limits, 0, password, packedTotal)
             folder.crc?.let { if (Crc32.of(out) != it) throw ArchiveFormatException("7z: folder CRC-32 mismatch") }
             return out
         } catch (error: ArchiveException) {
@@ -231,7 +239,9 @@ public class SevenZipReader(
         }
     }
 
-    private fun decodeOutput(streams: Streams, folder: Folder, output: Int, limits: ArchiveLimits, depth: Int, password: CharArray?): ByteArray {
+    private fun decodeOutput(
+        streams: Streams, folder: Folder, output: Int, limits: ArchiveLimits, depth: Int, password: CharArray?, packedTotal: Long,
+    ): ByteArray {
         if (depth > folder.coders.size) throw ArchiveFormatException("7z: coder bindings form a cycle")
         var outputBase = 0
         var inputBase = 0
@@ -246,19 +256,34 @@ public class SevenZipReader(
         val input = inputBase
         val bound = folder.bindPairs.firstOrNull { it[0] == input }
         val data = if (bound != null) {
-            decodeOutput(streams, folder, bound[1], limits, depth + 1, password)
+            decodeOutput(streams, folder, bound[1], limits, depth + 1, password, packedTotal)
         } else {
             val packed = folder.packedStreams.indexOf(input)
             if (packed < 0) throw ArchiveFormatException("7z: coder input is neither bound nor packed")
             val stream = folder.firstPackStream + packed
             source.readFullyChecked(streams.packOffset(stream), streams.packSizes[stream])
         }
-        return runCoder(coder, data, folder.unpackSizes[output], limits, password)
+        return runCoder(coder, data, folder.unpackSizes[output], limits, password, packedTotal)
     }
 
-    private fun runCoder(coder: Coder, input: ByteArray, size: Long, limits: ArchiveLimits, password: CharArray?): ByteArray {
+    /**
+     * Run one coder of a folder. Every coder's declared [size] is measured against the
+     * folder's [packedTotal], not against its own input, which may be another coder's large
+     * output; and a decoder that does not stop at [size] by itself is capped there, so a chain
+     * of coders cannot expand past the limits before the size check at the end.
+     */
+    private fun runCoder(coder: Coder, input: ByteArray, size: Long, limits: ArchiveLimits, password: CharArray?, packedTotal: Long): ByteArray {
         limits.checkOutputSize(size)
-        val out = when (coder.method) {
+        limits.checkRatio(packedTotal, size)
+        // A coder that runs past its declared size fails with a DecompressionBombException naming that size.
+        val capped = if (size < limits.maxUncompressedBytes) limits.copy { maxUncompressedBytes = size } else limits
+        val out = decodeCoder(coder, input, size, limits, capped, password)
+        if (out.size.toLong() != size) throw ArchiveFormatException("7z: coder produced ${out.size} bytes, expected $size")
+        return out
+    }
+
+    private fun decodeCoder(coder: Coder, input: ByteArray, size: Long, limits: ArchiveLimits, capped: ArchiveLimits, password: CharArray?): ByteArray =
+        when (coder.method) {
             COPY -> input
             AES -> {
                 val plain = SevenZipAes.decrypt(crypto, password!!, coder.properties, input, keys)
@@ -270,21 +295,32 @@ public class SevenZipReader(
                 if (coder.properties.size < 5) throw ArchiveFormatException("7z: LZMA properties are too short")
                 val properties = LzmaProperties.of(coder.properties[0].toInt() and 0xFF, 0)
                 val dictionary = maxOf(4096L, readI32Le(coder.properties, 1).toLong() and 0xFFFFFFFFL)
-                val output = LzOutput(limits, input.size)
-                decodeLzma(RangeDecoder(input, 0, input.size), LzmaModel(properties), output, size, dictionary, markerAllowed = true)
+                val output = LzOutput(capped, input.size)
+                decodeLzma(RangeDecoder(input, 0, input.size), LzmaModel.checked(properties, limits), output, size, dictionary, markerAllowed = true)
                 output.take()
             }
             LZMA2 -> {
                 if (coder.properties.isEmpty() || coder.properties[0] > 40) throw ArchiveFormatException("7z: invalid LZMA2 properties")
-                val output = LzOutput(limits, input.size)
+                val output = LzOutput(capped, input.size)
                 Lzma2.decode(input, 0, input.size, output, lzma2DictionarySize(coder.properties[0].toInt()))
                 output.take()
             }
             DEFLATE -> Inflate.inflateExact(input, limits, size)
             DEFLATE64 -> Inflate.inflateExact(input, limits, size, deflate64 = true)
-            BZIP2 -> Bzip2Decoder.decompress(input, limits)
+            BZIP2 -> Bzip2Decoder.decompress(input, capped)
             PPMD -> Ppmd7z.decompress(input, coder.properties, size, limits)
-            BCJ_X86 -> input.copyOf().also { Bcj.x86Decode(it) }
+            BCJ_X86 -> input.copyOf().also { Bcj.x86Decode(it, branchStart(coder)) }
+            in BRANCH_FILTERS -> input.copyOf().also { block ->
+                val start = branchStart(coder)
+                when (BRANCH_FILTERS.getValue(coder.method)) {
+                    "ppc" -> Bcj.powerPcDecode(block, start)
+                    "ia64" -> Bcj.ia64Decode(block, start)
+                    "arm" -> Bcj.armDecode(block, start)
+                    "armt" -> Bcj.armThumbDecode(block, start)
+                    "sparc" -> Bcj.sparcDecode(block, start)
+                    else -> Bcj.arm64Decode(block, start)
+                }
+            }
             DELTA -> {
                 val distance = (coder.properties.firstOrNull()?.toInt()?.and(0xFF) ?: 0) + 1
                 val out = input.copyOf()
@@ -293,14 +329,20 @@ public class SevenZipReader(
             }
             else -> throw unsupported(coder.method)
         }
-        if (out.size.toLong() != size) throw ArchiveFormatException("7z: coder produced ${out.size} bytes, expected $size")
-        return out
+
+    /** A branch filter's optional start offset: four little-endian bytes of properties. */
+    private fun branchStart(coder: Coder): Int = when (coder.properties.size) {
+        0 -> 0
+        4 -> readI32Le(coder.properties, 0).also {
+            if (it < 0) throw ArchiveUnsupportedException("7z: a branch filter start offset above 2 GiB is not supported")
+        }
+        else -> throw ArchiveFormatException("7z: branch filter properties must be empty or four bytes")
     }
 
     private fun unsupported(method: String): ArchiveUnsupportedException {
         val name = when (method) {
             "0303011b" -> "BCJ2 filter"
-            "03030205", "03030401", "03030501", "03030701", "03030805", "05", "06", "07", "08", "09", "0a", "0b" -> "branch filter $method"
+            "0b" -> "RISC-V branch filter"
             else -> "method $method"
         }
         return ArchiveUnsupportedException("7z: $name is not supported")
@@ -425,7 +467,13 @@ public class SevenZipReader(
                     for (i in folders.indices) unpackStreams[i] = count()
                     id = byte()
                 }
-                val totalStreams = unpackStreams.sum()
+                // Each count alone is bounded by the header, but their sum is not: every
+                // substream is a file, so the sum answers to maxEntries before anything is
+                // allocated for it. It is summed as a Long, since it can pass Int.MAX_VALUE, which
+                // no maxEntries allows.
+                val declared = unpackStreams.fold(0L) { total, n -> total + n }
+                if (declared > limits.maxEntries) throw DecompressionBombException("entry count $declared exceeds limit ${limits.maxEntries}")
+                val totalStreams = declared.toInt()
                 substreamSizes = LongArray(totalStreams)
                 var k = 0
                 val hasSizes = id == SIZE
@@ -510,7 +558,9 @@ public class SevenZipReader(
             var emptyFile = BooleanArray(0)
             var anti = BooleanArray(0)
             var names: List<Pair<String, ByteArray>>? = null
-            var modified: Array<Long?> = arrayOfNulls(count)
+            var modified: Array<ArchiveTime?> = arrayOfNulls(count)
+            var created: Array<ArchiveTime?> = arrayOfNulls(count)
+            var accessed: Array<ArchiveTime?> = arrayOfNulls(count)
             var attributes: Array<Long?> = arrayOfNulls(count)
             while (true) {
                 val type = byte()
@@ -537,10 +587,20 @@ public class SevenZipReader(
                                 .concatToString() to raw
                         }
                     }
-                    MODIFIED_TIME -> {
+                    CREATED_TIME, ACCESSED_TIME, MODIFIED_TIME -> {
                         val defined = definedBits(count)
-                        if (byte() != 0) throw ArchiveUnsupportedException("7z: external times are not supported")
-                        modified = Array(count) { if (defined[it]) fileTimeToEpochSeconds(u64()) else null }
+                        // Creation and access times are informational: external ones are skipped, as before.
+                        if (byte() != 0) {
+                            if (type == MODIFIED_TIME) throw ArchiveUnsupportedException("7z: external times are not supported")
+                            pos = end.toInt()
+                            continue
+                        }
+                        val times = Array(count) { if (defined[it]) ArchiveTime.fromFileTime(u64()) else null }
+                        when (type) {
+                            CREATED_TIME -> created = times
+                            ACCESSED_TIME -> accessed = times
+                            else -> modified = times
+                        }
                     }
                     ATTRIBUTES -> {
                         val defined = definedBits(count)
@@ -595,7 +655,11 @@ public class SevenZipReader(
                 if (offset > Int.MAX_VALUE) fail("folder exceeds the ByteArray range")
                 val mode = attribute?.takeIf { it and 0x8000L != 0L }?.let { (it ushr 16).toInt() }
                 entries.add(ArchiveEntry(name, size, isDirectory) {
-                    lastModifiedEpochSeconds = modified[i]
+                    lastModified = modified[i]
+                    lastAccessed = accessed[i]
+                    this.created = created[i]
+                    // The low half holds Windows attributes; 7-Zip's 0x8000 flag marks a Unix mode above them.
+                    windowsAttributes = attribute?.let { if (it and 0x8000L != 0L) (it and 0x7FFFL).toInt() else it.toInt() }
                     compressedSize = packedShare
                     this.codec = codec
                     isEncrypted = encrypted
@@ -619,7 +683,7 @@ public class SevenZipReader(
             DEFLATE64 in methods -> CodecId.DEFLATE64
             DEFLATE in methods -> CodecId.DEFLATE
             PPMD in methods -> CodecId.PPMD
-            methods.all { it == COPY || it == AES || it == DELTA || it == BCJ_X86 } -> CodecId.STORE
+            methods.all { it == COPY || it == AES || it == DELTA || it == BCJ_X86 || it in BRANCH_FILTERS } -> CodecId.STORE
             else -> CodecId("7z-${methods.first()}")
         }
     }
@@ -647,11 +711,19 @@ public class SevenZipReader(
         private const val EMPTY_FILE = 0x0F
         private const val ANTI = 0x10
         private const val NAME = 0x11
+        private const val CREATED_TIME = 0x12
+        private const val ACCESSED_TIME = 0x13
         private const val MODIFIED_TIME = 0x14
         private const val ATTRIBUTES = 0x15
         private const val ENCODED_HEADER = 0x17
 
         private const val COPY = "00"
+        /** Branch filters by 7z method id, in the old 03 03 xx xx form and the new one-byte form. */
+        private val BRANCH_FILTERS = mapOf(
+            "03030205" to "ppc", "05" to "ppc", "03030401" to "ia64", "06" to "ia64",
+            "03030501" to "arm", "07" to "arm", "03030701" to "armt", "08" to "armt",
+            "03030805" to "sparc", "09" to "sparc", "0a" to "arm64",
+        )
         private const val DELTA = "03"
         private const val LZMA = "030101"
         private const val LZMA2 = "21"
@@ -661,16 +733,6 @@ public class SevenZipReader(
         private const val PPMD = "030401"
         private const val AES = "06f10701"
         private const val BCJ_X86 = "03030103"
-
-        /** Windows FILETIME (100 ns ticks since 1601) to Unix seconds, rounded down. */
-        private fun fileTimeToEpochSeconds(fileTime: Long): Long =
-            Math.floorDiv(fileTime, 10_000_000L) - 11_644_473_600L
     }
 }
 
-private object Math {
-    fun floorDiv(a: Long, b: Long): Long {
-        val q = a / b
-        return if ((a % b != 0L) && ((a xor b) < 0)) q - 1 else q
-    }
-}

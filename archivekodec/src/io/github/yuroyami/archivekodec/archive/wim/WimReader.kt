@@ -4,6 +4,7 @@ import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
+import io.github.yuroyami.archivekodec.archive.ArchiveTime
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
 import io.github.yuroyami.archivekodec.archive.ArchiveReader
 import io.github.yuroyami.archivekodec.archive.RandomAccessSource
@@ -234,7 +235,8 @@ public class WimReader(
         }
 
         private inner class Dentry(
-            val next: Long, val attributes: Int, val subdirectory: Long, val modified: Long?,
+            val next: Long, val attributes: Int, val subdirectory: Long,
+            val created: ArchiveTime?, val accessed: ArchiveTime?, val modified: ArchiveTime?,
             val name: String, val dataHash: ByteArray?,
         )
 
@@ -257,7 +259,10 @@ public class WimReader(
                 }
                 val size = if (isDirectory) 0 else resource?.size ?: 0
                 entries.add(ArchiveEntry(fullName, size, isDirectory) {
-                    lastModifiedEpochSeconds = dentry.modified
+                    lastModified = dentry.modified
+                    lastAccessed = dentry.accessed
+                    created = dentry.created
+                    windowsAttributes = dentry.attributes
                     compressedSize = if (isDirectory) 0 else resource?.stored ?: 0
                     codec = when {
                         resource == null || resource.flags and FLAG_COMPRESSED == 0 -> CodecId.STORE
@@ -280,7 +285,7 @@ public class WimReader(
             if (length < DENTRY_SIZE || length > data.size - p) fail("directory entry at metadata offset $at has length $length")
             val attributes = readU32Le(data, p + 8).toInt()
             val subdirectory = readI64(data, p + 16)
-            val written = readI64(data, p + 56)
+            fun time(offset: Int) = readI64(data, p + offset).takeIf { it != 0L }?.let { ArchiveTime.fromFileTime(it) }
             val defaultHash = data.copyOfRange(p + 64, p + 84)
             val streams = readU16Le(data, p + 96)
             val shortNameBytes = readU16Le(data, p + 98)
@@ -301,7 +306,7 @@ public class WimReader(
             }
             val reparse = attributes and ATTRIBUTE_REPARSE_POINT != 0
             val dataHash = (if (reparse) unnamedStream else defaultHash.takeIf { !it.isZero() } ?: unnamedStream)?.takeIf { !it.isZero() }
-            return Dentry(next, attributes, subdirectory, fileTime(written), name, dataHash)
+            return Dentry(next, attributes, subdirectory, time(40), time(48), time(56), name, dataHash)
         }
     }
 
@@ -334,13 +339,10 @@ public class WimReader(
         const val LZMS = 3
 
         /** 100-nanosecond intervals between 1601-01-01 and 1970-01-01. */
-        const val FILETIME_EPOCH = 116_444_736_000_000_000L
 
         fun readI64(bytes: ByteArray, at: Int): Long = readU32Le(bytes, at) or (readU32Le(bytes, at + 4) shl 32)
 
         fun align8(value: Long): Long = (value + 7) and 7L.inv()
-
-        fun fileTime(value: Long): Long? = if (value == 0L) null else (value - FILETIME_EPOCH).floorDiv(10_000_000L)
 
         fun ByteArray.isZero(): Boolean = all { it.toInt() == 0 }
 

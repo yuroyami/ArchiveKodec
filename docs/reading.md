@@ -32,7 +32,8 @@ reader closes. The `RandomAccessSource` overloads read on demand. The core ships
 `ByteArrayRandomAccessSource`, and `archivekodec-io` adds a file source, as
 [Files and extraction](files.md) shows.
 
-A gzip layer is removed first, so a `.tar.gz` or a `.zip.gz` opens in one call:
+One compression layer is removed first, so a `.tar.gz`, `.tar.xz`, `.tar.zst` or `.zip.gz`
+opens in one call:
 
 ```kotlin
 ArchiveKodec.open(tarGzipBytes, limits).use { reader ->
@@ -40,9 +41,10 @@ ArchiveKodec.open(tarGzipBytes, limits).use { reader ->
 }
 ```
 
-`open` decodes one gzip layer into its own buffer and then opens the archive inside it. The
-policy applies separately to that decode, to the listing and to each read. Other wrappers,
-such as xz or zstd, need an explicit `decompress` before `open`.
+`open` decodes one layer of gzip, bzip2, xz, lzip, Unix compress, lzop, zstd, LZ4 frames or framed Snappy into its own
+buffer and then opens the archive inside it. The policy applies separately to that decode, to
+the listing and to each read. A second layer, zlib, raw DEFLATE, LZMA and brotli need an
+explicit `decompress` before `open`.
 
 When the first bytes match no format, `open` searches the last 65,557 bytes for a ZIP end
 record. This opens zipapps and other ZIP files with a prefix. An input that matches nothing
@@ -71,8 +73,9 @@ val written: Long = reader.read(entry, ByteSink { chunk, offset, length ->
 })
 ```
 
-Unencrypted ZIP members that are stored, DEFLATE or Deflate64 stream about 1 MiB at a time, so
-their size is not bound by a `ByteArray`. Every other entry is read whole and then written.
+Unencrypted ZIP members that are stored, DEFLATE, Deflate64, bzip2, zstd or xz stream: their
+output is written as it is produced and their compressed data is read as the decoder needs it, so neither side is bound by memory or a
+`ByteArray`. Every other entry is read whole and then written.
 
 ## Read the first bytes
 
@@ -93,11 +96,16 @@ no CRC-32, since it does not see the whole entry.
 `entry(name)` returns the entry with that exact name, or null. Names compare as decoded, with
 no case folding and no path normalization. When two entries share a name, the last one wins,
 as Info-ZIP's `unzip` extracts it, and `entries()` still lists both. ZIP looks names up in a
-map built once. To refuse a ZIP with two entries of one name:
+map built once. Tools disagree on which copy of a repeated name they read or verify, so where
+that matters, refuse such archives:
 
 ```kotlin
-val strict = ArchiveOpenOptions { duplicateNames = DuplicateNamePolicy.REJECT }
+val strict = ArchiveLimits { rejectDuplicateNames = true }
 ```
+
+Every reader then refuses a listing in which a name repeats, unless every entry with that name
+is a directory, with `ArchivePathException`. The stream readers refuse when they reach the
+repeat.
 
 ## A wrong CRC-32
 
@@ -144,18 +152,43 @@ does not make its reader thread-safe.
 | --- | --- |
 | `name`, `nameBytes` | The decoded name and the stored bytes. See [Entry names](entry-names.md) |
 | `size`, `compressedSize` | The sizes in bytes |
+| `type` | `FILE`, `DIRECTORY`, `SYMBOLIC_LINK`, `HARD_LINK`, `CHARACTER_DEVICE`, `BLOCK_DEVICE`, `FIFO` or `SOCKET` |
 | `isDirectory` | Whether the entry is a directory. Do not rely on a trailing slash |
-| `lastModifiedEpochSeconds` | UTC seconds, or `null` when the archive stores no time |
+| `lastModified` | An `ArchiveTime`: seconds and nanoseconds since the epoch, UTC, at the stored precision, or `null` |
+| `lastModifiedEpochSeconds` | `lastModified` in whole seconds |
+| `lastAccessed`, `created`, `statusChanged` | The other times, where the format stores them |
+| `uid`, `gid`, `ownerName`, `groupName` | The owner, where the format stores it |
+| `deviceMajor`, `deviceMinor` | The device number of a character or block device |
 | `unixMode` | The Unix `st_mode` with the file-type bits, such as `0o100755`, or `null` |
+| `windowsAttributes` | Windows `FILE_ATTRIBUTE_*` bits, for archives made on Windows |
+| `xattrs` | Extended attributes by name, with POSIX ACLs as their `system.posix_acl_*` attributes |
 | `isSymbolicLink`, `isHardLink`, `linkTarget` | Links in TAR, ZIP, cpio, 7z, RAR, ISO 9660 and SquashFS |
 | `isEncrypted`, `encryption` | Whether the entry is encrypted, and the scheme |
 | `crc32` | The stored CRC-32, when the format has one |
 | `comment` | The ZIP entry comment |
 | `zipMethod` | The ZIP method number from the central directory, or `null` for other formats |
 
-ZIP prefers the extended-timestamp field and otherwise reads the DOS time as UTC. An invalid
-DOS date gives `null`. ZIP reports `unixMode` only for an entry made on Unix. TAR and ar add
-the file-type bits that their mode fields leave out.
+What each format stores:
+
+| Format | Times | Owner | Other |
+| --- | --- | --- | --- |
+| TAR | Modified, to the nanosecond in pax; accessed and changed from pax or old GNU headers | uid, gid, user and group names | Device numbers, `SCHILY.xattr.*` |
+| cpio | Modified | uid, gid | Device numbers |
+| ZIP | Modified, accessed and created from the NTFS field at 100 ns; otherwise the extended timestamp or the DOS time | uid and gid from Info-ZIP's Unix field | Windows attributes from MS-DOS, NTFS and VFAT hosts |
+| 7z | Modified, accessed and created at 100 ns | | Windows attributes |
+| RAR | RAR5: modified, created and accessed, Unix or FILETIME. RAR4: modified | | Windows attributes from Windows hosts |
+| WIM | Modified, accessed and created at 100 ns | | Windows attributes |
+| CAB | Modified | | Read-only, hidden, system and archive |
+| SquashFS | Modified | uid and gid | Device numbers |
+| ISO 9660 | Rock Ridge: created, modified, accessed and changed | Rock Ridge uid and gid | Rock Ridge device numbers |
+
+Fields a format stores beyond the name, size, mode and modification time are informational: a
+malformed one reads as `null` instead of failing the listing. `extract` applies none of them,
+and skips devices, FIFOs and sockets. SquashFS extended attributes are not read yet.
+
+ZIP reads the DOS time as UTC when nothing better is stored, and an invalid DOS date gives
+`null`. ZIP reports `unixMode` only for an entry made on Unix. TAR and ar add the file-type bits
+that their mode fields leave out.
 
 ## Initramfs
 

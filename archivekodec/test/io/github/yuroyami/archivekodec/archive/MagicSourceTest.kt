@@ -283,10 +283,11 @@ class MagicSourceTest {
             ChunkedSource(ByteArray(512), intArrayOf(3), faultAt = 3, faultError = failure),
             ChunkedSource(byteArrayOf(), size = -1),
             ChunkedSource(hex("425a6839177245385090")),
+            ChunkedSource(hex("789c030000000001")),
         )
         for ((index, source) in cases.withIndex()) {
             when (index) {
-                5 -> assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(source) }
+                6 -> assertFailsWith<ArchiveUnsupportedException> { ArchiveKodec.open(source) }
                 3 -> assertSame(failure, assertFailsWith<ArchiveIOException> { ArchiveKodec.open(source) })
                 else -> assertFailsWith<ArchiveFormatException> { ArchiveKodec.open(source) }
             }

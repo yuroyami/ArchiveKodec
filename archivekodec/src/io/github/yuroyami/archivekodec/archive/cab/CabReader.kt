@@ -2,6 +2,7 @@ package io.github.yuroyami.archivekodec.archive.cab
 
 import io.github.yuroyami.archivekodec.ArchiveException
 import io.github.yuroyami.archivekodec.ArchiveFormatException
+import io.github.yuroyami.archivekodec.ArchiveSizeException
 import io.github.yuroyami.archivekodec.ArchiveUnsupportedException
 import io.github.yuroyami.archivekodec.archive.ArchiveEntry
 import io.github.yuroyami.archivekodec.archive.ArchiveFormat
@@ -106,10 +107,13 @@ public class CabReader(
                 ?: throw ArchiveUnsupportedException("CAB: file continues in another cabinet; cabinet sets are not supported")
             if (folder.spans) throw ArchiveUnsupportedException("CAB: folder ${location.folder} continues in another cabinet; cabinet sets are not supported")
             if (location.offset + listed.size > folder.unpacked) fail("file extends past the end of its folder's data")
-            val bytes = if (cachedFolder == location.folder) cachedBytes!! else {
+            val bytes = cachedBytes.takeIf { cachedFolder == location.folder } ?: run {
                 folderDecodes++
+                // Drop the old folder first, and record the new one only once its decode succeeded,
+                // so a failed decode leaves no folder number pointing at missing bytes.
+                cachedFolder = -1
                 cachedBytes = null
-                decode(folder, limits).also { cachedFolder = location.folder; cachedBytes = it }
+                decode(folder, limits).also { cachedBytes = it; cachedFolder = location.folder }
             }
             bytes.copyOfRange(location.offset.toInt(), (location.offset + listed.size).toInt())
         }
@@ -187,6 +191,8 @@ public class CabReader(
             if (owner != null) owner.reach = maxOf(owner.reach, offset + fileSize)
             entries.add(ArchiveEntry(name, fileSize, false) {
                 lastModifiedEpochSeconds = DosTime.toEpochSeconds(date, time)
+                // Read-only, hidden, system and archive; 0x40 (run after extracting) and 0x80 (UTF-8 name) are CAB's own.
+                windowsAttributes = attributes and 0x27
                 compressedSize = when {
                     owner == null -> 0
                     owner.method == METHOD_NONE -> fileSize
@@ -242,9 +248,15 @@ public class CabReader(
     private fun decode(folder: Folder, limits: ArchiveLimits): ByteArray {
         val wanted = folder.reach
         limits.checkOutputSize(wanted)
+        // Header sizes are only claims: check them against the data blocks before any output
+        // is allocated, so a small cabinet cannot reserve a large folder it does not hold.
+        if (wanted > folder.unpacked) fail("folder data ends before its files do", folder.start)
+        if (wanted > Int.MAX_VALUE) throw ArchiveSizeException("CAB: a folder of $wanted bytes cannot fit in one ByteArray")
+        // Empty blocks give no compressed bytes to measure against; count them as one byte.
+        limits.checkRatio(maxOf(folder.packed, 1L), wanted)
         return when (folder.method) {
             METHOD_NONE -> {
-                limits.checkRatio(wanted, wanted)
+                if (folder.packed < wanted) fail("stored folder holds ${folder.packed} bytes, less than its files need", folder.start)
                 val out = ByteArray(wanted.toInt())
                 var at = 0
                 var i = 0
@@ -281,7 +293,6 @@ public class CabReader(
                 output.takeByteArray()
             }
             METHOD_LZX -> {
-                limits.checkRatio(folder.packed, wanted)
                 // One LZX stream runs through the folder; its blocks are 32 KiB frames.
                 val frames = minOf(folder.unpacked, (wanted + MAX_BLOCK - 1) / MAX_BLOCK * MAX_BLOCK)
                 val parts = ArrayList<ByteArray>()

@@ -90,4 +90,20 @@ class PalmDocTest {
             PalmDoc.decode(zeros, 0, zeros.size, ArchiveLimits { maxCompressionRatio = 2 })
         }
     }
+
+    @Test
+    fun theRatioIsCheckedBeforeTheOutputGrows() {
+        // Zeros pack at about 5:1; noise packs as raw runs of eight bytes from nine. Whole, the
+        // stream is under 3:1, but its start is not, so the decoder stops there, against the
+        // bytes it has read, as the other decoders do, rather than after building the output.
+        val zeros = PalmDoc.encode(ByteArray(4000))
+        val noise = PalmDoc.encode(Random(7).nextBytes(40_000).also { b -> for (i in b.indices) b[i] = (b[i].toInt() or 0x80).toByte() })
+        val stream = zeros + noise
+        val low = ArchiveLimits { maxCompressionRatio = 3 }
+        assertTrue((4000L + 40_000) / stream.size < 3, "whole-stream ratio")
+        val error = assertFailsWith<DecompressionBombException> { PalmDoc.decode(stream, 0, stream.size, low, keepPartialOutput = true) }
+        assertTrue(error.message!!.contains("exceeds 3:1"), error.message)
+        // Raw runs alone stay under 1:1 at every step, so even that limit passes them.
+        assertEquals(40_000, PalmDoc.decode(noise, 0, noise.size, ArchiveLimits { maxCompressionRatio = 1 }).output.size)
+    }
 }

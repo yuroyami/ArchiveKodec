@@ -11,6 +11,7 @@ import io.github.yuroyami.archivekodec.security.DecompressionBombException
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -291,6 +292,8 @@ class SevenZipTest {
             assertEquals("bbb", reader.read(b).decodeToString())
             assertEquals("aaa", reader.read(a).decodeToString())
             assertEquals(1, reader.folderDecodes)
+            // The cached folder still answers to this call's ratio limit.
+            assertFailsWith<DecompressionBombException> { reader.read(b, ArchiveLimits { maxCompressionRatio = 0 }) }
         }
         assertEquals(ArchiveFormat.SEVEN_ZIP, ArchiveKodec.sniff(solid))
     }
@@ -338,6 +341,94 @@ class SevenZipTest {
             assertTrue(entry.isEncrypted)
             val error = assertFailsWith<io.github.yuroyami.archivekodec.ArchivePasswordException> { reader.read(entry) }
             assertTrue(error.message!!.contains("password"), error.message)
+        }
+    }
+
+    /** A 7z of [header], uncompressed, after a signature header that points at it. */
+    private fun sevenZip(header: ByteArray): ByteArray {
+        val out = ByteArray(32 + header.size)
+        byteArrayOf(0x37, 0x7A, 0xBC.toByte(), 0xAF.toByte(), 0x27, 0x1C, 0, 4).copyInto(out)
+        fun put(at: Int, value: Long, bytes: Int) { for (i in 0 until bytes) out[at + i] = (value ushr (8 * i)).toByte() }
+        put(20, header.size.toLong(), 8)
+        put(28, Crc32.of(header), 4)
+        put(8, Crc32().apply { update(out, 12, 20) }.value(), 4)
+        header.copyInto(out, 32)
+        return out
+    }
+
+    /**
+     * A header of [folders] copy folders, each declaring [substreams] substreams. Each count is
+     * within the header's size, but their sum is not.
+     */
+    private fun substreamBomb(folders: Int, substreams: Int, tail: Int = 0): ByteArray {
+        val h = io.github.yuroyami.archivekodec.util.ByteArrayBuilder(folders * 9 + 64)
+        fun number(v: Int) {
+            when {
+                v < 0x80 -> h.append(v.toByte())
+                v < 0x4000 -> { h.append((0x80 or (v ushr 8)).toByte()); h.append(v.toByte()) }
+                else -> { h.append((0xC0 or (v ushr 16)).toByte()); h.append(v.toByte()); h.append((v ushr 8).toByte()) }
+            }
+        }
+        h.append(0x01); h.append(0x04) // header, main streams
+        h.append(0x06); number(0); number(folders) // pack info: position 0, one packed stream per folder
+        h.append(0x09); repeat(folders) { number(0) }; h.append(0x00)
+        h.append(0x07); h.append(0x0B); number(folders); h.append(0x00) // unpack info, folders inline
+        repeat(folders) { h.append(0x01); h.append(0x01); h.append(0x00) } // one coder: copy
+        h.append(0x0C); repeat(folders) { number(0) }; h.append(0x00)
+        h.append(0x08); h.append(0x0D); repeat(folders) { number(substreams) } // substreams info
+        repeat(tail) { h.append(0x00) }
+        return sevenZip(h.takeByteArray())
+    }
+
+    @Test
+    fun substreamCountsAreBoundedBeforeAllocating() {
+        // 8,000 folders of 60,000 substreams each, in a 64 KB header: 480 million sizes, 3.8 GB.
+        // Every substream is a file, so the total answers to maxEntries before the allocation.
+        val bomb = substreamBomb(8000, 60_000, tail = 1)
+        assertTrue(bomb.size in 60_000..70_000, "${bomb.size}")
+        assertFailsWith<DecompressionBombException> { open(bomb).use { it.entries() } }
+        // Past Int.MAX_VALUE the total overflowed an Int; summed as a Long it is past every limit.
+        val overflow = substreamBomb(17_000, 135_000, tail = 1)
+        assertFailsWith<DecompressionBombException> {
+            SevenZipReader(ByteArrayRandomAccessSource(overflow), ArchiveLimits.UNBOUNDED).use { it.entries() }
+        }
+        // A small total still answers to a tight maxEntries.
+        val many = substreamBomb(1, 10, tail = 20)
+        assertFailsWith<DecompressionBombException> {
+            SevenZipReader(ByteArrayRandomAccessSource(many), ArchiveLimits { maxEntries = 5 }).use { it.entries() }
+        }
+    }
+
+    @Test
+    fun aWrongPasswordOnAStoredEncryptedFileIsAPasswordError() {
+        // One folder of AES alone (no compression), without a folder CRC, so only the file's
+        // CRC-32 in the substreams can catch a wrong password. Key power 0x3F: no hashing, so the
+        // key is the UTF-16LE password, zero-padded; no salt and a zero IV.
+        val plain = "sixteen bytes!!\n".encodeToByteArray()
+        val key = ByteArray(32).also { k -> "secret".forEachIndexed { i, c -> k[2 * i] = c.code.toByte() } }
+        val packed = io.github.yuroyami.archivekodec.crypto.ConstantTimeAes(key).encryptEcb(plain)
+        val crc = Crc32.of(plain)
+        val header = byteArrayOf(
+            0x01, 0x04,
+            0x06, 0x00, 0x01, 0x09, 0x10, 0x00, // one packed stream of 16 bytes
+            0x07, 0x0B, 0x01, 0x00, 0x01, 0x24, 0x06, 0xF1.toByte(), 0x07, 0x01, 0x01, 0x3F, // a folder of one AES coder
+            0x0C, 0x10, 0x00, // unpacking to 16 bytes, with no folder CRC
+            0x08, 0x0A, 0x01, crc.toByte(), (crc ushr 8).toByte(), (crc ushr 16).toByte(), (crc ushr 24).toByte(), 0x00,
+            0x00,
+            0x05, 0x01, 0x11, 0x05, 0x00, 'a'.code.toByte(), 0x00, 0x00, 0x00, 0x00, // one file, "a"
+            0x00,
+        )
+        val archive = sevenZip(header).let { it.copyOf(32) + packed + it.copyOfRange(32, it.size) }
+        // The header now follows the packed data: point the start header past it.
+        for (i in 0 until 8) archive[12 + i] = (16L ushr (8 * i)).toByte()
+        val startCrc = Crc32().apply { update(archive, 12, 20) }.value()
+        for (i in 0 until 4) archive[8 + i] = (startCrc ushr (8 * i)).toByte()
+        fun reader(password: String) = SevenZipReader(ByteArrayRandomAccessSource(archive), ArchiveOpenOptions {
+            this.password = io.github.yuroyami.archivekodec.crypto.ArchivePasswordProvider.of(password)
+        })
+        reader("secret").use { assertContentEquals(plain, it.read(it.entries().single())) }
+        reader("wrong").use { r ->
+            assertFailsWith<io.github.yuroyami.archivekodec.ArchivePasswordException> { r.read(r.entries().single()) }
         }
     }
 
