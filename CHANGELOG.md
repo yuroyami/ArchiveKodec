@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.2.1 - unreleased
+
 ## 0.2.0 - 2026-11-21
 
 Not yet run under the nightly fuzzer, which starts with this release; its findings go into
