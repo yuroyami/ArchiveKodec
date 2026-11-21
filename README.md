@@ -164,5 +164,5 @@ ArchiveKodec will never create RAR archives.
 Part of the Kite family: [KiteCore](https://github.com/yuroyami/KiteCore),
 [KitePDF](https://github.com/yuroyami/KitePDF),
 [ImageKodec](https://github.com/yuroyami/ImageKodec),
-[AudioKodec](https://github.com/yuroyami/AudioKodec),
+[KiteAudio](https://github.com/yuroyami/KiteAudio),
 [KiteQR](https://github.com/yuroyami/KiteQR).
