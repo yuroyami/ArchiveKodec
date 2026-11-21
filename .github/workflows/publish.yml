@@ -29,7 +29,8 @@ jobs:
     name: Publish to Maven Central
     # Apple platforms build only on a Mac, and a release publishes every platform from one build.
     runs-on: macos-26
-    timeout-minutes: 150
+    # The build and the signing take about 95 minutes, and the wait for Central to publish can take over an hour.
+    timeout-minutes: 300
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     # The secrets sit on the steps that sign or publish, not on the job, so the steps that download
