@@ -1,9 +1,9 @@
 # Changelog
 
-## 0.2.0 - unreleased
+## 0.2.0 - 2026-11-21
 
-0.2.0 is not on Maven Central yet. The build is `0.2.0-SNAPSHOT` until the release bar in
-[#154](https://github.com/yuroyami/ArchiveKodec/issues/154) is met.
+Not yet run under the nightly fuzzer, which starts with this release; its findings go into
+0.2.1. Solid RAR4 archives are not yet tested against archives that RAR wrote.
 
 - Fixed: the zstd, xz, `.lzma`, LZMA2 and lzip encoders no longer declare a window or dictionary
   that grows with the input. zstd frames need a window of at most 8 MiB, the most RFC 8878 asks a

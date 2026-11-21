@@ -20,27 +20,22 @@ native binary. The core artifact depends on `kotlin-stdlib` and nothing else.
 
 ## Install
 
-0.2.0 is not released yet, so the `0.2.0-SNAPSHOT` coordinates below are not on Maven Central.
-Until the release, run `./kotlin publish mavenLocal` in a checkout of the repository, which
-puts the three artifacts into `~/.m2`, and add `mavenLocal()` to the repositories of the
-consuming project.
-
 | Artifact | Coordinates | What it adds |
 | --- | --- | --- |
-| Core | `io.github.yuroyami:archivekodec:0.2.0-SNAPSHOT` | Codecs, archive readers and writers, checksums, the sniffer and the limits |
-| Files | `io.github.yuroyami:archivekodec-io:0.2.0-SNAPSHOT` | A file source, `extract` and kotlinx-io adapters |
-| Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0-SNAPSHOT` | Optional: the platform's AES, faster for large encrypted archives |
+| Core | `io.github.yuroyami:archivekodec:0.2.0` | Codecs, archive readers and writers, checksums, the sniffer and the limits |
+| Files | `io.github.yuroyami:archivekodec-io:0.2.0` | A file source, `extract` and kotlinx-io adapters |
+| Crypto | `io.github.yuroyami:archivekodec-crypto:0.2.0` | Optional: the platform's AES, faster for large encrypted archives |
 
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec:0.2.0-SNAPSHOT")
-            implementation("io.github.yuroyami:archivekodec-io:0.2.0-SNAPSHOT")
+            implementation("io.github.yuroyami:archivekodec:0.2.0")
+            implementation("io.github.yuroyami:archivekodec-io:0.2.0")
         }
         // Optional: the platform's AES. archivekodec-crypto has no JS or Wasm build.
         jvmMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0-SNAPSHOT")
+            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
         }
     }
 }
@@ -51,8 +46,8 @@ coordinates in its `module.yaml`:
 
 ```yaml
 dependencies:
-  - io.github.yuroyami:archivekodec:0.2.0-SNAPSHOT
-  - io.github.yuroyami:archivekodec-io:0.2.0-SNAPSHOT
+  - io.github.yuroyami:archivekodec:0.2.0
+  - io.github.yuroyami:archivekodec-io:0.2.0
 ```
 
 A JVM or Android project that is not multiplatform uses the same coordinates, and Gradle picks
@@ -63,7 +58,7 @@ the platform artifact (`archivekodec-io-jvm` for the files module):
 <dependency>
   <groupId>io.github.yuroyami</groupId>
   <artifactId>archivekodec-jvm</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 

@@ -19,21 +19,17 @@ binary, and the core artifact depends on `kotlin-stdlib` and nothing else.
 
 ## Install
 
-0.2.0 is not released yet: these coordinates are not on Maven Central. Until the release,
-build the snapshot into Maven Local with `./kotlin publish mavenLocal` (see
-[Contributing](CONTRIBUTING.md#build)) and add `mavenLocal()` to your repositories.
-
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec:0.2.0-SNAPSHOT")
+            implementation("io.github.yuroyami:archivekodec:0.2.0")
             // Optional: a file source, extract and kotlinx-io adapters.
-            implementation("io.github.yuroyami:archivekodec-io:0.2.0-SNAPSHOT")
+            implementation("io.github.yuroyami:archivekodec-io:0.2.0")
         }
         // Optional: the platform's AES, faster for large encrypted archives. Not on JS or Wasm.
         jvmMain.dependencies {
-            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0-SNAPSHOT")
+            implementation("io.github.yuroyami:archivekodec-crypto:0.2.0")
         }
     }
 }

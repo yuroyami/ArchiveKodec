@@ -2,4 +2,4 @@
 // `./kotlin check version` fails when the two differ.
 package io.github.yuroyami.archivekodec
 
-internal const val GENERATED_VERSION: String = "0.2.0-SNAPSHOT"
+internal const val GENERATED_VERSION: String = "0.2.0"
